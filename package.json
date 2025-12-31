@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/leeyoonsu/lee-spec-kit"
+    "url": "https://github.com/leey00nsu/lee-spec-kit"
   },
   "dependencies": {
     "chalk": "^5.6.2",
