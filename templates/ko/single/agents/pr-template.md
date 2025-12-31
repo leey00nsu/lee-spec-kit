@@ -69,3 +69,12 @@ gh pr create \
 | 일반 Feature | Squash and Merge  |
 | 긴급 Hotfix  | Merge 또는 Rebase |
 | 문서 수정    | Squash and Merge  |
+
+---
+
+## 본문 입력 규칙 (셸 실행 방지)
+
+- PR 본문은 **`--body-file` 사용을 기본**으로 한다.
+- 백틱(`)이나 `$()`가 포함된 본문을 `"..."`에 직접 넣으면 **셸에서 명령치환**될 수 있다.
+- 여러 줄 본문은 `cat <<'EOF'` 형식의 **싱글 쿼트 heredoc**을 사용하고,
+  필요한 변수는 **플레이스홀더 → sed 치환**으로 처리한다.

@@ -55,3 +55,12 @@ Closes #{issue-number}
 | Normal Feature | Squash and Merge |
 | Urgent Hotfix  | Merge or Rebase  |
 | Documentation  | Squash and Merge |
+
+---
+
+## Body Input Rules (Shell Execution Prevention)
+
+- PR body should use **`--body-file` by default**.
+- If the body contains backticks (`) or `$()`and is placed directly in`"..."`, it may be **interpreted by the shell**.
+- For multi-line bodies, use **single-quoted heredoc** like `cat <<'EOF'`,
+  and handle variables via **placeholder → sed substitution**.

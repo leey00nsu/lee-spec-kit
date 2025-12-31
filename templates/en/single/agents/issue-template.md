@@ -57,4 +57,13 @@ F{번호}: {기능명} ({짧은 설명})
 | `documentation` | 문서 작업     |
 | `backend`       | BE 관련       |
 | `frontend`      | FE 관련       |
-| `priority:high` | 높은 우선순위 |
+| `priority:high` | High priority |
+
+---
+
+## Body Input Rules (Shell Execution Prevention)
+
+- Issue body should use **`--body-file` by default**.
+- If the body contains backticks (`) or `$()`and is placed directly in`"..."`, it may be **interpreted by the shell**.
+- For multi-line bodies, use **single-quoted heredoc** like `cat <<'EOF'`,
+  and handle variables via **placeholder → sed substitution**.

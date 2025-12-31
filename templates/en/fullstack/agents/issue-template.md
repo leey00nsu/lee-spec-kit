@@ -56,3 +56,12 @@ Example: `F001: user-auth (User authentication feature)`
 | `backend`       | BE related    |
 | `frontend`      | FE related    |
 | `priority:high` | High priority |
+
+---
+
+## Body Input Rules (Shell Execution Prevention)
+
+- Issue body should use **`--body-file` by default**.
+- If the body contains backticks (`) or `$()`and is placed directly in`"..."`, it may be **interpreted by the shell**.
+- For multi-line bodies, use **single-quoted heredoc** like `cat <<'EOF'`,
+  and handle variables via **placeholder → sed substitution**.
