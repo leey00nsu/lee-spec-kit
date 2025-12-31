@@ -1,0 +1,60 @@
+{
+  "name": "lee-spec-kit",
+  "version": "0.1.0",
+  "description": "Project documentation structure generator for AI-assisted development",
+  "type": "module",
+  "bin": {
+    "lee-spec-kit": "./dist/index.js",
+    "lsk": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "docs",
+    "template",
+    "cli",
+    "ai",
+    "agent",
+    "specification",
+    "documentation"
+  ],
+  "author": "Lee Yoonsu",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leeyoonsu/lee-spec-kit"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "fs-extra": "^11.3.3",
+    "glob": "^13.0.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.0.3",
+    "@types/prompts": "^2.4.9",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.7.4",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.7.0"
+}

@@ -1,0 +1,88 @@
+# Agents Guide
+
+Operating rules for AI code assistants to perform consistent code generation and refactoring.
+
+---
+
+## Reference Documents
+
+### Core Documents
+
+- **Project Principles**: `/docs/agents/constitution.md`
+- **Git Workflow**: `/docs/agents/git-workflow.md`
+- **Issue Template**: `/docs/agents/issue-template.md`
+- **PR Template**: `/docs/agents/pr-template.md`
+
+### PRD
+
+- **Product Requirements**: `/docs/prd/`
+
+### Features
+
+- **BE Features**: `/docs/features/be/{feature-id}/`
+- **FE Features**: `/docs/features/fe/{feature-id}/`
+- **Template (SSOT)**: `/docs/features/feature-base/`
+
+---
+
+## 📁 Standard docs Structure
+
+```
+docs/
+├── README.md           # Documentation guide
+├── agents/             # Agent operating rules
+│   ├── agents.md
+│   ├── constitution.md
+│   ├── git-workflow.md
+│   ├── issue-template.md
+│   └── pr-template.md
+├── prd/                # Product requirements
+├── features/           # Feature documentation
+│   ├── be/             # Backend Features
+│   └── fe/             # Frontend Features
+└── scripts/            # Utilities
+```
+
+---
+
+## Request Type Processes
+
+### 1. New Feature Request
+
+1. Identify target repo (BE or FE)
+2. Create feature folder: `lee-spec-kit feature <name>`
+3. Write `spec.md` - what and why (no tech stack)
+4. Request spec review from user
+5. Create GitHub Issue
+
+### 2. Spec to Plan
+
+1. Verify spec is clear
+2. Write `plan.md` - tech stack, architecture, file structure
+3. **Record key decisions in `decisions.md`** (required)
+4. Decompose into tasks after user approval
+
+### 3. Task Execution
+
+1. Write tasks in `tasks.md`
+2. Execute after user approval
+3. Transition status: `[TODO]` → `[DOING]` → `[DONE]`
+4. Commit immediately after task completion
+
+---
+
+## 📋 ADR (Architecture Decision Records)
+
+> `decisions.md` is a **required** document for recording technical decisions.
+
+### Format
+
+```markdown
+## D{number}: {Decision Title} ({YYYY-MM-DD})
+
+- **Context**: Problem situation or background
+- **Options**: Alternatives considered
+- **Decision**: Final choice
+- **Rationale**: Reason for choice
+- **Consequences**: Results and impact (optional)
+```
