@@ -1,4 +1,4 @@
-# Feature Spec: {기능명}
+# Feature Spec: {feature-name}
 
 > Tech stack is covered in plan.md.
 
@@ -6,10 +6,10 @@
 
 ## Overview
 
-- **Feature ID**: F{번호}
-- **Feature Name**: {기능명}
+- **Feature ID**: F{number}
+- **Feature Name**: {feature-name}
 - **Target Repo**: {{projectName}}-{be|fe}
-- **Issue Number**: #{이슈번호}
+- **Issue Number**: #{issue-number}
 - **Created**: YYYY-MM-DD
 - **Status**: Draft | Review | Approved
 

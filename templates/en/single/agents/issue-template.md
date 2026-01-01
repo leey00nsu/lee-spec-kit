@@ -1,18 +1,18 @@
-# GitHub Issue 템플릿 가이드
+# GitHub Issue Template Guide
 
-에이전트가 GitHub Issue를 생성할 때 참조하는 템플릿입니다.
+A template for AI agents to create GitHub Issues.
 
 ---
 
-## 이슈 생성 규칙
+## Issue Creation Rules
 
-### 제목 형식
+### Title Format
 
 ```text
-F{번호}: {기능명} ({짧은 설명})
+F{number}: {feature-name} ({short description})
 ```
 
-예: `F001: user-auth (사용자 인증 기능)`
+Example: `F001: user-auth (User authentication feature)`
 
 > Keep the "short description" concise enough to convey the intent in one line.
 
@@ -43,45 +43,47 @@ In GitHub Issues, use different link formats **based on file location**:
 
 > ⚠️ Local documents are not clickable on GitHub, so provide path text only.
 
-## 이슈 본문 템플릿
+---
+
+## Issue Body Template
 
 ```markdown
-## 개요
+## Overview
 
-{기능에 대한 간략한 설명}
+{Brief description of the feature}
 
-## 목표
+## Goals
 
-- {목표 1}
-- {목표 2}
+- {Goal 1}
+- {Goal 2}
 
-## 완료 조건
+## Completion Criteria
 
-- [ ] {조건 1}
-- [ ] {조건 2}
+- [ ] {Criterion 1}
+- [ ] {Criterion 2}
 
-## 관련 문서
+## Related Documents
 
-- Spec: `docs/features/{be|fe}/F{번호}-{기능명}/spec.md`
+- Spec: `docs/features/F{number}-{feature-name}/spec.md`
 
-## 라벨
+## Labels
 
-- `enhancement` (새 기능)
-- `bug` (버그 수정)
-- `documentation` (문서)
+- `enhancement` (New feature)
+- `bug` (Bug fix)
+- `documentation` (Documentation)
 ```
 
 ---
 
-## 라벨 규칙
+## Label Rules
 
-| 라벨            | 용도          |
+| Label           | Usage         |
 | --------------- | ------------- |
-| `enhancement`   | 새 기능       |
-| `bug`           | 버그 수정     |
-| `documentation` | 문서 작업     |
-| `backend`       | BE 관련       |
-| `frontend`      | FE 관련       |
+| `enhancement`   | New feature   |
+| `bug`           | Bug fix       |
+| `documentation` | Documentation |
+| `backend`       | BE related    |
+| `frontend`      | FE related    |
 | `priority:high` | High priority |
 
 ---

@@ -1,97 +1,97 @@
-# Git 워크플로우 가이드
+# Git Workflow Guide
 
-에이전트가 Git/GitHub 작업을 자동화하기 위한 규칙입니다.
-
----
-
-## 핵심 개념
-
-| 개념      | GitHub 매핑  | 설명                    |
-| --------- | ------------ | ----------------------- |
-| Feature   | GitHub Issue | 기능 단위 작업          |
-| 태스크    | Commit       | 개별 구현 단위          |
-| 기능 완료 | Pull Request | Feature 완료 시 PR 생성 |
+Rules for AI agents to automate Git/GitHub operations.
 
 ---
 
-## 브랜치 전략
+## Core Concepts
+
+| Concept          | GitHub Mapping | Description                     |
+| ---------------- | -------------- | ------------------------------- |
+| Feature          | GitHub Issue   | Feature-level work unit         |
+| Task             | Commit         | Individual implementation unit  |
+| Feature Complete | Pull Request   | Create PR on feature completion |
+
+---
+
+## Branch Strategy
 
 ```
 main
- └── feat/123-feature-name    # Issue #123 기반 브랜치
-      ├── commit 1: feat(#123): 기능 구현
-      ├── commit 2: test(#123): 테스트 작성
-      └── commit 3: docs(#123): 문서 업데이트
+ └── feat/123-feature-name    # Branch based on Issue #123
+      ├── commit 1: feat(#123): implement feature
+      ├── commit 2: test(#123): add tests
+      └── commit 3: docs(#123): update docs
 ```
 
-### 브랜치 네이밍
+### Branch Naming
 
 ```
 {type}/{issue-number}-{feature-name}
 ```
 
-| Type       | 설명      |
-| ---------- | --------- |
-| `feat`     | 새 기능   |
-| `fix`      | 버그 수정 |
-| `refactor` | 리팩토링  |
-| `docs`     | 문서      |
+| Type       | Description   |
+| ---------- | ------------- |
+| `feat`     | New feature   |
+| `fix`      | Bug fix       |
+| `refactor` | Refactoring   |
+| `docs`     | Documentation |
 
-**예시:**
+**Examples:**
 
 - `feat/123-user-auth`
 - `fix/456-login-error`
 
 ---
 
-## 커밋 컨벤션
+## Commit Convention
 
-### 형식
+### Format
 
 ```
 {type}(#{issue}): {description}
 ```
 
-### Type 목록
+### Type List
 
-| Type       | 설명        | 예시                                |
-| ---------- | ----------- | ----------------------------------- |
-| `feat`     | 새 기능     | `feat(#123): 사용자 인증 구현`      |
-| `fix`      | 버그 수정   | `fix(#123): 로그인 오류 수정`       |
-| `refactor` | 리팩토링    | `refactor(#123): 인증 로직 분리`    |
-| `test`     | 테스트      | `test(#123): 인증 단위 테스트 추가` |
-| `docs`     | 문서        | `docs(#123): 스펙 명확화`           |
-| `style`    | 코드 스타일 | `style(#123): 린트 오류 수정`       |
-| `chore`    | 기타        | `chore(#123): 의존성 업데이트`      |
+| Type       | Description   | Example                               |
+| ---------- | ------------- | ------------------------------------- |
+| `feat`     | New feature   | `feat(#123): implement user auth`     |
+| `fix`      | Bug fix       | `fix(#123): fix login error`          |
+| `refactor` | Refactoring   | `refactor(#123): separate auth logic` |
+| `test`     | Tests         | `test(#123): add auth unit tests`     |
+| `docs`     | Documentation | `docs(#123): clarify spec`            |
+| `style`    | Code style    | `style(#123): fix lint errors`        |
+| `chore`    | Other         | `chore(#123): update dependencies`    |
 
 ---
 
-## 자동화 워크플로우
+## Automation Workflow
 
-### 1. Feature 시작
+### 1. Feature Start
 
 ```bash
-# 1. GitHub Issue 생성 (Feature = Issue)
-# 2. 브랜치 생성
+# 1. Create GitHub Issue (Feature = Issue)
+# 2. Create branch
 git checkout -b feat/{issue-number}-{feature-name}
 ```
 
-> `gh`로 이슈/PR 생성·수정 시 작성할 제목/본문/라벨을 먼저 공유하고 **반드시** 사용자 확인(OK) 후 진행합니다.
+> When creating/modifying issues/PRs with `gh`, share the title/body/labels first and **wait for user confirmation (OK)** before proceeding.
 
-### 2. 태스크 완료 시 자동 커밋
+### 2. Auto Commit on Task Completion
 
-태스크 하나가 완료되면:
+When a task is completed:
 
 ```bash
 git add .
 git commit -m "{type}(#{issue}): {task-description}"
 ```
 
-> `git commit` 실행 전 커밋 메시지와 포함될 파일 목록을 먼저 공유하고 **반드시** 사용자 확인(OK) 후 진행합니다.
+> Before running `git commit`, share the commit message and file list first and **wait for user confirmation (OK)** before proceeding.
 
-### 3. Feature 완료 시 PR 생성
+### 3. Create PR on Feature Completion
 
-모든 태스크 완료 시:
+When all tasks are completed:
 
 ```bash
 git push origin feat/{issue-number}-{feature-name}
@@ -100,58 +100,58 @@ gh pr create --title "feat(#{issue}): {feature-title}" \
   --base main
 ```
 
-### 4. 머지
+### 4. Merge
 
-모든 리뷰 해결 시:
+When all reviews are resolved:
 
 ```bash
-# 머지 전 main 최신화
+# Update main before merge
 git checkout main
 git pull
 
 # Squash and Merge
 gh pr merge --squash --delete-branch
 
-# 머지 후 main 최신화
+# Update main after merge
 git pull
 ```
 
 ---
 
-## 에이전트 자동화 규칙
+## Agent Automation Rules
 
-### 태스크 완료 시
+### On Task Completion
 
 ```
-1. 코드 변경 완료
-2. tasks.md 상태 [DOING] → [DONE] 업데이트 (docs)
+1. Complete code changes
+2. Update tasks.md status [DOING] → [DONE] (docs)
 3. git add .
 4. git commit -m "{type}(#{issue}): {description}"
-5. 다음 태스크 진행
+5. Proceed to next task
 ```
 
-### Feature 완료 시
+### On Feature Completion
 
 ```
-1. 모든 태스크 [DONE] 확인
+1. Verify all tasks [DONE]
 2. git push origin {branch}
 3. gh pr create
-4. 리뷰 대기
-5. 리뷰 코멘트 수정
+4. Wait for review
+5. Address review comments
 6. gh pr merge --squash
 ```
 
 ---
 
-## GitHub 설정 요구사항
+## GitHub Setup Requirements
 
-### 필수
+### Required
 
-- [ ] GitHub CLI (`gh`) 설치 및 인증
+- [ ] GitHub CLI (`gh`) installed and authenticated
 - [ ] Branch protection rules (main)
   - Require PR before merging
 
-### 권장
+### Recommended
 
 - [ ] Auto-delete head branches
 - [ ] Squash merging only

@@ -1,4 +1,4 @@
-# Implementation Plan: {기능명}
+# Implementation Plan: {feature-name}
 
 > Write after spec is approved.
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-- **Feature ID**: F{번호}
+- **Feature ID**: F{number}
 - **Target Repo**: {{projectName}}
 - **Created**: YYYY-MM-DD
 - **Status**: Draft | Review | Approved

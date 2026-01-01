@@ -1,15 +1,15 @@
-# GitHub PR 템플릿 가이드
+# GitHub PR Template Guide
 
-에이전트가 Pull Request를 생성할 때 참조하는 템플릿입니다.
+A template for AI agents to create Pull Requests.
 
 ---
 
-## PR 생성 규칙
+## PR Creation Rules
 
-### 제목 형식
+### Title Format
 
 ```text
-feat(#{이슈번호}): {기능명}
+feat(#{issue-number}): {feature-name}
 ```
 
 Example: `feat(#1): Implement user authentication`
@@ -25,59 +25,61 @@ For file links within the repo in PR body, **always use current branch name**:
 > ⚠️ `main` branch links will return 404 until merged!
 > Always use the **current feature branch name** (e.g., `feat/5-feature-name`).
 
-## PR 본문 템플릿
+---
+
+## PR Body Template
 
 ```markdown
-## 개요
+## Overview
 
-{변경 사항에 대한 간략한 설명}
+{Brief description of changes}
 
-## 변경 사항
+## Changes
 
-- {변경 1}
-- {변경 2}
-- {변경 3}
+- {Change 1}
+- {Change 2}
+- {Change 3}
 
-## 테스트
+## Tests
 
-- [ ] 유닛 테스트 통과
-- [ ] 통합 테스트 완료
+- [ ] Unit tests passed
+- [ ] Integration tests completed
 
-## 스크린샷 (UI 변경 시)
+## Screenshots (for UI changes)
 
-{있으면 첨부}
+{Attach if applicable}
 
-## 관련 문서
+## Related Documents
 
-- Spec: `docs/features/{be|fe}/F{번호}-{기능명}/spec.md`
-- Tasks: `docs/features/{be|fe}/F{번호}-{기능명}/tasks.md`
+- Spec: `docs/features/F{number}-{feature-name}/spec.md`
+- Tasks: `docs/features/F{number}-{feature-name}/tasks.md`
 
-Closes #{이슈번호}
+Closes #{issue-number}
 ```
 
 ---
 
-## PR 생성 명령어
+## PR Creation Command
 
 ```bash
-# 현재 브랜치명 확인
+# Check current branch name
 BRANCH=$(git branch --show-current)
 
 gh pr create \
-  --title "feat(#{issue}): {기능명}" \
+  --title "feat(#{issue}): {feature-name}" \
   --body-file /tmp/pr-body.md \
   --base main
 ```
 
 ---
 
-## 머지 규칙
+## Merge Rules
 
-| 상황         | 머지 방식         |
-| ------------ | ----------------- |
-| 일반 Feature | Squash and Merge  |
-| 긴급 Hotfix  | Merge 또는 Rebase |
-| Docs update  | Squash and Merge  |
+| Situation      | Merge Method     |
+| -------------- | ---------------- |
+| Normal Feature | Squash and Merge |
+| Urgent Hotfix  | Merge or Rebase  |
+| Docs update    | Squash and Merge |
 
 ---
 

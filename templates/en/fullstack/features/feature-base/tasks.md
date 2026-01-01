@@ -1,4 +1,4 @@
-# Tasks: {기능명}
+# Tasks: {feature-name}
 
 ## Task Rules
 
@@ -10,8 +10,8 @@
 ## GitHub Issue
 
 - **Repo**: {{projectName}}-{be|fe}
-- **Issue**: #{이슈번호}
-- **Branch**: `feat/{이슈번호}-{기능명}`
+- **Issue**: #{issue-number}
+- **Branch**: `feat/{issue-number}-{feature-name}`
 
 ---
 
@@ -19,7 +19,7 @@
 
 ### Phase 1: {Phase Name}
 
-- [TODO][P1] T-F{번호}-01 {Task Title}
+- [TODO][P1] T-F{number}-01 {Task Title}
   - Acceptance:
     - (verification condition)
   - Checklist:
