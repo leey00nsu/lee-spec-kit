@@ -50,7 +50,7 @@ docs/
 ### 1. New Feature Request
 
 1. Identify target repo (BE or FE)
-2. Create feature folder: `lee-spec-kit feature <name>`
+2. Create feature folder: `npx lee-spec-kit feature <name>`
 3. Write `spec.md` - what and why (no tech stack)
 4. Request spec review from user
 5. Create GitHub Issue

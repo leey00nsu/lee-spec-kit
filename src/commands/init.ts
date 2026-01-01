@@ -157,6 +157,16 @@ async function runInit(options: InitOptions): Promise<void> {
 
   await replaceInFiles(targetDir, replacements);
 
+  // Config 파일 생성
+  const config = {
+    projectName,
+    projectType,
+    lang,
+    createdAt: new Date().toISOString().split('T')[0],
+  };
+  const configPath = path.join(targetDir, '.lee-spec-kit.json');
+  await fs.writeJson(configPath, config, { spaces: 2 });
+
   console.log(chalk.green('✅ docs 구조 생성 완료!'));
   console.log();
 
@@ -165,7 +175,9 @@ async function runInit(options: InitOptions): Promise<void> {
 
   console.log(chalk.blue('다음 단계:'));
   console.log(chalk.gray(`  1. ${targetDir}/prd/README.md 작성`));
-  console.log(chalk.gray('  2. lee-spec-kit feature <name> 으로 기능 추가'));
+  console.log(
+    chalk.gray('  2. npx lee-spec-kit feature <name> 으로 기능 추가')
+  );
   console.log();
 }
 

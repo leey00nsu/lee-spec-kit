@@ -57,7 +57,7 @@ docs/
 
 ### 1. 새 기능 추가 요청
 
-1. 새 기능 폴더 생성: `lee-spec-kit feature <name>`
+1. 새 기능 폴더 생성: `npx lee-spec-kit feature <name>`
 2. `spec.md` 작성 - 무엇을, 왜 만드는지
 3. 사용자에게 스펙 초안 확인 요청
 4. GitHub Issue 생성

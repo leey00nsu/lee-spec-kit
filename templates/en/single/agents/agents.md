@@ -44,7 +44,7 @@ docs/
 
 ### 1. New Feature Request
 
-1. Create feature folder: `lee-spec-kit feature <name>`
+1. Create feature folder: `npx lee-spec-kit feature <name>`
 2. Write `spec.md` - what and why
 3. Request spec review
 4. Create GitHub Issue

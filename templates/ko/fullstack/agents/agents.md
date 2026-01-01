@@ -66,7 +66,7 @@ docs/
 ### 1. 새 기능 추가 요청
 
 1. 대상 레포 확인 (BE 또는 FE)
-2. 새 기능 폴더 생성: `lee-spec-kit feature <name>` 또는 `docs/features/README.md` 참조
+2. 새 기능 폴더 생성: `npx lee-spec-kit feature <name>` 또는 `docs/features/README.md` 참조
 3. `spec.md` 작성 - 무엇을, 왜 만드는지 (기술 스택 X)
 4. 사용자에게 스펙 초안 확인 요청
 5. GitHub Issue 생성 (`agents/issue-template.md` 참조)
