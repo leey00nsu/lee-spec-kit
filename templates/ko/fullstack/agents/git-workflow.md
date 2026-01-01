@@ -46,7 +46,7 @@ main
 
 ## 커밋 컨벤션
 
-> 📖 [Udacity Git Commit Message Style Guide](https://udacity.github.io/git-styleguide/)를 따릅니다.
+> 📖 Type과 Description은 [Udacity Git Commit Message Style Guide](https://udacity.github.io/git-styleguide/)를 따릅니다.
 
 ### 형식
 
