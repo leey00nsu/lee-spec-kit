@@ -46,6 +46,8 @@ main
 
 ## Commit Convention
 
+> 📖 Follow [Udacity Git Commit Message Style Guide](https://udacity.github.io/git-styleguide/).
+
 ### Format
 
 ```
