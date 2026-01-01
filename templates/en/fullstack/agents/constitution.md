@@ -3,6 +3,11 @@
 Core principles and technical decision guidelines for the project.
 All development decisions should be based on this document.
 
+> **📌 Document Scope**
+>
+> - **This document**: Tech stack, architecture principles, code quality, security principles
+> - **PRD**: Product requirements, business logic, user stories → `prd/*.md`
+
 ---
 
 ## Project Mission

@@ -2,6 +2,11 @@
 
 This folder contains product requirements documentation.
 
+> **📌 Document Scope**
+>
+> - **This folder**: Product requirements, business logic, user stories
+> - **Constitution**: Tech stack, architecture principles, code quality, security principles → `agents/constitution.md`
+
 ## Writing Guide
 
 1. Define project overview and goals

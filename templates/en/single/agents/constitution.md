@@ -1,7 +1,12 @@
 # {{projectName}} Constitution
 
-프로젝트의 핵심 원칙과 기술 결정 가이드라인입니다.
-모든 개발 결정은 이 문서를 기준으로 합니다.
+Core principles and technical decision guidelines for the project.
+All development decisions should be based on this document.
+
+> **📌 Document Scope**
+>
+> - **This document**: Tech stack, architecture principles, code quality, security principles
+> - **PRD**: Product requirements, business logic, user stories → `prd/*.md`
 
 ---
 

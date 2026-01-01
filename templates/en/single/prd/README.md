@@ -1,6 +1,11 @@
 # PRD (Product Requirements Document)
 
-이 폴더에는 제품 요구사항 문서를 작성합니다.
+This folder contains product requirements documents.
+
+> **📌 Document Scope**
+>
+> - **This folder**: Product requirements, business logic, user stories
+> - **Constitution**: Tech stack, architecture principles, code quality, security principles → `agents/constitution.md`
 
 ## 작성 가이드
 
