@@ -81,6 +81,27 @@ gh pr create \
 
 ---
 
+## 라벨 규칙
+
+- PR 생성 시 적절한 라벨 지정 (`--label`)
+- 라벨이 존재하지 않으면 먼저 생성:
+  ```bash
+  gh label create "라벨명" --description "설명" --color "색상코드"
+  ```
+
+---
+
+## Assignee 규칙
+
+- 기본값: 본인 할당 (`--assignee @me`)
+- 리뷰어 지정 시 `--reviewer` 옵션 사용
+- 예시:
+  ```bash
+  gh pr create --assignee @me --reviewer reviewer-username ...
+  ```
+
+---
+
 ## 본문 입력 규칙 (셸 실행 방지)
 
 - PR 본문은 **`--body-file` 사용을 기본**으로 한다.

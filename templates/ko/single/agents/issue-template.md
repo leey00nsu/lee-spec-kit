@@ -86,6 +86,24 @@ GitHub Issue에서 링크는 **파일 위치에 따라** 다르게 작성:
 | `frontend`      | FE 관련       |
 | `priority:high` | 높은 우선순위 |
 
+> ⚠️ 라벨이 존재하지 않으면 먼저 생성합니다:
+>
+> ```bash
+> gh label create "라벨명" --description "설명" --color "색상코드"
+> ```
+
+---
+
+## Assignee 규칙
+
+- 기본값: 본인 할당 (`--assignee @me`)
+- 다른 담당자 지정 시 **사용자에게 확인** 후 진행
+- 예시:
+  ```bash
+  gh issue create --assignee @me ...
+  gh issue create --assignee username ...
+  ```
+
 ---
 
 ## 본문 입력 규칙 (셸 실행 방지)

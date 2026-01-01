@@ -82,6 +82,24 @@ In GitHub Issues, use different link formats **based on file location**:
 | `frontend`      | FE related    |
 | `priority:high` | High priority |
 
+> ⚠️ If a label does not exist, create it first:
+>
+> ```bash
+> gh label create "label-name" --description "description" --color "color-code"
+> ```
+
+---
+
+## Assignee Rules
+
+- Default: Self-assign (`--assignee @me`)
+- When assigning others, **confirm with user** first
+- Examples:
+  ```bash
+  gh issue create --assignee @me ...
+  gh issue create --assignee username ...
+  ```
+
 ---
 
 ## Body Input Rules (Shell Execution Prevention)

@@ -67,6 +67,27 @@ Closes #{issue-number}
 
 ---
 
+## Label Rules
+
+- Specify appropriate labels when creating PR (`--label`)
+- If a label does not exist, create it first:
+  ```bash
+  gh label create "label-name" --description "description" --color "color-code"
+  ```
+
+---
+
+## Assignee Rules
+
+- Default: Self-assign (`--assignee @me`)
+- Use `--reviewer` option to specify reviewers
+- Examples:
+  ```bash
+  gh pr create --assignee @me --reviewer reviewer-username ...
+  ```
+
+---
+
 ## Body Input Rules (Shell Execution Prevention)
 
 - PR body should use **`--body-file` by default**.

@@ -86,6 +86,24 @@ In GitHub Issues, use different link formats **based on file location**:
 | `frontend`      | FE related    |
 | `priority:high` | High priority |
 
+> ⚠️ If a label does not exist, create it first:
+>
+> ```bash
+> gh label create "label-name" --description "description" --color "color-code"
+> ```
+
+---
+
+## Assignee Rules
+
+- Default: Self-assign (`--assignee @me`)
+- When assigning others, **confirm with user** first
+- Examples:
+  ```bash
+  gh issue create --assignee @me ...
+  gh issue create --assignee username ...
+  ```
+
 ---
 
 ## Body Input Rules (Shell Execution Prevention)
@@ -93,4 +111,6 @@ In GitHub Issues, use different link formats **based on file location**:
 - Issue body should use **`--body-file` by default**.
 - If the body contains backticks (`) or `$()`and is placed directly in`"..."`, it may be **interpreted by the shell**.
 - For multi-line bodies, use **single-quoted heredoc** like `cat <<'EOF'`,
+  and handle variables via **placeholder → sed substitution**.
+
   and handle variables via **placeholder → sed substitution**.
