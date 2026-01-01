@@ -22,7 +22,7 @@ features/
 ## 새 기능 생성
 
 ```bash
-lee-spec-kit feature user-auth
+npx lee-spec-kit feature user-auth
 ```
 
 > 💡 CLI는 `feature-base/`에서 템플릿을 복사하고 ID를 자동 채번합니다.
@@ -41,7 +41,7 @@ lee-spec-kit feature user-auth
 ## 상태 확인
 
 ```bash
-lee-spec-kit status
+npx lee-spec-kit status
 ```
 
 ---

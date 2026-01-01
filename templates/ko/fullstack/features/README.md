@@ -29,10 +29,10 @@ features/
 
 ```bash
 # Backend Feature
-lee-spec-kit feature --repo be user-auth
+npx lee-spec-kit feature --repo be user-auth
 
 # Frontend Feature
-lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --repo fe user-profile
 ```
 
 > 💡 CLI는 `feature-base/`에서 템플릿을 복사하고 ID를 자동 채번합니다.
@@ -55,13 +55,13 @@ lee-spec-kit feature --repo fe user-profile
 Feature 진행 상태는 CLI로 한 번에 확인합니다.
 
 ```bash
-lee-spec-kit status
+npx lee-spec-kit status
 ```
 
 파일로 저장:
 
 ```bash
-lee-spec-kit status --write
+npx lee-spec-kit status --write
 ```
 
 ---

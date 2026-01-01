@@ -22,7 +22,7 @@ features/
 ## Creating New Features
 
 ```bash
-lee-spec-kit feature user-auth
+npx lee-spec-kit feature user-auth
 ```
 
 > 💡 CLI copies templates from `feature-base/` and auto-assigns IDs.
@@ -41,7 +41,7 @@ lee-spec-kit feature user-auth
 ## Status Check
 
 ```bash
-lee-spec-kit status
+npx lee-spec-kit status
 ```
 
 ---

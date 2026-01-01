@@ -41,21 +41,21 @@ npx lee-spec-kit init --name my-project --type fullstack --lang ko
 
 ```bash
 # Single 프로젝트
-lee-spec-kit feature user-auth
+npx lee-spec-kit feature user-auth
 
 # Fullstack 프로젝트
-lee-spec-kit feature --repo be user-auth
-lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --repo be user-auth
+npx lee-spec-kit feature --repo fe user-profile
 ```
 
 ### 상태 확인
 
 ```bash
 # 터미널에 출력
-lee-spec-kit status
+npx lee-spec-kit status
 
 # 파일로 저장
-lee-spec-kit status --write
+npx lee-spec-kit status --write
 ```
 
 ## 생성되는 구조

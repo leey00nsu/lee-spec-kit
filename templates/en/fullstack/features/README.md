@@ -29,10 +29,10 @@ features/
 
 ```bash
 # Backend Feature
-lee-spec-kit feature --repo be user-auth
+npx lee-spec-kit feature --repo be user-auth
 
 # Frontend Feature
-lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --repo fe user-profile
 ```
 
 > 💡 CLI copies templates from `feature-base/` and auto-assigns IDs.
@@ -55,13 +55,13 @@ lee-spec-kit feature --repo fe user-profile
 Check feature progress with CLI:
 
 ```bash
-lee-spec-kit status
+npx lee-spec-kit status
 ```
 
 Save to file:
 
 ```bash
-lee-spec-kit status --write
+npx lee-spec-kit status --write
 ```
 
 ---
