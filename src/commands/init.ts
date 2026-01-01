@@ -159,8 +159,51 @@ async function runInit(options: InitOptions): Promise<void> {
 
   console.log(chalk.green('✅ docs 구조 생성 완료!'));
   console.log();
+
+  // Git 초기화
+  await initGit(cwd, targetDir);
+
   console.log(chalk.blue('다음 단계:'));
   console.log(chalk.gray(`  1. ${targetDir}/prd/README.md 작성`));
   console.log(chalk.gray('  2. lee-spec-kit feature <name> 으로 기능 추가'));
   console.log();
+}
+
+async function initGit(cwd: string, targetDir: string): Promise<void> {
+  const { execSync } = await import('child_process');
+
+  try {
+    // Git이 이미 초기화되어 있는지 확인
+    try {
+      execSync('git rev-parse --is-inside-work-tree', {
+        cwd,
+        stdio: 'ignore',
+      });
+      // Git이 이미 있으면 docs만 커밋
+      console.log(chalk.blue('📦 Git 레포지토리 감지, docs 커밋 중...'));
+    } catch {
+      // Git이 없으면 초기화
+      console.log(chalk.blue('📦 Git 초기화 중...'));
+      execSync('git init', { cwd, stdio: 'ignore' });
+    }
+
+    // docs 폴더 스테이징
+    const relativePath = path.relative(cwd, targetDir);
+    execSync(`git add "${relativePath}"`, { cwd, stdio: 'ignore' });
+
+    // 커밋
+    execSync('git commit -m "init: docs 구조 초기화 (lee-spec-kit)"', {
+      cwd,
+      stdio: 'ignore',
+    });
+
+    console.log(chalk.green('✅ Git 초기 커밋 완료!'));
+    console.log();
+  } catch (error) {
+    // Git 관련 오류는 무시하고 경고만 출력
+    console.log(
+      chalk.yellow('⚠️  Git 초기화를 건너뜁니다 (수동으로 커밋해주세요)')
+    );
+    console.log();
+  }
 }
