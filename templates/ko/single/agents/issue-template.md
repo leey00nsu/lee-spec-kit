@@ -16,6 +16,33 @@ F{번호}: {기능명} ({짧은 설명})
 
 > "짧은 설명"은 한 줄로 의도를 전달할 수 있을 정도로만 작성합니다.
 
+### 링크 형식 (중요!)
+
+GitHub Issue에서 링크는 **파일 위치에 따라** 다르게 작성:
+
+1. **프로젝트 레포 내 파일**: 전체 URL 사용 (클릭 가능)
+   - **일반 문서/코드** (이미 머지됨): `main` 브랜치
+     ```markdown
+     [파일명](https://github.com/{owner}/{repo}/blob/main/path/to/file)
+     ```
+   - **개발 중인 문서** (아직 머지 안 됨): **Feature 브랜치**
+     ```markdown
+     [파일명](https://github.com/{owner}/{repo}/blob/{feat-branch}/path/to/file)
+     ```
+
+2. **외부 문서 (공개 URL 있음)**: **절대 URL로 링크**
+
+   ```markdown
+   [react-i18next](https://react.i18next.com/)
+   ```
+
+3. **외부/로컬 문서** (docs 레포 등, URL 없음): **상대 경로 텍스트로만 표기**
+   ```text
+   ../docs/features/F001-feature-name/spec.md
+   ```
+
+> ⚠️ 로컬 문서는 GitHub에서 클릭되지 않으므로, 링크 대신 경로 텍스트만 제공합니다.
+
 ---
 
 ## 이슈 본문 템플릿

@@ -14,7 +14,32 @@ F{number}: {feature-name} ({short description})
 
 Example: `F001: user-auth (User authentication feature)`
 
----
+### Link Format (Important!)
+
+In GitHub Issues, use different link formats **based on file location**:
+
+1. **Files within project repo**: Use full URL (clickable)
+   - **Merged documents/code**: Use `main` branch
+     ```markdown
+     [filename](https://github.com/{owner}/{repo}/blob/main/path/to/file)
+     ```
+   - **In-progress documents** (not merged yet): Use **Feature branch**
+     ```markdown
+     [filename](https://github.com/{owner}/{repo}/blob/{feat-branch}/path/to/file)
+     ```
+
+2. **External documents (with public URL)**: Use **absolute URL**
+
+   ```markdown
+   [react-i18next](https://react.i18next.com/)
+   ```
+
+3. **External/local documents** (no URL available): Use **relative path as text only**
+   ```text
+   ../docs/features/F001-feature-name/spec.md
+   ```
+
+> ⚠️ Local documents are not clickable on GitHub, so provide path text only.
 
 ## Issue Body Template
 

@@ -14,7 +14,16 @@ feat(#{issue-number}): {feature-name}
 
 Example: `feat(#1): Implement user authentication`
 
----
+### Link Format (Important!)
+
+For file links within the repo in PR body, **always use current branch name**:
+
+```markdown
+[filename](https://github.com/{owner}/{repo}/blob/{branch-name}/docs/path/to/file.md)
+```
+
+> ⚠️ `main` branch links will return 404 until merged!
+> Always use the **current feature branch name** (e.g., `feat/5-feature-name`).
 
 ## PR Body Template
 

@@ -14,9 +14,34 @@ F{번호}: {기능명} ({짧은 설명})
 
 예: `F001: user-auth (사용자 인증 기능)`
 
-> "짧은 설명"은 한 줄로 의도를 전달할 수 있을 정도로만 작성합니다.
+> Keep the "short description" concise enough to convey the intent in one line.
 
----
+### Link Format (Important!)
+
+In GitHub Issues, use different link formats **based on file location**:
+
+1. **Files within project repo**: Use full URL (clickable)
+   - **Merged documents/code**: Use `main` branch
+     ```markdown
+     [filename](https://github.com/{owner}/{repo}/blob/main/path/to/file)
+     ```
+   - **In-progress documents** (not merged yet): Use **Feature branch**
+     ```markdown
+     [filename](https://github.com/{owner}/{repo}/blob/{feat-branch}/path/to/file)
+     ```
+
+2. **External documents (with public URL)**: Use **absolute URL**
+
+   ```markdown
+   [react-i18next](https://react.i18next.com/)
+   ```
+
+3. **External/local documents** (no URL available): Use **relative path as text only**
+   ```text
+   ../docs/features/F001-feature-name/spec.md
+   ```
+
+> ⚠️ Local documents are not clickable on GitHub, so provide path text only.
 
 ## 이슈 본문 템플릿
 
