@@ -15,6 +15,7 @@ import {
 interface FeatureOptions {
   repo?: 'be' | 'fe';
   id?: string;
+  desc?: string;
 }
 
 export function featureCommand(program: Command): void {
@@ -23,6 +24,7 @@ export function featureCommand(program: Command): void {
     .description('Create a new feature folder')
     .option('-r, --repo <repo>', 'Repository type: be | fe (fullstack only)')
     .option('--id <id>', 'Feature ID (default: auto)')
+    .option('-d, --desc <description>', 'Feature description for spec.md')
     .action(async (name: string, options: FeatureOptions) => {
       try {
         await runFeature(name, options);
@@ -133,6 +135,7 @@ async function runFeature(
     '{be|fe}': repo || '',
     'git-dungeon-{be|fe}': repoName,
     '{이슈번호}': '',
+    '{{description}}': options.desc || '',
   };
 
   // 한국어 템플릿의 경우 추가 치환

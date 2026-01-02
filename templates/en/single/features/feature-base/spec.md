@@ -17,6 +17,8 @@
 
 ## Purpose
 
+{{description}}
+
 (Why is this feature needed? What problem does it solve?)
 
 ---
