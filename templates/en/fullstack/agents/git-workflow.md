@@ -73,14 +73,26 @@ main
 git checkout -b feat/{issue-number}-{feature-name}
 ```
 
-### 2. Auto Commit on Task Completion
+### 2. Document Writing and Commit
+
+| Document     | Commit Timing           | Commit Message Example         |
+| ------------ | ----------------------- | ------------------------------ |
+| spec.md      | After user approval     | `docs(#123): write spec`       |
+| plan.md      | After user approval     | `docs(#123): write plan`       |
+| tasks.md     | After user approval     | `docs(#123): break down tasks` |
+| decisions.md | Included in task commit | (no separate commit)           |
+
+> 📌 **Do not commit when creating Feature folder.**
+> Commit each document individually **after user approval**.
+
+### 3. Auto Commit on Task Completion
 
 ```bash
 git add .
 git commit -m "{type}(#{issue}): {task-description}"
 ```
 
-### 3. Create PR on Feature Completion
+### 4. Create PR on Feature Completion
 
 ```bash
 git push origin feat/{issue-number}-{feature-name}
@@ -89,7 +101,7 @@ gh pr create --title "feat(#{issue}): {feature-title}" \
   --base main
 ```
 
-### 4. Merge
+### 5. Merge
 
 ```bash
 git checkout main

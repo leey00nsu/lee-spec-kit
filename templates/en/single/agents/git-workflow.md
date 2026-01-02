@@ -80,7 +80,19 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 > When creating/modifying issues/PRs with `gh`, share the title/body/labels first and **wait for user confirmation (OK)** before proceeding.
 
-### 2. Auto Commit on Task Completion
+### 2. Document Writing and Commit
+
+| Document     | Commit Timing           | Commit Message Example         |
+| ------------ | ----------------------- | ------------------------------ |
+| spec.md      | After user approval     | `docs(#123): write spec`       |
+| plan.md      | After user approval     | `docs(#123): write plan`       |
+| tasks.md     | After user approval     | `docs(#123): break down tasks` |
+| decisions.md | Included in task commit | (no separate commit)           |
+
+> 📌 **Do not commit when creating Feature folder.**
+> Commit each document individually **after user approval**.
+
+### 3. Auto Commit on Task Completion
 
 When a task is completed:
 
@@ -91,7 +103,7 @@ git commit -m "{type}(#{issue}): {task-description}"
 
 > Before running `git commit`, share the commit message and file list first and **wait for user confirmation (OK)** before proceeding.
 
-### 3. Create PR on Feature Completion
+### 4. Create PR on Feature Completion
 
 When all tasks are completed:
 
@@ -102,7 +114,7 @@ gh pr create --title "feat(#{issue}): {feature-title}" \
   --base main
 ```
 
-### 4. Merge
+### 5. Merge
 
 When all reviews are resolved:
 
