@@ -56,6 +56,14 @@ docs/
 3. Status transition: `[TODO]` → `[DOING]` → `[DONE]`
 4. Commit on task completion
 
+### 3. Handling Requests Outside Tasks
+
+> When user requests **work not in tasks.md**:
+
+1. Ask user if this should be **added to tasks.md**
+2. If approved: Add to tasks.md then execute
+3. If declined: Proceed as temporary work (still included in commit)
+
 ---
 
 ## 📋 ADR (Architecture Decision Records)
