@@ -73,17 +73,16 @@ main
 git checkout -b feat/{issue-number}-{feature-name}
 ```
 
-### 2. Document Writing and Commit
+### 2. Document Commit (docs repo)
 
-| Document     | Commit Timing           | Commit Message Example         |
-| ------------ | ----------------------- | ------------------------------ |
-| spec.md      | After user approval     | `docs(#123): write spec`       |
-| plan.md      | After user approval     | `docs(#123): write plan`       |
-| tasks.md     | After user approval     | `docs(#123): break down tasks` |
-| decisions.md | Included in task commit | (no separate commit)           |
+> 📌 The docs folder is managed as a separate git, so a separate commit strategy is used.
 
-> 📌 **Do not commit when creating Feature folder.**
-> Commit each document individually **after user approval**.
+| #   | Commit Timing                                            | Included Documents              | Commit Message Example          |
+| --- | -------------------------------------------------------- | ------------------------------- | ------------------------------- |
+| 1   | **When planning is complete** (spec+plan+tasks approved) | spec.md, plan.md, tasks.md      | `docs(#123): spec, plan, tasks` |
+| 2   | **When Feature is complete** (all tasks done)            | tasks.md (status), decisions.md | `docs(#123): Feature complete`  |
+
+> ⚠️ **Do not commit when creating Feature folder.**
 
 ### 3. Auto Commit on Task Completion
 
