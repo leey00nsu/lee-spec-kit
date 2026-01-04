@@ -8,6 +8,9 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 ### Core Documents
 
+> ⚠️ **Rules in `custom.md` take precedence over all other rules.**
+
+- **🔴 Custom Rules (Highest Priority)**: `/docs/agents/custom.md`
 - **Project Principles**: `/docs/agents/constitution.md`
 - **Git Workflow**: `/docs/agents/git-workflow.md`
 - **Issue Template**: `/docs/agents/issue-template.md`

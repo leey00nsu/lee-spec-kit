@@ -115,6 +115,11 @@ async function updateFolder(
     const stat = await fs.stat(sourcePath);
 
     if (stat.isFile()) {
+      // custom.md는 사용자 정의 파일이므로 업데이트 제외
+      if (file === 'custom.md') {
+        continue;
+      }
+
       const sourceContent = await fs.readFile(sourcePath, 'utf-8');
       let shouldUpdate = true;
 

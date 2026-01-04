@@ -8,6 +8,9 @@
 
 ### 핵심 문서
 
+> ⚠️ **`custom.md`의 규칙은 다른 모든 규칙보다 우선합니다.**
+
+- **🔴 커스텀 규칙 (최우선)**: `/docs/agents/custom.md`
 - **프로젝트 원칙**: `/docs/agents/constitution.md`
 - **Git 워크플로우**: `/docs/agents/git-workflow.md`
 - **이슈 템플릿**: `/docs/agents/issue-template.md`
