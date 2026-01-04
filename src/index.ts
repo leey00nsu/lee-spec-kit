@@ -1,17 +1,19 @@
-import { program } from "commander";
-import { initCommand } from "./commands/init.js";
-import { featureCommand } from "./commands/feature.js";
-import { statusCommand } from "./commands/status.js";
+import { program } from 'commander';
+import { initCommand } from './commands/init.js';
+import { featureCommand } from './commands/feature.js';
+import { statusCommand } from './commands/status.js';
+import { updateCommand } from './commands/update.js';
 
 program
-  .name("lee-spec-kit")
+  .name('lee-spec-kit')
   .description(
-    "Project documentation structure generator for AI-assisted development",
+    'Project documentation structure generator for AI-assisted development'
   )
-  .version("0.1.0");
+  .version('0.1.0');
 
 initCommand(program);
 featureCommand(program);
 statusCommand(program);
+updateCommand(program);
 
 program.parse();
