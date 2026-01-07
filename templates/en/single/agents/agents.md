@@ -4,6 +4,31 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 ---
 
+## 🚨 User Approval Required (MUST)
+
+> ⚠️ **The following actions require explicit user approval (OK) before proceeding.**
+> **If approval is not given, stop immediately and request confirmation.**
+
+| Action                | When to Confirm          | What to Share             |
+| --------------------- | ------------------------ | ------------------------- |
+| Spec Writing          | After writing `spec.md`  | Full spec content         |
+| Task Execution        | Before each task         | Execution plan            |
+| Commit Creation       | Before `git commit`      | Commit message, file list |
+| Issue Creation        | Before `gh issue create` | Title, body, labels       |
+| PR Creation           | Before `gh pr create`    | Title, body, labels       |
+| Assignee Change       | When assigning others    | Target username           |
+| Remote Git Operations | Before `push`, `merge`   | Branch, changes           |
+
+### Approval Process
+
+1. **Share** action details with user first
+2. **Wait** for explicit user approval (OK)
+3. **Execute** only after approval
+
+> 🚫 **Prohibited**: Proceeding without user response
+
+---
+
 ## Reference Documents
 
 ### Core Documents
