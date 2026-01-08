@@ -42,8 +42,15 @@ For file links within the repo in PR body, **always use current branch name**:
 
 ## Tests
 
+> ⚠️ **Check only after running tests. Do NOT check items that were not executed.**
+
 - [ ] Unit tests passed
 - [ ] Integration tests completed
+
+### Execution Results
+
+- Command: `{test command executed}`
+- Result: `{PASS/FAIL summary}`
 
 ## Screenshots (for UI changes)
 

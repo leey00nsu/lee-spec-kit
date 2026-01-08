@@ -25,17 +25,26 @@ Guide for creating Pull Requests.
 | Labels   | Appropriate labels                 |
 | Assignee | `@me` (default)                    |
 
-### 2. Request User Approval
+### 2. Test Verification
+
+> 🚨 **Cannot create PR if tests fail**
+
+1. Run related test commands (e.g., `npm test`, `pnpm test`)
+2. Check results (PASS/FAIL)
+3. Record **execution results** in PR body "Tests" section
+4. Check boxes **only for items that actually passed**
+
+### 3. Request User Approval
 
 > 🚨 **User Approval Required**
 
 Before creating PR, share and wait for approval:
 
 - Title
-- Body
+- Body (including test results)
 - Labels
 
-### 3. Create PR
+### 4. Create PR
 
 ```bash
 gh pr create \
