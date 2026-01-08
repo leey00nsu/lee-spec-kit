@@ -52,6 +52,33 @@ When user requests work not in tasks.md:
 
 ---
 
+## 🚨 Never Modify Completed Tasks
+
+> ⚠️ **Tasks in `[DONE]` status must NEVER be modified.**
+
+### Principle
+
+- Completed tasks are preserved for **history/record purposes**
+- If modifications are needed, **add a new task**
+
+### When Modifications Are Needed
+
+1. Keep the existing task as-is
+2. Add new task: `T{next-number}: {modification description}`
+3. Perform changes in the new task
+
+**Example:**
+
+```markdown
+## Tasks
+
+- [DONE] T001: Implement user authentication (2026-01-05)
+- [DONE] T002: Create login page (2026-01-06)
+- [TODO] T003: Fix T002 - Add password validation ← New task for modifications
+```
+
+---
+
 ## Reference Documents
 
 - **Git Workflow**: `git-workflow.md`
