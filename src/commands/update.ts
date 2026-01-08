@@ -60,21 +60,37 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
 
   let updatedCount = 0;
 
-  // agents/ 폴더 업데이트
+  // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
   if (updateAgents) {
     console.log(chalk.blue('📁 agents/ 폴더 업데이트 중...'));
-    const sourceAgents = path.join(sourceDir, 'agents');
+    const commonAgents = path.join(templatesDir, lang, 'common', 'agents');
+    const typeAgents = path.join(templatesDir, lang, projectType, 'agents');
     const targetAgents = path.join(docsDir, 'agents');
 
-    if (await fs.pathExists(sourceAgents)) {
+    // featurePath 치환
+    const featurePath =
+      projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
+    const replacements: Record<string, string> = {
+      '{{featurePath}}': featurePath,
+    };
+
+    // common 먼저 업데이트
+    if (await fs.pathExists(commonAgents)) {
       const count = await updateFolder(
-        sourceAgents,
+        commonAgents,
         targetAgents,
-        options.force
+        options.force,
+        replacements
       );
       updatedCount += count;
-      console.log(chalk.green(`  ✅ ${count}개 파일 업데이트 완료`));
     }
+
+    // 타입별 오버라이드
+    if (await fs.pathExists(typeAgents)) {
+      const count = await updateFolder(typeAgents, targetAgents, options.force);
+      updatedCount += count;
+    }
+    console.log(chalk.green(`  ✅ agents/ 업데이트 완료`));
   }
 
   // feature-base/ 폴더 업데이트
@@ -101,7 +117,8 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
 async function updateFolder(
   sourceDir: string,
   targetDir: string,
-  force?: boolean
+  force?: boolean,
+  replacements?: Record<string, string>
 ): Promise<number> {
   // 대상 폴더가 없으면 생성
   await fs.ensureDir(targetDir);
@@ -120,7 +137,15 @@ async function updateFolder(
         continue;
       }
 
-      const sourceContent = await fs.readFile(sourcePath, 'utf-8');
+      let sourceContent = await fs.readFile(sourcePath, 'utf-8');
+
+      // 플레이스홀더 치환
+      if (replacements) {
+        for (const [key, value] of Object.entries(replacements)) {
+          sourceContent = sourceContent.replaceAll(key, value);
+        }
+      }
+
       let shouldUpdate = true;
 
       // 대상 파일이 존재하는 경우
@@ -148,7 +173,12 @@ async function updateFolder(
       }
     } else if (stat.isDirectory()) {
       // 하위 디렉토리 재귀 처리
-      const subCount = await updateFolder(sourcePath, targetPath, force);
+      const subCount = await updateFolder(
+        sourcePath,
+        targetPath,
+        force,
+        replacements
+      );
       updatedCount += subCount;
     }
   }

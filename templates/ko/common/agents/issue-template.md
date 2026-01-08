@@ -42,8 +42,8 @@ GitHub Issue에서 링크는 **파일 위치에 따라** 다르게 작성:
    > 형식: `- **{레이블}**: \`{경로}\``
 
    ```markdown
-   - **Spec**: `docs/features/{be|fe}/F001-feature-name/spec.md`
-   - **Tasks**: `docs/features/{be|fe}/F001-feature-name/tasks.md`
+   - **Spec**: `{{featurePath}}/F001-feature-name/spec.md`
+   - **Tasks**: `{{featurePath}}/F001-feature-name/tasks.md`
    ```
 
 > ⚠️ 로컬 문서는 GitHub에서 클릭되지 않으므로, 마크다운 링크 대신 **볼드 레이블 + 코드블록 경로** 형식을 사용합니다.
@@ -69,7 +69,7 @@ GitHub Issue에서 링크는 **파일 위치에 따라** 다르게 작성:
 
 ## 관련 문서
 
-- **Spec**: `docs/features/{be|fe}/F{번호}-{기능명}/spec.md`
+- **Spec**: `{{featurePath}}/F{번호}-{기능명}/spec.md`
 
 ## 라벨
 

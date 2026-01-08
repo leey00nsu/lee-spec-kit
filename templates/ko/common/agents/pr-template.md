@@ -49,8 +49,8 @@ PR 본문에서 레포 내 파일 링크는 **반드시 현재 브랜치명을 �
 
 ## 관련 문서
 
-- **Spec**: `docs/features/{be|fe}/F{번호}-{기능명}/spec.md`
-- **Tasks**: `docs/features/{be|fe}/F{번호}-{기능명}/tasks.md`
+- **Spec**: `{{featurePath}}/F{번호}-{기능명}/spec.md`
+- **Tasks**: `{{featurePath}}/F{번호}-{기능명}/tasks.md`
 
 Closes #{이슈번호}
 ```

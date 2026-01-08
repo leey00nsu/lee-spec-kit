@@ -1,6 +1,6 @@
 # GitHub PR Template Guide
 
-Template for AI agents to create Pull Requests.
+A template for AI agents to create Pull Requests.
 
 ---
 
@@ -24,6 +24,8 @@ For file links within the repo in PR body, **always use current branch name**:
 
 > ⚠️ `main` branch links will return 404 until merged!
 > Always use the **current feature branch name** (e.g., `feat/5-feature-name`).
+
+---
 
 ## PR Body Template
 
@@ -49,10 +51,24 @@ For file links within the repo in PR body, **always use current branch name**:
 
 ## Related Documents
 
-- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
-- **Tasks**: `docs/features/{be|fe}/F{number}-{feature-name}/tasks.md`
+- **Spec**: `{{featurePath}}/F{number}-{feature-name}/spec.md`
+- **Tasks**: `{{featurePath}}/F{number}-{feature-name}/tasks.md`
 
 Closes #{issue-number}
+```
+
+---
+
+## PR Creation Command
+
+```bash
+# Check current branch name
+BRANCH=$(git branch --show-current)
+
+gh pr create \
+  --title "feat(#{issue}): {feature-name}" \
+  --body-file /tmp/pr-body.md \
+  --base main
 ```
 
 ---
@@ -63,7 +79,7 @@ Closes #{issue-number}
 | -------------- | ---------------- |
 | Normal Feature | Squash and Merge |
 | Urgent Hotfix  | Merge or Rebase  |
-| Documentation  | Squash and Merge |
+| Docs update    | Squash and Merge |
 
 ---
 

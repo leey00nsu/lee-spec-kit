@@ -139,20 +139,29 @@ async function runInit(options: InitOptions): Promise<void> {
   console.log(chalk.gray(`  경로: ${targetDir}`));
   console.log();
 
-  // 템플릿 복사
+  // 템플릿 복사 (common 먼저, 타입별 오버라이드)
   const templatesDir = getTemplatesDir();
-  const templatePath = path.join(templatesDir, lang, projectType);
+  const commonPath = path.join(templatesDir, lang, 'common');
+  const typePath = path.join(templatesDir, lang, projectType);
 
-  if (!(await fs.pathExists(templatePath))) {
-    throw new Error(`템플릿을 찾을 수 없습니다: ${templatePath}`);
+  // common 템플릿 먼저 복사
+  if (await fs.pathExists(commonPath)) {
+    await copyTemplates(commonPath, targetDir);
   }
 
-  await copyTemplates(templatePath, targetDir);
+  // 타입별 템플릿으로 오버라이드
+  if (!(await fs.pathExists(typePath))) {
+    throw new Error(`템플릿을 찾을 수 없습니다: ${typePath}`);
+  }
+  await copyTemplates(typePath, targetDir);
 
   // 플레이스홀더 치환
-  const replacements = {
+  const featurePath =
+    projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
+  const replacements: Record<string, string> = {
     '{{projectName}}': projectName,
     '{{date}}': new Date().toISOString().split('T')[0],
+    '{{featurePath}}': featurePath,
   };
 
   await replaceInFiles(targetDir, replacements);

@@ -1,6 +1,6 @@
 # GitHub Issue Template Guide
 
-Template for AI agents to create GitHub Issues.
+A template for AI agents to create GitHub Issues.
 
 ---
 
@@ -13,6 +13,8 @@ F{number}: {feature-name} ({short description})
 ```
 
 Example: `F001: user-auth (User authentication feature)`
+
+> Keep the "short description" concise enough to convey the intent in one line.
 
 ### Link Format (Important!)
 
@@ -40,11 +42,13 @@ In GitHub Issues, use different link formats **based on file location**:
    > Format: `- **{Label}**: \`{path}\``
 
    ```markdown
-   - **Spec**: `docs/features/{be|fe}/F001-feature-name/spec.md`
-   - **Tasks**: `docs/features/{be|fe}/F001-feature-name/tasks.md`
+   - **Spec**: `{{featurePath}}/F001-feature-name/spec.md`
+   - **Tasks**: `{{featurePath}}/F001-feature-name/tasks.md`
    ```
 
 > ⚠️ Local documents are not clickable on GitHub, so use **bold label + code block path** format instead of markdown links.
+
+---
 
 ## Issue Body Template
 
@@ -65,7 +69,7 @@ In GitHub Issues, use different link formats **based on file location**:
 
 ## Related Documents
 
-- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
+- **Spec**: `{{featurePath}}/F{number}-{feature-name}/spec.md`
 
 ## Labels
 
@@ -112,4 +116,6 @@ In GitHub Issues, use different link formats **based on file location**:
 - Issue body should use **`--body-file` by default**.
 - If the body contains backticks (`) or `$()`and is placed directly in`"..."`, it may be **interpreted by the shell**.
 - For multi-line bodies, use **single-quoted heredoc** like `cat <<'EOF'`,
+  and handle variables via **placeholder → sed substitution**.
+
   and handle variables via **placeholder → sed substitution**.
