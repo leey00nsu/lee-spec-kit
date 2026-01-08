@@ -91,42 +91,20 @@ docs/
 
 ## 요청 유형별 프로세스
 
-### 1. 새 기능 추가 요청
+> 📖 각 프로세스의 상세 가이드는 `skills/` 폴더를 참조하세요.
 
-1. 대상 레포 확인 (BE 또는 FE)
-2. 새 기능 폴더 생성: `npx lee-spec-kit feature <name>` 또는 `docs/features/README.md` 참조
-3. `spec.md` 작성 - 무엇을, 왜 만드는지 (기술 스택 X)
-4. 사용자에게 스펙 초안 확인 요청
-5. GitHub Issue 생성 (`agents/issue-template.md` 참조)
+| 프로세스          | 가이드                     |
+| ----------------- | -------------------------- |
+| 새 기능 추가      | `skills/create-feature.md` |
+| GitHub Issue 생성 | `skills/create-issue.md`   |
+| Pull Request 생성 | `skills/create-pr.md`      |
+| 태스크 실행       | `skills/execute-task.md`   |
 
-### 2. 기능 스펙 → 계획 수립
+### 추가 규칙 (Fullstack)
 
-1. 스펙이 명확한지 확인
-2. `plan.md` 작성 - 기술 스택, 아키텍처, 파일 구조
-3. **`decisions.md`에 주요 기술 결정 기록** (필수)
-4. 사용자 승인 후 태스크 분해
-
-### 3. 태스크 실행 및 관리
-
-1. `tasks.md`에 태스크 작성 (Acceptance/Checklist 필수)
-2. 사용자 승인 후 실행
-3. **진행 전/후 상태 확인 및 즉시 전환**: `[TODO]` → `[DOING]` → `[DONE]`
-4. 상태 전환 시 날짜 기록 (YYYY-MM-DD)
-5. 태스크를 [DONE]으로 전환할 때 Checklist를 모두 체크
-6. **태스크 완료 직후 상태/날짜 갱신** → 커밋 메시지 제안
-
-### 4. 분석/검토 요청
-
-1. 분석 리포트 작성 (현재 상태, 문제점, 제안, 영향)
-2. 변경 필요시 새 기능/태스크 생성 권장
-
-### 5. 태스크 외 요청 처리
-
-> 사용자가 **tasks.md에 없는 작업**을 요청하면:
-
-1. 해당 작업을 **tasks.md에 반영할지** 사용자에게 확인
-2. 승인 시: tasks.md에 추가 후 실행
-3. 거부 시: 임시 작업으로 진행 (커밋에는 포함)
+- **대상 레포 확인**: 기능 생성 전 BE 또는 FE 레포 확인
+- **plan.md 작성**: 스펙 승인 후 기술 스택, 아키텍처 결정
+- **decisions.md 기록**: 주요 기술 결정 필수 기록
 
 ---
 

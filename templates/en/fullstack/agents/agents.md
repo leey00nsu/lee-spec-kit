@@ -75,35 +75,20 @@ docs/
 
 ## Request Type Processes
 
-### 1. New Feature Request
+> 📖 Refer to `skills/` folder for detailed process guides.
 
-1. Identify target repo (BE or FE)
-2. Create feature folder: `npx lee-spec-kit feature <name>`
-3. Write `spec.md` - what and why (no tech stack)
-4. Request spec review from user
-5. Create GitHub Issue
+| Process        | Guide                      |
+| -------------- | -------------------------- |
+| New Feature    | `skills/create-feature.md` |
+| GitHub Issue   | `skills/create-issue.md`   |
+| Pull Request   | `skills/create-pr.md`      |
+| Task Execution | `skills/execute-task.md`   |
 
-### 2. Spec to Plan
+### Additional Rules (Fullstack)
 
-1. Verify spec is clear
-2. Write `plan.md` - tech stack, architecture, file structure
-3. **Record key decisions in `decisions.md`** (required)
-4. Decompose into tasks after user approval
-
-### 3. Task Execution
-
-1. Write tasks in `tasks.md`
-2. Execute after user approval
-3. Transition status: `[TODO]` → `[DOING]` → `[DONE]`
-4. Commit immediately after task completion
-
-### 4. Handling Requests Outside Tasks
-
-> When user requests **work not in tasks.md**:
-
-1. Ask user if this should be **added to tasks.md**
-2. If approved: Add to tasks.md then execute
-3. If declined: Proceed as temporary work (still included in commit)
+- **Identify target repo**: Determine BE or FE before feature creation
+- **Write plan.md**: Tech stack and architecture decisions after spec approval
+- **Record in decisions.md**: Document all major technical decisions
 
 ---
 

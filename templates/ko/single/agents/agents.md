@@ -62,7 +62,12 @@ docs/
 │   ├── constitution.md
 │   ├── git-workflow.md
 │   ├── issue-template.md
-│   └── pr-template.md
+│   ├── pr-template.md
+│   └── skills/         # 프로세스별 가이드
+│       ├── create-feature.md
+│       ├── create-issue.md
+│       ├── create-pr.md
+│       └── execute-task.md
 ├── prd/                # 제품 요구사항
 ├── features/           # 기능별 문서
 │   ├── feature-base/   # 템플릿
@@ -83,27 +88,14 @@ docs/
 
 ## 요청 유형별 프로세스
 
-### 1. 새 기능 추가 요청
+> 📖 각 프로세스의 상세 가이드는 `skills/` 폴더를 참조하세요.
 
-1. 새 기능 폴더 생성: `npx lee-spec-kit feature <name>`
-2. `spec.md` 작성 - 무엇을, 왜 만드는지
-3. 사용자에게 스펙 초안 확인 요청
-4. GitHub Issue 생성
-
-### 2. 태스크 실행 및 관리
-
-1. `tasks.md`에 태스크 작성
-2. 사용자 승인 후 실행
-3. 상태 전환: `[TODO]` → `[DOING]` → `[DONE]`
-4. 태스크 완료 직후 커밋
-
-### 3. 태스크 외 요청 처리
-
-> 사용자가 **tasks.md에 없는 작업**을 요청하면:
-
-1. 해당 작업을 **tasks.md에 반영할지** 사용자에게 확인
-2. 승인 시: tasks.md에 추가 후 실행
-3. 거부 시: 임시 작업으로 진행 (커밋에는 포함)
+| 프로세스          | 가이드                     |
+| ----------------- | -------------------------- |
+| 새 기능 추가      | `skills/create-feature.md` |
+| GitHub Issue 생성 | `skills/create-issue.md`   |
+| Pull Request 생성 | `skills/create-pr.md`      |
+| 태스크 실행       | `skills/execute-task.md`   |
 
 ---
 
