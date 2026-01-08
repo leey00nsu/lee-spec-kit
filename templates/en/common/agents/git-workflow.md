@@ -70,89 +70,36 @@ main
 
 ## Automation Workflow
 
-### 1. Feature Start
+> 📖 Refer to `skills/` folder for step-by-step guides.
+
+| Workflow       | Guide                      |
+| -------------- | -------------------------- |
+| Feature Start  | `skills/create-feature.md` |
+| Issue Creation | `skills/create-issue.md`   |
+| Task Execution | `skills/execute-task.md`   |
+| PR Creation    | `skills/create-pr.md`      |
+
+### Branch Creation
 
 ```bash
-# 1. Create GitHub Issue (Feature = Issue)
-# 2. Create branch
 git checkout -b feat/{issue-number}-{feature-name}
 ```
 
-> When creating/modifying issues/PRs with `gh`, share the title/body/labels first and **wait for user confirmation (OK)** before proceeding.
+### Document Commit Timing (docs repo)
 
-### 2. Document Commit (docs repo)
+| Commit Timing                                     | Included Documents         | Commit Message Example          |
+| ------------------------------------------------- | -------------------------- | ------------------------------- |
+| When planning complete (spec+plan+tasks approved) | spec.md, plan.md, tasks.md | `docs(#123): spec, plan, tasks` |
+| When Feature complete (all tasks done)            | tasks.md, decisions.md     | `docs(#123): Feature complete`  |
 
-> 📌 The docs folder is managed as a separate git, so a separate commit strategy is used.
+> ⚠️ Do not commit when creating Feature folder.
 
-| #   | Commit Timing                                            | Included Documents              | Commit Message Example          |
-| --- | -------------------------------------------------------- | ------------------------------- | ------------------------------- |
-| 1   | **When planning is complete** (spec+plan+tasks approved) | spec.md, plan.md, tasks.md      | `docs(#123): spec, plan, tasks` |
-| 2   | **When Feature is complete** (all tasks done)            | tasks.md (status), decisions.md | `docs(#123): Feature complete`  |
+### Merge Strategy
 
-> ⚠️ **Do not commit when creating Feature folder.**
-
-### 3. Auto Commit on Task Completion
-
-When a task is completed:
-
-```bash
-git add .
-git commit -m "{type}(#{issue}): {task-description}"
-```
-
-> Before running `git commit`, share the commit message and file list first and **wait for user confirmation (OK)** before proceeding.
-
-### 4. Create PR on Feature Completion
-
-When all tasks are completed:
-
-```bash
-git push origin feat/{issue-number}-{feature-name}
-gh pr create --title "feat(#{issue}): {feature-title}" \
-  --body "Closes #{issue}" \
-  --base main
-```
-
-### 5. Merge
-
-When all reviews are resolved:
-
-```bash
-# Update main before merge
-git checkout main
-git pull
-
-# Squash and Merge
-gh pr merge --squash --delete-branch
-
-# Update main after merge
-git pull
-```
-
----
-
-## Agent Automation Rules
-
-### On Task Completion
-
-```
-1. Complete code changes
-2. Update tasks.md status [DOING] → [DONE] (docs)
-3. git add .
-4. git commit -m "{type}(#{issue}): {description}"
-5. Proceed to next task
-```
-
-### On Feature Completion
-
-```
-1. Verify all tasks [DONE]
-2. git push origin {branch}
-3. gh pr create
-4. Wait for review
-5. Address review comments
-6. gh pr merge --squash
-```
+| Situation      | Merge Method     |
+| -------------- | ---------------- |
+| Normal Feature | Squash and Merge |
+| Urgent Hotfix  | Merge or Rebase  |
 
 ---
 

@@ -70,89 +70,36 @@ main
 
 ## 자동화 워크플로우
 
-### 1. Feature 시작
+> 📖 단계별 상세 가이드는 `skills/` 폴더를 참조하세요.
+
+| 워크플로우   | 가이드                     |
+| ------------ | -------------------------- |
+| Feature 시작 | `skills/create-feature.md` |
+| Issue 생성   | `skills/create-issue.md`   |
+| 태스크 실행  | `skills/execute-task.md`   |
+| PR 생성      | `skills/create-pr.md`      |
+
+### 브랜치 생성
 
 ```bash
-# 1. GitHub Issue 생성 (Feature = Issue)
-# 2. 브랜치 생성
 git checkout -b feat/{issue-number}-{feature-name}
 ```
 
-> `gh`로 이슈/PR 생성·수정 시 작성할 제목/본문/라벨을 먼저 공유하고 **반드시** 사용자 확인(OK) 후 진행합니다.
+### 문서 커밋 시점 (docs 레포)
 
-### 2. 문서 커밋 (docs 레포)
+| 커밋 시점                              | 포함 문서                  | 커밋 메시지 예시                     |
+| -------------------------------------- | -------------------------- | ------------------------------------ |
+| 계획 완료 시 (spec+plan+tasks 승인 후) | spec.md, plan.md, tasks.md | `docs(#123): spec, plan, tasks 작성` |
+| Feature 완료 시 (모든 태스크 완료 후)  | tasks.md, decisions.md     | `docs(#123): Feature 완료`           |
 
-> 📌 docs 폴더는 별도 git으로 관리되므로 프로젝트와 분리된 커밋 전략을 사용합니다.
+> ⚠️ Feature 폴더 생성 시점에는 커밋하지 않습니다.
 
-| #   | 커밋 시점                                  | 포함 문서                     | 커밋 메시지 예시                     |
-| --- | ------------------------------------------ | ----------------------------- | ------------------------------------ |
-| 1   | **계획 완료 시** (spec+plan+tasks 승인 후) | spec.md, plan.md, tasks.md    | `docs(#123): spec, plan, tasks 작성` |
-| 2   | **Feature 완료 시** (모든 태스크 완료 후)  | tasks.md (상태), decisions.md | `docs(#123): Feature 완료`           |
+### 머지 전략
 
-> ⚠️ **Feature 폴더 생성 시점**에는 커밋하지 않습니다.
-
-### 3. 태스크 완료 시 자동 커밋
-
-태스크 하나가 완료되면:
-
-```bash
-git add .
-git commit -m "{type}(#{issue}): {task-description}"
-```
-
-> `git commit` 실행 전 커밋 메시지와 포함될 파일 목록을 먼저 공유하고 **반드시** 사용자 확인(OK) 후 진행합니다.
-
-### 4. Feature 완료 시 PR 생성
-
-모든 태스크 완료 시:
-
-```bash
-git push origin feat/{issue-number}-{feature-name}
-gh pr create --title "feat(#{issue}): {feature-title}" \
-  --body "Closes #{issue}" \
-  --base main
-```
-
-### 5. 머지
-
-모든 리뷰 해결 시:
-
-```bash
-# 머지 전 main 최신화
-git checkout main
-git pull
-
-# Squash and Merge
-gh pr merge --squash --delete-branch
-
-# 머지 후 main 최신화
-git pull
-```
-
----
-
-## 에이전트 자동화 규칙
-
-### 태스크 완료 시
-
-```
-1. 코드 변경 완료
-2. tasks.md 상태 [DOING] → [DONE] 업데이트 (docs)
-3. git add .
-4. git commit -m "{type}(#{issue}): {description}"
-5. 다음 태스크 진행
-```
-
-### Feature 완료 시
-
-```
-1. 모든 태스크 [DONE] 확인
-2. git push origin {branch}
-3. gh pr create
-4. 리뷰 대기
-5. 리뷰 코멘트 수정
-6. gh pr merge --squash
-```
+| 상황         | 머지 방식         |
+| ------------ | ----------------- |
+| 일반 Feature | Squash and Merge  |
+| 긴급 Hotfix  | Merge 또는 Rebase |
 
 ---
 
