@@ -49,8 +49,8 @@ For file links within the repo in PR body, **always use current branch name**:
 
 ## Related Documents
 
-- Spec: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
-- Tasks: `docs/features/{be|fe}/F{number}-{feature-name}/tasks.md`
+- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
+- **Tasks**: `docs/features/{be|fe}/F{number}-{feature-name}/tasks.md`
 
 Closes #{issue-number}
 ```

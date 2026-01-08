@@ -36,12 +36,17 @@ In GitHub Issues, use different link formats **based on file location**:
    [react-i18next](https://react.i18next.com/)
    ```
 
-3. **External/local documents** (no URL available): Use **relative path as text only**
-   ```text
-   ../docs/features/F001-feature-name/spec.md
+3. **Local documents** (no URL available): **Path from project root**
+
+   > 📁 Local documents use paths **from project root**.
+   > Format: `- **{Label}**: \`{path}\``
+
+   ```markdown
+   - **Spec**: `docs/features/F001-feature-name/spec.md`
+   - **Tasks**: `docs/features/F001-feature-name/tasks.md`
    ```
 
-> ⚠️ Local documents are not clickable on GitHub, so provide path text only.
+> ⚠️ Local documents are not clickable on GitHub, so use **bold label + code block path** format instead of markdown links.
 
 ---
 
@@ -64,7 +69,7 @@ In GitHub Issues, use different link formats **based on file location**:
 
 ## Related Documents
 
-- Spec: `docs/features/F{number}-{feature-name}/spec.md`
+- **Spec**: `docs/features/F{number}-{feature-name}/spec.md`
 
 ## Labels
 
