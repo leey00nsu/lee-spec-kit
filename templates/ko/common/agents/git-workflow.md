@@ -96,10 +96,10 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 ### 머지 전략
 
-| 상황         | 머지 방식         |
-| ------------ | ----------------- |
-| 일반 Feature | Squash and Merge  |
-| 긴급 Hotfix  | Merge 또는 Rebase |
+| 상황         | 머지 방식        |
+| ------------ | ---------------- |
+| 일반 Feature | Squash and Merge |
+| 긴급 Hotfix  | Squash and Merge |
 
 ---
 

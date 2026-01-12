@@ -99,7 +99,7 @@ git checkout -b feat/{issue-number}-{feature-name}
 | Situation      | Merge Method     |
 | -------------- | ---------------- |
 | Normal Feature | Squash and Merge |
-| Urgent Hotfix  | Merge or Rebase  |
+| Urgent Hotfix  | Squash and Merge |
 
 ---
 

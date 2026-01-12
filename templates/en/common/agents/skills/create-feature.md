@@ -37,6 +37,14 @@ Share full spec.md content with user and wait for **explicit approval (OK)**
 
 → See `skills/create-issue.md`
 
+### 5. Pre-Commit Checklist
+
+> ⚠️ **Before committing, verify:**
+
+- [ ] Issue number in spec.md (`- **Issue Number**: #{issue}`)
+- [ ] Issue number in tasks.md (`- **Issue**: #{issue}`)
+- [ ] Branch name in tasks.md (`feat/{issue-number}-{feature-name}`)
+
 ---
 
 ## Reference Documents

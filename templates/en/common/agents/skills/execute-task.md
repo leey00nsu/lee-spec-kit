@@ -10,6 +10,7 @@ Guide for executing tasks from tasks.md.
 
 - Find next task in `tasks.md`
 - Select task with `[TODO]` status
+- ⚠️ **Verify current branch matches Feature branch** (`feat/{issue-number}-{feature-name}`)
 
 ### 2. Share Execution Plan
 
