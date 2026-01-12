@@ -87,10 +87,10 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 ### Document Commit Timing (docs repo)
 
-| Commit Timing                                     | Included Documents         | Commit Message Example          |
-| ------------------------------------------------- | -------------------------- | ------------------------------- |
-| When planning complete (spec+plan+tasks approved) | spec.md, plan.md, tasks.md | `docs(#123): spec, plan, tasks` |
-| When Feature complete (all tasks done)            | tasks.md, decisions.md     | `docs(#123): Feature complete`  |
+| Commit Timing                                     | Included Content                    | Commit Message Example               |
+| ------------------------------------------------- | ----------------------------------- | ------------------------------------ |
+| When planning complete (spec+plan+tasks approved) | `F{number}-{feature-name}/` folder  | `docs(#123): F001 spec, plan, tasks` |
+| When Feature complete (all tasks done)            | `F{number}-{feature-name}/` changes | `docs(#123): F001 Feature complete`  |
 
 > ⚠️ Do not commit when creating Feature folder.
 
