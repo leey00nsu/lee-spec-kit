@@ -70,6 +70,27 @@ Use **current branch name** for file links in PR body:
 
 ---
 
+## Code Review Modification Guidelines
+
+> 📋 **Criteria for deciding whether to add a task when modifications are needed from review feedback**
+
+### No task needed (Minor changes)
+
+- Typo/code style fixes
+- Variable/function name changes
+- Comment additions/modifications
+- Lint error fixes
+
+### Task needed (Major changes)
+
+- Logic/algorithm changes
+- New file/function additions
+- API signature changes
+- Test case additions
+- Requires changes to spec.md or plan.md
+
+---
+
 ## Reference Documents
 
 - **PR Template**: `pr-template.md`
