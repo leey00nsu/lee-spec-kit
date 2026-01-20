@@ -6,6 +6,9 @@ export interface ProjectConfig {
   projectName?: string;
   projectType: 'single' | 'fullstack';
   lang: 'ko' | 'en';
+  docsRepo?: 'embedded' | 'standalone';
+  pushDocs?: boolean;
+  docsRemote?: string;
 }
 
 interface ConfigFile {
@@ -13,6 +16,9 @@ interface ConfigFile {
   projectType: 'single' | 'fullstack';
   lang: 'ko' | 'en';
   createdAt: string;
+  docsRepo?: 'embedded' | 'standalone';
+  pushDocs?: boolean;
+  docsRemote?: string;
 }
 
 export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
@@ -33,6 +39,9 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
           projectName: configFile.projectName,
           projectType: configFile.projectType,
           lang: configFile.lang,
+          docsRepo: configFile.docsRepo,
+          pushDocs: configFile.pushDocs,
+          docsRemote: configFile.docsRemote,
         };
       } catch {
         // JSON 파싱 실패 시 폴백

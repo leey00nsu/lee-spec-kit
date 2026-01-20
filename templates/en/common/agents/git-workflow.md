@@ -103,6 +103,24 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 ---
 
+## Docs Push Rules
+
+> Refer to the `docsRepo` setting in `.lee-spec-kit.json`.
+
+| Setting                                      | Behavior                        |
+| -------------------------------------------- | ------------------------------- |
+| `docsRepo: "embedded"`                       | docs included with project push |
+| `docsRepo: "standalone"` + `pushDocs: false` | docs commit only, no push       |
+| `docsRepo: "standalone"` + `pushDocs: true`  | push docs changes separately    |
+
+### Standalone Mode Notes
+
+- If `pushDocs: false`, docs changes are **committed locally only**
+- If `pushDocs: true`, **push separately** after docs changes
+- Project repo and docs repo are separate, **manage each independently**
+
+---
+
 ## GitHub Setup Requirements
 
 ### Required

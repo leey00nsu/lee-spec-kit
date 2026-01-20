@@ -11,6 +11,20 @@ import {
   validateLanguage,
   assertValid,
 } from '../utils/validation.js';
+import { execSync } from 'child_process';
+
+// Git 레포지토리 내부인지 확인
+function checkGitRepo(cwd: string): boolean {
+  try {
+    execSync('git rev-parse --is-inside-work-tree', {
+      cwd,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface InitOptions {
   name?: string;
@@ -50,10 +64,38 @@ async function runInit(options: InitOptions): Promise<void> {
   let projectName = options.name || defaultName;
   let projectType = options.type;
   let lang = options.lang || 'ko';
+  let docsRepo: 'embedded' | 'standalone' = 'embedded';
+  let pushDocs: boolean | undefined;
+  let docsRemote: string | undefined;
   const targetDir = path.resolve(cwd, options.dir || './docs');
+
+  // Git 환경 감지
+  const isInsideGitRepo = checkGitRepo(cwd);
 
   // 대화형 프롬프트 (--yes가 없을 때)
   if (!options.yes) {
+    // Git 환경 안내
+    console.log();
+    console.log(chalk.blue(`📍 현재 위치: ${cwd}`));
+    if (isInsideGitRepo) {
+      console.log(chalk.green('✅ Git 레포지토리 감지됨'));
+      console.log();
+      console.log(chalk.gray('현재 프로젝트 루트 내에서 실행하고 계십니다.'));
+      console.log(
+        chalk.gray(
+          '• embedded: 여기에 ./docs 폴더를 생성합니다. 프로젝트와 함께 관리됩니다.'
+        )
+      );
+      console.log(
+        chalk.gray('• standalone: 별도 폴더에서 독립 docs 레포로 관리하려면,')
+      );
+      console.log(chalk.gray('  해당 폴더로 이동 후 다시 실행해주세요.'));
+    } else {
+      console.log(chalk.yellow('⚠️  Git 레포지토리가 감지되지 않았습니다.'));
+      console.log(chalk.gray('새로운 Git 레포지토리가 생성됩니다.'));
+    }
+    console.log();
+
     const response = await prompts(
       [
         {
@@ -90,6 +132,24 @@ async function runInit(options: InitOptions): Promise<void> {
           ],
           initial: 0,
         },
+        {
+          type: 'select',
+          name: 'docsRepo',
+          message: 'Docs 관리 방식을 선택하세요:',
+          choices: [
+            {
+              title: 'embedded - 프로젝트 내 포함 (./docs)',
+              value: 'embedded',
+              description: '프로젝트와 함께 push됩니다',
+            },
+            {
+              title: 'standalone - 별도 독립 레포',
+              value: 'standalone',
+              description: 'push 여부를 별도로 설정합니다',
+            },
+          ],
+          initial: 0,
+        },
       ],
       {
         onCancel: () => {
@@ -101,6 +161,60 @@ async function runInit(options: InitOptions): Promise<void> {
     projectName = response.projectName || projectName;
     projectType = response.projectType || projectType;
     lang = response.lang || lang;
+    docsRepo = response.docsRepo || 'embedded';
+
+    // standalone 선택 시 추가 질문
+    if (docsRepo === 'standalone') {
+      const standaloneResponse = await prompts(
+        [
+          {
+            type: 'select',
+            name: 'pushDocs',
+            message: 'Docs push 방식을 선택하세요:',
+            choices: [
+              {
+                title: 'local - 로컬에서만 관리 (push 안 함)',
+                value: false,
+              },
+              {
+                title: 'remote - 원격에도 push',
+                value: true,
+              },
+            ],
+            initial: 0,
+          },
+        ],
+        {
+          onCancel: () => {
+            throw new Error('canceled');
+          },
+        }
+      );
+
+      pushDocs = standaloneResponse.pushDocs;
+
+      // remote 선택 시 URL 입력
+      if (pushDocs === true) {
+        const remoteResponse = await prompts(
+          [
+            {
+              type: 'text',
+              name: 'docsRemote',
+              message: '원격 레포 URL을 입력하세요:',
+              validate: (value: string) =>
+                value.trim() ? true : 'URL을 입력해주세요',
+            },
+          ],
+          {
+            onCancel: () => {
+              throw new Error('canceled');
+            },
+          }
+        );
+
+        docsRemote = remoteResponse.docsRemote;
+      }
+    }
   }
 
   // 타입 기본값
@@ -167,12 +281,22 @@ async function runInit(options: InitOptions): Promise<void> {
   await replaceInFiles(targetDir, replacements);
 
   // Config 파일 생성
-  const config = {
+  const config: Record<string, unknown> = {
     projectName,
     projectType,
     lang,
     createdAt: new Date().toISOString().split('T')[0],
+    docsRepo,
   };
+
+  // standalone일 때만 pushDocs 추가
+  if (docsRepo === 'standalone') {
+    config.pushDocs = pushDocs;
+    if (pushDocs && docsRemote) {
+      config.docsRemote = docsRemote;
+    }
+  }
+
   const configPath = path.join(targetDir, '.lee-spec-kit.json');
   await fs.writeJson(configPath, config, { spaces: 2 });
 
@@ -180,7 +304,7 @@ async function runInit(options: InitOptions): Promise<void> {
   console.log();
 
   // Git 초기화
-  await initGit(cwd, targetDir);
+  await initGit(cwd, targetDir, docsRepo, pushDocs, docsRemote);
 
   console.log(chalk.blue('다음 단계:'));
   console.log(chalk.gray(`  1. ${targetDir}/prd/README.md 작성`));
@@ -190,9 +314,13 @@ async function runInit(options: InitOptions): Promise<void> {
   console.log();
 }
 
-async function initGit(cwd: string, targetDir: string): Promise<void> {
-  const { execSync } = await import('child_process');
-
+async function initGit(
+  cwd: string,
+  targetDir: string,
+  docsRepo: 'embedded' | 'standalone',
+  pushDocs?: boolean,
+  docsRemote?: string
+): Promise<void> {
   try {
     // Git이 이미 초기화되어 있는지 확인
     try {
@@ -217,6 +345,20 @@ async function initGit(cwd: string, targetDir: string): Promise<void> {
       cwd,
       stdio: 'ignore',
     });
+
+    // standalone + remote 선택 시 origin 추가
+    if (docsRepo === 'standalone' && pushDocs && docsRemote) {
+      try {
+        execSync(`git remote add origin "${docsRemote}"`, {
+          cwd,
+          stdio: 'ignore',
+        });
+        console.log(chalk.green(`✅ Git remote 설정 완료: ${docsRemote}`));
+      } catch {
+        // remote가 이미 존재할 수 있음
+        console.log(chalk.yellow('⚠️  Git remote가 이미 존재합니다.'));
+      }
+    }
 
     console.log(chalk.green('✅ Git 초기 커밋 완료!'));
     console.log();

@@ -103,6 +103,24 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 ---
 
+## Docs Push 규칙
+
+> `.lee-spec-kit.json`의 `docsRepo` 설정을 참조합니다.
+
+| 설정                                         | 동작                              |
+| -------------------------------------------- | --------------------------------- |
+| `docsRepo: "embedded"`                       | 프로젝트 push 시 docs도 함께 포함 |
+| `docsRepo: "standalone"` + `pushDocs: false` | docs는 커밋만, push 안 함         |
+| `docsRepo: "standalone"` + `pushDocs: true`  | docs 변경 시 별도 push 진행       |
+
+### Standalone 모드 주의사항
+
+- `pushDocs: false`인 경우 docs 변경사항은 **로컬에만 커밋**
+- `pushDocs: true`인 경우 docs 변경 후 **별도로 push** 필요
+- 프로젝트 레포와 docs 레포가 분리되어 있으므로 **각각 관리**
+
+---
+
 ## GitHub 설정 요구사항
 
 ### 필수
