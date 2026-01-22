@@ -85,7 +85,7 @@ gh pr create \
 | Situation      | Merge Method     |
 | -------------- | ---------------- |
 | Normal Feature | Squash and Merge |
-| Urgent Hotfix  | Merge or Rebase  |
+| Urgent Hotfix  | Squash and Merge |
 | Docs update    | Squash and Merge |
 
 ---

@@ -109,13 +109,6 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 > 💡 **Core Rule**: At task completion, **all changed repositories** must be committed.
 
-### Merge Strategy
-
-| Situation      | Merge Method     |
-| -------------- | ---------------- |
-| Normal Feature | Squash and Merge |
-| Urgent Hotfix  | Squash and Merge |
-
 ---
 
 ## Docs Push Rules

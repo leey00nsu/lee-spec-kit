@@ -109,13 +109,6 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 > 💡 **Core Rule**: 태스크 완료 시점에는 **변경된 모든 레포지토리**가 커밋되어야 합니다.
 
-### 머지 전략
-
-| 상황         | 머지 방식        |
-| ------------ | ---------------- |
-| 일반 Feature | Squash and Merge |
-| 긴급 Hotfix  | Squash and Merge |
-
 ---
 
 ## Docs Push 규칙

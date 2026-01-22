@@ -80,11 +80,11 @@ gh pr create \
 
 ## 머지 규칙
 
-| 상황         | 머지 방식         |
-| ------------ | ----------------- |
-| 일반 Feature | Squash and Merge  |
-| 긴급 Hotfix  | Merge 또는 Rebase |
-| 문서 수정    | Squash and Merge  |
+| 상황         | 머지 방식        |
+| ------------ | ---------------- |
+| 일반 Feature | Squash and Merge |
+| 긴급 Hotfix  | Squash and Merge |
+| 문서 수정    | Squash and Merge |
 
 ---
 
