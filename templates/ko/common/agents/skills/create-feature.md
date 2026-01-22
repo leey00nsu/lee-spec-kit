@@ -53,6 +53,20 @@ git checkout -b feat/{이슈번호}-{기능명}
 - [ ] tasks.md에 이슈번호 반영 (`- **Issue**: #{이슈번호}`)
 - [ ] tasks.md에 브랜치명 반영 (`feat/{이슈번호}-{기능명}`)
 
+### 7. 문서 커밋
+
+> 🚨 **사용자 확인 필수**
+
+spec/plan/tasks 승인 후 **Feature 폴더 전체**를 커밋:
+
+```bash
+git add docs/features/{be|fe}/F{번호}-{기능명}/
+git commit -m "docs(#{이슈번호}): F{번호} 계획 완료"
+```
+
+> 📁 **포함 파일**: spec.md, plan.md, tasks.md, decisions.md (비어있어도 포함)
+> ⚠️ **Standalone 모드**: Docs 레포로 이동 후 커밋하세요.
+
 ---
 
 ## 참조 문서

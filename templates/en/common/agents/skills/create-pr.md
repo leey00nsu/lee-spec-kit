@@ -38,10 +38,10 @@ Guide for creating Pull Requests.
 
 > 🚨 **User Approval Required**
 
-Before creating PR, share and wait for approval:
+Before creating PR, share the following **in a code block** and wait for **explicit approval (OK)**:
 
 - Title
-- Body (including test results)
+- Full body (`pr-template.md` format)
 - Labels
 
 ### 4. Create PR

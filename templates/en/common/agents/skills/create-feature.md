@@ -53,6 +53,20 @@ git checkout -b feat/{issue-number}-{feature-name}
 - [ ] Issue number in tasks.md (`- **Issue**: #{issue}`)
 - [ ] Branch name in tasks.md (`feat/{issue-number}-{feature-name}`)
 
+### 7. Commit Documents
+
+> 🚨 **User Approval Required**
+
+After spec/plan/tasks approval, commit the **entire Feature folder**:
+
+```bash
+git add docs/features/{be|fe}/F{number}-{feature-name}/
+git commit -m "docs(#{issue}): F{number} planning complete"
+```
+
+> 📁 **Included files**: spec.md, plan.md, tasks.md, decisions.md (include even if empty)
+> ⚠️ **Standalone mode**: Switch to Docs repo before committing.
+
 ---
 
 ## Reference Documents
