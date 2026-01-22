@@ -27,18 +27,24 @@ Share execution plan with user before starting and wait for approval
 
 Record date (YYYY-MM-DD) with each status change
 
-### 4. Commit After Task Completion
+### 4. Commit After Task Completion (Docs Sync)
 
 > 🚨 **User Approval Required**
 
 Before committing, share and wait for approval:
 
-- Commit message
+- Commit message (Applicable repositories)
 - Files to be included
 
 ```bash
+# 1. Project Commit (If code changed)
 git add .
-git commit -m "{type}(#{issue-number}): {task description}"
+git commit -m "{type}(#{issue}): {task description}"
+
+# 2. Docs Commit (If docs changed)
+# For Standalone mode, move to docs repo
+git add .
+git commit -m "docs(#{issue}): {task description} update docs"
 ```
 
 ---

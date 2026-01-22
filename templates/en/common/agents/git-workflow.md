@@ -85,14 +85,29 @@ main
 git checkout -b feat/{issue-number}-{feature-name}
 ```
 
-### Document Commit Timing (docs repo)
+### Document Commit Rules (Continuous Sync)
 
-| Commit Timing                                     | Included Content                    | Commit Message Example                        |
-| ------------------------------------------------- | ----------------------------------- | --------------------------------------------- |
-| When planning complete (spec+plan+tasks approved) | `F{number}-{feature-name}/` folder  | `docs(#{issue}): F{number} spec, plan, tasks` |
-| When Feature complete (all tasks done)            | `F{number}-{feature-name}/` changes | `docs(#{issue}): F{number} Feature complete`  |
+> 🔄 **Docs synchronization is mandatory when Project code changes.**
 
-> ⚠️ Do not commit when creating Feature folder.
+| Situation                 | Rule                                                                  |
+| ------------------------- | --------------------------------------------------------------------- |
+| **Project + Docs Change** | Must commit Docs **together with Project commit** (Maintain Sync)     |
+| **Docs Only Change**      | If only docs changed (e.g., `custom.md` update), **commit Docs only** |
+
+#### Standalone Mode Commit Guide
+
+1. **Project Commit** (If code changed)
+
+   ```bash
+   git commit -m "feat(#123): implement feature"
+   ```
+
+2. **Docs Commit** (If docs changed - **Run in Docs Repo**)
+   ```bash
+   git commit -m "docs(#123): update feature docs"
+   ```
+
+> 💡 **Core Rule**: At task completion, **all changed repositories** must be committed.
 
 ### Merge Strategy
 
