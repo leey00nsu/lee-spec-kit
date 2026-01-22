@@ -56,8 +56,8 @@ PR 본문에서 레포 내 파일 링크는 **반드시 현재 브랜치명을 �
 
 ## 관련 문서
 
-- **Spec**: `{{featurePath}}/F{번호}-{기능명}/spec.md`
-- **Tasks**: `{{featurePath}}/F{번호}-{기능명}/tasks.md`
+- **Spec**: `docs/features/{be|fe}/F{번호}-{기능명}/spec.md`
+- **Tasks**: `docs/features/{be|fe}/F{번호}-{기능명}/tasks.md`
 
 Closes #{이슈번호}
 ```
@@ -85,6 +85,22 @@ gh pr create \
 | 일반 Feature | Squash and Merge |
 | 긴급 Hotfix  | Squash and Merge |
 | 문서 수정    | Squash and Merge |
+
+### 머지 실행
+
+모든 리뷰 해결 시:
+
+```bash
+# 머지 전 main 최신화
+git checkout main
+git pull
+
+# Squash and Merge
+gh pr merge --squash --delete-branch
+
+# 머지 후 main 최신화
+git pull
+```
 
 ---
 

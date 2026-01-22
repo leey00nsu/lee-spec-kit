@@ -63,7 +63,12 @@ docs/
 │   ├── constitution.md # 프로젝트 원칙
 │   ├── git-workflow.md # Git 자동화
 │   ├── issue-template.md
-│   └── pr-template.md
+│   ├── pr-template.md
+│   └── skills/         # 단계별 가이드
+│       ├── create-feature.md
+│       ├── create-issue.md
+│       ├── create-pr.md
+│       └── execute-task.md
 ├── prd/                # 제품 요구사항
 ├── features/           # 기능별 문서
 │   ├── be/             # Backend Features

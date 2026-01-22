@@ -58,8 +58,8 @@ For file links within the repo in PR body, **always use current branch name**:
 
 ## Related Documents
 
-- **Spec**: `{{featurePath}}/F{number}-{feature-name}/spec.md`
-- **Tasks**: `{{featurePath}}/F{number}-{feature-name}/tasks.md`
+- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
+- **Tasks**: `docs/features/{be|fe}/F{number}-{feature-name}/tasks.md`
 
 Closes #{issue-number}
 ```
@@ -87,6 +87,22 @@ gh pr create \
 | Normal Feature | Squash and Merge |
 | Urgent Hotfix  | Squash and Merge |
 | Docs update    | Squash and Merge |
+
+### Merge Execution
+
+After all reviews are resolved:
+
+```bash
+# Update main before merge
+git checkout main
+git pull
+
+# Squash and Merge
+gh pr merge --squash --delete-branch
+
+# Update main after merge
+git pull
+```
 
 ---
 

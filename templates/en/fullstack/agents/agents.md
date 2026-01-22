@@ -59,11 +59,16 @@ Operating rules for AI code assistants to perform consistent code generation and
 docs/
 ├── README.md           # Documentation guide
 ├── agents/             # Agent operating rules
-│   ├── agents.md
-│   ├── constitution.md
-│   ├── git-workflow.md
+│   ├── agents.md       # Main rules (this file)
+│   ├── constitution.md # Project principles
+│   ├── git-workflow.md # Git automation
 │   ├── issue-template.md
-│   └── pr-template.md
+│   ├── pr-template.md
+│   └── skills/         # Step-by-step guides
+│       ├── create-feature.md
+│       ├── create-issue.md
+│       ├── create-pr.md
+│       └── execute-task.md
 ├── prd/                # Product requirements
 ├── features/           # Feature documentation
 │   ├── be/             # Backend Features

@@ -36,14 +36,30 @@ In GitHub Issues, use different link formats **based on file location**:
    [react-i18next](https://react.i18next.com/)
    ```
 
-3. **Local documents** (no URL available): **Path from project root**
+3. **Files within project repo**: Use full URL (clickable)
+   - **Merged documents/code**: Use `main` branch
+     ```markdown
+     [filename](https://github.com/{owner}/{repo}/blob/main/path/to/file)
+     ```
+   - **In-progress documents** (not merged yet): Use **Feature branch**
+     ```markdown
+     [filename](https://github.com/{owner}/{repo}/blob/{feat-branch}/path/to/file)
+     ```
+
+4. **External documents (with public URL)**: Use **absolute URL**
+
+   ```markdown
+   [react-i18next](https://react.i18next.com/)
+   ```
+
+5. **Local documents** (no URL available): **Path from project root**
 
    > 📁 Local documents use paths **from project root**.
    > Format: `- **{Label}**: \`{path}\``
 
    ```markdown
-   - **Spec**: `{{featurePath}}/F001-feature-name/spec.md`
-   - **Tasks**: `{{featurePath}}/F001-feature-name/tasks.md`
+   - **Spec**: `docs/features/{be|fe}/F001-feature-name/spec.md`
+   - **Tasks**: `docs/features/{be|fe}/F001-feature-name/tasks.md`
    ```
 
 > ⚠️ Local documents are not clickable on GitHub, so use **bold label + code block path** format instead of markdown links.
@@ -69,7 +85,7 @@ In GitHub Issues, use different link formats **based on file location**:
 
 ## Related Documents
 
-- **Spec**: `{{featurePath}}/F{number}-{feature-name}/spec.md`
+- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
 
 ## Labels
 

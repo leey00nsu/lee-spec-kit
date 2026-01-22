@@ -58,19 +58,18 @@
 docs/
 ├── README.md           # 문서 안내
 ├── agents/             # 에이전트 운영 규칙
-│   ├── agents.md
-│   ├── constitution.md
-│   ├── git-workflow.md
+│   ├── agents.md       # 메인 규칙 (이 파일)
+│   ├── constitution.md # 프로젝트 원칙
+│   ├── git-workflow.md # Git 자동화
 │   ├── issue-template.md
 │   ├── pr-template.md
-│   └── skills/         # 프로세스별 가이드
+│   └── skills/         # 단계별 가이드
 │       ├── create-feature.md
 │       ├── create-issue.md
 │       ├── create-pr.md
 │       └── execute-task.md
 ├── prd/                # 제품 요구사항
 ├── features/           # 기능별 문서
-│   ├── feature-base/   # 템플릿
 │   └── F00X-{name}/    # 개별 기능
 └── scripts/            # 유틸리티
 ```

@@ -1,7 +1,9 @@
 # {{projectName}} Constitution
 
-Core principles and technical decision guidelines for the project.
-All development decisions should be based on this document.
+> ⚠️ **Replace `{{projectName}}` and `{{date}}` with actual project name and date.**
+
+Core principles and technical decision guidelines for this project.
+All development decisions are based on this document.
 
 > **📌 Document Scope**
 >

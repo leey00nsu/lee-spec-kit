@@ -37,7 +37,15 @@ Share full spec.md content with user and wait for **explicit approval (OK)**
 
 → See `skills/create-issue.md`
 
-### 5. Pre-Commit Checklist
+### 5. Create Branch
+
+```bash
+git checkout -b feat/{issue-number}-{feature-name}
+```
+
+> ⚠️ **Do NOT work on main branch.** Always create a branch after issue creation.
+
+### 6. Pre-Commit Checklist
 
 > ⚠️ **Before committing, verify:**
 

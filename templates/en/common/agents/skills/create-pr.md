@@ -27,12 +27,12 @@ Guide for creating Pull Requests.
 
 ### 2. Test Verification
 
-> 🚨 **Cannot create PR if tests fail**
+> 🚨 **PR cannot be created if tests fail**
 
-1. Run related test commands (e.g., `npm test`, `pnpm test`)
+1. Run relevant test commands (e.g., `npm test`, `pnpm test`); if no tests exist, request them from the user
 2. Check results (PASS/FAIL)
-3. Record **execution results** in PR body "Tests" section
-4. Check boxes **only for items that actually passed**
+3. Record **execution results** in the "Tests" section of PR body
+4. All checkboxes must be checked
 
 ### 3. Request User Approval
 
