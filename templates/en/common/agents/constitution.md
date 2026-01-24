@@ -44,33 +44,19 @@ All development decisions are based on this document.
 
 ## Architecture Principles
 
-### 1. Feature-Centric Management
-
-- Manage new features in `docs/features/F00X/` structure
-- Develop by **feature unit** (FE/BE separate)
-- spec → plan → tasks → decisions workflow
-
-### 2. (Additional Principles)
-
-(Write project-specific architecture principles here)
+> (Write project-specific architecture principles here. e.g., layer structure, dependency rules)
 
 ---
 
 ## Code Quality Standards
 
-- TypeScript strict mode required
-- ESLint + Prettier required
-- Major business logic test coverage **80%+**
-- Components follow **Single Responsibility Principle**
-- Minimize code duplication
+> (Write project code quality standards here. e.g., test coverage, lint rules)
 
 ---
 
 ## Security Principles
 
-- Manage secrets via environment variables (no repo commits)
-- **Minimal data collection** for user data
-- CORS only for allowed origins
+> (Write project security principles here. e.g., authentication method, data encryption)
 
 ---
 
