@@ -9,3 +9,46 @@
 | `docs/agents/`   | 에이전트 운영 규칙 | `agents.md`, `constitution.md`, `git-workflow.md`             |
 | `docs/prd/`      | 제품 요구사항      | 프로젝트별 작성                                               |
 | `docs/features/` | 기능별 문서        | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
+
+---
+
+## CLI 설정 파일 (`.lee-spec-kit.json`)
+
+`lee-spec-kit init`을 실행하면 문서 루트(기본: `docs/`)에 `.lee-spec-kit.json`이 생성됩니다.
+
+- `lee-spec-kit feature`, `status`, `update`에서 문서 위치/프로젝트 타입/언어를 감지하는 용도로 사용됩니다.
+- `docsRepo`, `pushDocs`, `docsRemote`는 `/docs/agents/git-workflow.md`의 **Docs Push 규칙**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)
+
+### 필드
+
+- `projectName` (string): 프로젝트 이름
+- `projectType` ("single" | "fullstack"): 프로젝트 타입
+- `lang` ("ko" | "en"): 문서 언어
+- `createdAt` (string, YYYY-MM-DD): 생성 날짜
+- `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
+- `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
+- `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
+
+### 예시
+
+```json
+{
+  "projectName": "{{projectName}}",
+  "projectType": "single",
+  "lang": "ko",
+  "createdAt": "{{date}}",
+  "docsRepo": "embedded"
+}
+```
+
+```json
+{
+  "projectName": "{{projectName}}",
+  "projectType": "single",
+  "lang": "ko",
+  "createdAt": "{{date}}",
+  "docsRepo": "standalone",
+  "pushDocs": true,
+  "docsRemote": "git@github.com:org/{{projectName}}-docs.git"
+}
+```

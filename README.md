@@ -37,6 +37,27 @@ npx lee-spec-kit init --name my-project --type fullstack --lang ko
 | `-d, --dir <dir>`   | 설치 디렉토리                  | `./docs`    |
 | `-y, --yes`         | 대화형 프롬프트 스킵           | -           |
 
+### 설정 파일 (`.lee-spec-kit.json`)
+
+`init`을 실행하면 문서 루트(기본: `docs/`, 또는 `--dir`로 지정한 경로)에 `.lee-spec-kit.json`이 생성됩니다.
+
+- `feature`, `status`, `update` 명령은 이 파일을 우선적으로 읽어 문서 위치/프로젝트 타입/언어를 감지합니다.
+- 파일이 없거나 JSON 파싱에 실패하면 폴더 구조를 기반으로 감지합니다. (`docs/agents`, `docs/features` 존재 여부 등)
+
+예시:
+
+```json
+{
+  "projectName": "my-project",
+  "projectType": "single",
+  "lang": "ko",
+  "createdAt": "YYYY-MM-DD",
+  "docsRepo": "embedded"
+}
+```
+
+`docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`가 추가될 수 있습니다.
+
 ### 새 기능 생성
 
 ```bash

@@ -10,3 +10,46 @@ This documentation is organized by feature to help agents quickly understand the
 | `docs/prd/`         | Product requirements  | Project-specific                                              |
 | `docs/features/be/` | Backend features      | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
 | `docs/features/fe/` | Frontend features     | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
+
+---
+
+## CLI Config (`.lee-spec-kit.json`)
+
+When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs root (default: `docs/`).
+
+- Used by `lee-spec-kit feature`, `status`, and `update` to detect docs location / project type / language.
+- `docsRepo`, `pushDocs`, `docsRemote` are metadata for the **Docs Push rules** in `/docs/agents/git-workflow.md` (the CLI does not auto-push).
+
+### Fields
+
+- `projectName` (string): Project name
+- `projectType` ("single" | "fullstack"): Project type
+- `lang` ("ko" | "en"): Docs language
+- `createdAt` (string, YYYY-MM-DD): Creation date
+- `docsRepo` ("embedded" | "standalone"): How docs are managed
+- `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
+- `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
+
+### Examples
+
+```json
+{
+  "projectName": "{{projectName}}",
+  "projectType": "fullstack",
+  "lang": "en",
+  "createdAt": "{{date}}",
+  "docsRepo": "embedded"
+}
+```
+
+```json
+{
+  "projectName": "{{projectName}}",
+  "projectType": "fullstack",
+  "lang": "en",
+  "createdAt": "{{date}}",
+  "docsRepo": "standalone",
+  "pushDocs": true,
+  "docsRemote": "git@github.com:org/{{projectName}}-docs.git"
+}
+```
