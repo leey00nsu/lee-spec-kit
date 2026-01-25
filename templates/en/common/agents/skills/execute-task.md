@@ -28,6 +28,11 @@ Share execution plan with user before starting and wait for approval
 > ⚠️ Even after work is complete, **stay in `[DOING]` until user approval**
 > ⚠️ When switching to `[DONE]`, **must also check the checkbox**.
 
+Before switching to `[DONE]`, confirm:
+
+- You actually verified the `Acceptance` conditions
+- You checked all `Checklist` checkboxes
+
 Record date (YYYY-MM-DD) with each status change
 
 ### 4. Commit After Task Completion (Docs Sync)

@@ -29,5 +29,12 @@
 
 ## Completion Criteria
 
-- [ ] All tasks [DONE]
-- [ ] All tests passing
+> ⚠️ This is a **final verification checklist**. Only check after you actually verified.
+
+- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked
+- [ ] Tests executed and passing (record command/result below)
+
+### Test Run Log
+
+- Command: `{test command you ran}`
+- Result: `{PASS/FAIL summary}`

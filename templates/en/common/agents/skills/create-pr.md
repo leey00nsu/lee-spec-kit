@@ -7,6 +7,7 @@ Guide for creating Pull Requests.
 ## Prerequisites
 
 - [ ] All tasks in `[DONE]` state
+- [ ] All checkboxes in `tasks.md` "Completion Criteria" are checked
 - [ ] Changes committed
 - [ ] Branch pushed
 
