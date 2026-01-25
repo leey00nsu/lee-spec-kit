@@ -65,6 +65,8 @@ docs/
 │       ├── create-pr.md
 │       └── execute-task.md
 ├── prd/                # Product requirements
+├── designs/            # Design references
+├── ideas/              # Pre-feature ideas / to-dos
 ├── features/           # Feature documentation
 │   ├── feature-base/   # Template
 │   └── F00X-{name}/

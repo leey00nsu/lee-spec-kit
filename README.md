@@ -92,6 +92,8 @@ docs/
 │   ├── git-workflow.md     # Git 자동화 규칙
 │   ├── issue-template.md
 │   └── pr-template.md
+├── designs/                # 디자인 참고 자료
+├── ideas/                  # 아이디어/To-do (Feature 승격 전)
 ├── prd/
 │   └── README.md
 └── features/
@@ -107,6 +109,8 @@ docs/
 docs/
 ├── README.md
 ├── agents/
+├── designs/
+├── ideas/
 ├── prd/
 └── features/
     ├── feature-base/

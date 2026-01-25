@@ -8,6 +8,8 @@ This documentation is organized by feature to help agents quickly understand the
 | ---------------- | --------------------- | ------------------------------------------------------------- |
 | `docs/agents/`   | Agent operating rules | `agents.md`, `constitution.md`, `git-workflow.md`             |
 | `docs/prd/`      | Product requirements  | Project-specific                                              |
+| `docs/designs/`  | Design references     | `README.md` (links/guidelines/references)                     |
+| `docs/ideas/`    | Ideas / to-dos         | `README.md` (Idea → Feature promotion rules)                  |
 | `docs/features/` | Feature documentation | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
 
 ---

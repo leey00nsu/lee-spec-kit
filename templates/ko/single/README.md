@@ -8,6 +8,8 @@
 | ---------------- | ------------------ | ------------------------------------------------------------- |
 | `docs/agents/`   | 에이전트 운영 규칙 | `agents.md`, `constitution.md`, `git-workflow.md`             |
 | `docs/prd/`      | 제품 요구사항      | 프로젝트별 작성                                               |
+| `docs/designs/`  | 디자인 참고 자료   | `README.md` (링크/가이드/레퍼런스)                            |
+| `docs/ideas/`    | 아이디어/To-do      | `README.md` (Idea → Feature 승격 규칙)                        |
 | `docs/features/` | 기능별 문서        | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
 
 ---

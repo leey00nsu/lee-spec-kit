@@ -69,6 +69,8 @@ docs/
 │       ├── create-pr.md
 │       └── execute-task.md
 ├── prd/                # 제품 요구사항
+├── designs/            # 디자인 참고 자료
+├── ideas/              # 아이디어/To-do (Feature 승격 전)
 ├── features/           # 기능별 문서
 │   └── F00X-{name}/    # 개별 기능
 └── scripts/            # 유틸리티
