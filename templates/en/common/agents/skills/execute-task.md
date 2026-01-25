@@ -20,12 +20,13 @@ Share execution plan with user before starting and wait for approval
 
 ### 3. Update Status
 
-| Timing              | Status Transition    |
-| ------------------- | -------------------- |
-| On start            | `[TODO]` → `[DOING]` |
-| After user approval | `[DOING]` → `[DONE]` |
+| Timing              | Status Transition    | Checkbox          |
+| ------------------- | -------------------- | ----------------- |
+| On start            | `[TODO]` → `[DOING]` | `[ ]` (No change) |
+| After user approval | `[DOING]` → `[DONE]` | **`[x]` (Check)** |
 
 > ⚠️ Even after work is complete, **stay in `[DOING]` until user approval**
+> ⚠️ When switching to `[DONE]`, **must also check the checkbox**.
 
 Record date (YYYY-MM-DD) with each status change
 
