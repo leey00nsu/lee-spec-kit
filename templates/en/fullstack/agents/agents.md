@@ -33,6 +33,8 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 ### Core Documents
 
+> 🚨 **You MUST read and understand all core documents before proceeding.**
+
 > ⚠️ **Rules in `custom.md` take precedence over all other rules.**
 
 - **🔴 Custom Rules (Highest Priority)**: `/docs/agents/custom.md`
