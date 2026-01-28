@@ -45,7 +45,22 @@ git checkout -b feat/{issue-number}-{feature-name}
 
 > ⚠️ **Do NOT work on main branch.** Always create a branch after issue creation.
 
-### 6. Pre-Commit Checklist
+### 6. Write plan.md
+
+- **plan.md**: Write the implementation plan (Tech stack, architecture, data model, etc.).
+
+### 7. Request plan.md Approval
+
+> 🚨 **plan.md Approval Required**
+
+Share the plan.md with the user and wait for **explicit approval (OK)**.
+
+### 8. Write tasks.md
+
+- **tasks.md**: Break down the work into tasks based on the approved plan.
+- Create a checklist considering order and dependencies.
+
+### 9. Pre-Commit Checklist
 
 > ⚠️ **Before committing, verify:**
 
@@ -53,11 +68,11 @@ git checkout -b feat/{issue-number}-{feature-name}
 - [ ] Issue number in tasks.md (`- **Issue**: #{issue}`)
 - [ ] Branch name in tasks.md (`feat/{issue-number}-{feature-name}`)
 
-### 7. Commit Documents
+### 10. Commit Documents
 
 > 🚨 **User Approval Required**
 
-After spec/plan/tasks approval, commit the **entire Feature folder**:
+After final review of spec/plan/tasks, commit the **entire Feature folder**:
 
 ```bash
 git add docs/features/{be|fe}/F{number}-{feature-name}/
