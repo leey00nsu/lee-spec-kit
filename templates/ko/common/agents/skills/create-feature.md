@@ -67,6 +67,7 @@ git checkout -b feat/{이슈번호}-{기능명}
 - [ ] spec.md에 이슈번호 반영 (`- **이슈 번호**: #{이슈번호}`)
 - [ ] tasks.md에 이슈번호 반영 (`- **Issue**: #{이슈번호}`)
 - [ ] tasks.md에 브랜치명 반영 (`feat/{이슈번호}-{기능명}`)
+- [ ] spec.md, plan.md의 Status가 **Approved**로 변경되었는지 확인
 
 ### 10. 문서 커밋
 

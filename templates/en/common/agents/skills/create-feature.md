@@ -67,6 +67,7 @@ Share the plan.md with the user and wait for **explicit approval (OK)**.
 - [ ] Issue number in spec.md (`- **Issue Number**: #{issue}`)
 - [ ] Issue number in tasks.md (`- **Issue**: #{issue}`)
 - [ ] Branch name in tasks.md (`feat/{issue-number}-{feature-name}`)
+- [ ] Verify spec.md and plan.md Status is set to **Approved**
 
 ### 10. Commit Documents
 
