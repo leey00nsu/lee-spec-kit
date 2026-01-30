@@ -9,6 +9,7 @@ export interface ProjectConfig {
   docsRepo?: 'embedded' | 'standalone';
   pushDocs?: boolean;
   docsRemote?: string;
+  projectRoot?: string | { fe: string; be: string };
 }
 
 interface ConfigFile {
@@ -19,6 +20,7 @@ interface ConfigFile {
   docsRepo?: 'embedded' | 'standalone';
   pushDocs?: boolean;
   docsRemote?: string;
+  projectRoot?: string | { fe: string; be: string };
 }
 
 export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
@@ -42,6 +44,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
           docsRepo: configFile.docsRepo,
           pushDocs: configFile.pushDocs,
           docsRemote: configFile.docsRemote,
+          projectRoot: configFile.projectRoot,
         };
       } catch {
         // JSON 파싱 실패 시 폴백

@@ -121,6 +121,22 @@ npx lee-spec-kit status
 npx lee-spec-kit status --write
 ```
 
+### 템플릿 업데이트
+
+```bash
+# 전체 업데이트
+npx lee-spec-kit update
+
+# agents/ 폴더만 업데이트
+npx lee-spec-kit update --agents
+
+# feature-base/ 폴더만 업데이트
+npx lee-spec-kit update --templates
+
+# 확인 없이 강제 덮어쓰기
+npx lee-spec-kit update --force
+```
+
 ## 설정 파일
 
 ### `.lee-spec-kit.json`
@@ -137,15 +153,57 @@ npx lee-spec-kit status --write
 }
 ```
 
-| 필드          | 설명                         |
-| ------------- | ---------------------------- |
-| `projectName` | 프로젝트 이름                |
-| `projectType` | `single` 또는 `fullstack`    |
-| `lang`        | `ko` 또는 `en`               |
-| `createdAt`   | 생성 날짜                    |
-| `docsRepo`    | `embedded` 또는 `standalone` |
+| 필드          | 설명                                    |
+| ------------- | --------------------------------------- |
+| `projectName` | 프로젝트 이름                           |
+| `projectType` | `single` 또는 `fullstack`               |
+| `lang`        | `ko` 또는 `en`                          |
+| `createdAt`   | 생성 날짜                               |
+| `docsRepo`    | `embedded` 또는 `standalone`            |
+| `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 |
 
-> `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`가 추가될 수 있습니다.
+> `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`, `projectRoot`가 추가됩니다.
+
+### Standalone 프로젝트 설정 예시
+
+**Single 프로젝트:**
+
+```json
+{
+  "projectName": "my-project",
+  "projectType": "single",
+  "docsRepo": "standalone",
+  "projectRoot": "/path/to/my-project"
+}
+```
+
+**Fullstack 프로젝트:**
+
+```json
+{
+  "projectName": "my-project",
+  "projectType": "fullstack",
+  "docsRepo": "standalone",
+  "projectRoot": {
+    "fe": "/path/to/frontend",
+    "be": "/path/to/backend"
+  }
+}
+```
+
+### 설정 확인 및 수정
+
+```bash
+# 현재 설정 확인
+npx lee-spec-kit config
+
+# projectRoot 수정 (Single)
+npx lee-spec-kit config --project-root /new/path
+
+# projectRoot 수정 (Fullstack)
+npx lee-spec-kit config --project-root /new/fe/path --repo fe
+npx lee-spec-kit config --project-root /new/be/path --repo be
+```
 
 ## 생성되는 구조
 

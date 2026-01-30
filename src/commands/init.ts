@@ -67,6 +67,7 @@ async function runInit(options: InitOptions): Promise<void> {
   let docsRepo: 'embedded' | 'standalone' = 'embedded';
   let pushDocs: boolean | undefined;
   let docsRemote: string | undefined;
+  let projectRoot: string | { fe: string; be: string } | undefined;
   const targetDir = path.resolve(cwd, options.dir || './docs');
 
   // Git 환경 감지
@@ -165,6 +166,59 @@ async function runInit(options: InitOptions): Promise<void> {
 
     // standalone 선택 시 추가 질문
     if (docsRepo === 'standalone') {
+      // projectRoot 입력 (프로젝트 타입에 따라 다름)
+      const resolvedType = projectType || response.projectType || 'single';
+
+      if (resolvedType === 'fullstack') {
+        const projectRootResponse = await prompts(
+          [
+            {
+              type: 'text',
+              name: 'feRoot',
+              message: 'Frontend 레포지토리 경로를 입력하세요:',
+              validate: (value: string) =>
+                value.trim() ? true : '경로를 입력해주세요',
+            },
+            {
+              type: 'text',
+              name: 'beRoot',
+              message: 'Backend 레포지토리 경로를 입력하세요:',
+              validate: (value: string) =>
+                value.trim() ? true : '경로를 입력해주세요',
+            },
+          ],
+          {
+            onCancel: () => {
+              throw new Error('canceled');
+            },
+          }
+        );
+
+        projectRoot = {
+          fe: projectRootResponse.feRoot,
+          be: projectRootResponse.beRoot,
+        };
+      } else {
+        const projectRootResponse = await prompts(
+          [
+            {
+              type: 'text',
+              name: 'projectRoot',
+              message: '프로젝트 레포지토리 경로를 입력하세요:',
+              validate: (value: string) =>
+                value.trim() ? true : '경로를 입력해주세요',
+            },
+          ],
+          {
+            onCancel: () => {
+              throw new Error('canceled');
+            },
+          }
+        );
+
+        projectRoot = projectRootResponse.projectRoot;
+      }
+
       const standaloneResponse = await prompts(
         [
           {
@@ -289,11 +343,14 @@ async function runInit(options: InitOptions): Promise<void> {
     docsRepo,
   };
 
-  // standalone일 때만 pushDocs 추가
+  // standalone일 때만 pushDocs, projectRoot 추가
   if (docsRepo === 'standalone') {
     config.pushDocs = pushDocs;
     if (pushDocs && docsRemote) {
       config.docsRemote = docsRemote;
+    }
+    if (projectRoot) {
+      config.projectRoot = projectRoot;
     }
   }
 

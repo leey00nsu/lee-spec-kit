@@ -1,0 +1,135 @@
+import { Command } from 'commander';
+import chalk from 'chalk';
+import path from 'path';
+import fs from 'fs-extra';
+import prompts from 'prompts';
+import { getConfig } from '../utils/config.js';
+
+interface ConfigOptions {
+  projectRoot?: string;
+  repo?: 'fe' | 'be';
+}
+
+export function configCommand(program: Command): void {
+  program
+    .command('config')
+    .description('View or modify project configuration')
+    .option('--project-root <path>', 'Set project root path')
+    .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .action(async (options: ConfigOptions) => {
+      try {
+        await runConfig(options);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'canceled') {
+          console.log(chalk.yellow('\n작업이 취소되었습니다.'));
+          process.exit(0);
+        }
+        console.error(chalk.red('오류:'), error);
+        process.exit(1);
+      }
+    });
+}
+
+async function runConfig(options: ConfigOptions): Promise<void> {
+  const cwd = process.cwd();
+  const config = await getConfig(cwd);
+
+  if (!config) {
+    console.log(
+      chalk.red('설정 파일을 찾을 수 없습니다. 먼저 init을 실행해주세요.')
+    );
+    process.exit(1);
+  }
+
+  const configPath = path.join(config.docsDir, '.lee-spec-kit.json');
+
+  // 옵션 없이 실행: 현재 설정 출력
+  if (!options.projectRoot) {
+    console.log();
+    console.log(chalk.blue('📋 현재 설정:'));
+    console.log();
+    console.log(chalk.gray(`  경로: ${configPath}`));
+    console.log();
+
+    const configFile = await fs.readJson(configPath);
+    console.log(JSON.stringify(configFile, null, 2));
+    console.log();
+    return;
+  }
+
+  // projectRoot 수정
+  const configFile = await fs.readJson(configPath);
+
+  // embedded인 경우 projectRoot 설정 불필요
+  if (configFile.docsRepo !== 'standalone') {
+    console.log(
+      chalk.yellow('⚠️  projectRoot는 standalone 모드에서만 설정 가능합니다.')
+    );
+    return;
+  }
+
+  const projectType = configFile.projectType as 'single' | 'fullstack';
+
+  if (projectType === 'fullstack') {
+    // Fullstack: --repo 필수
+    if (!options.repo) {
+      // 대화형으로 선택
+      const response = await prompts(
+        [
+          {
+            type: 'select',
+            name: 'repo',
+            message: '수정할 레포지토리를 선택하세요:',
+            choices: [
+              { title: 'Frontend (fe)', value: 'fe' },
+              { title: 'Backend (be)', value: 'be' },
+            ],
+          },
+        ],
+        {
+          onCancel: () => {
+            throw new Error('canceled');
+          },
+        }
+      );
+      options.repo = response.repo;
+    }
+
+    if (!options.repo || !['fe', 'be'].includes(options.repo)) {
+      console.log(
+        chalk.red(
+          'Fullstack 프로젝트는 --repo fe 또는 --repo be를 지정해야 합니다.'
+        )
+      );
+      return;
+    }
+
+    // 기존 projectRoot 가져오기 또는 초기화
+    const currentRoot = configFile.projectRoot || { fe: '', be: '' };
+    if (typeof currentRoot === 'string') {
+      // 잘못된 형태면 객체로 변환
+      configFile.projectRoot = {
+        fe: options.repo === 'fe' ? options.projectRoot : '',
+        be: options.repo === 'be' ? options.projectRoot : '',
+      };
+    } else {
+      currentRoot[options.repo] = options.projectRoot;
+      configFile.projectRoot = currentRoot;
+    }
+
+    console.log(
+      chalk.green(
+        `✅ ${options.repo.toUpperCase()} projectRoot 설정 완료: ${options.projectRoot}`
+      )
+    );
+  } else {
+    // Single: 바로 설정
+    configFile.projectRoot = options.projectRoot;
+    console.log(
+      chalk.green(`✅ projectRoot 설정 완료: ${options.projectRoot}`)
+    );
+  }
+
+  await fs.writeJson(configPath, configFile, { spaces: 2 });
+  console.log();
+}
