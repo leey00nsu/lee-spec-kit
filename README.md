@@ -1,19 +1,82 @@
-# lee-spec-kit
+<h1 align="center">
+  <strong>lee-spec-kit</strong>
+</h1>
 
-프로젝트 문서 구조 생성기 - AI 에이전트 기반 개발을 위한 docs 템플릿 CLI
+<p align="center">
+  <strong>AI 에이전트 기반 개발을 위한 프로젝트 문서 구조 생성 CLI</strong>
+</p>
 
-[![npm version](https://img.shields.io/npm/v/lee-spec-kit.svg)](https://www.npmjs.com/package/lee-spec-kit)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <a href="https://www.npmjs.com/package/lee-spec-kit"><img src="https://img.shields.io/npm/v/lee-spec-kit.svg" alt="npm version"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node.js">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
-## 설치
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#주요-기능">주요 기능</a> •
+  <a href="#사용법">사용법</a> •
+  <a href="#생성되는-구조">생성되는 구조</a>
+</p>
+
+<p align="center">
+  <a href="./README.en.md">
+    <img src="https://img.shields.io/badge/lang-en-red.svg" alt="English">
+  </a>
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/lang-ko-blue.svg" alt="한국어">
+  </a>
+</p>
+
+---
+
+## 목차
+
+- [Quick Start](#quick-start)
+- [주요 기능](#주요-기능)
+- [사용법](#사용법)
+- [설정 파일](#설정-파일)
+- [생성되는 구조](#생성되는-구조)
+- [Feature 워크플로우](#feature-워크플로우)
+- [문제 해결](#문제-해결)
+- [기여하기](#기여하기)
+- [라이선스](#라이선스)
+
+## Quick Start
 
 ```bash
-# npx로 바로 사용
+# 1. 프로젝트 문서 구조 생성
 npx lee-spec-kit init
 
-# 또는 전역 설치
-npm install -g lee-spec-kit
+# 2. 새 기능 생성
+npx lee-spec-kit feature user-auth
+
+# 3. 상태 확인
+npx lee-spec-kit status
 ```
+
+## 주요 기능
+
+### 📁 프로젝트 초기화
+
+- 대화형 모드 또는 CLI 옵션으로 프로젝트 설정
+- Single(단일 레포) / Fullstack(FE/BE 분리) 프로젝트 타입 지원
+- 한국어/영어 템플릿 선택
+
+### 🚀 Feature 생성
+
+- spec.md, plan.md, tasks.md, decisions.md 자동 생성
+- Fullstack 프로젝트의 경우 FE/BE 분리 지원
+- GitHub Issue/PR 템플릿 연동
+
+### 📊 상태 관리
+
+- 전체 Feature 진행 상태 한눈에 확인
+- 터미널 출력 또는 마크다운 파일로 저장
+
+### 🔄 자동 업데이트
+
+- 최신 버전 체크 및 템플릿 업데이트 지원
 
 ## 사용법
 
@@ -37,27 +100,6 @@ npx lee-spec-kit init --name my-project --type fullstack --lang ko
 | `-d, --dir <dir>`   | 설치 디렉토리                  | `./docs`    |
 | `-y, --yes`         | 대화형 프롬프트 스킵           | -           |
 
-### 설정 파일 (`.lee-spec-kit.json`)
-
-`init`을 실행하면 문서 루트(기본: `docs/`, 또는 `--dir`로 지정한 경로)에 `.lee-spec-kit.json`이 생성됩니다.
-
-- `feature`, `status`, `update` 명령은 이 파일을 우선적으로 읽어 문서 위치/프로젝트 타입/언어를 감지합니다.
-- 파일이 없거나 JSON 파싱에 실패하면 폴더 구조를 기반으로 감지합니다. (`docs/agents`, `docs/features` 존재 여부 등)
-
-예시:
-
-```json
-{
-  "projectName": "my-project",
-  "projectType": "single",
-  "lang": "ko",
-  "createdAt": "YYYY-MM-DD",
-  "docsRepo": "embedded"
-}
-```
-
-`docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`가 추가될 수 있습니다.
-
 ### 새 기능 생성
 
 ```bash
@@ -78,6 +120,32 @@ npx lee-spec-kit status
 # 파일로 저장
 npx lee-spec-kit status --write
 ```
+
+## 설정 파일
+
+### `.lee-spec-kit.json`
+
+`init`을 실행하면 문서 루트(기본: `docs/`)에 `.lee-spec-kit.json`이 생성됩니다.
+
+```json
+{
+  "projectName": "my-project",
+  "projectType": "single",
+  "lang": "ko",
+  "createdAt": "YYYY-MM-DD",
+  "docsRepo": "embedded"
+}
+```
+
+| 필드          | 설명                         |
+| ------------- | ---------------------------- |
+| `projectName` | 프로젝트 이름                |
+| `projectType` | `single` 또는 `fullstack`    |
+| `lang`        | `ko` 또는 `en`               |
+| `createdAt`   | 생성 날짜                    |
+| `docsRepo`    | `embedded` 또는 `standalone` |
+
+> `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`가 추가될 수 있습니다.
 
 ## 생성되는 구조
 
@@ -117,21 +185,66 @@ docs/
     └── F001-feature/       # 개별 기능
 ```
 
-## 프로젝트 타입
-
-| 타입        | 설명                                         |
-| ----------- | -------------------------------------------- |
-| `single`    | 단일 레포 프로젝트 (모노레포 또는 단일 스택) |
-| `fullstack` | FE/BE 분리 프로젝트                          |
-
 ## Feature 워크플로우
 
-1. `spec.md` 작성 - **무엇을, 왜** 만드는지
-2. 사용자 리뷰 요청
-3. `plan.md` 작성 - **어떻게** 만드는지 (기술 스택)
-4. `tasks.md` 작성 - 태스크 분해
-5. `decisions.md` - 기술 결정 기록 (ADR)
+```mermaid
+flowchart LR
+    A[spec.md] --> B[사용자 리뷰]
+    B --> C[plan.md]
+    C --> D[tasks.md]
+    D --> E[구현]
+    E --> F[decisions.md]
+```
+
+1. **spec.md 작성** - 무엇을, 왜 만드는지 정의
+2. **사용자 리뷰 요청** - 스펙 검토 및 승인
+3. **plan.md 작성** - 어떻게 만드는지 (기술 스택, 설계)
+4. **tasks.md 작성** - 태스크 분해 및 체크리스트
+5. **decisions.md** - 기술 결정 기록 (ADR)
+
+| 프로젝트 타입 | 설명                                         |
+| ------------- | -------------------------------------------- |
+| `single`      | 단일 레포 프로젝트 (모노레포 또는 단일 스택) |
+| `fullstack`   | FE/BE 분리 프로젝트                          |
+
+## 문제 해결
+
+<details>
+<summary><strong>init 명령어가 실패합니다</strong></summary>
+
+- Node.js 18 이상이 설치되어 있는지 확인하세요
+- `npx` 캐시 문제일 수 있습니다: `npx clear-npx-cache` 후 재시도
+
+</details>
+
+<details>
+<summary><strong>feature 명령어가 설정 파일을 찾지 못합니다</strong></summary>
+
+- `docs/` 폴더에 `.lee-spec-kit.json` 파일이 있는지 확인하세요
+- `init` 명령어를 먼저 실행했는지 확인하세요
+
+</details>
+
+<details>
+<summary><strong>Fullstack 프로젝트에서 --repo 옵션이 동작하지 않습니다</strong></summary>
+
+- `.lee-spec-kit.json`의 `projectType`이 `fullstack`인지 확인하세요
+- `--repo` 값은 `fe` 또는 `be`만 가능합니다
+
+</details>
+
+## 기여하기
+
+1. Fork → 브랜치 생성 → 개발 → Pull Request
+
+이슈나 PR은 언제든 환영합니다!
 
 ## 라이선스
 
-MIT
+[MIT License](./LICENSE)
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/leey00nsu">leey00nsu</a>
+</p>
