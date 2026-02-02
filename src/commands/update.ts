@@ -120,6 +120,8 @@ async function updateFolder(
   force?: boolean,
   replacements?: Record<string, string>
 ): Promise<number> {
+  const protectedFiles = new Set(['custom.md', 'constitution.md']);
+
   // 대상 폴더가 없으면 생성
   await fs.ensureDir(targetDir);
 
@@ -132,8 +134,8 @@ async function updateFolder(
     const stat = await fs.stat(sourcePath);
 
     if (stat.isFile()) {
-      // custom.md는 사용자 정의 파일이므로 업데이트 제외
-      if (file === 'custom.md') {
+      // 사용자 정의/정책 파일은 업데이트에서 제외
+      if (protectedFiles.has(file)) {
         continue;
       }
 
