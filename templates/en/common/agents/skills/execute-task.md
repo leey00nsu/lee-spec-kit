@@ -20,7 +20,7 @@ npx lee-spec-kit context
 Execute the `👉 Next Action` exactly as printed by the CLI.
 
 - If the CLI points to an active task, focus on that task only.
-- If there is no active task, pick the next `[TODO]` task, switch it to `[DOING]`, and start.
+- If there is no active task, **share the task title and get user approval (OK)**, then switch the next `[TODO]` task to `[DOING]` and start.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 
 ### Step 3: Update tasks.md (only what you did)

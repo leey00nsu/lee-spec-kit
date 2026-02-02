@@ -12,7 +12,7 @@ Operating rules for AI code assistants to perform consistent code generation and
 | Action                | When to Confirm          | What to Share             |
 | --------------------- | ------------------------ | ------------------------- |
 | Spec Writing          | After writing `spec.md`  | Full spec content         |
-| Task Execution        | Before each task         | Execution plan            |
+| Task Execution        | Before each task         | Task title                |
 | Commit Creation       | Before `git commit`      | Commit message, file list |
 | Issue Creation        | Before `gh issue create` | Title, body, labels       |
 | PR Creation           | Before `gh pr create`    | Title, body, labels       |

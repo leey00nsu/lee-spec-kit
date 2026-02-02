@@ -167,6 +167,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.tasks.total > 0 &&
           f.specStatus === 'Approved' &&
           f.planStatus === 'Approved' &&
+          !f.activeTask &&
           f.git.docsHasUncommittedChanges,
         actions: (f) => {
           if (f.issueNumber) {
