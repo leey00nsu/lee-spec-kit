@@ -27,7 +27,7 @@ const I18N: Record<Lang, I18nData> = {
       planWrite: 'plan.md 작성',
       planApprove: 'plan.md 승인',
       tasksWrite: 'tasks.md 작성',
-      docsCommitPlanning: '문서 커밋(기획)',
+      docsCommitPlanning: '문서 커밋(동기화)',
       issueCreate: 'GitHub Issue 생성',
       branchCreate: '브랜치 생성',
       tasksExecute: '태스크 실행',
@@ -48,11 +48,11 @@ const I18N: Record<Lang, I18nData> = {
         'tasks.md 템플릿을 복사해 태스크를 작성하세요. (features/feature-base/tasks.md 참고)',
       tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
       docsCommitPlanning:
-        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs({folderName}): 기획 문서 작성"',
+        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
         'GitHub Issue를 생성한 뒤, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요. (skills/create-issue.md 참고)',
       docsCommitIssueUpdate:
-        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs({folderName}): 이슈 #{issueNumber} 반영"',
+        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -96,7 +96,7 @@ const I18N: Record<Lang, I18nData> = {
       planWrite: 'Write plan.md',
       planApprove: 'Approve plan.md',
       tasksWrite: 'Write tasks.md',
-      docsCommitPlanning: 'Commit planning docs',
+      docsCommitPlanning: 'Commit docs (sync)',
       issueCreate: 'Create GitHub Issue',
       branchCreate: 'Create branch',
       tasksExecute: 'Execute tasks',
@@ -117,11 +117,11 @@ const I18N: Record<Lang, I18nData> = {
         'Copy the tasks.md template and write tasks. (See features/feature-base/tasks.md)',
       tasksNeedAtLeastOne: 'Add at least one task to tasks.md.',
       docsCommitPlanning:
-        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs({folderName}): planning docs"',
+        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
         'Create a GitHub Issue, then fill in the issue number in spec.md/tasks.md and prepare to commit docs. (See skills/create-issue.md)',
       docsCommitIssueUpdate:
-        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs({folderName}): issue #{issueNumber}"',
+        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       standaloneNeedsProjectRoot:
         'In standalone mode, projectRoot is required. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -170,4 +170,3 @@ export function tr(
     I18N[lang][category][key] ?? I18N.ko[category][key] ?? `${category}.${key}`;
   return formatTemplate(template, vars);
 }
-

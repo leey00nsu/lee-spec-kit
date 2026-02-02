@@ -155,13 +155,11 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       name: tr(lang, 'steps', 'docsCommitPlanning'),
       checklist: {
         done: (f) =>
-          f.issueNumber
-            ? true
-            : f.docs.tasksExists &&
-              f.tasks.total > 0 &&
-              f.specStatus === 'Approved' &&
-              f.planStatus === 'Approved' &&
-              !f.git.docsHasUncommittedChanges,
+          f.docs.tasksExists &&
+          f.tasks.total > 0 &&
+          f.specStatus === 'Approved' &&
+          f.planStatus === 'Approved' &&
+          !f.git.docsHasUncommittedChanges,
       },
       current: {
         when: (f) =>
@@ -169,43 +167,21 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.tasks.total > 0 &&
           f.specStatus === 'Approved' &&
           f.planStatus === 'Approved' &&
-          !f.issueNumber &&
           f.git.docsHasUncommittedChanges,
-        actions: (f) => [
-          {
-            type: 'command',
-            requiresUserOk: true,
-            scope: 'docs',
-            cwd: f.git.docsGitCwd,
-            cmd: tr(lang, 'messages', 'docsCommitPlanning', {
-              docsGitCwd: f.git.docsGitCwd,
-              featurePath: f.docs.featurePathFromDocs,
-              folderName: f.folderName,
-            }),
-          },
-        ],
-      },
-    },
-    {
-      step: 8,
-      name: tr(lang, 'steps', 'issueCreate'),
-      checklist: {
-        done: (f) => !!f.issueNumber && !f.git.docsHasUncommittedChanges,
-      },
-      current: {
-        when: (f) =>
-          f.docs.tasksExists &&
-          f.tasks.total > 0 &&
-          f.specStatus === 'Approved' &&
-          f.planStatus === 'Approved' &&
-          (!f.issueNumber || f.git.docsHasUncommittedChanges),
         actions: (f) => {
-          if (!f.issueNumber) {
+          if (f.issueNumber) {
             return [
               {
-                type: 'instruction',
+                type: 'command',
                 requiresUserOk: true,
-                message: tr(lang, 'messages', 'issueCreateAndWrite'),
+                scope: 'docs',
+                cwd: f.git.docsGitCwd,
+                cmd: tr(lang, 'messages', 'docsCommitIssueUpdate', {
+                  docsGitCwd: f.git.docsGitCwd,
+                  featurePath: f.docs.featurePathFromDocs,
+                  issueNumber: f.issueNumber,
+                  folderName: f.folderName,
+                }),
               },
             ];
           }
@@ -215,12 +191,36 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
               requiresUserOk: true,
               scope: 'docs',
               cwd: f.git.docsGitCwd,
-              cmd: tr(lang, 'messages', 'docsCommitIssueUpdate', {
+              cmd: tr(lang, 'messages', 'docsCommitPlanning', {
                 docsGitCwd: f.git.docsGitCwd,
                 featurePath: f.docs.featurePathFromDocs,
-                issueNumber: f.issueNumber,
                 folderName: f.folderName,
               }),
+            },
+          ];
+        },
+      },
+    },
+    {
+      step: 8,
+      name: tr(lang, 'steps', 'issueCreate'),
+      checklist: {
+        done: (f) => !!f.issueNumber,
+      },
+      current: {
+        when: (f) =>
+          f.docs.tasksExists &&
+          f.tasks.total > 0 &&
+          f.specStatus === 'Approved' &&
+          f.planStatus === 'Approved' &&
+          !f.issueNumber,
+        actions: (f) => {
+          void f;
+          return [
+            {
+              type: 'instruction',
+              requiresUserOk: true,
+              message: tr(lang, 'messages', 'issueCreateAndWrite'),
             },
           ];
         },
