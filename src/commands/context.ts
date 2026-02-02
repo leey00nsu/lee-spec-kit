@@ -5,8 +5,9 @@ import { getConfig } from '../utils/config.js';
 import {
   scanFeatures,
   FeatureContext,
-  STEP_DEFINITIONS,
-  STEPS,
+  getStepDefinitions,
+  getStepsMap,
+  StepDefinition,
 } from '../utils/context.js';
 
 interface ContextOptions {
@@ -71,10 +72,14 @@ async function runContext(
 ): Promise<void> {
   const cwd = process.cwd();
   const config = await getConfig(cwd);
+  const lang = config?.lang ?? 'ko';
 
   if (!config) {
     throw new Error('설정 파일을 찾을 수 없습니다. 먼저 init을 실행해주세요.');
   }
+
+  const stepDefinitions = getStepDefinitions(lang);
+  const stepsMap = getStepsMap(lang);
 
   const { features, branches, warnings } = await scanFeatures(config);
 
@@ -201,7 +206,7 @@ async function runContext(
     console.log();
 
     targetFeatures.forEach((f) => {
-      const stepName = STEPS[f.currentStep] || 'Unknown';
+      const stepName = stepsMap[f.currentStep] || 'Unknown';
       const typeStr =
         config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
       console.log(
@@ -220,7 +225,12 @@ async function runContext(
 
   // Single Matched Feature
   const f = targetFeatures[0];
-  const stepName = STEPS[f.currentStep] || 'Unknown';
+  const stepName = stepsMap[f.currentStep] || 'Unknown';
+
+  const okTag = (requiresUserOk?: boolean): string =>
+    requiresUserOk
+      ? chalk.yellow(lang === 'ko' ? '[OK 필요] ' : '[OK required] ')
+      : '';
 
   console.log(
     `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : ''}`
@@ -242,14 +252,14 @@ async function runContext(
     console.log(
       `   • Active Task: ${chalk.yellow(`[${f.activeTask.status}]`)} ${f.activeTask.title}`
     );
-  } else if (f.nextTodoTask && f.currentStep === 8) {
+  } else if (f.nextTodoTask && f.currentStep === 10) {
     console.log(
       `   • Next TODO: ${chalk.gray(`[${f.nextTodoTask.status}]`)} ${f.nextTodoTask.title}`
     );
   }
 
   // 체크리스트 표시
-  printChecklist(f);
+  printChecklist(f, stepDefinitions);
 
   if (f.warnings.length > 0) {
     console.log();
@@ -269,10 +279,12 @@ async function runContext(
     const action = f.actions[0];
     if (action.type === 'command') {
       console.log(
-        `👉 Next Action (${chalk.cyan(action.scope)}): ${chalk.green(chalk.bold(action.cmd))}`
+        `👉 Next Action (${chalk.cyan(action.scope)}): ${okTag(action.requiresUserOk)}${chalk.green(chalk.bold(action.cmd))}`
       );
     } else {
-      console.log(`👉 Next Action: ${chalk.green(chalk.bold(action.message))}`);
+      console.log(
+        `👉 Next Action: ${okTag(action.requiresUserOk)}${chalk.green(chalk.bold(action.message))}`
+      );
     }
     console.log();
     return;
@@ -281,16 +293,16 @@ async function runContext(
   console.log(chalk.green(chalk.bold('👉 Next Actions:')));
   f.actions.forEach((action) => {
     if (action.type === 'command') {
-      console.log(`   • (${action.scope}) ${action.cmd}`);
+      console.log(`   • (${action.scope}) ${okTag(action.requiresUserOk)}${action.cmd}`);
     } else {
-      console.log(`   • ${action.message}`);
+      console.log(`   • ${okTag(action.requiresUserOk)}${action.message}`);
     }
   });
   console.log();
 }
 
-function printChecklist(f: FeatureContext): void {
-  const checklistSteps = [...STEP_DEFINITIONS].sort((a, b) => a.step - b.step);
+function printChecklist(f: FeatureContext, stepDefinitions: StepDefinition[]): void {
+  const checklistSteps = [...stepDefinitions].sort((a, b) => a.step - b.step);
 
   checklistSteps.forEach((definition) => {
     const done = definition.checklist.done(f);

@@ -12,6 +12,8 @@
 - **Repo**: {{projectName}}
 - **Issue**: #{issue-number}
 - **Branch**: `feat/{issue-number}-{feature-name}`
+- **PR**: #
+- **PR Status**: Draft | Review | Approved
 
 ---
 
