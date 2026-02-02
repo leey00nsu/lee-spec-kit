@@ -419,7 +419,7 @@ async function initGit(
 
     console.log(chalk.green('✅ Git 초기 커밋 완료!'));
     console.log();
-  } catch (error) {
+  } catch {
     // Git 관련 오류는 무시하고 경고만 출력
     console.log(
       chalk.yellow('⚠️  Git 초기화를 건너뜁니다 (수동으로 커밋해주세요)')

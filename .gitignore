@@ -24,3 +24,6 @@ coverage/
 # Temp
 tmp/
 temp/
+
+# Local demos
+demo/

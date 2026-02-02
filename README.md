@@ -51,7 +51,10 @@ npx lee-spec-kit init
 # 2. 새 기능 생성
 npx lee-spec-kit feature user-auth
 
-# 3. 상태 확인
+# 3. 진행 상황 및 다음 단계 확인 (AI 에이전트용)
+npx lee-spec-kit context
+
+# 4. 전체 상태 확인
 npx lee-spec-kit status
 ```
 
@@ -111,6 +114,30 @@ npx lee-spec-kit feature --repo be user-auth
 npx lee-spec-kit feature --repo fe user-profile
 ```
 
+### Context 확인 (AI 에이전트 가이드)
+
+현재 작업 중인 Feature의 상태와 다음 할 일을 확인합니다. 특히 AI 에이전트가 프로세스를 준수하는 데 유용합니다.
+
+```bash
+# 자동 감지 (Git 브랜치 기준)
+npx lee-spec-kit context
+
+# 특정 Feature 지정
+npx lee-spec-kit context user-auth
+
+# selector 지원: Feature ID / 폴더명
+npx lee-spec-kit context F001
+npx lee-spec-kit context F001-user-auth
+
+# 에이전트용 JSON 출력
+npx lee-spec-kit context --json
+```
+
+`--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
+
+- `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복붙 실행 가능하도록 `git -C` 포함)
+- `type: "instruction"`: 사람이 수행해야 하는 안내 메시지
+
 ### 상태 확인
 
 ```bash
@@ -163,6 +190,9 @@ npx lee-spec-kit update --force
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 |
 
 > `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`, `projectRoot`가 추가됩니다.
+
+> 어디서 실행하든 설정을 찾을 수 있도록, CLI는 현재 디렉토리에서 상위로 올라가며 `.lee-spec-kit.json` 또는 `docs/.lee-spec-kit.json`을 탐색합니다.
+> standalone 환경에서 docs 레포 바깥(예: 프로젝트 레포)에서 실행해야 한다면 `LEE_SPEC_KIT_DOCS_DIR`(또는 `LSK_DOCS_DIR`)에 docs 레포 경로를 지정할 수 있습니다.
 
 ### Standalone 프로젝트 설정 예시
 
@@ -280,6 +310,8 @@ flowchart LR
 
 - `docs/` 폴더에 `.lee-spec-kit.json` 파일이 있는지 확인하세요
 - `init` 명령어를 먼저 실행했는지 확인하세요
+- embedded 모드라면 프로젝트 루트/하위 어디서 실행해도 상위 디렉토리 탐색으로 설정을 찾습니다.
+- standalone 모드에서 docs 레포 밖에서 실행 중이면, docs 레포로 이동하거나 `LEE_SPEC_KIT_DOCS_DIR=/path/to/docs`를 설정하세요.
 
 </details>
 

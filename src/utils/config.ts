@@ -23,62 +23,93 @@ interface ConfigFile {
   projectRoot?: string | { fe: string; be: string };
 }
 
+function getAncestorDirs(startDir: string): string[] {
+  const dirs: string[] = [];
+  let current = path.resolve(startDir);
+
+  while (true) {
+    dirs.push(current);
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  return dirs;
+}
+
 export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
-  // docs 폴더 탐색
-  const possibleDirs = [
-    path.join(cwd, 'docs'),
-    cwd, // 이미 docs 폴더 안에 있을 수 있음
+  const explicitDocsDir = (
+    process.env.LEE_SPEC_KIT_DOCS_DIR ||
+    process.env.LSK_DOCS_DIR ||
+    ''
+  ).trim();
+  const baseDirs = [
+    ...(explicitDocsDir ? [path.resolve(explicitDocsDir)] : []),
+    ...getAncestorDirs(cwd),
   ];
 
-  for (const docsDir of possibleDirs) {
-    // 1. Config 파일 우선 확인
-    const configPath = path.join(docsDir, '.lee-spec-kit.json');
-    if (await fs.pathExists(configPath)) {
-      try {
-        const configFile: ConfigFile = await fs.readJson(configPath);
-        return {
-          docsDir,
-          projectName: configFile.projectName,
-          projectType: configFile.projectType,
-          lang: configFile.lang,
-          docsRepo: configFile.docsRepo,
-          pushDocs: configFile.pushDocs,
-          docsRemote: configFile.docsRemote,
-          projectRoot: configFile.projectRoot,
-        };
-      } catch {
-        // JSON 파싱 실패 시 폴백
-      }
-    }
+  const visitedBaseDirs = new Set<string>();
+  const visitedDocsDirs = new Set<string>();
+  for (const baseDir of baseDirs) {
+    const resolvedBaseDir = path.resolve(baseDir);
+    if (visitedBaseDirs.has(resolvedBaseDir)) continue;
+    visitedBaseDirs.add(resolvedBaseDir);
 
-    // 2. 폴백: 기존 방식 (폴더 구조 기반 감지)
-    const agentsPath = path.join(docsDir, 'agents');
-    const featuresPath = path.join(docsDir, 'features');
+    const possibleDocsDirs = [path.join(resolvedBaseDir, 'docs'), resolvedBaseDir];
+    for (const docsDir of possibleDocsDirs) {
+      const resolvedDocsDir = path.resolve(docsDir);
+      if (visitedDocsDirs.has(resolvedDocsDir)) continue;
+      visitedDocsDirs.add(resolvedDocsDir);
 
-    if (
-      (await fs.pathExists(agentsPath)) &&
-      (await fs.pathExists(featuresPath))
-    ) {
-      // 프로젝트 타입 감지
-      const bePath = path.join(featuresPath, 'be');
-      const fePath = path.join(featuresPath, 'fe');
-      const projectType =
-        (await fs.pathExists(bePath)) || (await fs.pathExists(fePath))
-          ? 'fullstack'
-          : 'single';
-
-      // 언어 감지 (agents.md 내용 기반)
-      const agentsMdPath = path.join(agentsPath, 'agents.md');
-      let lang: 'ko' | 'en' = 'ko';
-      if (await fs.pathExists(agentsMdPath)) {
-        const content = await fs.readFile(agentsMdPath, 'utf-8');
-        // 한국어가 포함되어 있는지 확인
-        if (!/[가-힣]/.test(content)) {
-          lang = 'en';
+      // 1. Config 파일 우선 확인
+      const configPath = path.join(resolvedDocsDir, '.lee-spec-kit.json');
+      if (await fs.pathExists(configPath)) {
+        try {
+          const configFile: ConfigFile = await fs.readJson(configPath);
+          return {
+            docsDir: resolvedDocsDir,
+            projectName: configFile.projectName,
+            projectType: configFile.projectType,
+            lang: configFile.lang,
+            docsRepo: configFile.docsRepo,
+            pushDocs: configFile.pushDocs,
+            docsRemote: configFile.docsRemote,
+            projectRoot: configFile.projectRoot,
+          };
+        } catch {
+          // JSON 파싱 실패 시 폴백
         }
       }
 
-      return { docsDir, projectType, lang };
+      // 2. 폴백: 기존 방식 (폴더 구조 기반 감지)
+      const agentsPath = path.join(resolvedDocsDir, 'agents');
+      const featuresPath = path.join(resolvedDocsDir, 'features');
+
+      if (
+        (await fs.pathExists(agentsPath)) &&
+        (await fs.pathExists(featuresPath))
+      ) {
+        // 프로젝트 타입 감지
+        const bePath = path.join(featuresPath, 'be');
+        const fePath = path.join(featuresPath, 'fe');
+        const projectType =
+          (await fs.pathExists(bePath)) || (await fs.pathExists(fePath))
+            ? 'fullstack'
+            : 'single';
+
+        // 언어 감지 (agents.md 내용 기반)
+        const agentsMdPath = path.join(agentsPath, 'agents.md');
+        let lang: 'ko' | 'en' = 'ko';
+        if (await fs.pathExists(agentsMdPath)) {
+          const content = await fs.readFile(agentsMdPath, 'utf-8');
+          // 한국어가 포함되어 있는지 확인
+          if (!/[가-힣]/.test(content)) {
+            lang = 'en';
+          }
+        }
+
+        return { docsDir: resolvedDocsDir, projectType, lang };
+      }
     }
   }
 

@@ -1,100 +1,43 @@
-# Task Execution Process
+# Task Execution Process: CLI-driven
 
-Guide for executing tasks from tasks.md.
+This document defines the **only rule** for executing tasks.
+As an agent, follow `npx lee-spec-kit context` as the single source of truth.
 
 ---
 
-## Steps
+## 🔄 The Loop (repeat forever)
 
-### 1. Check Task
+Repeat this loop until the Feature is complete.
 
-- Find next task in `tasks.md`
-- Select task with `[TODO]` status
-- ⚠️ **Verify current branch matches Feature branch** (`feat/{issue-number}-{feature-name}`)
-
-### 2. Share Execution Plan
-
-> 🚨 **User Approval Required**
-
-Share execution plan with user before starting and wait for approval
-
-### 3. Update Status
-
-| Timing              | Status Transition    | Checkbox          |
-| ------------------- | -------------------- | ----------------- |
-| On start            | `[TODO]` → `[DOING]` | `[ ]` (No change) |
-| After user approval | `[DOING]` → `[DONE]` | **`[x]` (Check)** |
-
-> ⚠️ Even after work is complete, **stay in `[DOING]` until user approval**
-> ⚠️ When switching to `[DONE]`, **must also check the checkbox**.
-
-Before switching to `[DONE]`, confirm:
-
-- You actually verified the `Acceptance` conditions
-- You checked all `Checklist` checkboxes
-
-Record date (YYYY-MM-DD) with each status change
-
-### 4. Commit After Task Completion (Docs Sync)
-
-> 🚨 **User Approval Required**
-
-Before committing, share and wait for approval:
-
-- Commit message (Applicable repositories)
-- Files to be included
+### Step 1: Check context
 
 ```bash
-# 1. Project Commit (If code changed)
-git add .
-git commit -m "{type}(#{issue}): {task description}"
-
-# 2. Docs Commit (If docs changed)
-# For Standalone mode, move to docs repo
-git add .
-git commit -m "docs(#{issue}): {task description} update docs"
+npx lee-spec-kit context
 ```
 
----
+### Step 2: Do the next action only
 
-## Handling Requests Outside tasks.md
+Execute the `👉 Next Action` exactly as printed by the CLI.
 
-When user requests work not in tasks.md:
+- If the CLI points to an active task, focus on that task only.
+- If there is no active task, pick the next `[TODO]` task, switch it to `[DOING]`, and start.
+- If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 
-1. Ask if it should be added to tasks.md
-2. If approved: Add to tasks.md then execute
-3. If declined: Proceed as temporary work (still included in commit)
+### Step 3: Update tasks.md (only what you did)
 
----
+Keep `tasks.md` aligned with reality.
 
-## 🚨 Never Modify Completed Tasks
+- Do not mark `[DONE]` without actually completing the work and verifying criteria.
+- If you need to change a completed task, add a new task instead of rewriting history.
 
-> ⚠️ **Tasks in `[DONE]` status must NEVER be modified.**
+### Step 4: Repeat
 
-### Principle
-
-- Completed tasks are preserved for **history/record purposes**
-- If modifications are needed, **add a new task**
-
-### When Modifications Are Needed
-
-1. Keep the existing task as-is
-2. Add new task: `T{next-number}: {modification description}`
-3. Perform changes in the new task
-
-**Example:**
-
-```markdown
-## Tasks
-
-- [DONE] T001: Implement user authentication (2026-01-05)
-- [DONE] T002: Create login page (2026-01-06)
-- [TODO] T003: Fix T002 - Add password validation ← New task for modifications
-```
+After finishing a meaningful chunk of work, run `context` again.
 
 ---
 
-## Reference Documents
+## 🛑 Strict rules
 
-- **Git Workflow**: `git-workflow.md`
-- **Commit Convention**: `git-workflow.md` > "Commit Convention" section
+1. **No skipping**: Never “finish” tasks by editing status only.
+2. **No jumping ahead**: If the CLI is waiting for approvals, stop and ask the user.
+3. **No rewriting history**: Do not modify `[DONE]` tasks; add a new one.

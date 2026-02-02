@@ -46,7 +46,7 @@ export function validateSafeName(name: string): ValidationResult {
   }
 
   // 허용된 문자만 사용 (영문, 숫자, 하이픈, 언더스코어, 한글)
-  const safePattern = /^[\w가-힣\-]+$/;
+  const safePattern = /^[\w가-힣-]+$/;
   if (!safePattern.test(name)) {
     return {
       valid: false,
