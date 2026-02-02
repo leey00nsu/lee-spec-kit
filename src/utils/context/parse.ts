@@ -134,7 +134,7 @@ export async function parseFeature(
 ): Promise<FeatureContext> {
   const lang = options.lang;
   const folderName = path.basename(featurePath);
-  const match = folderName.match(/^(F\\d+)-(.+)$/);
+  const match = folderName.match(/^(F\d+)-(.+)$/);
   const id = match?.[1];
   const slug = match?.[2] || folderName;
 
@@ -262,4 +262,3 @@ export async function parseFeature(
 
   return { ...featureState, currentStep, actions, nextAction, warnings };
 }
-
