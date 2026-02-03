@@ -7,6 +7,7 @@ import { statusCommand } from './commands/status.js';
 import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
 import { contextCommand } from './commands/context.js';
+import { doctorCommand } from './commands/doctor.js';
 import { checkForUpdates } from './utils/version-check.js';
 
 function shouldCheckForUpdates(): boolean {
@@ -60,5 +61,6 @@ statusCommand(program);
 updateCommand(program);
 configCommand(program);
 contextCommand(program);
+doctorCommand(program);
 
 await program.parseAsync();
