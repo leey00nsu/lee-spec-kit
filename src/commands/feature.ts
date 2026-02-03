@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { replaceInFiles } from '../utils/template.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   validateSafeName,
   validateRepoType,
@@ -30,10 +31,12 @@ export function featureCommand(program: Command): void {
         await runFeature(name, options);
       } catch (error) {
         if (error instanceof Error && error.message === 'canceled') {
-          console.log(chalk.yellow('\n작업이 취소되었습니다.'));
+          const config = await getConfig(process.cwd());
+          const lang = config?.lang ?? DEFAULT_LANG;
+          console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        console.error(chalk.red('오류:'), error);
+        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
         process.exit(1);
       }
     });
@@ -48,7 +51,9 @@ async function runFeature(
 
   if (!config) {
     console.error(
-      chalk.red('docs 폴더를 찾을 수 없습니다. 먼저 init을 실행하세요.')
+      chalk.red(
+        tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
+      )
     );
     process.exit(1);
   }
@@ -66,7 +71,7 @@ async function runFeature(
       {
         type: 'select',
         name: 'repo',
-        message: '레포지토리를 선택하세요:',
+        message: tr(lang, 'cli', 'feature.selectRepo'),
         choices: [
           { title: 'Backend (be)', value: 'be' },
           { title: 'Frontend (fe)', value: 'fe' },
@@ -108,14 +113,22 @@ async function runFeature(
 
   // 중복 확인
   if (await fs.pathExists(featureDir)) {
-    console.error(chalk.red(`이미 존재하는 폴더입니다: ${featureDir}`));
+    console.error(
+      chalk.red(
+        tr(lang, 'cli', 'feature.folderExists', { path: featureDir })
+      )
+    );
     process.exit(1);
   }
 
   // feature-base 복사
   const featureBasePath = path.join(docsDir, 'features', 'feature-base');
   if (!(await fs.pathExists(featureBasePath))) {
-    console.error(chalk.red('feature-base 템플릿을 찾을 수 없습니다.'));
+    console.error(
+      chalk.red(
+        tr(lang, 'cli', 'feature.baseNotFound')
+      )
+    );
     process.exit(1);
   }
 
@@ -157,12 +170,24 @@ async function runFeature(
   await replaceInFiles(featureDir, replacements);
 
   console.log();
-  console.log(chalk.green(`✅ Feature 폴더 생성 완료: ${featureDir}`));
+  console.log(
+    chalk.green(
+      tr(lang, 'cli', 'feature.created', { path: featureDir })
+    )
+  );
   console.log();
-  console.log(chalk.blue('다음 단계:'));
-  console.log(chalk.gray(`  1. ${featureDir}/spec.md 작성`));
-  console.log(chalk.gray('  2. 사용자 리뷰 요청'));
-  console.log(chalk.gray('  3. 승인 후 plan.md 작성'));
+  console.log(chalk.blue(tr(lang, 'cli', 'feature.nextStepsTitle')));
+  console.log(
+    chalk.gray(
+      tr(lang, 'cli', 'feature.nextSteps1', { path: featureDir })
+    )
+  );
+  console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps2')));
+  console.log(
+    chalk.gray(
+      tr(lang, 'cli', 'feature.nextSteps3')
+    )
+  );
   console.log();
 }
 

@@ -1,5 +1,5 @@
 import { FeatureState, Lang, StepDefinition } from './types.js';
-import { tr } from './i18n.js';
+import { tr } from '../i18n.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
   return (

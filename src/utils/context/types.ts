@@ -1,6 +1,6 @@
 export type RepoType = 'single' | 'fe' | 'be';
 export type DocStatus = 'Draft' | 'Review' | 'Approved';
-export type Lang = 'ko' | 'en';
+export type { Lang } from '../i18n.js';
 
 export type ActionScope = 'project' | 'docs';
 

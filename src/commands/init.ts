@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { copyTemplates, replaceInFiles } from '../utils/template.js';
 import { getTemplatesDir } from '../utils/paths.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   validateSafeName,
   validateProjectType,
@@ -48,10 +49,13 @@ export function initCommand(program: Command): void {
         await runInit(options);
       } catch (error) {
         if (error instanceof Error && error.message === 'canceled') {
-          console.log(chalk.yellow('\n작업이 취소되었습니다.'));
+          const lang = options.lang ?? DEFAULT_LANG;
+          console.log(
+            chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`)
+          );
           process.exit(0);
         }
-        console.error(chalk.red('오류:'), error);
+        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
         process.exit(1);
       }
     });
@@ -75,25 +79,65 @@ async function runInit(options: InitOptions): Promise<void> {
 
   // 대화형 프롬프트 (--yes가 없을 때)
   if (!options.yes) {
+    // 언어 선택을 먼저 받아 이후 모든 프롬프트/메시지를 동일 언어로 출력
+    if (!options.lang) {
+      const langResponse = await prompts(
+        [
+          {
+            type: 'select',
+            name: 'lang',
+            message: tr(DEFAULT_LANG, 'cli', 'init.selectLangPrompt'),
+            choices: [
+              { title: 'English (en)', value: 'en' },
+              { title: '한국어 (ko)', value: 'ko' },
+            ],
+            initial: 0,
+          },
+        ],
+        {
+          onCancel: () => {
+            throw new Error('canceled');
+          },
+        }
+      );
+      lang = langResponse.lang || lang;
+    }
+
     // Git 환경 안내
     console.log();
-    console.log(chalk.blue(`📍 현재 위치: ${cwd}`));
+    console.log(
+      chalk.blue(`${tr(lang, 'cli', 'init.currentDirectoryLabel')}: ${cwd}`)
+    );
     if (isInsideGitRepo) {
-      console.log(chalk.green('✅ Git 레포지토리 감지됨'));
+      console.log(chalk.green(tr(lang, 'cli', 'init.gitDetected')));
       console.log();
-      console.log(chalk.gray('현재 프로젝트 루트 내에서 실행하고 계십니다.'));
       console.log(
         chalk.gray(
-          '• embedded: 여기에 ./docs 폴더를 생성합니다. 프로젝트와 함께 관리됩니다.'
+          tr(lang, 'cli', 'init.insideProjectRoot')
         )
       );
       console.log(
-        chalk.gray('• standalone: 별도 폴더에서 독립 docs 레포로 관리하려면,')
+        chalk.gray(
+          tr(lang, 'cli', 'init.modeEmbeddedDesc')
+        )
       );
-      console.log(chalk.gray('  해당 폴더로 이동 후 다시 실행해주세요.'));
+      console.log(
+        chalk.gray(
+          tr(lang, 'cli', 'init.modeStandaloneDesc')
+        )
+      );
+      console.log(
+        chalk.gray(
+          tr(lang, 'cli', 'init.modeStandaloneMove')
+        )
+      );
     } else {
-      console.log(chalk.yellow('⚠️  Git 레포지토리가 감지되지 않았습니다.'));
-      console.log(chalk.gray('새로운 Git 레포지토리가 생성됩니다.'));
+      console.log(
+        chalk.yellow(
+          tr(lang, 'cli', 'init.gitNotDetected')
+        )
+      );
+      console.log(chalk.gray(tr(lang, 'cli', 'init.gitNotDetectedDetail')));
     }
     console.log();
 
@@ -102,51 +146,41 @@ async function runInit(options: InitOptions): Promise<void> {
         {
           type: options.name ? null : 'text',
           name: 'projectName',
-          message: '프로젝트 이름을 입력하세요:',
+          message: tr(lang, 'cli', 'init.prompt.projectName'),
           initial: defaultName,
         },
         {
           type: options.type ? null : 'select',
           name: 'projectType',
-          message: '프로젝트 타입을 선택하세요:',
+          message: tr(lang, 'cli', 'init.prompt.projectType'),
           choices: [
             {
-              title: 'Single - 단일 레포 프로젝트',
+              title: tr(lang, 'cli', 'init.choice.projectType.single.title'),
               value: 'single',
-              description: 'features/ 폴더 하나로 관리',
+              description: tr(lang, 'cli', 'init.choice.projectType.single.desc'),
             },
             {
-              title: 'Fullstack - FE/BE 분리 프로젝트',
+              title: tr(lang, 'cli', 'init.choice.projectType.fullstack.title'),
               value: 'fullstack',
-              description: 'features/be/, features/fe/ 분리 관리',
+              description: tr(lang, 'cli', 'init.choice.projectType.fullstack.desc'),
             },
-          ],
-          initial: 0,
-        },
-        {
-          type: options.lang ? null : 'select',
-          name: 'lang',
-          message: '문서 언어를 선택하세요:',
-          choices: [
-            { title: '한국어 (ko)', value: 'ko' },
-            { title: 'English (en)', value: 'en' },
           ],
           initial: 0,
         },
         {
           type: 'select',
           name: 'docsRepo',
-          message: 'Docs 관리 방식을 선택하세요:',
+          message: tr(lang, 'cli', 'init.prompt.docsMode'),
           choices: [
             {
-              title: 'embedded - 프로젝트 내 포함 (./docs)',
+              title: tr(lang, 'cli', 'init.choice.docsRepo.embedded.title'),
               value: 'embedded',
-              description: '프로젝트와 함께 push됩니다',
+              description: tr(lang, 'cli', 'init.choice.docsRepo.embedded.desc'),
             },
             {
-              title: 'standalone - 별도 독립 레포',
+              title: tr(lang, 'cli', 'init.choice.docsRepo.standalone.title'),
               value: 'standalone',
-              description: 'push 여부를 별도로 설정합니다',
+              description: tr(lang, 'cli', 'init.choice.docsRepo.standalone.desc'),
             },
           ],
           initial: 0,
@@ -161,7 +195,6 @@ async function runInit(options: InitOptions): Promise<void> {
 
     projectName = response.projectName || projectName;
     projectType = response.projectType || projectType;
-    lang = response.lang || lang;
     docsRepo = response.docsRepo || 'embedded';
 
     // standalone 선택 시 추가 질문
@@ -175,16 +208,20 @@ async function runInit(options: InitOptions): Promise<void> {
             {
               type: 'text',
               name: 'feRoot',
-              message: 'Frontend 레포지토리 경로를 입력하세요:',
+              message: tr(lang, 'cli', 'init.prompt.feRepoPath'),
               validate: (value: string) =>
-                value.trim() ? true : '경로를 입력해주세요',
+                value.trim()
+                  ? true
+                  : tr(lang, 'cli', 'init.validation.enterPath'),
             },
             {
               type: 'text',
               name: 'beRoot',
-              message: 'Backend 레포지토리 경로를 입력하세요:',
+              message: tr(lang, 'cli', 'init.prompt.beRepoPath'),
               validate: (value: string) =>
-                value.trim() ? true : '경로를 입력해주세요',
+                value.trim()
+                  ? true
+                  : tr(lang, 'cli', 'init.validation.enterPath'),
             },
           ],
           {
@@ -204,9 +241,11 @@ async function runInit(options: InitOptions): Promise<void> {
             {
               type: 'text',
               name: 'projectRoot',
-              message: '프로젝트 레포지토리 경로를 입력하세요:',
+              message: tr(lang, 'cli', 'init.prompt.projectRepoPath'),
               validate: (value: string) =>
-                value.trim() ? true : '경로를 입력해주세요',
+                value.trim()
+                  ? true
+                  : tr(lang, 'cli', 'init.validation.enterPath'),
             },
           ],
           {
@@ -224,14 +263,14 @@ async function runInit(options: InitOptions): Promise<void> {
           {
             type: 'select',
             name: 'pushDocs',
-            message: 'Docs push 방식을 선택하세요:',
+            message: tr(lang, 'cli', 'init.prompt.pushMode'),
             choices: [
               {
-                title: 'local - 로컬에서만 관리 (push 안 함)',
+                title: tr(lang, 'cli', 'init.choice.push.local'),
                 value: false,
               },
               {
-                title: 'remote - 원격에도 push',
+                title: tr(lang, 'cli', 'init.choice.push.remote'),
                 value: true,
               },
             ],
@@ -254,9 +293,11 @@ async function runInit(options: InitOptions): Promise<void> {
             {
               type: 'text',
               name: 'docsRemote',
-              message: '원격 레포 URL을 입력하세요:',
+              message: tr(lang, 'cli', 'init.prompt.remoteUrl'),
               validate: (value: string) =>
-                value.trim() ? true : 'URL을 입력해주세요',
+                value.trim()
+                  ? true
+                  : tr(lang, 'cli', 'init.validation.enterUrl'),
             },
           ],
           {
@@ -288,23 +329,29 @@ async function runInit(options: InitOptions): Promise<void> {
       const { overwrite } = await prompts({
         type: 'confirm',
         name: 'overwrite',
-        message: `${targetDir} 폴더가 이미 존재합니다. 덮어쓰시겠습니까?`,
+        message: tr(lang, 'cli', 'init.prompt.overwrite', { dir: targetDir }),
         initial: false,
       });
 
       if (!overwrite) {
-        console.log(chalk.yellow('작업이 취소되었습니다.'));
+        console.log(chalk.yellow(tr(lang, 'cli', 'common.canceled')));
         return;
       }
     }
   }
 
   console.log();
-  console.log(chalk.blue('📁 docs 구조 생성 중...'));
-  console.log(chalk.gray(`  프로젝트: ${projectName}`));
-  console.log(chalk.gray(`  타입: ${projectType}`));
-  console.log(chalk.gray(`  언어: ${lang}`));
-  console.log(chalk.gray(`  경로: ${targetDir}`));
+  console.log(chalk.blue(tr(lang, 'cli', 'init.log.creatingDocs')));
+  console.log(
+    chalk.gray(`  ${tr(lang, 'cli', 'init.log.projectLabel')}: ${projectName}`)
+  );
+  console.log(
+    chalk.gray(`  ${tr(lang, 'cli', 'init.log.typeLabel')}: ${projectType}`)
+  );
+  console.log(chalk.gray(`  ${tr(lang, 'cli', 'init.log.langLabel')}: ${lang}`));
+  console.log(
+    chalk.gray(`  ${tr(lang, 'cli', 'init.log.pathLabel')}: ${targetDir}`)
+  );
   console.log();
 
   // 템플릿 복사 (common 먼저, 타입별 오버라이드)
@@ -319,7 +366,7 @@ async function runInit(options: InitOptions): Promise<void> {
 
   // 타입별 템플릿으로 오버라이드
   if (!(await fs.pathExists(typePath))) {
-    throw new Error(`템플릿을 찾을 수 없습니다: ${typePath}`);
+    throw new Error(tr(lang, 'cli', 'init.error.templateNotFound', { path: typePath }));
   }
   await copyTemplates(typePath, targetDir);
 
@@ -357,17 +404,17 @@ async function runInit(options: InitOptions): Promise<void> {
   const configPath = path.join(targetDir, '.lee-spec-kit.json');
   await fs.writeJson(configPath, config, { spaces: 2 });
 
-  console.log(chalk.green('✅ docs 구조 생성 완료!'));
+  console.log(chalk.green(tr(lang, 'cli', 'init.log.docsCreated')));
   console.log();
 
   // Git 초기화
-  await initGit(cwd, targetDir, docsRepo, pushDocs, docsRemote);
+  await initGit(cwd, targetDir, docsRepo, lang, pushDocs, docsRemote);
 
-  console.log(chalk.blue('다음 단계:'));
-  console.log(chalk.gray(`  1. ${targetDir}/prd/README.md 작성`));
+  console.log(chalk.blue(tr(lang, 'cli', 'init.log.nextStepsTitle')));
   console.log(
-    chalk.gray('  2. npx lee-spec-kit feature <name> 으로 기능 추가')
+    chalk.gray(tr(lang, 'cli', 'init.log.nextSteps1', { docsDir: targetDir }))
   );
+  console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
   console.log();
 }
 
@@ -375,6 +422,7 @@ async function initGit(
   cwd: string,
   targetDir: string,
   docsRepo: 'embedded' | 'standalone',
+  lang: 'ko' | 'en',
   pushDocs?: boolean,
   docsRemote?: string
 ): Promise<void> {
@@ -401,10 +449,10 @@ async function initGit(
     try {
       runGit(['rev-parse', '--is-inside-work-tree'], cwd);
       // Git이 이미 있으면 docs만 커밋
-      console.log(chalk.blue('📦 Git 레포지토리 감지, docs 커밋 중...'));
+      console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitRepoDetectedCommit')));
     } catch {
       // Git이 없으면 초기화
-      console.log(chalk.blue('📦 Git 초기화 중...'));
+      console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitInit')));
       runGit(['init'], cwd);
     }
 
@@ -414,10 +462,10 @@ async function initGit(
     if (relativePath === '.' && stagedBeforeAdd && stagedBeforeAdd.length > 0) {
       console.log(
         chalk.yellow(
-          '⚠️  현재 Git index에 이미 stage된 변경이 있습니다. (--dir "." 인 경우 커밋 범위를 안전하게 제한할 수 없어 자동 커밋을 건너뜁니다)'
+          tr(lang, 'cli', 'init.warn.stagedChangesSkip')
         )
       );
-      console.log(chalk.gray('    수동으로 변경 내용을 확인한 뒤 커밋해주세요.'));
+      console.log(chalk.gray(tr(lang, 'cli', 'init.warn.commitManually')));
       console.log();
       return;
     }
@@ -435,19 +483,21 @@ async function initGit(
     if (docsRepo === 'standalone' && pushDocs && docsRemote) {
       try {
         runGit(['remote', 'add', 'origin', docsRemote], cwd);
-        console.log(chalk.green(`✅ Git remote 설정 완료: ${docsRemote}`));
+        console.log(
+          chalk.green(tr(lang, 'cli', 'init.log.gitRemoteSet', { remote: docsRemote }))
+        );
       } catch {
         // remote가 이미 존재할 수 있음
-        console.log(chalk.yellow('⚠️  Git remote가 이미 존재합니다.'));
+        console.log(chalk.yellow(tr(lang, 'cli', 'init.warn.gitRemoteExists')));
       }
     }
 
-    console.log(chalk.green('✅ Git 초기 커밋 완료!'));
+    console.log(chalk.green(tr(lang, 'cli', 'init.log.gitInitialCommitDone')));
     console.log();
   } catch {
     // Git 관련 오류는 무시하고 경고만 출력
     console.log(
-      chalk.yellow('⚠️  Git 초기화를 건너뜁니다 (수동으로 커밋해주세요)')
+      chalk.yellow(tr(lang, 'cli', 'init.warn.skipGitInit'))
     );
     console.log();
   }

@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { scanFeatures } from '../utils/context.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 
 interface StatusOptions {
   write?: boolean;
@@ -30,7 +31,7 @@ export function statusCommand(program: Command): void {
       try {
         await runStatus(options);
       } catch (error) {
-        console.error(chalk.red('오류:'), error);
+        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
         process.exit(1);
       }
     });
@@ -41,13 +42,16 @@ async function runStatus(options: StatusOptions): Promise<void> {
   const config = await getConfig(cwd);
 
   if (!config) {
+    console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')));
     console.error(
-      chalk.red('docs 폴더를 찾을 수 없습니다. 먼저 init을 실행하세요.')
+      chalk.red(
+        tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
+      )
     );
     process.exit(1);
   }
 
-  const { docsDir, projectType, projectName } = config;
+  const { docsDir, projectType, projectName, lang } = config;
   const featuresDir = path.join(docsDir, 'features');
 
   const scan = await scanFeatures(config);
@@ -95,7 +99,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
   }
 
   if (features.length === 0) {
-    console.log(chalk.yellow('Feature를 찾을 수 없습니다.'));
+    console.log(chalk.yellow(tr(lang, 'cli', 'status.noFeatures')));
     return;
   }
 
@@ -105,7 +109,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
       ([, paths]) => paths.length > 1
     );
     if (duplicates.length > 0) {
-      console.error(chalk.red('중복 Feature ID 발견:'));
+      console.error(chalk.red(tr(lang, 'cli', 'status.duplicateIds')));
       for (const [id, paths] of duplicates) {
         console.error(chalk.red(`  ${id}:`));
         for (const p of paths) {
@@ -117,7 +121,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
 
     const unknowns = [...idMap.entries()].filter(([id]) => id === "UNKNOWN");
     if (unknowns.length > 0) {
-      console.error(chalk.red('Feature ID가 없는 항목:'));
+      console.error(chalk.red(tr(lang, 'cli', 'status.missingIds')));
       for (const [, paths] of unknowns) {
         for (const p of paths) {
           console.error(chalk.red(`  - ${p}`));
@@ -171,7 +175,11 @@ async function runStatus(options: StatusOptions): Promise<void> {
     ].join('\n');
 
     await fs.writeFile(outputPath, content, 'utf-8');
-    console.log(chalk.green(`✅ ${outputPath} 생성 완료`));
+    console.log(
+      chalk.green(
+        tr(lang, 'cli', 'status.wrote', { path: outputPath })
+      )
+    );
   }
 }
 

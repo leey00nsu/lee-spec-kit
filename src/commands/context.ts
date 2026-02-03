@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import { getConfig } from '../utils/config.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   scanFeatures,
   FeatureContext,
@@ -38,7 +39,10 @@ export function contextCommand(program: Command): void {
               })
             );
           } else {
-            console.error(chalk.red('오류:'), error);
+            console.error(
+              chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+              error
+            );
           }
           process.exit(1);
         }
@@ -70,53 +74,43 @@ function detectFromBranch(
   );
 }
 
-function tr(lang: string, ko: string, en: string): string {
-  return lang === 'en' ? en : ko;
-}
-
 function getListLabel(
   f: FeatureContext,
   stepsMap: Record<number, string>,
-  lang: string
+  lang: 'ko' | 'en'
 ): string {
   // For "ready to close" features, show the closest missing workflow requirement
   // instead of generic step names like "tasks.md 작성".
   if (f.completion.implementationDone && !f.completion.workflowDone) {
     if (f.git.docsHasUncommittedChanges) {
-      return tr(lang, '문서 커밋 필요', 'Commit docs changes');
+      return tr(lang, 'cli', 'context.list.docsCommitNeeded');
     }
     if (!f.issueNumber) {
-      return tr(lang, '이슈 번호 기록 필요', 'Fill issue number in docs');
+      return tr(lang, 'cli', 'context.list.issueNumberNeeded');
     }
     if (!f.docs.prFieldExists || !f.docs.prStatusFieldExists) {
-      return tr(
-        lang,
-        'PR 메타데이터(PR/PR 상태) 추가',
-        'Add PR metadata (PR/PR Status)'
-      );
+      return tr(lang, 'cli', 'context.list.addPrMetadata');
     }
     if (!f.pr.link) {
-      return tr(lang, 'PR 링크 기록', 'Record PR link');
+      return tr(lang, 'cli', 'context.list.recordPrLink');
     }
     if (!f.pr.status) {
-      return tr(lang, 'PR 상태 설정', 'Set PR Status');
+      return tr(lang, 'cli', 'context.list.setPrStatus');
     }
     if (f.pr.status !== 'Approved') {
-      return tr(
-        lang,
-        `PR 상태 ${f.pr.status} → Approved`,
-        `PR Status ${f.pr.status} → Approved`
-      );
+      return tr(lang, 'cli', 'context.list.prStatusToApproved', {
+        status: f.pr.status,
+      });
     }
     if (f.specStatus !== 'Approved') {
-      return tr(lang, 'spec 승인 필요', 'Approve spec');
+      return tr(lang, 'cli', 'context.list.approveSpec');
     }
     if (f.planStatus !== 'Approved') {
-      return tr(lang, 'plan 승인 필요', 'Approve plan');
+      return tr(lang, 'cli', 'context.list.approvePlan');
     }
   }
 
-  return stepsMap[f.currentStep] || tr(lang, 'Unknown', 'Unknown');
+  return stepsMap[f.currentStep] || 'Unknown';
 }
 
 async function runContext(
@@ -128,7 +122,7 @@ async function runContext(
   const lang = config?.lang ?? 'en';
 
   if (!config) {
-    throw new Error('Config file not found. Run `init` first.');
+    throw new Error(tr(DEFAULT_LANG, 'cli', 'common.configNotFound'));
   }
 
   const stepDefinitions = getStepDefinitions(lang);
@@ -278,13 +272,17 @@ async function runContext(
   console.log();
 
   if (features.length === 0) {
-    console.log(chalk.yellow('⚠️  진행 중인 Feature를 찾을 수 없습니다.'));
+    console.log(
+      chalk.yellow(
+        tr(lang, 'cli', 'context.noActiveFeatures')
+      )
+    );
     console.log();
     return;
   }
 
   if (warnings.length > 0) {
-    console.log(chalk.yellow('⚠️  환경 경고:'));
+    console.log(chalk.yellow(tr(lang, 'cli', 'context.envWarnings')));
     warnings.forEach((w) => console.log(chalk.yellow(`   - ${w}`)));
     console.log();
   }
@@ -293,13 +291,21 @@ async function runContext(
     if (selectionMode === 'open') {
       console.log(
         chalk.gray(
-          `   (브랜치로 Feature를 특정하지 못해 미완료 Feature만 표시합니다. 진행 중: ${inProgressFeatures.length}개 / 종료 대기: ${readyToCloseFeatures.length}개 / 완료: ${doneFeatures.length}개)`
+          `   ${tr(lang, 'cli', 'context.openFallbackSummary', {
+            inProgress: inProgressFeatures.length,
+            readyToClose: readyToCloseFeatures.length,
+            done: doneFeatures.length,
+          })}`
         )
       );
       console.log();
     }
     if (selectionMode === 'open') {
-      console.log(chalk.blue(`🔹 In Progress (${inProgressFeatures.length})`));
+      console.log(
+        chalk.blue(
+          `🔹 ${tr(lang, 'cli', 'context.sectionInProgress')} (${inProgressFeatures.length})`
+        )
+      );
       inProgressFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
@@ -310,7 +316,11 @@ async function runContext(
       });
 
       console.log();
-      console.log(chalk.blue(`🔸 Ready To Close (${readyToCloseFeatures.length})`));
+      console.log(
+        chalk.blue(
+          `🔸 ${tr(lang, 'cli', 'context.sectionReadyToClose')} (${readyToCloseFeatures.length})`
+        )
+      );
       readyToCloseFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
@@ -339,13 +349,21 @@ async function runContext(
     }
 
     console.log();
-    console.log(chalk.gray('Tip: 특정 Feature의 상세 정보를 보려면:'));
+    console.log(chalk.gray(tr(lang, 'cli', 'context.tipDetails')));
     console.log(
       chalk.gray('   $ npx lee-spec-kit context <slug|F001|F001-slug> [--repo fe|be]')
     );
     if (selectionMode === 'open') {
-      console.log(chalk.gray('   $ npx lee-spec-kit context --all   # 전체 보기'));
-      console.log(chalk.gray('   $ npx lee-spec-kit context --done  # 완료만 보기'));
+      console.log(
+        chalk.gray(
+          `   $ npx lee-spec-kit context --all   # ${tr(lang, 'cli', 'context.tipShowAll')}`
+        )
+      );
+      console.log(
+        chalk.gray(
+          `   $ npx lee-spec-kit context --done  # ${tr(lang, 'cli', 'context.tipShowDone')}`
+        )
+      );
     }
     console.log();
     return;
@@ -357,7 +375,7 @@ async function runContext(
 
   const okTag = (requiresUserOk?: boolean): string =>
     requiresUserOk
-      ? chalk.yellow(lang === 'ko' ? '[OK 필요] ' : '[OK required] ')
+      ? chalk.yellow(tr(lang, 'cli', 'context.okRequired'))
       : '';
 
   console.log(

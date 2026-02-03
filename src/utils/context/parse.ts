@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { tr } from './i18n.js';
+import { tr } from '../i18n.js';
 import { getGitStatusPorcelain, isExpectedFeatureBranch } from './git.js';
 import { resolveFeatureProgress } from './progress.js';
 import {

@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 
 interface UpdateOptions {
@@ -23,10 +24,12 @@ export function updateCommand(program: Command): void {
         await runUpdate(options);
       } catch (error) {
         if (error instanceof Error && error.message === 'canceled') {
-          console.log(chalk.yellow('\n작업이 취소되었습니다.'));
+          const config = await getConfig(process.cwd());
+          const lang = config?.lang ?? DEFAULT_LANG;
+          console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        console.error(chalk.red('오류:'), error);
+        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
         process.exit(1);
       }
     });
@@ -37,8 +40,11 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
   const config = await getConfig(cwd);
 
   if (!config) {
+    console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')));
     console.error(
-      chalk.red('docs 폴더를 찾을 수 없습니다. 먼저 init을 실행하세요.')
+      chalk.red(
+        tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
+      )
     );
     process.exit(1);
   }
@@ -53,16 +59,18 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
   const updateTemplates =
     options.templates || (!options.agents && !options.templates);
 
-  console.log(chalk.blue('📦 템플릿 업데이트를 시작합니다...'));
-  console.log(chalk.gray(`  - 언어: ${lang}`));
-  console.log(chalk.gray(`  - 타입: ${projectType}`));
+  console.log(chalk.blue(tr(lang, 'cli', 'update.start')));
+  console.log(chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`));
+  console.log(
+    chalk.gray(`  - ${tr(lang, 'cli', 'update.typeLabel')}: ${projectType}`)
+  );
   console.log();
 
   let updatedCount = 0;
 
   // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
   if (updateAgents) {
-    console.log(chalk.blue('📁 agents/ 폴더 업데이트 중...'));
+    console.log(chalk.blue(tr(lang, 'cli', 'update.updatingAgents')));
     const commonAgents = path.join(templatesDir, lang, 'common', 'agents');
     const typeAgents = path.join(templatesDir, lang, projectType, 'agents');
     const targetAgents = path.join(docsDir, 'agents');
@@ -80,22 +88,29 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
         commonAgents,
         targetAgents,
         options.force,
-        replacements
+        replacements,
+        lang
       );
       updatedCount += count;
     }
 
     // 타입별 오버라이드
     if (await fs.pathExists(typeAgents)) {
-      const count = await updateFolder(typeAgents, targetAgents, options.force);
+      const count = await updateFolder(
+        typeAgents,
+        targetAgents,
+        options.force,
+        undefined,
+        lang
+      );
       updatedCount += count;
     }
-    console.log(chalk.green(`  ✅ agents/ 업데이트 완료`));
+    console.log(chalk.green(`  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`));
   }
 
   // feature-base/ 폴더 업데이트
   if (updateTemplates) {
-    console.log(chalk.blue('📁 features/feature-base/ 폴더 업데이트 중...'));
+    console.log(chalk.blue(tr(lang, 'cli', 'update.updatingFeatureBase')));
     const sourceFeatureBase = path.join(sourceDir, 'features', 'feature-base');
     const targetFeatureBase = path.join(docsDir, 'features', 'feature-base');
 
@@ -103,22 +118,33 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const count = await updateFolder(
         sourceFeatureBase,
         targetFeatureBase,
-        options.force
+        options.force,
+        undefined,
+        lang
       );
       updatedCount += count;
-      console.log(chalk.green(`  ✅ ${count}개 파일 업데이트 완료`));
+      console.log(
+        chalk.green(
+          `  ✅ ${tr(lang, 'cli', 'update.filesUpdated', { count })}`
+        )
+      );
     }
   }
 
   console.log();
-  console.log(chalk.green(`✅ 총 ${updatedCount}개 파일 업데이트 완료!`));
+  console.log(
+    chalk.green(
+      `✅ ${tr(lang, 'cli', 'update.updatedTotal', { count: updatedCount })}`
+    )
+  );
 }
 
 async function updateFolder(
   sourceDir: string,
   targetDir: string,
   force?: boolean,
-  replacements?: Record<string, string>
+  replacements?: Record<string, string>,
+  lang: 'ko' | 'en' = DEFAULT_LANG
 ): Promise<number> {
   const protectedFiles = new Set(['custom.md', 'constitution.md']);
 
@@ -162,7 +188,9 @@ async function updateFolder(
         // force가 아니면 경고 표시
         if (!force) {
           console.log(
-            chalk.yellow(`  ⚠️ ${file} - 변경 감지 (--force로 덮어쓰기)`)
+            chalk.yellow(
+              `  ⚠️ ${file} - ${tr(lang, 'cli', 'update.changeDetected')}`
+            )
           );
           shouldUpdate = false;
         }
@@ -170,7 +198,9 @@ async function updateFolder(
 
       if (shouldUpdate) {
         await fs.writeFile(targetPath, sourceContent);
-        console.log(chalk.gray(`  📄 ${file} 업데이트`));
+        console.log(
+          chalk.gray(`  📄 ${tr(lang, 'cli', 'update.fileUpdated', { file })}`)
+        );
         updatedCount++;
       }
     } else if (stat.isDirectory()) {
@@ -179,7 +209,8 @@ async function updateFolder(
         sourcePath,
         targetPath,
         force,
-        replacements
+        replacements,
+        lang
       );
       updatedCount += subCount;
     }

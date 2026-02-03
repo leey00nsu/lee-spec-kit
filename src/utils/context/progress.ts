@@ -1,4 +1,4 @@
-import { tr } from './i18n.js';
+import { tr } from '../i18n.js';
 import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 
 export function resolveFeatureProgress(
@@ -37,4 +37,3 @@ export function resolveFeatureProgress(
     nextAction: tr(lang, 'messages', 'fallbackRerunContext'),
   };
 }
-

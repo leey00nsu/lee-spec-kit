@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
 import { getConfig } from '../utils/config.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { scanFeatures, FeatureContext } from '../utils/context.js';
 
 type IssueLevel = 'error' | 'warn';
@@ -17,10 +18,6 @@ type DoctorIssue = {
 interface DoctorOptions {
   json?: boolean;
   strict?: boolean;
-}
-
-function msg(lang: 'ko' | 'en', ko: string, en: string): string {
-  return lang === 'en' ? en : ko;
 }
 
 function formatPath(cwd: string, p: string | undefined): string {
@@ -64,11 +61,7 @@ async function checkDocsStructure(
       issues.push({
         level: 'error',
         code: 'missing_dir',
-        message: msg(
-          config.lang,
-          `필수 폴더가 없습니다: ${dir}`,
-          `Missing required directory: ${dir}`
-        ),
+        message: tr(config.lang, 'cli', 'doctor.issue.missingRequiredDir', { dir }),
         path: formatPath(cwd, p),
       });
     }
@@ -79,11 +72,7 @@ async function checkDocsStructure(
     issues.push({
       level: 'warn',
       code: 'missing_config',
-      message: msg(
-        config.lang,
-        '설정 파일(.lee-spec-kit.json)이 없습니다. 일부 기능이 폴더 구조 추정으로 동작할 수 있습니다.',
-        'Missing .lee-spec-kit.json. Some commands may rely on folder-structure heuristics.'
-      ),
+      message: tr(config.lang, 'cli', 'doctor.issue.missingConfig'),
       path: formatPath(cwd, configPath),
     });
   }
@@ -102,11 +91,7 @@ async function checkFeatures(
     issues.push({
       level: 'warn',
       code: 'no_features',
-      message: msg(
-        config.lang,
-        'Feature 폴더를 찾지 못했습니다. (feature-base만 존재하거나 아직 feature를 만들지 않았을 수 있습니다.)',
-        'No feature folders found. (Only feature-base exists, or no features created yet.)'
-      ),
+      message: tr(config.lang, 'cli', 'doctor.issue.noFeatures'),
     });
     return issues;
   }
@@ -129,11 +114,9 @@ async function checkFeatures(
       issues.push({
         level: 'warn',
         code: 'placeholder_left',
-        message: msg(
-          config.lang,
-          `플레이스홀더가 남아있습니다: ${placeholders.join(', ')}`,
-          `Leftover placeholders detected: ${placeholders.join(', ')}`
-        ),
+        message: tr(config.lang, 'cli', 'doctor.issue.placeholdersLeft', {
+          placeholders: placeholders.join(', '),
+        }),
         path: formatPath(cwd, p),
       });
     }
@@ -142,22 +125,14 @@ async function checkFeatures(
       issues.push({
         level: 'warn',
         code: 'missing_spec',
-        message: msg(
-          config.lang,
-          'spec.md가 없습니다.',
-          'Missing spec.md.'
-        ),
+        message: tr(config.lang, 'cli', 'doctor.issue.missingSpec'),
         path: formatPath(cwd, f.path),
       });
     } else if (!f.specStatus) {
       issues.push({
         level: 'warn',
         code: 'spec_status_unset',
-        message: msg(
-          config.lang,
-          'spec.md의 Status(상태)가 설정되지 않았습니다. (템플릿 그대로일 수 있음)',
-          'spec.md Status is not set. (May still be a template)'
-        ),
+        message: tr(config.lang, 'cli', 'doctor.issue.specStatusUnset'),
         path: formatPath(cwd, path.join(f.path, 'spec.md')),
       });
     }
@@ -166,11 +141,7 @@ async function checkFeatures(
       issues.push({
         level: 'warn',
         code: 'plan_status_unset',
-        message: msg(
-          config.lang,
-          'plan.md의 Status(상태)가 설정되지 않았습니다. (템플릿 그대로일 수 있음)',
-          'plan.md Status is not set. (May still be a template)'
-        ),
+        message: tr(config.lang, 'cli', 'doctor.issue.planStatusUnset'),
         path: formatPath(cwd, path.join(f.path, 'plan.md')),
       });
     }
@@ -179,11 +150,7 @@ async function checkFeatures(
       issues.push({
         level: 'warn',
         code: 'tasks_empty',
-        message: msg(
-          config.lang,
-          'tasks.md에 태스크가 없습니다.',
-          'tasks.md has no tasks.'
-        ),
+        message: tr(config.lang, 'cli', 'doctor.issue.tasksEmpty'),
         path: formatPath(cwd, path.join(f.path, 'tasks.md')),
       });
     }
@@ -196,11 +163,10 @@ async function checkFeatures(
     issues.push({
       level: 'warn',
       code: 'duplicate_feature_id',
-      message: msg(
-        config.lang,
-        `중복 Feature ID 감지: ${id} (${paths.length}개)`,
-        `Duplicate Feature ID detected: ${id} (${paths.length})`
-      ),
+      message: tr(config.lang, 'cli', 'doctor.issue.duplicateFeatureId', {
+        id,
+        count: String(paths.length),
+      }),
       path: formatPath(cwd, paths[0]),
     });
   }
@@ -210,11 +176,7 @@ async function checkFeatures(
     issues.push({
       level: 'warn',
       code: 'missing_feature_id',
-      message: msg(
-        config.lang,
-        'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',
-        'Feature folder name is not in F001-... format. (Cannot extract ID)'
-      ),
+      message: tr(config.lang, 'cli', 'doctor.issue.missingFeatureId'),
       path: formatPath(cwd, path.join(config.docsDir, p)),
     });
   }
@@ -233,11 +195,11 @@ export function doctorCommand(program: Command): void {
       const config = await getConfig(cwd);
 
       if (!config) {
-        const message = '설정 파일을 찾을 수 없습니다. 먼저 init을 실행해주세요.';
+        const message = tr(DEFAULT_LANG, 'cli', 'common.configNotFound');
         if (options.json) {
           console.log(JSON.stringify({ status: 'error', error: message }, null, 2));
         } else {
-          console.error(chalk.red('오류:'), message);
+          console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), message);
         }
         process.exit(1);
       }
@@ -277,20 +239,22 @@ export function doctorCommand(program: Command): void {
       }
 
       console.log();
-      console.log(chalk.bold('🔎 Docs Doctor'));
+      console.log(chalk.bold(tr(lang, 'cli', 'doctor.title')));
       console.log(chalk.gray(`- Docs: ${path.relative(cwd, docsDir)}`));
       console.log(chalk.gray(`- Type: ${projectType}`));
       console.log(chalk.gray(`- Lang: ${lang}`));
       console.log();
 
       if (warnings.length > 0) {
-        console.log(chalk.yellow('⚠️  Environment warnings:'));
+        console.log(
+          chalk.yellow(tr(lang, 'cli', 'doctor.envWarnings'))
+        );
         warnings.forEach((w) => console.log(chalk.yellow(`  - ${w}`)));
         console.log();
       }
 
       if (!hasIssues) {
-        console.log(chalk.green('✅ 문제를 찾지 못했습니다.'));
+        console.log(chalk.green(tr(lang, 'cli', 'doctor.noIssues')));
         console.log();
         process.exit(0);
       }
@@ -299,7 +263,9 @@ export function doctorCommand(program: Command): void {
       const warns = issues.filter((i) => i.level === 'warn');
 
       if (errors.length > 0) {
-        console.log(chalk.red(`❌ Errors (${errors.length})`));
+        console.log(
+          chalk.red(`❌ ${tr(lang, 'cli', 'doctor.errorsTitle')} (${errors.length})`)
+        );
         errors.forEach((i) =>
           console.log(chalk.red(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`))
         );
@@ -307,7 +273,11 @@ export function doctorCommand(program: Command): void {
       }
 
       if (warns.length > 0) {
-        console.log(chalk.yellow(`⚠️  Warnings (${warns.length})`));
+        console.log(
+          chalk.yellow(
+            `⚠️  ${tr(lang, 'cli', 'doctor.warningsTitle')} (${warns.length})`
+          )
+        );
         warns.forEach((i) =>
           console.log(
             chalk.yellow(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`)
@@ -318,9 +288,9 @@ export function doctorCommand(program: Command): void {
 
       console.log(
         chalk.gray(
-          `Tip: 에이전트용 JSON 출력: npx lee-spec-kit doctor --json${
-            options.strict ? ' --strict' : ''
-          }`
+          tr(lang, 'cli', 'doctor.tipJson', {
+            strictFlag: options.strict ? ' --strict' : '',
+          })
         )
       );
       console.log();

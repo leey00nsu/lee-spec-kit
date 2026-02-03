@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import prompts from 'prompts';
 import { getConfig } from '../utils/config.js';
+import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 
 interface ConfigOptions {
   projectRoot?: string;
@@ -21,10 +22,12 @@ export function configCommand(program: Command): void {
         await runConfig(options);
       } catch (error) {
         if (error instanceof Error && error.message === 'canceled') {
-          console.log(chalk.yellow('\n작업이 취소되었습니다.'));
+          const config = await getConfig(process.cwd());
+          const lang = config?.lang ?? DEFAULT_LANG;
+          console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        console.error(chalk.red('오류:'), error);
+        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
         process.exit(1);
       }
     });
@@ -36,7 +39,9 @@ async function runConfig(options: ConfigOptions): Promise<void> {
 
   if (!config) {
     console.log(
-      chalk.red('설정 파일을 찾을 수 없습니다. 먼저 init을 실행해주세요.')
+      chalk.red(
+        tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
+      )
     );
     process.exit(1);
   }
@@ -46,9 +51,13 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   // 옵션 없이 실행: 현재 설정 출력
   if (!options.projectRoot) {
     console.log();
-    console.log(chalk.blue('📋 현재 설정:'));
+    console.log(chalk.blue(tr(config.lang, 'cli', 'config.currentTitle')));
     console.log();
-    console.log(chalk.gray(`  경로: ${configPath}`));
+    console.log(
+      chalk.gray(
+        `  ${tr(config.lang, 'cli', 'config.pathLabel')}: ${configPath}`
+      )
+    );
     console.log();
 
     const configFile = await fs.readJson(configPath);
@@ -63,7 +72,9 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   // embedded인 경우 projectRoot 설정 불필요
   if (configFile.docsRepo !== 'standalone') {
     console.log(
-      chalk.yellow('⚠️  projectRoot는 standalone 모드에서만 설정 가능합니다.')
+      chalk.yellow(
+        tr(config.lang, 'cli', 'config.projectRootStandaloneOnly')
+      )
     );
     return;
   }
@@ -79,7 +90,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
           {
             type: 'select',
             name: 'repo',
-            message: '수정할 레포지토리를 선택하세요:',
+            message: tr(config.lang, 'cli', 'config.selectRepoToUpdate'),
             choices: [
               { title: 'Frontend (fe)', value: 'fe' },
               { title: 'Backend (be)', value: 'be' },
@@ -98,7 +109,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     if (!options.repo || !['fe', 'be'].includes(options.repo)) {
       console.log(
         chalk.red(
-          'Fullstack 프로젝트는 --repo fe 또는 --repo be를 지정해야 합니다.'
+          tr(config.lang, 'cli', 'config.fullstackRepoRequired')
         )
       );
       return;
@@ -119,14 +130,21 @@ async function runConfig(options: ConfigOptions): Promise<void> {
 
     console.log(
       chalk.green(
-        `✅ ${options.repo.toUpperCase()} projectRoot 설정 완료: ${options.projectRoot}`
+        tr(config.lang, 'cli', 'config.projectRootSet', {
+          repo: options.repo.toUpperCase(),
+          path: options.projectRoot,
+        })
       )
     );
   } else {
     // Single: 바로 설정
     configFile.projectRoot = options.projectRoot;
     console.log(
-      chalk.green(`✅ projectRoot 설정 완료: ${options.projectRoot}`)
+      chalk.green(
+        tr(config.lang, 'cli', 'config.projectRootSetSingle', {
+          path: options.projectRoot,
+        })
+      )
     );
   }
 
