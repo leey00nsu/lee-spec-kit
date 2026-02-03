@@ -30,6 +30,20 @@ Keep `tasks.md` aligned with reality.
 - Do not mark `[DONE]` without actually completing the work and verifying criteria.
 - If you need to change a completed task, add a new task instead of rewriting history.
 
+### Step 3.5: Record decisions (strongly recommended, effectively required)
+
+To avoid “why did we implement it like this?” losing context, **record any non-obvious or tradeoff-heavy implementation choice** in `decisions.md`.
+
+Record a decision if any of these apply:
+
+- There was a tradeoff (performance / reliability / security / maintainability)
+- You introduced a new rule/heuristic/state transition (e.g., context detection logic, exception criteria)
+- You changed behavior for compatibility or as a workaround
+- You changed data shape, file structure, or CLI output rules
+- You expect future readers to ask “why this way?”
+
+Use the feature’s `decisions.md` template format. (Context/Options/Decision/Rationale/Consequences)
+
 ### Step 4: Repeat
 
 After finishing a meaningful chunk of work, run `context` again.
