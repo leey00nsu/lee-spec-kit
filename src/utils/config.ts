@@ -40,7 +40,6 @@ function getAncestorDirs(startDir: string): string[] {
 export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
   const explicitDocsDir = (
     process.env.LEE_SPEC_KIT_DOCS_DIR ||
-    process.env.LSK_DOCS_DIR ||
     ''
   ).trim();
   const baseDirs = [

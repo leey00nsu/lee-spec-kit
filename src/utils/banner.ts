@@ -2,7 +2,6 @@ import chalk from 'chalk';
 
 function isBannerDisabled(): boolean {
   const v = (
-    process.env.LSK_NO_BANNER ||
     process.env.LEE_SPEC_KIT_NO_BANNER ||
     ''
   ).trim();

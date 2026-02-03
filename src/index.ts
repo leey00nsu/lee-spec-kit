@@ -21,7 +21,6 @@ function shouldCheckForUpdates(): boolean {
     argv.includes('-V');
 
   const disabledByEnv =
-    (process.env.LSK_NO_UPDATE_CHECK || '').trim() === '1' ||
     (process.env.LEE_SPEC_KIT_NO_UPDATE_CHECK || '').trim() === '1';
 
   // 머신 출력(JSON) / 파이프 환경에서는 stdout 오염 방지

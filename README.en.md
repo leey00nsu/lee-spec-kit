@@ -1,0 +1,186 @@
+<h1 align="center">
+  <strong>lee-spec-kit</strong>
+</h1>
+
+<div align="center">
+<img src="./assets/logo.png" alt="lee-spec-kit logo" width="620" />
+</div>
+
+<p align="center">
+  <strong>CLI to generate a project docs structure for AI-assisted development</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/lee-spec-kit"><img src="https://img.shields.io/npm/v/lee-spec-kit.svg" alt="npm version"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node.js">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#features">Features</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#generated-structure">Generated Structure</a>
+</p>
+
+<p align="center">
+  <a href="./README.en.md">
+    <img src="https://img.shields.io/badge/lang-en-red.svg" alt="English">
+  </a>
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/lang-ko-blue.svg" alt="한국어">
+  </a>
+</p>
+
+---
+
+## Quick Start
+
+```bash
+# 1) Initialize docs structure
+npx lee-spec-kit init
+
+# 2) Create a feature
+npx lee-spec-kit feature user-auth
+
+# 3) Show next steps (for agents)
+npx lee-spec-kit context
+
+# 4) Show overall status
+npx lee-spec-kit status
+
+# 5) Validate docs / feature metadata
+npx lee-spec-kit doctor
+```
+
+## Features
+
+### 📁 Project initialization
+
+- Interactive init or CLI options
+- Supports `single` and `fullstack` (FE/BE split)
+- Korean/English templates
+
+### 🚀 Feature creation
+
+- Generates `spec.md`, `plan.md`, `tasks.md`, `decisions.md`
+- Fullstack mode supports FE/BE separation
+- Integrates Issue/PR templates (docs side)
+
+### 📊 Status management
+
+- View feature progress at a glance
+- Print to terminal or write a Markdown report
+
+### 🩺 Doctor
+
+- Checks docs structure and feature metadata (missing status, duplicate IDs, placeholders, etc.)
+- `--json` output for automation/agents
+
+### 🔄 Template updates
+
+- Updates docs templates to the latest version
+
+## Usage
+
+### Init
+
+```bash
+npx lee-spec-kit init
+npx lee-spec-kit init --name my-project --type fullstack
+```
+
+**Options:**
+
+| Option              | Description                               | Default       |
+| ------------------- | ----------------------------------------- | ------------- |
+| `-n, --name <name>` | Project name                              | current folder |
+| `-t, --type <type>` | `single` or `fullstack`                   | interactive    |
+| `-l, --lang <lang>` | `ko` or `en`                              | `en`           |
+| `-d, --dir <dir>`   | Install directory                          | `./docs`       |
+| `-y, --yes`         | Skip interactive prompts                   | -              |
+
+### Create a feature
+
+```bash
+# Single
+npx lee-spec-kit feature user-auth
+
+# Fullstack
+npx lee-spec-kit feature --repo be user-auth
+npx lee-spec-kit feature --repo fe user-profile
+```
+
+### Context (agent guide)
+
+```bash
+# Auto-detect (based on git branch)
+npx lee-spec-kit context
+
+# Specify a feature
+npx lee-spec-kit context user-auth
+
+# Selector: Feature ID / folder name
+npx lee-spec-kit context F001
+npx lee-spec-kit context F001-user-auth
+
+# JSON output (for agents)
+npx lee-spec-kit context --json
+```
+
+### Status
+
+```bash
+npx lee-spec-kit status
+npx lee-spec-kit status --write
+```
+
+### Doctor
+
+```bash
+npx lee-spec-kit doctor
+npx lee-spec-kit doctor --strict
+npx lee-spec-kit doctor --json
+```
+
+### Update templates
+
+```bash
+npx lee-spec-kit update
+npx lee-spec-kit update --agents
+npx lee-spec-kit update --skills
+npx lee-spec-kit update --templates
+npx lee-spec-kit update --force
+```
+
+## Configuration
+
+### `.lee-spec-kit.json`
+
+Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`).
+
+```json
+{
+  "projectName": "my-project",
+  "projectType": "single",
+  "lang": "en",
+  "createdAt": "YYYY-MM-DD",
+  "docsRepo": "embedded"
+}
+```
+
+| Field         | Description                                      |
+| ------------- | ------------------------------------------------ |
+| `projectName` | Project name                                     |
+| `projectType` | `single` or `fullstack`                          |
+| `lang`        | `ko` or `en`                                     |
+| `createdAt`   | Creation date                                    |
+| `docsRepo`    | `embedded` or `standalone`                       |
+| `projectRoot` | (standalone only) path to the project repository |
+
+> If you run the CLI outside the docs repo in standalone mode, set `LEE_SPEC_KIT_DOCS_DIR` to the docs repo path.
+
+## Generated Structure
+
+See the Korean README for the full tree examples and workflow details: `README.md`.
+
