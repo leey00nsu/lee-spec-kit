@@ -116,34 +116,14 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       step: 6,
       name: tr(lang, 'steps', 'tasksWrite'),
       checklist: {
-        done: (f) =>
-          f.docs.tasksExists &&
-          f.tasks.total > 0 &&
-          f.docs.prFieldExists &&
-          f.docs.prStatusFieldExists,
+        done: (f) => f.docs.tasksExists && f.tasks.total > 0,
         detail: (f) => (f.tasks.total > 0 ? `(${f.tasks.total})` : ''),
       },
       current: {
         when: (f) =>
           f.planStatus === 'Approved' &&
-          ((!f.docs.tasksExists || f.tasks.total === 0) ||
-            (f.docs.tasksExists &&
-              f.tasks.total > 0 &&
-              (!f.docs.prFieldExists || !f.docs.prStatusFieldExists))),
+          (!f.docs.tasksExists || f.tasks.total === 0),
         actions: (f) => {
-          if (
-            f.docs.tasksExists &&
-            f.tasks.total > 0 &&
-            (!f.docs.prFieldExists || !f.docs.prStatusFieldExists)
-          ) {
-            return [
-              {
-                type: 'instruction',
-                requiresUserOk: true,
-                message: tr(lang, 'messages', 'prLegacyAsk'),
-              },
-            ];
-          }
           if (!f.docs.tasksExists) {
             return [
               {
