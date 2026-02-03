@@ -8,6 +8,7 @@ import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
 import { contextCommand } from './commands/context.js';
 import { doctorCommand } from './commands/doctor.js';
+import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
 function shouldCheckForUpdates(): boolean {
@@ -48,12 +49,15 @@ function getCliVersion(): string {
   return '0.0.0';
 }
 
+const cliVersion = getCliVersion();
+
 program
   .name('lee-spec-kit')
   .description(
     'Project documentation structure generator for AI-assisted development'
   )
-  .version(getCliVersion());
+  .version(cliVersion)
+  .addHelpText('beforeAll', getBanner({ version: cliVersion }));
 
 initCommand(program);
 featureCommand(program);

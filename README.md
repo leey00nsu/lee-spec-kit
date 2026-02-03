@@ -2,6 +2,10 @@
   <strong>lee-spec-kit</strong>
 </h1>
 
+<div align="center">
+<img src="./assets/logo.png" alt="lee-spec-kit logo" width="620" />
+</div>
+
 <p align="center">
   <strong>AI 에이전트 기반 개발을 위한 프로젝트 문서 구조 생성 CLI</strong>
 </p>
