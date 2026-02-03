@@ -65,6 +65,10 @@ const I18N: Record<Lang, I18nData> = {
       'update.updatedTotal': '총 {count}개 파일 업데이트 완료!',
       'update.changeDetected': '변경 감지 (--force로 덮어쓰기)',
       'update.fileUpdated': '{file} 업데이트',
+      'update.gitStatusUnavailable':
+        'git 상태를 확인할 수 없습니다. (git repo가 아니거나 git 실행 불가) --force로 강제 덮어쓰기를 사용하세요.',
+      'update.docsWorktreeDirty':
+        'docs 작업트리에 변경사항이 있어 update를 진행할 수 없습니다. 변경사항을 커밋/스태시 후 다시 실행하거나 --force로 덮어쓰세요.',
 
       'doctor.title': '🔎 문서 진단',
       'doctor.envWarnings': '⚠️  환경 경고:',
@@ -282,6 +286,10 @@ const I18N: Record<Lang, I18nData> = {
       'update.updatedTotal': 'Updated {count} files!',
       'update.changeDetected': 'changes detected (use --force to overwrite)',
       'update.fileUpdated': '{file} updated',
+      'update.gitStatusUnavailable':
+        'Cannot determine git status (not a git repo or git unavailable). Use --force to overwrite.',
+      'update.docsWorktreeDirty':
+        'Docs working tree has changes. Commit/stash your changes, or run with --force to overwrite.',
 
       'doctor.title': '🔎 Docs Doctor',
       'doctor.envWarnings': '⚠️  Environment warnings:',

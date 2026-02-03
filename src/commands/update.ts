@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
+import { execFileSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
@@ -21,18 +22,28 @@ export function updateCommand(program: Command): void {
     .option('--agents', 'Update agents/ folder only')
     .option('--skills', 'Update agents/skills folder only')
     .option('--templates', 'Update feature-base/ folder only')
-    .option('-f, --force', 'Force overwrite without confirmation')
+    .option(
+      '-f, --force',
+      'Force overwrite even if docs has uncommitted changes'
+    )
     .action(async (options: UpdateOptions) => {
       try {
         await runUpdate(options);
       } catch (error) {
+        const config = await getConfig(process.cwd());
+        const lang = config?.lang ?? DEFAULT_LANG;
         if (error instanceof Error && error.message === 'canceled') {
-          const config = await getConfig(process.cwd());
-          const lang = config?.lang ?? DEFAULT_LANG;
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
+        if (error instanceof Error) {
+          console.error(
+            chalk.red(tr(lang, 'cli', 'common.errorLabel')),
+            chalk.red(error.message)
+          );
+        } else {
+          console.error(chalk.red(tr(lang, 'cli', 'common.errorLabel')), error);
+        }
         process.exit(1);
       }
     });
@@ -55,6 +66,11 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
   const { docsDir, projectType, lang } = config;
   const templatesDir = getTemplatesDir();
   const sourceDir = path.join(templatesDir, lang, projectType);
+
+  // Default behavior: only allow update when docs working tree is clean.
+  // Then apply updates like --force. This keeps update predictable and simple.
+  const forceOverwrite =
+    !!options.force || (await isDocsWorktreeCleanOrThrow(docsDir, lang));
 
   // 업데이트 대상 결정
   const hasExplicitSelection = !!(
@@ -105,8 +121,13 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     // featurePath 치환
     const featurePath =
       projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
-    const replacements: Record<string, string> = {
+    const projectName = config.projectName ?? '{{projectName}}';
+    const commonReplacements: Record<string, string> = {
+      '{{projectName}}': projectName,
       '{{featurePath}}': featurePath,
+    };
+    const typeReplacements: Record<string, string> = {
+      '{{projectName}}': projectName,
     };
 
     // common 먼저 업데이트
@@ -114,8 +135,8 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const count = await updateFolder(
         commonAgents,
         targetAgents,
-        options.force,
-        replacements,
+        forceOverwrite,
+        commonReplacements,
         lang
       );
       updatedCount += count;
@@ -126,8 +147,8 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const count = await updateFolder(
         typeAgents,
         targetAgents,
-        options.force,
-        undefined,
+        forceOverwrite,
+        typeReplacements,
         lang
       );
       updatedCount += count;
@@ -156,7 +177,7 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const count = await updateFolder(
         sourceFeatureBase,
         targetFeatureBase,
-        options.force,
+        forceOverwrite,
         replacements,
         lang
       );
@@ -221,7 +242,7 @@ async function updateFolder(
           continue;
         }
 
-        // force가 아니면 경고 표시
+        // force가 아니면 경고 표시 (CI/파이프 환경에서는 stdout 오염/대화 불가)
         if (!force) {
           console.log(
             chalk.yellow(
@@ -253,4 +274,46 @@ async function updateFolder(
   }
 
   return updatedCount;
+}
+
+function getGitTopLevel(cwd: string): string | null {
+  try {
+    const out = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return out || null;
+  } catch {
+    return null;
+  }
+}
+
+function getDocsPorcelainStatus(docsDir: string): string | null {
+  const top = getGitTopLevel(docsDir);
+  if (!top) return null;
+  const rel = path.relative(top, docsDir) || '.';
+  try {
+    return execFileSync('git', ['status', '--porcelain=v1', '--', rel], {
+      cwd: top,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function isDocsWorktreeCleanOrThrow(
+  docsDir: string,
+  lang: 'ko' | 'en'
+): Promise<boolean> {
+  const status = getDocsPorcelainStatus(docsDir);
+  if (status === null) {
+    throw new Error(tr(lang, 'cli', 'update.gitStatusUnavailable'));
+  }
+  if (status.trim().length > 0) {
+    throw new Error(tr(lang, 'cli', 'update.docsWorktreeDirty'));
+  }
+  return true;
 }

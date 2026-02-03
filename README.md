@@ -177,6 +177,9 @@ npx lee-spec-kit doctor --json
 
 ### 템플릿 업데이트
 
+기본 동작은 `docs/` 작업트리에 변경사항이 없을 때만 업데이트를 진행하며, 이 경우 변경된 파일은 확인 없이 덮어씁니다.  
+변경사항이 있는 상태에서 업데이트하려면 `--force`를 사용하세요.
+
 ```bash
 # 전체 업데이트
 npx lee-spec-kit update
@@ -190,7 +193,7 @@ npx lee-spec-kit update --skills
 # feature-base/ 폴더만 업데이트
 npx lee-spec-kit update --templates
 
-# 확인 없이 강제 덮어쓰기
+# 변경사항이 있어도 강제 덮어쓰기
 npx lee-spec-kit update --force
 ```
 

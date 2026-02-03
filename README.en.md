@@ -145,6 +145,9 @@ npx lee-spec-kit doctor --json
 
 ### Update templates
 
+By default, `update` runs only when the `docs/` working tree is clean; in that case it overwrites changed files without prompting.  
+If you want to update while you have uncommitted changes, use `--force`.
+
 ```bash
 npx lee-spec-kit update
 npx lee-spec-kit update --agents
