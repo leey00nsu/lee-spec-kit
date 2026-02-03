@@ -86,6 +86,16 @@ const I18N: Record<Lang, I18nData> = {
         'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
       legacyTasksPrFields:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
+      workflowSpecNotApproved:
+        '완료 상태이지만 spec.md 상태가 Approved가 아닙니다. (spec.md의 상태를 Approved로 업데이트하세요.)',
+      workflowPlanNotApproved:
+        '완료 상태이지만 plan.md 상태가 Approved가 아닙니다. (plan.md의 상태를 Approved로 업데이트하세요.)',
+      workflowPrLinkMissing:
+        '완료 상태이지만 PR 링크가 없습니다. (tasks.md의 PR 필드를 채우세요.)',
+      workflowPrStatusMissing:
+        '완료 상태이지만 PR 상태가 없습니다. (tasks.md의 PR 상태를 Draft/Review/Approved 중 하나로 설정하세요.)',
+      workflowPrStatusNotApproved:
+        '완료 상태이지만 PR 상태가 Approved가 아닙니다. (merge 후 tasks.md의 PR 상태를 Approved로 업데이트하세요.)',
     },
   },
   en: {
@@ -156,6 +166,16 @@ const I18N: Record<Lang, I18nData> = {
         'Cannot read git status for the docs repo. (Check repo location / git init.)',
       legacyTasksPrFields:
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
+      workflowSpecNotApproved:
+        'Implementation is done but spec.md Status is not Approved. (Update spec.md Status to Approved.)',
+      workflowPlanNotApproved:
+        'Implementation is done but plan.md Status is not Approved. (Update plan.md Status to Approved.)',
+      workflowPrLinkMissing:
+        'Implementation is done but PR link is missing. (Fill the PR field in tasks.md.)',
+      workflowPrStatusMissing:
+        'Implementation is done but PR Status is missing. (Set PR Status to Draft/Review/Approved in tasks.md.)',
+      workflowPrStatusNotApproved:
+        'Implementation is done but PR Status is not Approved. (After merge, update PR Status to Approved in tasks.md.)',
     },
   },
 };

@@ -9,12 +9,23 @@ function isCompletionChecklistDone(feature: FeatureState): boolean {
   );
 }
 
+function isImplementationDone(feature: FeatureState): boolean {
+  return (
+    feature.docs.tasksExists &&
+    feature.tasks.total > 0 &&
+    feature.tasks.total === feature.tasks.done &&
+    isCompletionChecklistDone(feature)
+  );
+}
+
 function isPrMetadataConfigured(feature: FeatureState): boolean {
   return feature.docs.prFieldExists && feature.docs.prStatusFieldExists;
 }
 
 function isFeatureDone(feature: FeatureState): boolean {
   return (
+    feature.specStatus === 'Approved' &&
+    feature.planStatus === 'Approved' &&
     feature.docs.tasksExists &&
     feature.tasks.total > 0 &&
     feature.tasks.total === feature.tasks.done &&
@@ -234,6 +245,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       current: {
         when: (f) =>
           !!f.issueNumber &&
+          !isImplementationDone(f) &&
+          !isFeatureDone(f) &&
           (!f.git.projectBranchAvailable || !f.git.onExpectedBranch),
         actions: (f) => {
           if (!f.git.projectBranchAvailable || !f.git.projectGitCwd) {

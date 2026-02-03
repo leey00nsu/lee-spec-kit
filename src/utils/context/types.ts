@@ -34,6 +34,22 @@ export interface FeatureState {
   folderName: string;
   type: RepoType;
   path: string;
+  completion: {
+    /**
+     * Implementation is considered done when:
+     * - tasks.md exists
+     * - all tasks are DONE
+     * - completion checklist is fully checked
+     */
+    implementationDone: boolean;
+    /**
+     * Workflow is considered done when:
+     * - spec/plan are Approved
+     * - PR metadata is configured (PR + PR Status fields exist)
+     * - PR link exists and PR Status is Approved
+     */
+    workflowDone: boolean;
+  };
   issueNumber?: string;
   specStatus?: DocStatus;
   planStatus?: DocStatus;
@@ -88,4 +104,3 @@ export interface FeatureContext extends FeatureState {
   nextAction: string;
   warnings: string[];
 }
-

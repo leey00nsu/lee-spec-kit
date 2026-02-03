@@ -119,6 +119,22 @@ function parseCompletionChecklist(content: string): CompletionChecklistSummary |
   return total > 0 ? { total, checked } : undefined;
 }
 
+function isCompletionChecklistDone(feature: {
+  completionChecklist?: CompletionChecklistSummary;
+}): boolean {
+  return (
+    !!feature.completionChecklist &&
+    feature.completionChecklist.total > 0 &&
+    feature.completionChecklist.checked === feature.completionChecklist.total
+  );
+}
+
+function isPrMetadataConfigured(feature: {
+  docs: { prFieldExists: boolean; prStatusFieldExists: boolean };
+}): boolean {
+  return feature.docs.prFieldExists && feature.docs.prStatusFieldExists;
+}
+
 export async function parseFeature(
   featurePath: string,
   type: RepoType,
@@ -221,12 +237,48 @@ export async function parseFeature(
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrFields'));
   }
 
+  const implementationDone =
+    tasksExists &&
+    tasksSummary.total > 0 &&
+    tasksSummary.total === tasksSummary.done &&
+    isCompletionChecklistDone({ completionChecklist });
+
+  const workflowDone =
+    implementationDone &&
+    specStatus === 'Approved' &&
+    planStatus === 'Approved' &&
+    isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
+    !!prLink &&
+    prStatus === 'Approved';
+
+  if (implementationDone && !workflowDone) {
+    if (specStatus !== 'Approved') {
+      warnings.push(tr(lang, 'warnings', 'workflowSpecNotApproved'));
+    }
+    if (planStatus !== 'Approved') {
+      warnings.push(tr(lang, 'warnings', 'workflowPlanNotApproved'));
+    }
+
+    // PR 필드가 없다면 legacyTasksPrFields가 이미 경고로 올라감
+    if (prFieldExists && prStatusFieldExists) {
+      if (!prLink) warnings.push(tr(lang, 'warnings', 'workflowPrLinkMissing'));
+      if (!prStatus) warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
+      if (prStatus && prStatus !== 'Approved') {
+        warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
+      }
+    }
+  }
+
   const featureState: FeatureState = {
     id,
     slug,
     folderName,
     type,
     path: featurePath,
+    completion: {
+      implementationDone,
+      workflowDone,
+    },
     issueNumber,
     specStatus,
     planStatus,
