@@ -70,6 +70,8 @@ const I18N: Record<Lang, I18nData> = {
       prLegacyAsk:
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (OK 필요)',
       prCreate: 'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (skills/create-pr.md 참고)',
+      prFillStatus:
+        'tasks.md의 PR 상태를 Draft/Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
       prResolveReview:
         '리뷰 코멘트를 해결하고 PR 상태를 업데이트하세요. (PR 상태: Review → Approved)',
       prRequestReview:
@@ -150,6 +152,8 @@ const I18N: Record<Lang, I18nData> = {
         'Legacy tasks.md format detected (missing PR/PR Status fields). Update to the latest format? (OK required)',
       prCreate:
         'Create a PR and record the PR link in tasks.md. (See skills/create-pr.md)',
+      prFillStatus:
+        'Set PR Status in tasks.md to Draft/Review/Approved. (After merge, update to Approved)',
       prResolveReview:
         'Resolve review comments and update PR status. (PR Status: Review → Approved)',
       prRequestReview:

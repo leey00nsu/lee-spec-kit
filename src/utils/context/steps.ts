@@ -388,6 +388,15 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           !!f.pr.link &&
           f.pr.status !== 'Approved',
         actions: (f) => {
+          if (!f.pr.status) {
+            return [
+              {
+                type: 'instruction',
+                requiresUserOk: true,
+                message: tr(lang, 'messages', 'prFillStatus'),
+              },
+            ];
+          }
           if (f.pr.status === 'Review') {
             return [
               {

@@ -85,7 +85,10 @@ async function runContext(
 
   const { features, branches, warnings } = await scanFeatures(config);
   const activeFeatures = features.filter((f) => !f.completion.implementationDone);
-  const completedFeatures = features.filter((f) => f.completion.implementationDone);
+  const implementationDoneFeatures = features.filter(
+    (f) => f.completion.implementationDone
+  );
+  const workflowDoneFeatures = features.filter((f) => f.completion.workflowDone);
 
   // 1. 타겟 Feature 찾기
   let targetFeatures: FeatureContext[] = [];
@@ -158,8 +161,14 @@ async function runContext(
       warnings,
       matchedFeature: targetFeatures.length === 1 ? targetFeatures[0] : null,
       candidates: targetFeatures.length > 1 ? targetFeatures : [],
+      // NOTE: "completedCandidates" historically meant "implementation done".
+      // Keep it for backwards compatibility, but prefer the more explicit fields below.
       completedCandidates:
-        selectionMode === 'active_only' ? completedFeatures : [],
+        selectionMode === 'active_only' ? implementationDoneFeatures : [],
+      implementationDoneCandidates:
+        selectionMode === 'active_only' ? implementationDoneFeatures : [],
+      workflowDoneCandidates:
+        selectionMode === 'active_only' ? workflowDoneFeatures : [],
       actions: targetFeatures.length === 1 ? targetFeatures[0].actions : [],
       recommendation: '',
     };
@@ -224,8 +233,12 @@ async function runContext(
 
   if (selectionMode === 'active_only' && targetFeatures.length === 0) {
     console.log(chalk.green('✅ 진행 중인 Feature가 없습니다.'));
-    if (completedFeatures.length > 0) {
-      console.log(chalk.gray(`   - 완료(implementation): ${completedFeatures.length}개`));
+    if (implementationDoneFeatures.length > 0 || workflowDoneFeatures.length > 0) {
+      console.log(
+        chalk.gray(
+          `   - 구현 완료: ${implementationDoneFeatures.length}개 / 워크플로우 완료: ${workflowDoneFeatures.length}개`
+        )
+      );
       console.log(chalk.gray('   - 전체를 보려면: npx lee-spec-kit context --all'));
     }
     console.log();
@@ -233,10 +246,13 @@ async function runContext(
   }
 
   if (targetFeatures.length > 1) {
-    if (selectionMode === 'active_only' && completedFeatures.length > 0) {
+    if (
+      selectionMode === 'active_only' &&
+      (implementationDoneFeatures.length > 0 || workflowDoneFeatures.length > 0)
+    ) {
       console.log(
         chalk.gray(
-          `   (브랜치로 Feature를 특정하지 못해 진행 중인 Feature만 표시합니다. 완료: ${completedFeatures.length}개, 전체 보기: --all)`
+          `   (브랜치로 Feature를 특정하지 못해 진행 중인 Feature만 표시합니다. 구현 완료: ${implementationDoneFeatures.length}개 / 워크플로우 완료: ${workflowDoneFeatures.length}개, 전체 보기: --all)`
         )
       );
       console.log();
