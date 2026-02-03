@@ -180,6 +180,9 @@ npx lee-spec-kit update
 # agents/ 폴더만 업데이트
 npx lee-spec-kit update --agents
 
+# agents/skills 폴더만 업데이트
+npx lee-spec-kit update --skills
+
 # feature-base/ 폴더만 업데이트
 npx lee-spec-kit update --templates
 

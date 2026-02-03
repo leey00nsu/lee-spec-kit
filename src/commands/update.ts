@@ -8,6 +8,7 @@ import { getTemplatesDir } from '../utils/paths.js';
 
 interface UpdateOptions {
   agents?: boolean;
+  skills?: boolean;
   templates?: boolean;
   force?: boolean;
 }
@@ -17,6 +18,7 @@ export function updateCommand(program: Command): void {
     .command('update')
     .description('Update docs templates to the latest version')
     .option('--agents', 'Update agents/ folder only')
+    .option('--skills', 'Update agents/skills folder only')
     .option('--templates', 'Update feature-base/ folder only')
     .option('-f, --force', 'Force overwrite without confirmation')
     .action(async (options: UpdateOptions) => {
@@ -54,10 +56,15 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
   const sourceDir = path.join(templatesDir, lang, projectType);
 
   // 업데이트 대상 결정
-  const updateAgents =
-    options.agents || (!options.agents && !options.templates);
-  const updateTemplates =
-    options.templates || (!options.agents && !options.templates);
+  const hasExplicitSelection = !!(
+    options.agents ||
+    options.skills ||
+    options.templates
+  );
+  const updateAgents = options.agents || options.skills || !hasExplicitSelection;
+  const updateTemplates = options.templates || !hasExplicitSelection;
+  const agentsMode: 'all' | 'skills' =
+    options.skills && !options.agents ? 'skills' : 'all';
 
   console.log(chalk.blue(tr(lang, 'cli', 'update.start')));
   console.log(chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`));
@@ -70,10 +77,29 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
 
   // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
   if (updateAgents) {
-    console.log(chalk.blue(tr(lang, 'cli', 'update.updatingAgents')));
-    const commonAgents = path.join(templatesDir, lang, 'common', 'agents');
-    const typeAgents = path.join(templatesDir, lang, projectType, 'agents');
-    const targetAgents = path.join(docsDir, 'agents');
+    console.log(
+      chalk.blue(
+        agentsMode === 'skills'
+          ? tr(lang, 'cli', 'update.updatingSkills')
+          : tr(lang, 'cli', 'update.updatingAgents')
+      )
+    );
+    const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
+    const typeAgentsBase = path.join(templatesDir, lang, projectType, 'agents');
+    const targetAgentsBase = path.join(docsDir, 'agents');
+
+    const commonAgents =
+      agentsMode === 'skills'
+        ? path.join(commonAgentsBase, 'skills')
+        : commonAgentsBase;
+    const typeAgents =
+      agentsMode === 'skills'
+        ? path.join(typeAgentsBase, 'skills')
+        : typeAgentsBase;
+    const targetAgents =
+      agentsMode === 'skills'
+        ? path.join(targetAgentsBase, 'skills')
+        : targetAgentsBase;
 
     // featurePath 치환
     const featurePath =
@@ -105,7 +131,15 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       );
       updatedCount += count;
     }
-    console.log(chalk.green(`  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`));
+    console.log(
+      chalk.green(
+        `  ✅ ${
+          agentsMode === 'skills'
+            ? tr(lang, 'cli', 'update.skillsUpdated')
+            : tr(lang, 'cli', 'update.agentsUpdated')
+        }`
+      )
+    );
   }
 
   // feature-base/ 폴더 업데이트
