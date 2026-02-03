@@ -33,6 +33,22 @@ export function getGitStatusPorcelain(
   }
 }
 
+export function getLastCommitForPath(
+  cwd: string,
+  relativePath: string
+): string | undefined {
+  try {
+    const out = execSync(`git rev-list -n 1 HEAD -- "${relativePath}"`, {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    return out || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function getGitTopLevel(cwd: string): string | null {
   try {
     return execSync('git rev-parse --show-toplevel', {
@@ -103,4 +119,3 @@ export function isExpectedFeatureBranch(
   const rest = match[1];
   return rest === slug || rest === folderName;
 }
-

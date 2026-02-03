@@ -222,6 +222,7 @@ const I18N: Record<Lang, I18nData> = {
         '프로젝트 브랜치를 확인할 수 없습니다. (standalone 모드에서는 projectRoot가 필요합니다.)',
       docsGitUnavailable:
         'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
+      docsUncommittedChanges: '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요)',
       legacyTasksPrFields:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       workflowSpecNotApproved:
@@ -433,6 +434,8 @@ const I18N: Record<Lang, I18nData> = {
         'Cannot determine project branch. (In standalone mode, projectRoot is required.)',
       docsGitUnavailable:
         'Cannot read git status for the docs repo. (Check repo location / git init.)',
+      docsUncommittedChanges:
+        'Docs changes are not committed. (Additional docs commit needed.)',
       legacyTasksPrFields:
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       workflowSpecNotApproved:

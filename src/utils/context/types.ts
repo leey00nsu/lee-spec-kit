@@ -73,6 +73,7 @@ export interface FeatureState {
     docsGitCwd: string;
     projectGitCwd?: string;
     onExpectedBranch: boolean;
+    docsEverCommitted: boolean;
     docsHasUncommittedChanges: boolean;
   };
   docs: {

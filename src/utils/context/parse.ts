@@ -1,7 +1,11 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { tr } from '../i18n.js';
-import { getGitStatusPorcelain, isExpectedFeatureBranch } from './git.js';
+import {
+  getGitStatusPorcelain,
+  getLastCommitForPath,
+  isExpectedFeatureBranch,
+} from './git.js';
 import { resolveFeatureProgress } from './progress.js';
 import {
   CompletionChecklistSummary,
@@ -230,11 +234,20 @@ export async function parseFeature(
   const relativeFeaturePathFromDocs = path.relative(context.docsDir, featurePath);
   const docsStatus = getGitStatusPorcelain(context.docsGitCwd, [relativeFeaturePathFromDocs]);
   const docsHasUncommittedChanges = docsStatus === undefined ? true : docsStatus.trim().length > 0;
+  const docsLastCommit = getLastCommitForPath(
+    context.docsGitCwd,
+    relativeFeaturePathFromDocs
+  );
+  const docsEverCommitted = !!docsLastCommit;
   if (docsStatus === undefined) {
     warnings.push(tr(lang, 'warnings', 'docsGitUnavailable'));
   }
   if (tasksExists && (!prFieldExists || !prStatusFieldExists)) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrFields'));
+  }
+
+  if (docsEverCommitted && docsHasUncommittedChanges) {
+    warnings.push(tr(lang, 'warnings', 'docsUncommittedChanges'));
   }
 
   const implementationDone =
@@ -294,6 +307,7 @@ export async function parseFeature(
       docsGitCwd: context.docsGitCwd,
       projectGitCwd: context.projectGitCwd,
       onExpectedBranch,
+      docsEverCommitted,
       docsHasUncommittedChanges,
     },
     docs: {
