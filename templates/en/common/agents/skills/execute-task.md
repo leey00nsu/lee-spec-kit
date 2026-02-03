@@ -38,6 +38,8 @@ Record a decision if any of these apply:
 
 - There was a tradeoff (performance / reliability / security / maintainability)
 - You introduced a new rule/heuristic/state transition (e.g., context detection logic, exception criteria)
+- The user asked “why did you do it this way?” (requested rationale/justification)
+- The user explicitly asked to change behavior (requirements/policy/criteria changes)
 - You changed behavior for compatibility or as a workaround
 - You changed data shape, file structure, or CLI output rules
 - You expect future readers to ask “why this way?”
