@@ -61,4 +61,4 @@ updateCommand(program);
 configCommand(program);
 contextCommand(program);
 
-program.parse();
+await program.parseAsync();
