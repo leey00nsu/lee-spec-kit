@@ -14,6 +14,7 @@ interface ContextOptions {
   json?: boolean;
   repo?: 'fe' | 'be';
   all?: boolean;
+  done?: boolean;
 }
 
 export function contextCommand(program: Command): void {
@@ -23,6 +24,7 @@ export function contextCommand(program: Command): void {
     .option('--json', 'Output in JSON format for agents')
     .option('--repo <repo>', 'Repository type for fullstack: fe | be')
     .option('--all', 'Include completed features when auto-detecting')
+    .option('--done', 'Show completed (workflow-done) features only')
     .action(
       async (featureName: string | undefined, options: ContextOptions) => {
         try {
@@ -84,15 +86,23 @@ async function runContext(
   const stepsMap = getStepsMap(lang);
 
   const { features, branches, warnings } = await scanFeatures(config);
-  const activeFeatures = features.filter((f) => !f.completion.implementationDone);
-  const implementationDoneFeatures = features.filter(
+  const doneFeatures = features.filter((f) => f.completion.workflowDone);
+  const openFeatures = features.filter((f) => !f.completion.workflowDone);
+  const inProgressFeatures = openFeatures.filter(
+    (f) => !f.completion.implementationDone
+  );
+  const readyToCloseFeatures = openFeatures.filter(
     (f) => f.completion.implementationDone
   );
-  const workflowDoneFeatures = features.filter((f) => f.completion.workflowDone);
 
   // 1. 타겟 Feature 찾기
   let targetFeatures: FeatureContext[] = [];
-  let selectionMode: 'explicit' | 'branch' | 'active_only' | 'all' = 'explicit';
+  let selectionMode:
+    | 'explicit'
+    | 'branch'
+    | 'open'
+    | 'done'
+    | 'all' = 'explicit';
 
   if (featureName) {
     // selector로 검색: slug | F001 | F001-user-auth
@@ -133,24 +143,25 @@ async function runContext(
     } else if (options.all) {
       targetFeatures = features;
       selectionMode = 'all';
+    } else if (options.done) {
+      targetFeatures = doneFeatures;
+      selectionMode = 'done';
     } else {
-      targetFeatures = activeFeatures;
-      selectionMode = 'active_only';
+      targetFeatures = openFeatures;
+      selectionMode = 'open';
     }
   }
 
   // 2. 결과 출력 (JSON)
   if (options.json) {
-    const isNoActive =
-      selectionMode === 'active_only' &&
-      features.length > 0 &&
-      activeFeatures.length === 0;
+    const isNoOpen =
+      selectionMode === 'open' && features.length > 0 && openFeatures.length === 0;
     const result = {
       status:
         features.length === 0
           ? 'no_features'
-          : isNoActive
-            ? 'no_active'
+          : isNoOpen
+            ? 'no_open'
             : targetFeatures.length === 1
               ? 'single_matched'
               : targetFeatures.length > 1
@@ -161,14 +172,12 @@ async function runContext(
       warnings,
       matchedFeature: targetFeatures.length === 1 ? targetFeatures[0] : null,
       candidates: targetFeatures.length > 1 ? targetFeatures : [],
-      // NOTE: "completedCandidates" historically meant "implementation done".
-      // Keep it for backwards compatibility, but prefer the more explicit fields below.
-      completedCandidates:
-        selectionMode === 'active_only' ? implementationDoneFeatures : [],
-      implementationDoneCandidates:
-        selectionMode === 'active_only' ? implementationDoneFeatures : [],
-      workflowDoneCandidates:
-        selectionMode === 'active_only' ? workflowDoneFeatures : [],
+      // "Completed" now means workflow-done.
+      completedCandidates: selectionMode === 'open' ? doneFeatures : [],
+      openCandidates: selectionMode === 'open' ? openFeatures : [],
+      inProgressCandidates: selectionMode === 'open' ? inProgressFeatures : [],
+      readyToCloseCandidates:
+        selectionMode === 'open' ? readyToCloseFeatures : [],
       actions: targetFeatures.length === 1 ? targetFeatures[0].actions : [],
       recommendation: '',
     };
@@ -231,53 +240,64 @@ async function runContext(
     console.log();
   }
 
-  if (selectionMode === 'active_only' && targetFeatures.length === 0) {
-    console.log(chalk.green('✅ 진행 중인 Feature가 없습니다.'));
-    if (implementationDoneFeatures.length > 0 || workflowDoneFeatures.length > 0) {
-      console.log(
-        chalk.gray(
-          `   - 구현 완료: ${implementationDoneFeatures.length}개 / 워크플로우 완료: ${workflowDoneFeatures.length}개`
-        )
-      );
-      console.log(chalk.gray('   - 전체를 보려면: npx lee-spec-kit context --all'));
-    }
-    console.log();
-    return;
-  }
-
   if (targetFeatures.length > 1) {
-    if (
-      selectionMode === 'active_only' &&
-      (implementationDoneFeatures.length > 0 || workflowDoneFeatures.length > 0)
-    ) {
+    if (selectionMode === 'open') {
       console.log(
         chalk.gray(
-          `   (브랜치로 Feature를 특정하지 못해 진행 중인 Feature만 표시합니다. 구현 완료: ${implementationDoneFeatures.length}개 / 워크플로우 완료: ${workflowDoneFeatures.length}개, 전체 보기: --all)`
+          `   (브랜치로 Feature를 특정하지 못해 미완료 Feature만 표시합니다. 진행 중: ${inProgressFeatures.length}개 / 종료 대기: ${readyToCloseFeatures.length}개 / 완료: ${doneFeatures.length}개)`
         )
       );
       console.log();
     }
-    const title =
-      selectionMode === 'all'
-        ? `🔹 ${targetFeatures.length} Features:`
-        : `🔹 ${targetFeatures.length} Active Features Detected:`;
-    console.log(chalk.blue(title));
-    console.log();
+    if (selectionMode === 'open') {
+      console.log(chalk.blue(`🔹 In Progress (${inProgressFeatures.length})`));
+      inProgressFeatures.forEach((f) => {
+        const stepName = stepsMap[f.currentStep] || 'Unknown';
+        const typeStr =
+          config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
+        console.log(
+          `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
+        );
+      });
 
-    targetFeatures.forEach((f) => {
-      const stepName = stepsMap[f.currentStep] || 'Unknown';
-      const typeStr =
-        config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
-      console.log(
-        `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
-      );
-    });
+      console.log();
+      console.log(chalk.blue(`🔸 Ready To Close (${readyToCloseFeatures.length})`));
+      readyToCloseFeatures.forEach((f) => {
+        const stepName = stepsMap[f.currentStep] || 'Unknown';
+        const typeStr =
+          config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
+        console.log(
+          `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
+        );
+      });
+    } else {
+      const title =
+        selectionMode === 'all'
+          ? `🔹 ${targetFeatures.length} Features:`
+          : selectionMode === 'done'
+            ? `🔹 ${targetFeatures.length} Done Features:`
+            : `🔹 ${targetFeatures.length} Features Detected:`;
+      console.log(chalk.blue(title));
+      console.log();
+      targetFeatures.forEach((f) => {
+        const stepName = stepsMap[f.currentStep] || 'Unknown';
+        const typeStr =
+          config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
+        console.log(
+          `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
+        );
+      });
+    }
 
     console.log();
     console.log(chalk.gray('Tip: 특정 Feature의 상세 정보를 보려면:'));
     console.log(
       chalk.gray('   $ npx lee-spec-kit context <slug|F001|F001-slug> [--repo fe|be]')
     );
+    if (selectionMode === 'open') {
+      console.log(chalk.gray('   $ npx lee-spec-kit context --all   # 전체 보기'));
+      console.log(chalk.gray('   $ npx lee-spec-kit context --done  # 완료만 보기'));
+    }
     console.log();
     return;
   }
