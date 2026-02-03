@@ -12,8 +12,10 @@
 - **레포**: {{projectName}}-{be|fe}
 - **Issue**: #{이슈번호}
 - **브랜치**: `feat/{이슈번호}-{기능명}`
-- **PR**: #
-- **PR 상태**: Draft | Review | Approved
+- **PR**: -
+  - 예: `#123` 또는 PR URL
+- **PR 상태**: -
+  - 값: Draft | Review | Approved
 
 ---
 

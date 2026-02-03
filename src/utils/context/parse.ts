@@ -63,6 +63,11 @@ function parsePrLink(value: string | undefined): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   if (trimmed === '#' || trimmed === '-') return undefined;
+  // Common placeholders that shouldn't count as "PR exists"
+  // e.g. "#TBD", "TBD", "TODO", "N/A", "미정", "없음"
+  if (/^(?:#\s*)?(?:tbd|todo|n\/a|na|none|pending|미정|없음)$/i.test(trimmed)) {
+    return undefined;
+  }
   if (trimmed.includes('{') || trimmed.includes('}')) return undefined;
   return trimmed;
 }
