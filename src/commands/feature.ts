@@ -129,13 +129,19 @@ async function runFeature(
       : '{{projectName}}';
 
   const replacements: Record<string, string> = {
+    // ko placeholders
     '{기능명}': name,
     '{번호}': idNumber,
     'YYYY-MM-DD': new Date().toISOString().split('T')[0],
     '{be|fe}': repo || '',
-    'git-dungeon-{be|fe}': repoName,
     '{이슈번호}': '',
     '{{description}}': options.desc || '',
+
+    // en placeholders
+    '{feature-name}': name,
+    '{number}': idNumber,
+    '{issue-number}': '',
+    '{{projectName}}-{be|fe}': repoName,
   };
 
   // 한국어 템플릿의 경우 추가 치환

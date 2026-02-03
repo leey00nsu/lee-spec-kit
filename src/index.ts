@@ -9,8 +9,30 @@ import { configCommand } from './commands/config.js';
 import { contextCommand } from './commands/context.js';
 import { checkForUpdates } from './utils/version-check.js';
 
+function shouldCheckForUpdates(): boolean {
+  const argv = process.argv.slice(2);
+  const hasJsonFlag = argv.includes('--json');
+  const isHelpOrVersion =
+    argv.includes('--help') ||
+    argv.includes('-h') ||
+    argv.includes('--version') ||
+    argv.includes('-V');
+
+  const disabledByEnv =
+    (process.env.LSK_NO_UPDATE_CHECK || '').trim() === '1' ||
+    (process.env.LEE_SPEC_KIT_NO_UPDATE_CHECK || '').trim() === '1';
+
+  // 머신 출력(JSON) / 파이프 환경에서는 stdout 오염 방지
+  if (hasJsonFlag) return false;
+  if (!process.stdout.isTTY) return false;
+  if (isHelpOrVersion) return false;
+  if (disabledByEnv) return false;
+
+  return true;
+}
+
 // 비동기로 새 버전 확인 (CLI 실행 차단하지 않음)
-checkForUpdates();
+if (shouldCheckForUpdates()) checkForUpdates();
 
 function getCliVersion(): string {
   try {

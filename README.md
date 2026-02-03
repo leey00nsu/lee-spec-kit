@@ -135,7 +135,7 @@ npx lee-spec-kit context --json
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
 
-- `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복붙 실행 가능하도록 `git -C` 포함)
+- `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복사하여 붙여넣기 가능한 형태로 `cd ... && git ...` 형태로 출력)
 - `type: "instruction"`: 사람이 수행해야 하는 안내 메시지
 
 ### 상태 확인

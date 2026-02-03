@@ -11,7 +11,7 @@ import {
   validateLanguage,
   assertValid,
 } from '../utils/validation.js';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
@@ -379,37 +379,62 @@ async function initGit(
   docsRemote?: string
 ): Promise<void> {
   try {
+    const runGit = (args: string[], workdir: string): void => {
+      execFileSync('git', args, { cwd: workdir, stdio: 'ignore' });
+    };
+
+    const getCachedStagedFiles = (workdir: string): string[] | null => {
+      try {
+        const out = execFileSync('git', ['diff', '--cached', '--name-only'], {
+          cwd: workdir,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+        if (!out) return [];
+        return out.split('\n').map((s) => s.trim()).filter(Boolean);
+      } catch {
+        return null;
+      }
+    };
+
     // Git이 이미 초기화되어 있는지 확인
     try {
-      execSync('git rev-parse --is-inside-work-tree', {
-        cwd,
-        stdio: 'ignore',
-      });
+      runGit(['rev-parse', '--is-inside-work-tree'], cwd);
       // Git이 이미 있으면 docs만 커밋
       console.log(chalk.blue('📦 Git 레포지토리 감지, docs 커밋 중...'));
     } catch {
       // Git이 없으면 초기화
       console.log(chalk.blue('📦 Git 초기화 중...'));
-      execSync('git init', { cwd, stdio: 'ignore' });
+      runGit(['init'], cwd);
     }
 
     // docs 폴더 스테이징
     const relativePath = path.relative(cwd, targetDir);
-    execSync(`git add "${relativePath}"`, { cwd, stdio: 'ignore' });
+    const stagedBeforeAdd = getCachedStagedFiles(cwd);
+    if (relativePath === '.' && stagedBeforeAdd && stagedBeforeAdd.length > 0) {
+      console.log(
+        chalk.yellow(
+          '⚠️  현재 Git index에 이미 stage된 변경이 있습니다. (--dir "." 인 경우 커밋 범위를 안전하게 제한할 수 없어 자동 커밋을 건너뜁니다)'
+        )
+      );
+      console.log(chalk.gray('    수동으로 변경 내용을 확인한 뒤 커밋해주세요.'));
+      console.log();
+      return;
+    }
+
+    runGit(['add', relativePath], cwd);
 
     // 커밋
-    execSync('git commit -m "init: docs 구조 초기화 (lee-spec-kit)"', {
-      cwd,
-      stdio: 'ignore',
-    });
+    // pathspec을 사용해 "docs만" 커밋 (다른 staged 변경이 있어도 포함되지 않음)
+    runGit(
+      ['commit', '-m', 'init: docs 구조 초기화 (lee-spec-kit)', '--', relativePath],
+      cwd
+    );
 
     // standalone + remote 선택 시 origin 추가
     if (docsRepo === 'standalone' && pushDocs && docsRemote) {
       try {
-        execSync(`git remote add origin "${docsRemote}"`, {
-          cwd,
-          stdio: 'ignore',
-        });
+        runGit(['remote', 'add', 'origin', docsRemote], cwd);
         console.log(chalk.green(`✅ Git remote 설정 완료: ${docsRemote}`));
       } catch {
         // remote가 이미 존재할 수 있음
