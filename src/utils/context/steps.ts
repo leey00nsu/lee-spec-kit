@@ -222,11 +222,12 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
     {
       step: 9,
       name: tr(lang, 'steps', 'branchCreate'),
-      checklist: { done: (f) => f.git.onExpectedBranch },
+      checklist: { done: (f) => f.git.onExpectedBranch || isImplementationDone(f) || isFeatureDone(f) },
       current: {
         when: (f) =>
           !!f.issueNumber &&
-          !isImplementationDone(f) &&
+          f.tasks.total > 0 &&
+          f.tasks.done < f.tasks.total &&
           !isFeatureDone(f) &&
           (!f.git.projectBranchAvailable || !f.git.onExpectedBranch),
         actions: (f) => {
@@ -268,15 +269,15 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       },
       current: {
         when: (f) =>
-          f.git.onExpectedBranch &&
           f.docs.tasksExists &&
           f.tasks.total > 0 &&
-          (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)),
+          (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)) &&
+          (f.git.onExpectedBranch || f.tasks.done === f.tasks.total),
         actions: (f) => {
           if (f.tasks.total === f.tasks.done && !isCompletionChecklistDone(f)) {
-            return [
+            const actions = [
               {
-                type: 'instruction',
+                type: 'instruction' as const,
                 requiresUserOk: true,
                 message: !f.completionChecklist
                   ? tr(lang, 'messages', 'tasksAllDoneButNoChecklist')
@@ -286,6 +287,16 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
                     }),
               },
             ];
+
+            if (!isPrMetadataConfigured(f)) {
+              actions.push({
+                type: 'instruction' as const,
+                requiresUserOk: true,
+                message: tr(lang, 'messages', 'prLegacyAsk'),
+              });
+            }
+
+            return actions;
           }
           if (f.activeTask) {
             return [
