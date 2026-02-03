@@ -99,13 +99,11 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
 
         // 언어 감지 (agents.md 내용 기반)
         const agentsMdPath = path.join(agentsPath, 'agents.md');
-        let lang: 'ko' | 'en' = 'ko';
+        let lang: 'ko' | 'en' = 'en';
         if (await fs.pathExists(agentsMdPath)) {
           const content = await fs.readFile(agentsMdPath, 'utf-8');
-          // 한국어가 포함되어 있는지 확인
-          if (!/[가-힣]/.test(content)) {
-            lang = 'en';
-          }
+          // 한국어가 포함되어 있는지 확인 (기본값은 en)
+          if (/[가-힣]/.test(content)) lang = 'ko';
         }
 
         return { docsDir: resolvedDocsDir, projectType, lang };

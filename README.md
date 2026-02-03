@@ -98,7 +98,7 @@ npx lee-spec-kit doctor
 npx lee-spec-kit init
 
 # 옵션 지정
-npx lee-spec-kit init --name my-project --type fullstack --lang ko
+npx lee-spec-kit init --name my-project --type fullstack
 ```
 
 **옵션:**
@@ -107,7 +107,7 @@ npx lee-spec-kit init --name my-project --type fullstack --lang ko
 | ------------------- | ------------------------------ | ----------- |
 | `-n, --name <name>` | 프로젝트 이름                  | 현재 폴더명 |
 | `-t, --type <type>` | `single` 또는 `fullstack`      | 대화형 선택 |
-| `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어) | `ko`        |
+| `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어) | `en`        |
 | `-d, --dir <dir>`   | 설치 디렉토리                  | `./docs`    |
 | `-y, --yes`         | 대화형 프롬프트 스킵           | -           |
 

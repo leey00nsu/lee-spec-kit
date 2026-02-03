@@ -40,7 +40,7 @@ export function initCommand(program: Command): void {
     .description('Initialize project documentation structure')
     .option('-n, --name <name>', 'Project name (default: current folder name)')
     .option('-t, --type <type>', 'Project type: single | fullstack')
-    .option('-l, --lang <lang>', 'Language: ko | en (default: ko)')
+    .option('-l, --lang <lang>', 'Language: ko | en (default: en)')
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('-y, --yes', 'Skip prompts and use defaults')
     .action(async (options: InitOptions) => {
@@ -63,7 +63,7 @@ async function runInit(options: InitOptions): Promise<void> {
 
   let projectName = options.name || defaultName;
   let projectType = options.type;
-  let lang = options.lang || 'ko';
+  let lang = options.lang || 'en';
   let docsRepo: 'embedded' | 'standalone' = 'embedded';
   let pushDocs: boolean | undefined;
   let docsRemote: string | undefined;

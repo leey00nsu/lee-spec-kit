@@ -125,10 +125,10 @@ async function runContext(
 ): Promise<void> {
   const cwd = process.cwd();
   const config = await getConfig(cwd);
-  const lang = config?.lang ?? 'ko';
+  const lang = config?.lang ?? 'en';
 
   if (!config) {
-    throw new Error('설정 파일을 찾을 수 없습니다. 먼저 init을 실행해주세요.');
+    throw new Error('Config file not found. Run `init` first.');
   }
 
   const stepDefinitions = getStepDefinitions(lang);
