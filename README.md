@@ -217,7 +217,9 @@ npx lee-spec-kit update --force
 | `lang`        | `ko` 또는 `en`                          |
 | `createdAt`   | 생성 날짜                               |
 | `docsRepo`    | `embedded` 또는 `standalone`            |
-| `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 |
+| `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
+| `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
+| `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, fullstack: {fe, be}) |
 
 > `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`, `projectRoot`가 추가됩니다.
 
@@ -232,7 +234,10 @@ npx lee-spec-kit update --force
 {
   "projectName": "my-project",
   "projectType": "single",
+  "lang": "ko",
+  "createdAt": "YYYY-MM-DD",
   "docsRepo": "standalone",
+  "pushDocs": false,
   "projectRoot": "/path/to/my-project"
 }
 ```
@@ -243,7 +248,10 @@ npx lee-spec-kit update --force
 {
   "projectName": "my-project",
   "projectType": "fullstack",
+  "lang": "ko",
+  "createdAt": "YYYY-MM-DD",
   "docsRepo": "standalone",
+  "pushDocs": false,
   "projectRoot": {
     "fe": "/path/to/frontend",
     "be": "/path/to/backend"

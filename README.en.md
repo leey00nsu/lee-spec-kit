@@ -176,11 +176,13 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `lang`        | `ko` or `en`                                     |
 | `createdAt`   | Creation date                                    |
 | `docsRepo`    | `embedded` or `standalone`                       |
-| `projectRoot` | (standalone only) path to the project repository |
+| `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
+| `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
+| `projectRoot` | (standalone only) project repo path (single: string, fullstack: {fe, be}) |
 
+> In standalone mode, `init` can add `pushDocs`, `docsRemote`, and `projectRoot` to this config.
 > If you run the CLI outside the docs repo in standalone mode, set `LEE_SPEC_KIT_DOCS_DIR` to the docs repo path.
 
 ## Generated Structure
 
 See the Korean README for the full tree examples and workflow details: `README.md`.
-
