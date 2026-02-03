@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
-import { glob } from 'glob';
 import { getConfig } from '../utils/config.js';
 import { scanFeatures, FeatureContext } from '../utils/context.js';
 
@@ -89,29 +88,6 @@ async function checkDocsStructure(
     });
   }
 
-  // placeholder 잔존 여부 (feature-base는 SSOT이므로 제외)
-  const mdFiles = await glob('**/*.md', {
-    cwd: config.docsDir,
-    absolute: true,
-    ignore: ['**/features/feature-base/**'],
-  });
-
-  for (const file of mdFiles) {
-    const content = await fs.readFile(file, 'utf-8');
-    const placeholders = detectPlaceholders(content);
-    if (placeholders.length === 0) continue;
-    issues.push({
-      level: 'warn',
-      code: 'placeholder_left',
-      message: msg(
-        config.lang,
-        `플레이스홀더가 남아있습니다: ${placeholders.join(', ')}`,
-        `Leftover placeholders detected: ${placeholders.join(', ')}`
-      ),
-      path: formatPath(cwd, file),
-    });
-  }
-
   return issues;
 }
 
@@ -141,6 +117,26 @@ async function checkFeatures(
     const id = f.id || 'UNKNOWN';
     if (!idMap.has(id)) idMap.set(id, []);
     idMap.get(id)!.push(rel);
+
+    // placeholder 잔존 여부는 "feature 폴더 내부"만 검사 (agents/prd 등은 템플릿 성격이라 제외)
+    const featureDocs = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md'];
+    for (const file of featureDocs) {
+      const p = path.join(f.path, file);
+      if (!(await fs.pathExists(p))) continue;
+      const content = await fs.readFile(p, 'utf-8');
+      const placeholders = detectPlaceholders(content);
+      if (placeholders.length === 0) continue;
+      issues.push({
+        level: 'warn',
+        code: 'placeholder_left',
+        message: msg(
+          config.lang,
+          `플레이스홀더가 남아있습니다: ${placeholders.join(', ')}`,
+          `Leftover placeholders detected: ${placeholders.join(', ')}`
+        ),
+        path: formatPath(cwd, p),
+      });
+    }
 
     if (!f.docs.specExists) {
       issues.push({
@@ -332,4 +328,3 @@ export function doctorCommand(program: Command): void {
       process.exit(exitCode);
     });
 }
-
