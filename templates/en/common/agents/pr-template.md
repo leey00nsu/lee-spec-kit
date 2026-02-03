@@ -9,10 +9,10 @@ A template for AI agents to create Pull Requests.
 ### Title Format
 
 ```text
-feat(#{issue-number}): {feature-name}
+feat(#{issue-number}): {feature-name} ({short description})
 ```
 
-Example: `feat(#1): Implement user authentication`
+Example: `feat(#1): user-auth (User authentication feature)`
 
 ### Link Format (Important!)
 
@@ -73,7 +73,7 @@ Closes #{issue-number}
 BRANCH=$(git branch --show-current)
 
 gh pr create \
-  --title "feat(#{issue}): {feature-name}" \
+  --title "feat(#{issue}): {feature-name} ({short description})" \
   --body-file /tmp/pr-body.md \
   --base main
 ```

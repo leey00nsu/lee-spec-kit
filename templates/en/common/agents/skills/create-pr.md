@@ -21,7 +21,7 @@ Guide for creating Pull Requests.
 
 | Item     | Format                             |
 | -------- | ---------------------------------- |
-| Title    | `feat(#{issue-number}): {feature}` |
+| Title    | `feat(#{issue-number}): {feature} ({short description})` |
 | Body     | Overview, Changes, Tests, Docs     |
 | Labels   | Appropriate labels                 |
 | Assignee | `@me` (default)                    |
@@ -49,7 +49,7 @@ Before creating PR, share the following **in a code block** and wait for **expli
 
 ```bash
 gh pr create \
-  --title "feat(#{issue-number}): {feature}" \
+  --title "feat(#{issue-number}): {feature} ({short description})" \
   --body-file /tmp/pr-body.md \
   --assignee @me \
   --base main

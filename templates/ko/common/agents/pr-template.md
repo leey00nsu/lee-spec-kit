@@ -9,10 +9,10 @@
 ### 제목 형식
 
 ```text
-feat(#{이슈번호}): {기능명}
+feat(#{이슈번호}): {기능명} ({짧은 설명})
 ```
 
-예: `feat(#1): 사용자 인증 구현`
+예: `feat(#1): user-auth (사용자 인증 기능)`
 
 ### 링크 형식 (중요!)
 
@@ -71,7 +71,7 @@ Closes #{이슈번호}
 BRANCH=$(git branch --show-current)
 
 gh pr create \
-  --title "feat(#{issue}): {기능명}" \
+  --title "feat(#{issue}): {기능명} ({짧은 설명})" \
   --body-file /tmp/pr-body.md \
   --base main
 ```

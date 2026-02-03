@@ -19,7 +19,7 @@ Guide for creating GitHub Issues.
 
 | Item     | Format                                      |
 | -------- | ------------------------------------------- |
-| Title    | `F{number}: {feature-name} ({description})` |
+| Title    | `{feature-name} ({description})`            |
 | Body     | Overview, Goals, Criteria, Related docs     |
 | Labels   | `enhancement`, `bug`, `documentation`, etc. |
 | Assignee | `@me` (default)                             |
@@ -38,7 +38,7 @@ Before creating issue, share and wait for approval:
 
 ```bash
 gh issue create \
-  --title "F{number}: {feature-name} ({description})" \
+  --title "{feature-name} ({description})" \
   --body-file /tmp/issue-body.md \
   --assignee @me \
   --label enhancement

@@ -19,7 +19,7 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 
 | 항목   | 형식                                     |
 | ------ | ---------------------------------------- |
-| 제목   | `F{번호}: {기능명} ({짧은 설명})`        |
+| 제목   | `{기능명} ({짧은 설명})`                 |
 | 본문   | 개요, 목표, 완료 조건, 관련 문서         |
 | 라벨   | `enhancement`, `bug`, `documentation` 등 |
 | 담당자 | `@me` (기본값)                           |
@@ -38,7 +38,7 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 
 ```bash
 gh issue create \
-  --title "F{번호}: {기능명} ({짧은 설명})" \
+  --title "{기능명} ({짧은 설명})" \
   --body-file /tmp/issue-body.md \
   --assignee @me \
   --label enhancement

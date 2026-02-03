@@ -9,10 +9,10 @@ A template for AI agents to create GitHub Issues.
 ### Title Format
 
 ```text
-F{number}: {feature-name} ({short description})
+{feature-name} ({short description})
 ```
 
-Example: `F001: user-auth (User authentication feature)`
+Example: `user-auth (User authentication feature)`
 
 > Keep the "short description" concise enough to convey the intent in one line.
 
