@@ -8,6 +8,20 @@ export async function copyTemplates(src: string, dest: string): Promise<void> {
   });
 }
 
+export function applyReplacements(
+  content: string,
+  replacements: Record<string, string>,
+): string {
+  // Avoid overlap issues (e.g. "{{projectName}}" vs "{{projectName}}-{be|fe}")
+  // by applying longer keys first.
+  const keys = Object.keys(replacements).sort((a, b) => b.length - a.length);
+  let next = content;
+  for (const key of keys) {
+    next = next.replaceAll(key, replacements[key]);
+  }
+  return next;
+}
+
 export async function replaceInFiles(
   dir: string,
   replacements: Record<string, string>,
@@ -16,10 +30,7 @@ export async function replaceInFiles(
 
   for (const file of files) {
     let content = await fs.readFile(file, "utf-8");
-
-    for (const [search, replace] of Object.entries(replacements)) {
-      content = content.replaceAll(search, replace);
-    }
+    content = applyReplacements(content, replacements);
 
     await fs.writeFile(file, content, "utf-8");
   }
@@ -29,10 +40,7 @@ export async function replaceInFiles(
 
   for (const file of shFiles) {
     let content = await fs.readFile(file, "utf-8");
-
-    for (const [search, replace] of Object.entries(replacements)) {
-      content = content.replaceAll(search, replace);
-    }
+    content = applyReplacements(content, replacements);
 
     await fs.writeFile(file, content, "utf-8");
   }

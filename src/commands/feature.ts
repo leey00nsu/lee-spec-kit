@@ -59,6 +59,7 @@ async function runFeature(
   }
 
   const { docsDir, projectType, lang } = config;
+  const projectName = config.projectName;
 
   // 기능 이름 검증 (Path Traversal 방지)
   assertValid(validateSafeName(name), '기능 이름');
@@ -142,6 +143,7 @@ async function runFeature(
       : '{{projectName}}';
 
   const replacements: Record<string, string> = {
+    '{{projectName}}': projectName ?? '{{projectName}}',
     // ko placeholders
     '{기능명}': name,
     '{번호}': idNumber,

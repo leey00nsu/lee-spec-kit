@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
+import { applyReplacements } from '../utils/template.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -149,11 +150,14 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     const targetFeatureBase = path.join(docsDir, 'features', 'feature-base');
 
     if (await fs.pathExists(sourceFeatureBase)) {
+      const replacements: Record<string, string> = {
+        '{{projectName}}': config.projectName ?? '{{projectName}}',
+      };
       const count = await updateFolder(
         sourceFeatureBase,
         targetFeatureBase,
         options.force,
-        undefined,
+        replacements,
         lang
       );
       updatedCount += count;
@@ -203,9 +207,7 @@ async function updateFolder(
 
       // 플레이스홀더 치환
       if (replacements) {
-        for (const [key, value] of Object.entries(replacements)) {
-          sourceContent = sourceContent.replaceAll(key, value);
-        }
+        sourceContent = applyReplacements(sourceContent, replacements);
       }
 
       let shouldUpdate = true;
