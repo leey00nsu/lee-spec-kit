@@ -13,6 +13,7 @@ import {
 interface ContextOptions {
   json?: boolean;
   repo?: 'fe' | 'be';
+  all?: boolean;
 }
 
 export function contextCommand(program: Command): void {
@@ -21,6 +22,7 @@ export function contextCommand(program: Command): void {
     .description('Show current feature context and next actions')
     .option('--json', 'Output in JSON format for agents')
     .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .option('--all', 'Include completed features when auto-detecting')
     .action(
       async (featureName: string | undefined, options: ContextOptions) => {
         try {
@@ -82,9 +84,12 @@ async function runContext(
   const stepsMap = getStepsMap(lang);
 
   const { features, branches, warnings } = await scanFeatures(config);
+  const activeFeatures = features.filter((f) => !f.completion.implementationDone);
+  const completedFeatures = features.filter((f) => f.completion.implementationDone);
 
   // 1. 타겟 Feature 찾기
   let targetFeatures: FeatureContext[] = [];
+  let selectionMode: 'explicit' | 'branch' | 'active_only' | 'all' = 'explicit';
 
   if (featureName) {
     // selector로 검색: slug | F001 | F001-user-auth
@@ -92,6 +97,7 @@ async function runContext(
     if (options.repo) {
       targetFeatures = targetFeatures.filter((f) => f.type === options.repo);
     }
+    selectionMode = 'explicit';
   } else {
     // 자동 감지: 브랜치 이름에서 추출
     if (config.projectType === 'single') {
@@ -119,24 +125,41 @@ async function runContext(
       targetFeatures = [...feMatches, ...beMatches];
     }
 
-    if (targetFeatures.length === 0) targetFeatures = features;
+    if (targetFeatures.length > 0) {
+      selectionMode = 'branch';
+    } else if (options.all) {
+      targetFeatures = features;
+      selectionMode = 'all';
+    } else {
+      targetFeatures = activeFeatures;
+      selectionMode = 'active_only';
+    }
   }
 
   // 2. 결과 출력 (JSON)
   if (options.json) {
+    const isNoActive =
+      selectionMode === 'active_only' &&
+      features.length > 0 &&
+      activeFeatures.length === 0;
     const result = {
       status:
         features.length === 0
           ? 'no_features'
-          : targetFeatures.length === 1
-          ? 'single_matched'
-          : targetFeatures.length > 1
-            ? 'multiple_active'
-            : 'no_match',
+          : isNoActive
+            ? 'no_active'
+            : targetFeatures.length === 1
+              ? 'single_matched'
+              : targetFeatures.length > 1
+                ? 'multiple_active'
+                : 'no_match',
+      selectionMode,
       branches,
       warnings,
       matchedFeature: targetFeatures.length === 1 ? targetFeatures[0] : null,
       candidates: targetFeatures.length > 1 ? targetFeatures : [],
+      completedCandidates:
+        selectionMode === 'active_only' ? completedFeatures : [],
       actions: targetFeatures.length === 1 ? targetFeatures[0].actions : [],
       recommendation: '',
     };
@@ -199,10 +222,30 @@ async function runContext(
     console.log();
   }
 
+  if (selectionMode === 'active_only' && targetFeatures.length === 0) {
+    console.log(chalk.green('✅ 진행 중인 Feature가 없습니다.'));
+    if (completedFeatures.length > 0) {
+      console.log(chalk.gray(`   - 완료(implementation): ${completedFeatures.length}개`));
+      console.log(chalk.gray('   - 전체를 보려면: npx lee-spec-kit context --all'));
+    }
+    console.log();
+    return;
+  }
+
   if (targetFeatures.length > 1) {
-    console.log(
-      chalk.blue(`🔹 ${targetFeatures.length} Active Features Detected:`)
-    );
+    if (selectionMode === 'active_only' && completedFeatures.length > 0) {
+      console.log(
+        chalk.gray(
+          `   (브랜치로 Feature를 특정하지 못해 진행 중인 Feature만 표시합니다. 완료: ${completedFeatures.length}개, 전체 보기: --all)`
+        )
+      );
+      console.log();
+    }
+    const title =
+      selectionMode === 'all'
+        ? `🔹 ${targetFeatures.length} Features:`
+        : `🔹 ${targetFeatures.length} Active Features Detected:`;
+    console.log(chalk.blue(title));
     console.log();
 
     targetFeatures.forEach((f) => {
@@ -234,6 +277,9 @@ async function runContext(
 
   console.log(
     `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : ''}`
+  );
+  console.log(
+    `   • Completion: ${f.completion.implementationDone ? chalk.green('Implementation ✅') : chalk.gray('Implementation ◯')} / ${f.completion.workflowDone ? chalk.green('Workflow ✅') : chalk.yellow('Workflow ◯')}`
   );
   if (f.issueNumber) {
     console.log(`   • Issue: #${f.issueNumber}`);
