@@ -56,6 +56,9 @@ npx lee-spec-kit context
 
 # 4. 전체 상태 확인
 npx lee-spec-kit status
+
+# 5. 문서/Feature 진단
+npx lee-spec-kit doctor
 ```
 
 ## 주요 기능
@@ -76,6 +79,11 @@ npx lee-spec-kit status
 
 - 전체 Feature 진행 상태 한눈에 확인
 - 터미널 출력 또는 마크다운 파일로 저장
+
+### 🩺 문서 진단 (Doctor)
+
+- docs 구조/설정/Feature 메타데이터를 점검하여 잠재 문제를 빠르게 탐지
+- `--json` 출력으로 에이전트 파이프라인에 쉽게 연동
 
 ### 🔄 자동 업데이트
 
@@ -146,6 +154,21 @@ npx lee-spec-kit status
 
 # 파일로 저장
 npx lee-spec-kit status --write
+```
+
+### 문서 진단 (Doctor)
+
+docs 구조 및 Feature 메타데이터(중복 ID, 누락된 파일/상태, 플레이스홀더 잔존 등)를 점검합니다.
+
+```bash
+# 진단 실행
+npx lee-spec-kit doctor
+
+# 문제 발견 시 종료 코드 1 (CI/에이전트 파이프라인용)
+npx lee-spec-kit doctor --strict
+
+# 에이전트용 JSON 출력
+npx lee-spec-kit doctor --json
 ```
 
 ### 템플릿 업데이트
