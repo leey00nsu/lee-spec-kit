@@ -70,6 +70,55 @@ function detectFromBranch(
   );
 }
 
+function tr(lang: string, ko: string, en: string): string {
+  return lang === 'en' ? en : ko;
+}
+
+function getListLabel(
+  f: FeatureContext,
+  stepsMap: Record<number, string>,
+  lang: string
+): string {
+  // For "ready to close" features, show the closest missing workflow requirement
+  // instead of generic step names like "tasks.md 작성".
+  if (f.completion.implementationDone && !f.completion.workflowDone) {
+    if (f.git.docsHasUncommittedChanges) {
+      return tr(lang, '문서 커밋 필요', 'Commit docs changes');
+    }
+    if (!f.issueNumber) {
+      return tr(lang, '이슈 번호 기록 필요', 'Fill issue number in docs');
+    }
+    if (!f.docs.prFieldExists || !f.docs.prStatusFieldExists) {
+      return tr(
+        lang,
+        'PR 메타데이터(PR/PR 상태) 추가',
+        'Add PR metadata (PR/PR Status)'
+      );
+    }
+    if (!f.pr.link) {
+      return tr(lang, 'PR 링크 기록', 'Record PR link');
+    }
+    if (!f.pr.status) {
+      return tr(lang, 'PR 상태 설정', 'Set PR Status');
+    }
+    if (f.pr.status !== 'Approved') {
+      return tr(
+        lang,
+        `PR 상태 ${f.pr.status} → Approved`,
+        `PR Status ${f.pr.status} → Approved`
+      );
+    }
+    if (f.specStatus !== 'Approved') {
+      return tr(lang, 'spec 승인 필요', 'Approve spec');
+    }
+    if (f.planStatus !== 'Approved') {
+      return tr(lang, 'plan 승인 필요', 'Approve plan');
+    }
+  }
+
+  return stepsMap[f.currentStep] || tr(lang, 'Unknown', 'Unknown');
+}
+
 async function runContext(
   featureName: string | undefined,
   options: ContextOptions
@@ -252,7 +301,7 @@ async function runContext(
     if (selectionMode === 'open') {
       console.log(chalk.blue(`🔹 In Progress (${inProgressFeatures.length})`));
       inProgressFeatures.forEach((f) => {
-        const stepName = stepsMap[f.currentStep] || 'Unknown';
+        const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
@@ -263,7 +312,7 @@ async function runContext(
       console.log();
       console.log(chalk.blue(`🔸 Ready To Close (${readyToCloseFeatures.length})`));
       readyToCloseFeatures.forEach((f) => {
-        const stepName = stepsMap[f.currentStep] || 'Unknown';
+        const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
@@ -280,7 +329,7 @@ async function runContext(
       console.log(chalk.blue(title));
       console.log();
       targetFeatures.forEach((f) => {
-        const stepName = stepsMap[f.currentStep] || 'Unknown';
+        const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
