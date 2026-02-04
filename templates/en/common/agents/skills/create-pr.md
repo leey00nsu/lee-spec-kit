@@ -32,8 +32,8 @@ Guide for creating Pull Requests.
 
 1. Run relevant test commands (e.g., `npm test`, `pnpm test`); if no tests exist, request them from the user
 2. Check results (PASS/FAIL)
-3. Record **execution results** in the "Tests" section of PR body
-4. All checkboxes must be checked
+3. In the PR body "Tests" section, add **only the tests you actually ran** as checklist items and ensure they are **all checked ([x])** (do not include unexecuted tests)
+4. If you didn’t run any tests, request/confirm with the user before creating the PR
 
 ### 3. Prepare Screenshots / Diagrams (Include in PR Body)
 
