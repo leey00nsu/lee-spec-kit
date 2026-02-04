@@ -168,10 +168,12 @@ const I18N: Record<Lang, I18nData> = {
       planWrite: 'plan.md 작성',
       planApprove: 'plan.md 승인',
       tasksWrite: 'tasks.md 작성',
+      docsInitialCommit: '초기 문서 커밋',
       docsCommitPlanning: '문서 커밋(동기화)',
       issueCreate: 'GitHub Issue 생성',
       branchCreate: '브랜치 생성',
       tasksExecute: '태스크 실행',
+      docsCommitSync: '문서 커밋(동기화)',
       prCreate: 'PR 생성',
       codeReview: '코드 리뷰',
       featureDone: 'Feature 완료',
@@ -194,6 +196,8 @@ const I18N: Record<Lang, I18nData> = {
         'GitHub Issue를 생성한 뒤, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요. (skills/create-issue.md 참고)',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
+      docsCommitUpdate:
+        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs: {folderName} 문서 업데이트"',
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -388,10 +392,12 @@ const I18N: Record<Lang, I18nData> = {
       planWrite: 'Write plan.md',
       planApprove: 'Approve plan.md',
       tasksWrite: 'Write tasks.md',
+      docsInitialCommit: 'Initial docs commit',
       docsCommitPlanning: 'Commit docs (sync)',
       issueCreate: 'Create GitHub Issue',
       branchCreate: 'Create branch',
       tasksExecute: 'Execute tasks',
+      docsCommitSync: 'Commit docs (sync)',
       prCreate: 'Create PR',
       codeReview: 'Code review',
       featureDone: 'Feature done',
@@ -414,6 +420,8 @@ const I18N: Record<Lang, I18nData> = {
         'Create a GitHub Issue, fill the issue number in spec.md/tasks.md, then prepare a docs commit. (See skills/create-issue.md)',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
+      docsCommitUpdate:
+        'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs: {folderName} docs update"',
       standaloneNeedsProjectRoot:
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:

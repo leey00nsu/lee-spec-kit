@@ -37,6 +37,7 @@
 
 - [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked
 - [ ] Tests executed and passing (record command/result below)
+- [ ] User approval (OK) received
 
 ### Test Run Log
 

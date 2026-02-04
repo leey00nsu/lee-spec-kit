@@ -30,6 +30,12 @@ Keep `tasks.md` aligned with reality.
 - Do not mark `[DONE]` without actually completing the work and verifying criteria.
 - If you need to change a completed task, add a new task instead of rewriting history.
 
+### Step 3.25: Commit per task (important)
+
+- Complete **only one task at a time** (do not batch-finish multiple tasks in one commit).
+- After marking a task `[DONE]` (and updating any checklist items), create commits (code commit + docs commit) so each task has its own history.
+- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user and get approval (OK), then check it (especially the **User approval (OK) received** item).
+
 ### Step 3.5: Record decisions (strongly recommended, effectively required)
 
 To avoid “why did we implement it like this?” losing context, **record any non-obvious or tradeoff-heavy implementation choice** in `decisions.md`.

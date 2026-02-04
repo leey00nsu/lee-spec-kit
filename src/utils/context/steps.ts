@@ -143,7 +143,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
     },
     {
       step: 7,
-      name: tr(lang, 'steps', 'docsCommitPlanning'),
+      name: tr(lang, 'steps', 'docsInitialCommit'),
       checklist: {
         done: (f) =>
           f.docs.tasksExists &&
@@ -312,6 +312,28 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             ];
           }
           if (f.nextTodoTask) {
+            if (f.git.docsHasUncommittedChanges) {
+              return [
+                {
+                  type: 'command',
+                  requiresUserOk: true,
+                  scope: 'docs',
+                  cwd: f.git.docsGitCwd,
+                  cmd: f.issueNumber
+                    ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
+                        docsGitCwd: f.git.docsGitCwd,
+                        featurePath: f.docs.featurePathFromDocs,
+                        issueNumber: f.issueNumber,
+                        folderName: f.folderName,
+                      })
+                    : tr(lang, 'messages', 'docsCommitUpdate', {
+                        docsGitCwd: f.git.docsGitCwd,
+                        featurePath: f.docs.featurePathFromDocs,
+                        folderName: f.folderName,
+                      }),
+                },
+              ];
+            }
             return [
               {
                 type: 'instruction',
@@ -339,6 +361,36 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
     },
     {
       step: 11,
+      name: tr(lang, 'steps', 'docsCommitSync'),
+      checklist: {
+        done: (f) => !f.git.docsHasUncommittedChanges,
+      },
+      current: {
+        when: (f) => isImplementationDone(f) && f.git.docsHasUncommittedChanges,
+        actions: (f) => [
+          {
+            type: 'command',
+            requiresUserOk: true,
+            scope: 'docs',
+            cwd: f.git.docsGitCwd,
+            cmd: f.issueNumber
+              ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
+                  docsGitCwd: f.git.docsGitCwd,
+                  featurePath: f.docs.featurePathFromDocs,
+                  issueNumber: f.issueNumber,
+                  folderName: f.folderName,
+                })
+              : tr(lang, 'messages', 'docsCommitUpdate', {
+                  docsGitCwd: f.git.docsGitCwd,
+                  featurePath: f.docs.featurePathFromDocs,
+                  folderName: f.folderName,
+                }),
+          },
+        ],
+      },
+    },
+    {
+      step: 12,
       name: tr(lang, 'steps', 'prCreate'),
       checklist: { done: (f) => isPrMetadataConfigured(f) && !!f.pr.link },
       current: {
@@ -369,7 +421,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       },
     },
     {
-      step: 12,
+      step: 13,
       name: tr(lang, 'steps', 'codeReview'),
       checklist: {
         done: (f) => isPrMetadataConfigured(f) && f.pr.status === 'Approved',
@@ -407,7 +459,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       },
     },
     {
-      step: 13,
+      step: 14,
       name: tr(lang, 'steps', 'featureDone'),
       checklist: { done: (f) => isFeatureDone(f) },
       current: {
