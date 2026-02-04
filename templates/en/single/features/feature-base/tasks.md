@@ -15,7 +15,7 @@
 - **PR**: -
   - Example: `#123` or PR URL
 - **PR Status**: -
-  - Values: Draft | Review | Approved
+  - Values: Review | Approved
 
 ---
 

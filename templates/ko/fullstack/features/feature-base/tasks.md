@@ -15,7 +15,7 @@
 - **PR**: -
   - 예: `#123` 또는 PR URL
 - **PR 상태**: -
-  - 값: Draft | Review | Approved
+  - 값: Review | Approved
 
 ---
 
