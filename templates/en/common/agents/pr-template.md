@@ -42,15 +42,17 @@ For file links within the repo in PR body, **always use current branch name**:
 
 ## Tests
 
-> ⚠️ **Check only after running tests. Do NOT check items that were not executed.**
+> ⚠️ Add **only the tests you actually ran** below, and ensure **all items are checked ([x])**.  
+> Do not include tests you didn’t run.
 
-- [ ] Unit tests passed
-- [ ] Integration tests completed
+### Tests Run
 
-### Execution Results
+- [x] `{test command 1}` — PASS
+- [x] `{test command 2}` — PASS
 
-- Command: `{test command executed}`
-- Result: `{PASS/FAIL summary}`
+### Notes (Optional)
+
+- {extra context or links to logs}
 
 > - If this includes UI changes, include **screenshots**.
 > - If this includes logic/structure changes, include a **diagram**.
