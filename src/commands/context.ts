@@ -430,6 +430,9 @@ async function runContext(
       console.log(
         `👉 Next Action (${chalk.cyan(action.scope)}): ${okTag(action.requiresUserOk)}${chalk.green(chalk.bold(action.cmd))}`
       );
+      if (action.scope === 'docs') {
+        console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
+      }
     } else {
       console.log(
         `👉 Next Action: ${okTag(action.requiresUserOk)}${chalk.green(chalk.bold(action.message))}`
@@ -440,13 +443,18 @@ async function runContext(
   }
 
   console.log(chalk.green(chalk.bold('👉 Next Actions:')));
+  let hasDocsCommand = false;
   f.actions.forEach((action) => {
     if (action.type === 'command') {
       console.log(`   • (${action.scope}) ${okTag(action.requiresUserOk)}${action.cmd}`);
+      if (action.scope === 'docs') hasDocsCommand = true;
     } else {
       console.log(`   • ${okTag(action.requiresUserOk)}${action.message}`);
     }
   });
+  if (hasDocsCommand) {
+    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
+  }
   console.log();
 }
 

@@ -102,6 +102,8 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowAll': '전체 보기',
       'context.tipShowDone': '완료만 보기',
       'context.okRequired': '[OK 필요] ',
+      'context.tipDocsCommitRules':
+        '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
       'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
       'context.list.addPrMetadata': 'PR 메타데이터(PR/PR 상태) 추가',
@@ -217,7 +219,7 @@ const I18N: Record<Lang, I18nData> = {
       prCreate:
         'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (skills/create-pr.md 참고)',
       prFillStatus:
-        'tasks.md의 PR 상태를 Draft/Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
+        'tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
       prResolveReview:
         '리뷰 코멘트를 해결하고 PR 상태를 업데이트하세요. (PR 상태: Review → Approved)',
       prRequestReview:
@@ -232,7 +234,8 @@ const I18N: Record<Lang, I18nData> = {
         '프로젝트 브랜치를 확인할 수 없습니다. (standalone 모드에서는 projectRoot가 필요합니다.)',
       docsGitUnavailable:
         'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
-      docsUncommittedChanges: '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요)',
+      docsUncommittedChanges:
+        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       legacyTasksPrFields:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       workflowSpecNotApproved:
@@ -242,7 +245,7 @@ const I18N: Record<Lang, I18nData> = {
       workflowPrLinkMissing:
         '완료 상태이지만 PR 링크가 비어있습니다. (tasks.md의 PR 필드를 채우세요.)',
       workflowPrStatusMissing:
-        '완료 상태이지만 PR 상태가 비어있습니다. (tasks.md의 PR 상태를 Draft/Review/Approved 중 하나로 설정하세요.)',
+        '완료 상태이지만 PR 상태가 비어있습니다. (tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요.)',
       workflowPrStatusNotApproved:
         '완료 상태이지만 PR 상태가 Approved가 아닙니다. (merge 후 PR 상태를 Approved로 업데이트하세요.)',
     },
@@ -325,6 +328,8 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowAll': 'Show all',
       'context.tipShowDone': 'Show done only',
       'context.okRequired': '[OK required] ',
+      'context.tipDocsCommitRules':
+        'Commit message rules: /docs/agents/git-workflow.md',
       'context.list.docsCommitNeeded': 'Commit docs changes',
       'context.list.issueNumberNeeded': 'Fill issue number in docs',
       'context.list.addPrMetadata': 'Add PR metadata (PR/PR Status)',
@@ -440,7 +445,7 @@ const I18N: Record<Lang, I18nData> = {
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (OK required)',
       prCreate: 'Create a PR and record the PR link in tasks.md. (See skills/create-pr.md)',
       prFillStatus:
-        'Set PR Status in tasks.md to Draft/Review/Approved. (After merge, update it to Approved.)',
+        'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
       prResolveReview:
         'Resolve review comments and update PR Status. (PR Status: Review → Approved)',
       prRequestReview: 'Request review and update PR Status to Review.',
@@ -455,7 +460,7 @@ const I18N: Record<Lang, I18nData> = {
       docsGitUnavailable:
         'Cannot read git status for the docs repo. (Check repo location / git init.)',
       docsUncommittedChanges:
-        'Docs changes are not committed. (Additional docs commit needed.)',
+        'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: /docs/agents/git-workflow.md',
       legacyTasksPrFields:
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       workflowSpecNotApproved:
@@ -465,7 +470,7 @@ const I18N: Record<Lang, I18nData> = {
       workflowPrLinkMissing:
         'Implementation is done but PR link is missing. (Fill the PR field in tasks.md.)',
       workflowPrStatusMissing:
-        'Implementation is done but PR Status is missing. (Set PR Status to Draft/Review/Approved in tasks.md.)',
+        'Implementation is done but PR Status is missing. (Set PR Status to Review/Approved in tasks.md.)',
       workflowPrStatusNotApproved:
         'Implementation is done but PR Status is not Approved. (After merge, update PR Status to Approved in tasks.md.)',
     },
