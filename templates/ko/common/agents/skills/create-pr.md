@@ -39,7 +39,10 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 PR 본문에 결과물을 포함합니다.
 
-#### 프론트엔드 PR (UI 변경)
+> - UI 변경에 해당된다면 **스크린샷을** 포함하세요.
+> - 로직/구조 변경에 해당된다면 **다이어그램을** 포함하세요.
+
+#### UI 변경 (프론트엔드 PR)
 
 - `agent-browser`로 스크린샷을 생성합니다.
 - 스크린샷 파일은 로컬 임시 폴더(`/tmp/lee-spec-kit/pr-assets/`)에 저장합니다.
@@ -54,7 +57,8 @@ agent-browser install  # Playwright 브라우저 설치
 # - 이미 떠있는 개발 서버가 있다면 그 URL을 PREVIEW_URL로 지정해도 됩니다.
 PORT=$(node -e "const net=require('net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close();});")
 # (예시) Vite
-pnpm dev --host 127.0.0.1 --port \"$PORT\"
+pnpm dev --host 127.0.0.1 --port \"$PORT\" >/tmp/lee-spec-kit-dev.log 2>&1 &
+DEV_PID=$!
 PREVIEW_URL=\"http://127.0.0.1:${PORT}\"
 
 # (예시) 미리보기 URL을 정해 스크린샷 생성
@@ -62,6 +66,9 @@ mkdir -p /tmp/lee-spec-kit/pr-assets
 agent-browser open "$PREVIEW_URL"
 agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
 agent-browser close
+
+# (권장) 스크린샷을 위해 띄운 개발 서버는 작업이 끝나면 종료합니다.
+kill \"$DEV_PID\" >/dev/null 2>&1 || true
 ```
 
 ```bash
@@ -78,7 +85,7 @@ gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
 echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 ```
 
-#### 백엔드 PR (핵심 구조)
+#### 로직/구조 변경 (백엔드 PR)
 
 - PR 본문에 Mermaid 다이어그램(예: flowchart/sequence)을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 참고)
 

@@ -39,7 +39,10 @@ Guide for creating Pull Requests.
 
 Include the artifacts in the PR body.
 
-#### Frontend PR (UI changes)
+> - If this includes UI changes, include **screenshots**.
+> - If this includes logic/structure changes, include a **diagram**.
+
+#### UI changes (Frontend PR)
 
 - Use `agent-browser` to generate screenshots.
 - Save files under a local temp folder (`/tmp/lee-spec-kit/pr-assets/`).
@@ -54,7 +57,8 @@ agent-browser install  # install Playwright browsers
 # - If you already have a running dev server, you can just set PREVIEW_URL to that URL.
 PORT=$(node -e "const net=require('net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close();});")
 # (example) Vite
-pnpm dev --host 127.0.0.1 --port \"$PORT\"
+pnpm dev --host 127.0.0.1 --port \"$PORT\" >/tmp/lee-spec-kit-dev.log 2>&1 &
+DEV_PID=$!
 PREVIEW_URL=\"http://127.0.0.1:${PORT}\"
 
 # (example) capture from a preview URL
@@ -62,6 +66,9 @@ mkdir -p /tmp/lee-spec-kit/pr-assets
 agent-browser open "$PREVIEW_URL"
 agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
 agent-browser close
+
+# (recommended) stop the dev server you started for screenshots
+kill \"$DEV_PID\" >/dev/null 2>&1 || true
 ```
 
 ```bash
@@ -78,7 +85,7 @@ gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
 echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 ```
 
-#### Backend PR (Core structure)
+#### Logic/structure changes (Backend PR)
 
 - Write a Mermaid diagram (flowchart/sequence/etc.) in the PR body (see the "Architecture Diagram" section in `pr-template.md`).
 
