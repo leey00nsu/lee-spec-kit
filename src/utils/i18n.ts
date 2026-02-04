@@ -102,6 +102,8 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowAll': '전체 보기',
       'context.tipShowDone': '완료만 보기',
       'context.okRequired': '[OK 필요] ',
+      'context.okPolicyHint':
+        'ℹ️  사용자 확인(OK) 규칙: /docs/agents/agents.md 참고 (git push/merge 포함)',
       'context.tipDocsCommitRules':
         '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
@@ -328,6 +330,8 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowAll': 'Show all',
       'context.tipShowDone': 'Show done only',
       'context.okRequired': '[OK required] ',
+      'context.okPolicyHint':
+        'ℹ️  User approval (OK) policy: see /docs/agents/agents.md (includes git push/merge)',
       'context.tipDocsCommitRules':
         'Commit message rules: /docs/agents/git-workflow.md',
       'context.list.docsCommitNeeded': 'Commit docs changes',

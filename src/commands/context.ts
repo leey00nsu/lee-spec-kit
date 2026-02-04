@@ -222,6 +222,10 @@ async function runContext(
       readyToCloseCandidates:
         selectionMode === 'open' ? readyToCloseFeatures : [],
       actions: targetFeatures.length === 1 ? targetFeatures[0].actions : [],
+      okPolicy: {
+        docPath: '/docs/agents/agents.md',
+        hint: tr(lang, 'cli', 'context.okPolicyHint'),
+      },
       recommendation: '',
     };
 
@@ -377,6 +381,7 @@ async function runContext(
     requiresUserOk
       ? chalk.yellow(tr(lang, 'cli', 'context.okRequired'))
       : '';
+  const hasOkAction = (f.actions || []).some((a) => !!a.requiresUserOk);
 
   console.log(
     `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : ''}`
@@ -418,6 +423,9 @@ async function runContext(
 
   console.log();
   console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  if (hasOkAction) {
+    console.log(chalk.gray(tr(lang, 'cli', 'context.okPolicyHint')));
+  }
   if (!f.actions || f.actions.length === 0) {
     console.log(`👉 Next Action: ${chalk.green(chalk.bold(f.nextAction))}`);
     console.log();
