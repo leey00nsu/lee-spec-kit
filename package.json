@@ -1,6 +1,6 @@
 {
   "name": "lee-spec-kit",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "Project documentation structure generator for AI-assisted development",
   "type": "module",
   "bin": {
