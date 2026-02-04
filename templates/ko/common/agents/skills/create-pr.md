@@ -35,7 +35,54 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 3. PR 본문 "테스트" 섹션에 **실행 결과** 기록
 4. 모든 체크박스가 체크되어야 함
 
-### 3. 사용자 확인 요청
+### 3. 스크린샷/다이어그램 작성 (PR 본문에 포함)
+
+PR 본문에 결과물을 포함합니다.
+
+#### 프론트엔드 PR (UI 변경)
+
+- `agent-browser`로 스크린샷을 생성합니다.
+- 스크린샷 파일은 로컬 임시 폴더(`/tmp/lee-spec-kit/pr-assets/`)에 저장합니다.
+- 릴리스 자산(Release assets)으로 업로드한 뒤, 생성된 이미지 URL을 PR 본문 "스크린샷" 섹션에 넣습니다.
+
+```bash
+# (최초 1회) agent-browser 설치
+npm i -g agent-browser
+agent-browser install  # Playwright 브라우저 설치
+
+# 개발 서버 실행: 이미 사용 중인 포트가 많으므로 "빈 포트"를 권장합니다.
+# - 이미 떠있는 개발 서버가 있다면 그 URL을 PREVIEW_URL로 지정해도 됩니다.
+PORT=$(node -e "const net=require('net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close();});")
+# (예시) Vite
+pnpm dev --host 127.0.0.1 --port \"$PORT\"
+PREVIEW_URL=\"http://127.0.0.1:${PORT}\"
+
+# (예시) 미리보기 URL을 정해 스크린샷 생성
+mkdir -p /tmp/lee-spec-kit/pr-assets
+agent-browser open "$PREVIEW_URL"
+agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
+agent-browser close
+```
+
+```bash
+# 스크린샷을 Release assets로 업로드하고, PR 본문에 넣을 URL 만들기
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+SAFE_BRANCH=$(git branch --show-current | tr '/' '-')
+TAG="pr-assets/${SAFE_BRANCH}"
+
+gh release view "$TAG" >/dev/null 2>&1 || \
+  gh release create "$TAG" --prerelease --title "pr-assets: ${SAFE_BRANCH}" --notes ""
+
+gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
+
+echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
+```
+
+#### 백엔드 PR (핵심 구조)
+
+- PR 본문에 Mermaid 다이어그램(예: flowchart/sequence)을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 참고)
+
+### 4. 사용자 확인 요청
 
 > 🚨 **사용자 확인 필수**
 
@@ -45,7 +92,7 @@ PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하�
 - 본문 전체 (`pr-template.md` 형식)
 - 라벨
 
-### 4. PR 생성
+### 5. PR 생성
 
 ```bash
 gh pr create \

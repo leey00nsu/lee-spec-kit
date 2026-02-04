@@ -50,14 +50,24 @@ PR 본문에서 레포 내 파일 링크는 **반드시 현재 브랜치명을 �
 - 명령어: `{실행한 테스트 명령어}`
 - 결과: `{PASS/FAIL 요약}`
 
-## 스크린샷 (UI 변경 시)
+## 스크린샷 (프론트엔드 / UI 변경 시)
 
-{있으면 첨부}
+> `skills/create-pr.md`의 Release assets 업로드 절차를 사용하면 브랜치에 파일을 커밋하지 않고도 이미지를 본문에 포함할 수 있습니다.
+
+{스크린샷 마크다운 (예: ![](URL))}
+
+## 아키텍처 다이어그램 (백엔드 / 핵심 구조 변경 시)
+
+```mermaid
+flowchart LR
+  A[Client] --> B[API]
+  B --> C[DB]
+```
 
 ## 관련 문서
 
-- **Spec**: `docs/features/{be|fe}/F{번호}-{기능명}/spec.md`
-- **Tasks**: `docs/features/{be|fe}/F{번호}-{기능명}/tasks.md`
+- **Spec**: `{{featurePath}}/F{번호}-{기능명}/spec.md`
+- **Tasks**: `{{featurePath}}/F{번호}-{기능명}/tasks.md`
 
 Closes #{이슈번호}
 ```

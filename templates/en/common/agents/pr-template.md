@@ -52,14 +52,24 @@ For file links within the repo in PR body, **always use current branch name**:
 - Command: `{test command executed}`
 - Result: `{PASS/FAIL summary}`
 
-## Screenshots (for UI changes)
+## Screenshots (Frontend / UI changes)
 
-{Attach if applicable}
+> If you follow the Release assets upload flow in `skills/create-pr.md`, you can include images in the PR body without committing files to your branch.
+
+{Screenshot markdown (e.g. ![](URL))}
+
+## Architecture Diagram (Backend / core structure changes)
+
+```mermaid
+flowchart LR
+  A[Client] --> B[API]
+  B --> C[DB]
+```
 
 ## Related Documents
 
-- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
-- **Tasks**: `docs/features/{be|fe}/F{number}-{feature-name}/tasks.md`
+- **Spec**: `{{featurePath}}/F{number}-{feature-name}/spec.md`
+- **Tasks**: `{{featurePath}}/F{number}-{feature-name}/tasks.md`
 
 Closes #{issue-number}
 ```

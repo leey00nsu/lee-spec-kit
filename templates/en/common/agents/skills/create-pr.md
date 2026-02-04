@@ -35,7 +35,54 @@ Guide for creating Pull Requests.
 3. Record **execution results** in the "Tests" section of PR body
 4. All checkboxes must be checked
 
-### 3. Request User Approval
+### 3. Prepare Screenshots / Diagrams (Include in PR Body)
+
+Include the artifacts in the PR body.
+
+#### Frontend PR (UI changes)
+
+- Use `agent-browser` to generate screenshots.
+- Save files under a local temp folder (`/tmp/lee-spec-kit/pr-assets/`).
+- Upload them as Release assets, then put the image URLs into the "Screenshots" section of the PR body.
+
+```bash
+# (one-time) install agent-browser
+npm i -g agent-browser
+agent-browser install  # install Playwright browsers
+
+# Start a dev server: ports are often already taken, so prefer a free port.
+# - If you already have a running dev server, you can just set PREVIEW_URL to that URL.
+PORT=$(node -e "const net=require('net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close();});")
+# (example) Vite
+pnpm dev --host 127.0.0.1 --port \"$PORT\"
+PREVIEW_URL=\"http://127.0.0.1:${PORT}\"
+
+# (example) capture from a preview URL
+mkdir -p /tmp/lee-spec-kit/pr-assets
+agent-browser open "$PREVIEW_URL"
+agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
+agent-browser close
+```
+
+```bash
+# Upload to Release assets and generate the URL to paste into the PR body
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+SAFE_BRANCH=$(git branch --show-current | tr '/' '-')
+TAG="pr-assets/${SAFE_BRANCH}"
+
+gh release view "$TAG" >/dev/null 2>&1 || \
+  gh release create "$TAG" --prerelease --title "pr-assets: ${SAFE_BRANCH}" --notes ""
+
+gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
+
+echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
+```
+
+#### Backend PR (Core structure)
+
+- Write a Mermaid diagram (flowchart/sequence/etc.) in the PR body (see the "Architecture Diagram" section in `pr-template.md`).
+
+### 4. Request User Approval
 
 > 🚨 **User Approval Required**
 
@@ -45,7 +92,7 @@ Before creating PR, share the following **in a code block** and wait for **expli
 - Full body (`pr-template.md` format)
 - Labels
 
-### 4. Create PR
+### 5. Create PR
 
 ```bash
 gh pr create \
