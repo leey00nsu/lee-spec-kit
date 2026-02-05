@@ -88,6 +88,10 @@ const I18N: Record<Lang, I18nData> = {
       'doctor.issue.planStatusUnset':
         'plan.md의 Status(상태)가 설정되지 않았습니다. (템플릿 그대로일 수 있음)',
       'doctor.issue.tasksEmpty': 'tasks.md에 태스크가 없습니다.',
+      'doctor.issue.tasksDocStatusUnset':
+        'tasks.md의 문서 상태(Doc Status)가 설정되지 않았습니다. (Review/Approved 중 하나로 설정하세요.)',
+      'doctor.issue.tasksDocStatusMissing':
+        'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: Review | Approved`를 추가하세요.',
       'doctor.issue.duplicateFeatureId': '중복 Feature ID 감지: {id} ({count}개)',
       'doctor.issue.missingFeatureId':
         'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',
@@ -172,7 +176,7 @@ const I18N: Record<Lang, I18nData> = {
       specApprove: 'spec.md 승인',
       planWrite: 'plan.md 작성',
       planApprove: 'plan.md 승인',
-      tasksWrite: 'tasks.md 작성',
+      tasksWrite: 'tasks.md 작성/승인',
       docsInitialCommit: '초기 문서 커밋',
       docsCommitPlanning: '문서 커밋(동기화)',
       issueCreate: 'GitHub Issue 생성',
@@ -195,6 +199,9 @@ const I18N: Record<Lang, I18nData> = {
       tasksCreate:
         'tasks.md 템플릿을 복사해 태스크를 작성하세요. (features/feature-base/tasks.md 참고)',
       tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
+      tasksImprove: 'tasks.md를 보완하고 문서 상태를 Review로 변경하세요.',
+      tasksApproval:
+        'tasks.md 내용을 사용자에게 공유하고 진행 승인(OK)을 받으세요. (승인 후 문서 상태를 Approved로 변경)',
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
@@ -239,6 +246,8 @@ const I18N: Record<Lang, I18nData> = {
         'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
       docsUncommittedChanges:
         '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
+      legacyTasksDocStatusField:
+        '구버전 tasks.md 포맷입니다. `문서 상태` 필드(Review/Approved)를 추가해 태스크 승인 단계를 활성화하세요.',
       legacyTasksPrFields:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       workflowSpecNotApproved:
@@ -317,6 +326,10 @@ const I18N: Record<Lang, I18nData> = {
       'doctor.issue.specStatusUnset': 'spec.md Status is not set. (May still be a template)',
       'doctor.issue.planStatusUnset': 'plan.md Status is not set. (May still be a template)',
       'doctor.issue.tasksEmpty': 'tasks.md has no tasks.',
+      'doctor.issue.tasksDocStatusUnset':
+        'tasks.md Doc Status is not set. (Set it to Review or Approved.)',
+      'doctor.issue.tasksDocStatusMissing':
+        'tasks.md is missing the Doc Status field. Add `- **Doc Status**: Review | Approved`.',
       'doctor.issue.duplicateFeatureId': 'Duplicate Feature ID detected: {id} ({count})',
       'doctor.issue.missingFeatureId':
         'Feature folder name is not in F001-... format. (Cannot extract ID)',
@@ -402,7 +415,7 @@ const I18N: Record<Lang, I18nData> = {
       specApprove: 'Approve spec.md',
       planWrite: 'Write plan.md',
       planApprove: 'Approve plan.md',
-      tasksWrite: 'Write tasks.md',
+      tasksWrite: 'Write/approve tasks.md',
       docsInitialCommit: 'Initial docs commit',
       docsCommitPlanning: 'Commit docs (sync)',
       issueCreate: 'Create GitHub Issue',
@@ -425,6 +438,9 @@ const I18N: Record<Lang, I18nData> = {
       tasksCreate:
         'Create tasks.md by copying the template. (See features/feature-base/tasks.md)',
       tasksNeedAtLeastOne: 'Write at least 1 task in tasks.md.',
+      tasksImprove: 'Improve tasks.md and change Doc Status to Review.',
+      tasksApproval:
+        'Share tasks.md with the user and get progress approval (OK). (Then set Doc Status to Approved)',
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
@@ -467,6 +483,8 @@ const I18N: Record<Lang, I18nData> = {
         'Cannot read git status for the docs repo. (Check repo location / git init.)',
       docsUncommittedChanges:
         'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: /docs/agents/git-workflow.md',
+      legacyTasksDocStatusField:
+        'Legacy tasks.md format detected. Add a `Doc Status` field (Review/Approved) to enable tasks approval.',
       legacyTasksPrFields:
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       workflowSpecNotApproved:

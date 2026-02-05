@@ -34,7 +34,8 @@ Keep `tasks.md` aligned with reality.
 
 - Complete **only one task at a time** (do not batch-finish multiple tasks in one commit).
 - After marking a task `[DONE]` (and updating any checklist items), create commits (code commit + docs commit) so each task has its own history.
-- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user and get approval (OK), then check it (especially the **User approval (OK) received** item).
+- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user and get **final approval (OK)**, then check it (especially the **Final user approval (OK) received** item).
+  - Note: `Doc Status (Review→Approved)` is **progress approval (OK)**, while the completion checklist approval is **final approval (OK)**.
 
 ### Step 3.5: Record decisions (strongly recommended, effectively required)
 

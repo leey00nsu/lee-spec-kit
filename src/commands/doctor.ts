@@ -154,6 +154,24 @@ async function checkFeatures(
         path: formatPath(cwd, path.join(f.path, 'tasks.md')),
       });
     }
+
+    if (f.docs.tasksExists && !f.docs.tasksDocStatusFieldExists) {
+      issues.push({
+        level: 'warn',
+        code: 'tasks_doc_status_missing',
+        message: tr(config.lang, 'cli', 'doctor.issue.tasksDocStatusMissing'),
+        path: formatPath(cwd, path.join(f.path, 'tasks.md')),
+      });
+    }
+
+    if (f.docs.tasksExists && f.docs.tasksDocStatusFieldExists && !f.tasksDocStatus) {
+      issues.push({
+        level: 'warn',
+        code: 'tasks_doc_status_unset',
+        message: tr(config.lang, 'cli', 'doctor.issue.tasksDocStatusUnset'),
+        path: formatPath(cwd, path.join(f.path, 'tasks.md')),
+      });
+    }
   }
 
   const duplicates = [...idMap.entries()].filter(

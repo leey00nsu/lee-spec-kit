@@ -50,7 +50,7 @@ After completing the action, go back to Step 1 and run `context` again.
 5. Create feature branch
 6. Write `plan.md`
 7. Get `plan.md` approved
-8. Write/execute `tasks.md`
+8. Write/approve/execute `tasks.md` (Doc Status: Review → Approved)
 9. Pre-commit verification
 10. Commit docs
 

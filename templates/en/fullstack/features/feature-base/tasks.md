@@ -9,6 +9,7 @@
 
 ## GitHub Issue
 
+- **Doc Status**: Review | Approved
 - **Repo**: {{projectName}}-{be|fe}
 - **Issue**: #{issue-number}
 - **Branch**: `feat/{issue-number}-{feature-name}`
@@ -23,11 +24,16 @@
 
 ### Phase 1: {Phase Name}
 
+> Add tasks below. **At least 1 task is required.**
+> Copy and use the format below.
+
+```markdown
 - [TODO][P1] T-F{number}-01 {Task Title}
   - Acceptance:
     - (verification condition)
   - Checklist:
     - [ ] (subtask)
+```
 
 ---
 
@@ -37,7 +43,7 @@
 
 - [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked
 - [ ] Tests executed and passing (record command/result below)
-- [ ] User approval (OK) received
+- [ ] Final user approval (OK) received (review the outcome)
 
 ### Test Run Log
 

@@ -9,12 +9,17 @@ function isCompletionChecklistDone(feature: FeatureState): boolean {
   );
 }
 
+function isTasksDocApproved(feature: FeatureState): boolean {
+  return !feature.docs.tasksDocStatusFieldExists || feature.tasksDocStatus === 'Approved';
+}
+
 function isImplementationDone(feature: FeatureState): boolean {
   return (
     feature.docs.tasksExists &&
     feature.tasks.total > 0 &&
     feature.tasks.total === feature.tasks.done &&
-    isCompletionChecklistDone(feature)
+    isCompletionChecklistDone(feature) &&
+    isTasksDocApproved(feature)
   );
 }
 
@@ -30,6 +35,7 @@ function isFeatureDone(feature: FeatureState): boolean {
     feature.tasks.total > 0 &&
     feature.tasks.total === feature.tasks.done &&
     isCompletionChecklistDone(feature) &&
+    isTasksDocApproved(feature) &&
     isPrMetadataConfigured(feature) &&
     !!feature.pr.link &&
     feature.pr.status === 'Approved'
@@ -120,13 +126,16 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       step: 6,
       name: tr(lang, 'steps', 'tasksWrite'),
       checklist: {
-        done: (f) => f.docs.tasksExists && f.tasks.total > 0,
+        done: (f) => f.docs.tasksExists && f.tasks.total > 0 && isTasksDocApproved(f),
         detail: (f) => (f.tasks.total > 0 ? `(${f.tasks.total})` : ''),
       },
       current: {
         when: (f) =>
           f.planStatus === 'Approved' &&
-          (!f.docs.tasksExists || f.tasks.total === 0),
+          (!f.docs.tasksExists ||
+            f.tasks.total === 0 ||
+            (f.docs.tasksDocStatusFieldExists &&
+              (!f.tasksDocStatus || f.tasksDocStatus === 'Draft' || f.tasksDocStatus === 'Review'))),
         actions: (f) => {
           if (!f.docs.tasksExists) {
             return [
@@ -137,11 +146,43 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
               },
             ];
           }
+
+          if (f.tasks.total === 0) {
+            return [
+              {
+                type: 'instruction',
+                category: 'tasks_write',
+                message: tr(lang, 'messages', 'tasksNeedAtLeastOne'),
+              },
+            ];
+          }
+
+          if (f.docs.tasksDocStatusFieldExists && (!f.tasksDocStatus || f.tasksDocStatus === 'Draft')) {
+            return [
+              {
+                type: 'instruction',
+                category: 'tasks_write',
+                message: tr(lang, 'messages', 'tasksImprove'),
+              },
+            ];
+          }
+
+          if (f.docs.tasksDocStatusFieldExists && f.tasksDocStatus === 'Review') {
+            return [
+              {
+                type: 'instruction',
+                category: 'tasks_approve',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'tasksApproval'),
+              },
+            ];
+          }
+
           return [
             {
               type: 'instruction',
               category: 'tasks_write',
-              message: tr(lang, 'messages', 'tasksNeedAtLeastOne'),
+              message: tr(lang, 'messages', 'tasksImprove'),
             },
           ];
         },
@@ -156,6 +197,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.tasks.total > 0 &&
           f.specStatus === 'Approved' &&
           f.planStatus === 'Approved' &&
+          isTasksDocApproved(f) &&
           f.git.docsEverCommitted,
       },
       current: {
@@ -164,6 +206,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.tasks.total > 0 &&
           f.specStatus === 'Approved' &&
           f.planStatus === 'Approved' &&
+          isTasksDocApproved(f) &&
           !f.activeTask &&
           !f.git.docsEverCommitted &&
           f.git.docsHasUncommittedChanges,
@@ -214,6 +257,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.tasks.total > 0 &&
           f.specStatus === 'Approved' &&
           f.planStatus === 'Approved' &&
+          isTasksDocApproved(f) &&
           !f.issueNumber,
         actions: (f) => {
           void f;
@@ -274,7 +318,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.docs.tasksExists &&
           f.tasks.total > 0 &&
           f.tasks.total === f.tasks.done &&
-          isCompletionChecklistDone(f),
+          isCompletionChecklistDone(f) &&
+          isTasksDocApproved(f),
         detail: (f) =>
           f.tasks.total > 0 ? `(${f.tasks.done}/${f.tasks.total})` : '',
       },
@@ -283,6 +328,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.docs.tasksExists &&
           f.tasks.total > 0 &&
           (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)) &&
+          isTasksDocApproved(f) &&
           (f.git.onExpectedBranch || f.tasks.done === f.tasks.total),
         actions: (f) => {
           if (f.tasks.total === f.tasks.done && !isCompletionChecklistDone(f)) {

@@ -32,6 +32,18 @@ function extractSpecValue(content: string, key: string): string | undefined {
   return match ? match[1].trim() : undefined;
 }
 
+function hasSpecKey(content: string, key: string): boolean {
+  const regex = new RegExp(
+    `^\\s*-\\s*\\*\\*${escapeRegExp(key)}\\*\\*\\s*:`,
+    'm'
+  );
+  return regex.test(content);
+}
+
+function hasAnySpecKey(content: string, keys: string[]): boolean {
+  return keys.some((key) => hasSpecKey(content, key));
+}
+
 function extractFirstSpecValue(content: string, keys: string[]): string | undefined {
   for (const key of keys) {
     const value = extractSpecValue(content, key);
@@ -83,7 +95,15 @@ function parseTasks(content: string): {
   let nextTodoTask: TaskRef | undefined;
 
   const lines = content.split('\n');
+  let inCodeBlock = false;
   for (const line of lines) {
+    // Ignore fenced code blocks (templates/examples).
+    if (/^\s*(```|~~~)/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+
     const match = line.match(/^\s*-\s*\[([A-Z]+)\]((?:\[[^\]]+\])*)\s*(.+?)\s*$/);
     if (!match) continue;
 
@@ -198,6 +218,8 @@ export async function parseFeature(
   const tasksSummary = { total: 0, todo: 0, doing: 0, done: 0 };
   let activeTask: TaskRef | undefined;
   let nextTodoTask: TaskRef | undefined;
+  let tasksDocStatus: DocStatus | undefined;
+  let tasksDocStatusFieldExists = false;
   let completionChecklist: CompletionChecklistSummary | undefined;
   let prLink: string | undefined;
   let prStatus: DocStatus | undefined;
@@ -220,12 +242,16 @@ export async function parseFeature(
       issueNumber = parseIssueNumber(issueValue);
     }
 
+    const tasksDocStatusValue = extractFirstSpecValue(content, ['문서 상태', 'Doc Status']);
+    tasksDocStatusFieldExists = hasAnySpecKey(content, ['문서 상태', 'Doc Status']);
+    tasksDocStatus = parseDocStatus(tasksDocStatusValue);
+
     const prValue = extractFirstSpecValue(content, ['PR', 'Pull Request']);
-    prFieldExists = prValue !== undefined;
+    prFieldExists = hasAnySpecKey(content, ['PR', 'Pull Request']);
     prLink = parsePrLink(prValue);
 
     const prStatusValue = extractFirstSpecValue(content, ['PR 상태', 'PR Status']);
-    prStatusFieldExists = prStatusValue !== undefined;
+    prStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
     prStatus = parseDocStatus(prStatusValue);
   }
 
@@ -255,16 +281,21 @@ export async function parseFeature(
   if (tasksExists && (!prFieldExists || !prStatusFieldExists)) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrFields'));
   }
+  if (tasksExists && !tasksDocStatusFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksDocStatusField'));
+  }
 
   if (docsEverCommitted && docsHasUncommittedChanges) {
     warnings.push(tr(lang, 'warnings', 'docsUncommittedChanges'));
   }
 
+  const tasksDocApproved = !tasksDocStatusFieldExists || tasksDocStatus === 'Approved';
   const implementationDone =
     tasksExists &&
     tasksSummary.total > 0 &&
     tasksSummary.total === tasksSummary.done &&
-    isCompletionChecklistDone({ completionChecklist });
+    isCompletionChecklistDone({ completionChecklist }) &&
+    tasksDocApproved;
 
   const workflowDone =
     implementationDone &&
@@ -305,6 +336,7 @@ export async function parseFeature(
     issueNumber,
     specStatus,
     planStatus,
+    tasksDocStatus,
     tasks: tasksSummary,
     activeTask,
     nextTodoTask,
@@ -325,6 +357,7 @@ export async function parseFeature(
       specExists,
       planExists,
       tasksExists,
+      tasksDocStatusFieldExists,
       prFieldExists,
       prStatusFieldExists,
     },

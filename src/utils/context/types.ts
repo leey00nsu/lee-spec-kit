@@ -11,6 +11,7 @@ export type ActionCategory =
   | 'plan_write'
   | 'plan_approve'
   | 'tasks_write'
+  | 'tasks_approve'
   | 'docs_commit'
   | 'issue_create'
   | 'branch_create'
@@ -73,6 +74,7 @@ export interface FeatureState {
   issueNumber?: string;
   specStatus?: DocStatus;
   planStatus?: DocStatus;
+  tasksDocStatus?: DocStatus;
   tasks: {
     total: number;
     todo: number;
@@ -101,6 +103,7 @@ export interface FeatureState {
     specExists: boolean;
     planExists: boolean;
     tasksExists: boolean;
+    tasksDocStatusFieldExists: boolean;
     prFieldExists: boolean;
     prStatusFieldExists: boolean;
   };

@@ -45,13 +45,13 @@ CLI가 출력하는 **`👉 Next Action` 메시지를 읽고, 그 지시만 정�
 > ⚠️ 이 단계를 외워서 실행하지 마세요. **참조용**일 뿐입니다. 항상 CLI를 믿으세요.
 
 1. **Feature 폴더 생성**: `npx lee-spec-kit feature ...`
-2. **spec.md 작성**: 기능 정의 (Status: Draft)
+2. **spec.md 작성**: 기능 정의 (작성 후 Status: Review로 설정)
 3. **spec.md 승인**: 사용자 검토 및 승인 (Status: Approved)
 4. **GitHub Issue 생성**: 이슈 번호 발급
 5. **브랜치 생성**: `git checkout -b feat/...`
-6. **plan.md 작성**: 구현 계획 (Status: Draft)
+6. **plan.md 작성**: 구현 계획 (작성 후 Status: Review로 설정)
 7. **plan.md 승인**: 사용자 검토 및 승인 (Status: Approved)
-8. **tasks.md 작성/실행**: 태스크 분해 및 진행
+8. **tasks.md 작성/승인**: 태스크 분해 및 진행 (문서 상태: Review → Approved)
 9. **문서 커밋 전 확인**: 최종 점검
 10. **문서 커밋**: Docs Sync
 
