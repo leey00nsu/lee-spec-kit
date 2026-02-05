@@ -32,7 +32,7 @@ Guide for creating Pull Requests.
 
 1. Run relevant test commands (e.g., `npm test`, `pnpm test`); if no tests exist, request them from the user
 2. Check results (PASS/FAIL)
-3. In the PR body "Tests" section, add **only the tests you actually ran** as checklist items and ensure they are **all checked ([x])** (do not include unexecuted tests)
+3. In the PR body "Tests" section, follow `pr-template.md` rules as-is. (add/check only what you actually ran)
 4. If you didn’t run any tests, request/confirm with the user before creating the PR
 
 ### 3. Prepare Screenshots / Diagrams (Include in PR Body)
@@ -101,10 +101,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### Logic/structure changes (Backend PR)
 
-- Write a Mermaid diagram in the PR body (see the "Architecture Diagram" section in `pr-template.md`).
-- Default to **`flowchart TD`** (CodeRabbit-style).
-- Focus on components/modules/data flow (structure/flow over implementation detail).
-- Keep it small: **≤ 12 nodes** recommended (summarize or split if it gets too big).
+- Write a Mermaid diagram in the PR body (follow the "Architecture Diagram" rules in `pr-template.md` as-is).
 
 ### 4. Request User Approval
 

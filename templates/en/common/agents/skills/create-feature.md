@@ -37,22 +37,8 @@ After completing the action, go back to Step 1 and run `context` again.
 2. **Do not skip**: Do not fake issue numbers/statuses to advance steps.
 3. **No self-judgment**: If unsure, run `context` again.
 
----
-
-## Reference: the 10-step workflow (reference only)
-
-> ⚠️ Do NOT execute these from memory. Always follow the CLI.
-
-1. Feature folder created
-2. Write `spec.md`
-3. Get `spec.md` approved
-4. Create GitHub Issue and record `#`
-5. Create feature branch
-6. Write `plan.md`
-7. Get `plan.md` approved
-8. Write/approve/execute `tasks.md` (Doc Status: Review → Approved)
-9. Pre-commit verification
-10. Commit docs
+> Note: the workflow steps may change over time. Do not memorize step numbers.
+> Treat `context` output as the SSOT.
 
 ---
 
