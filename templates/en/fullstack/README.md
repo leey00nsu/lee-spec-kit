@@ -31,6 +31,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
+- `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output (approval token: `OK`)
 
 ### Examples
 
@@ -40,7 +41,8 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "projectType": "fullstack",
   "lang": "en",
   "createdAt": "{{date}}",
-  "docsRepo": "embedded"
+  "docsRepo": "embedded",
+  "approval": { "mode": "builtin" }
 }
 ```
 
@@ -52,6 +54,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "createdAt": "{{date}}",
   "docsRepo": "standalone",
   "pushDocs": true,
-  "docsRemote": "git@github.com:org/{{projectName}}-docs.git"
+  "docsRemote": "git@github.com:org/{{projectName}}-docs.git",
+  "approval": { "mode": "builtin" }
 }
 ```

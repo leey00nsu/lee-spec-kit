@@ -222,9 +222,11 @@ async function runContext(
       readyToCloseCandidates:
         selectionMode === 'open' ? readyToCloseFeatures : [],
       actions: targetFeatures.length === 1 ? targetFeatures[0].actions : [],
-      okPolicy: {
+      checkPolicy: {
         docPath: '/docs/agents/agents.md',
-        hint: tr(lang, 'cli', 'context.okPolicyHint'),
+        hint: tr(lang, 'cli', 'context.checkPolicyHint'),
+        token: 'OK',
+        config: config.approval ?? { mode: 'builtin' },
       },
       recommendation: '',
     };
@@ -246,7 +248,7 @@ async function runContext(
 
   // 3. 결과 출력 (Text)
   console.log();
-  console.log(chalk.bold('📍 Current Context Check'));
+  console.log(chalk.bold(tr(lang, 'cli', 'context.header')));
   if (config.projectType === 'single') {
     if (branches.project.single) {
       console.log(
@@ -377,11 +379,11 @@ async function runContext(
   const f = targetFeatures[0];
   const stepName = stepsMap[f.currentStep] || 'Unknown';
 
-  const okTag = (requiresUserOk?: boolean): string =>
-    requiresUserOk
-      ? chalk.yellow(tr(lang, 'cli', 'context.okRequired'))
+  const checkTag = (requiresUserCheck?: boolean): string =>
+    requiresUserCheck
+      ? chalk.yellow(tr(lang, 'cli', 'context.checkRequired'))
       : '';
-  const hasOkAction = (f.actions || []).some((a) => !!a.requiresUserOk);
+  const hasCheckAction = (f.actions || []).some((a) => !!a.requiresUserCheck);
 
   console.log(
     `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : ''}`
@@ -423,8 +425,8 @@ async function runContext(
 
   console.log();
   console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-  if (hasOkAction) {
-    console.log(chalk.gray(tr(lang, 'cli', 'context.okPolicyHint')));
+  if (hasCheckAction) {
+    console.log(chalk.gray(tr(lang, 'cli', 'context.checkPolicyHint')));
   }
   if (!f.actions || f.actions.length === 0) {
     console.log(`👉 Next Action: ${chalk.green(chalk.bold(f.nextAction))}`);
@@ -436,14 +438,14 @@ async function runContext(
     const action = f.actions[0];
     if (action.type === 'command') {
       console.log(
-        `👉 Next Action (${chalk.cyan(action.scope)}): ${okTag(action.requiresUserOk)}${chalk.green(chalk.bold(action.cmd))}`
+        `👉 Next Action (${chalk.cyan(action.scope)}): ${checkTag(action.requiresUserCheck)}${chalk.green(chalk.bold(action.cmd))}`
       );
       if (action.scope === 'docs') {
         console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
       }
     } else {
       console.log(
-        `👉 Next Action: ${okTag(action.requiresUserOk)}${chalk.green(chalk.bold(action.message))}`
+        `👉 Next Action: ${checkTag(action.requiresUserCheck)}${chalk.green(chalk.bold(action.message))}`
       );
     }
     console.log();
@@ -454,10 +456,10 @@ async function runContext(
   let hasDocsCommand = false;
   f.actions.forEach((action) => {
     if (action.type === 'command') {
-      console.log(`   • (${action.scope}) ${okTag(action.requiresUserOk)}${action.cmd}`);
+      console.log(`   • (${action.scope}) ${checkTag(action.requiresUserCheck)}${action.cmd}`);
       if (action.scope === 'docs') hasDocsCommand = true;
     } else {
-      console.log(`   • ${okTag(action.requiresUserOk)}${action.message}`);
+      console.log(`   • ${checkTag(action.requiresUserCheck)}${action.message}`);
     }
   });
   if (hasDocsCommand) {

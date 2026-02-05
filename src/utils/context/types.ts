@@ -4,18 +4,38 @@ export type { Lang } from '../i18n.js';
 
 export type ActionScope = 'project' | 'docs';
 
+export type ActionCategory =
+  | 'feature_folder'
+  | 'spec_write'
+  | 'spec_approve'
+  | 'plan_write'
+  | 'plan_approve'
+  | 'tasks_write'
+  | 'docs_commit'
+  | 'issue_create'
+  | 'branch_create'
+  | 'task_execute'
+  | 'pr_create'
+  | 'pr_metadata_migrate'
+  | 'pr_status_update'
+  | 'code_review'
+  | 'feature_done'
+  | 'fallback';
+
 export type NextAction =
   | {
       type: 'command';
       scope: ActionScope;
       cwd: string;
       cmd: string;
-      requiresUserOk?: boolean;
+      requiresUserCheck?: boolean;
+      category?: ActionCategory;
     }
   | {
       type: 'instruction';
       message: string;
-      requiresUserOk?: boolean;
+      requiresUserCheck?: boolean;
+      category?: ActionCategory;
     };
 
 export interface TaskRef {

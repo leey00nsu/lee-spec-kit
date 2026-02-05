@@ -17,6 +17,7 @@ import {
   StepDefinition,
   TaskRef,
 } from './types.js';
+import { ProjectConfig } from '../config.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -155,7 +156,11 @@ export async function parseFeature(
     docsDir: string;
     projectBranchAvailable: boolean;
   },
-  options: { lang: Lang; stepDefinitions: StepDefinition[] }
+  options: {
+    lang: Lang;
+    stepDefinitions: StepDefinition[];
+    approval?: ProjectConfig['approval'];
+  }
 ): Promise<FeatureContext> {
   const lang = options.lang;
   const folderName = path.basename(featurePath);
@@ -328,7 +333,8 @@ export async function parseFeature(
   const { currentStep, actions, nextAction } = resolveFeatureProgress(
     featureState,
     options.stepDefinitions,
-    lang
+    lang,
+    options.approval
   );
 
   return { ...featureState, currentStep, actions, nextAction, warnings };

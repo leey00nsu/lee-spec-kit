@@ -388,6 +388,11 @@ async function runInit(options: InitOptions): Promise<void> {
     lang,
     createdAt: new Date().toISOString().split('T')[0],
     docsRepo,
+    // Approval policy for "requiresUserCheck" actions shown by `context`.
+    // - builtin (default): Use requiresUserCheck embedded in steps/actions.
+    // - category: Override by action category (recommended for automation).
+    // - steps: Override by step number (fragile; not recommended).
+    approval: { mode: 'builtin' },
   };
 
   // standalone일 때만 pushDocs, projectRoot 추가

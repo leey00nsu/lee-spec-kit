@@ -105,6 +105,9 @@ gh pr create \
 
 모든 리뷰 해결 시:
 
+> ⚠️ 머지(`git merge`/`gh pr merge`) 및 머지 커밋 생성은 **Git 원격 작업**에 해당합니다.
+> 실행 전 변경 사항을 사용자에게 공유하고, 사용자가 **정확히 `OK`**라고 답한 뒤에만 진행하세요.
+
 ```bash
 # 머지 전 main 최신화
 git checkout main

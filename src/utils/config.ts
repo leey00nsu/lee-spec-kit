@@ -10,6 +10,48 @@ export interface ProjectConfig {
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | { fe: string; be: string };
+  approval?: {
+    /**
+     * builtin: Use `requiresUserCheck` embedded in steps/actions (default).
+     * steps: Determine check requirement only by step number list.
+     * category: Determine check requirement by action category.
+     */
+    mode?: 'builtin' | 'steps' | 'category';
+    /**
+     * Only used when mode === "steps".
+     * Steps that require explicit user check. (e.g. [3, 5, 12])
+     */
+    requireCheckSteps?: number[];
+    /**
+     * @deprecated Use requireCheckSteps instead.
+     */
+    requireOkSteps?: number[];
+    /**
+     * Only used when mode === "category".
+     * - keep (default): keep action's builtin requiresUserCheck unless overridden
+     * - require: require check unless overridden
+     * - skip: skip check unless overridden
+     */
+    default?: 'keep' | 'require' | 'skip';
+    /**
+     * Only used when mode === "category".
+     * Categories that always require check.
+     */
+    requireCheckCategories?: string[];
+    /**
+     * @deprecated Use requireCheckCategories instead.
+     */
+    requireOkCategories?: string[];
+    /**
+     * Only used when mode === "category".
+     * Categories that never require check.
+     */
+    skipCheckCategories?: string[];
+    /**
+     * @deprecated Use skipCheckCategories instead.
+     */
+    skipOkCategories?: string[];
+  };
 }
 
 interface ConfigFile {
@@ -21,6 +63,7 @@ interface ConfigFile {
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | { fe: string; be: string };
+  approval?: ProjectConfig['approval'];
 }
 
 function getAncestorDirs(startDir: string): string[] {
@@ -74,6 +117,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
             pushDocs: configFile.pushDocs,
             docsRemote: configFile.docsRemote,
             projectRoot: configFile.projectRoot,
+            approval: configFile.approval,
           };
         } catch {
           // JSON 파싱 실패 시 폴백

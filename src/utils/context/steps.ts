@@ -1,4 +1,4 @@
-import { FeatureState, Lang, StepDefinition } from './types.js';
+import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
@@ -55,6 +55,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
         actions: (f) => [
           {
             type: 'instruction',
+            category: 'spec_write',
             message: !f.docs.specExists
               ? tr(lang, 'messages', 'specCreate')
               : tr(lang, 'messages', 'specImprove'),
@@ -71,7 +72,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
         actions: () => [
           {
             type: 'instruction',
-            requiresUserOk: true,
+            category: 'spec_approve',
+            requiresUserCheck: true,
             message: tr(lang, 'messages', 'specApproval'),
           },
         ],
@@ -90,6 +92,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
         actions: (f) => [
           {
             type: 'instruction',
+            category: 'plan_write',
             message: !f.docs.planExists
               ? tr(lang, 'messages', 'planCreate')
               : tr(lang, 'messages', 'planImprove'),
@@ -106,7 +109,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
         actions: () => [
           {
             type: 'instruction',
-            requiresUserOk: true,
+            category: 'plan_approve',
+            requiresUserCheck: true,
             message: tr(lang, 'messages', 'planApproval'),
           },
         ],
@@ -128,6 +132,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
+                category: 'tasks_write',
                 message: tr(lang, 'messages', 'tasksCreate'),
               },
             ];
@@ -135,6 +140,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'instruction',
+              category: 'tasks_write',
               message: tr(lang, 'messages', 'tasksNeedAtLeastOne'),
             },
           ];
@@ -166,7 +172,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'command',
-                requiresUserOk: true,
+                category: 'docs_commit',
+                requiresUserCheck: true,
                 scope: 'docs',
                 cwd: f.git.docsGitCwd,
                 cmd: tr(lang, 'messages', 'docsCommitIssueUpdate', {
@@ -181,7 +188,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'command',
-              requiresUserOk: true,
+              category: 'docs_commit',
+              requiresUserCheck: true,
               scope: 'docs',
               cwd: f.git.docsGitCwd,
               cmd: tr(lang, 'messages', 'docsCommitPlanning', {
@@ -212,7 +220,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'instruction',
-              requiresUserOk: true,
+              category: 'issue_create',
+              requiresUserCheck: true,
               message: tr(lang, 'messages', 'issueCreateAndWrite'),
             },
           ];
@@ -235,6 +244,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
+                category: 'branch_create',
                 message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
               },
             ];
@@ -243,6 +253,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'command',
+              category: 'branch_create',
               scope: 'project',
               cwd: f.git.projectGitCwd,
               cmd: tr(lang, 'messages', 'createBranch', {
@@ -275,10 +286,11 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           (f.git.onExpectedBranch || f.tasks.done === f.tasks.total),
         actions: (f) => {
           if (f.tasks.total === f.tasks.done && !isCompletionChecklistDone(f)) {
-            const actions = [
+            const actions: NextAction[] = [
               {
                 type: 'instruction' as const,
-                requiresUserOk: true,
+                category: 'task_execute',
+                requiresUserCheck: true,
                 message: !f.completionChecklist
                   ? tr(lang, 'messages', 'tasksAllDoneButNoChecklist')
                   : tr(lang, 'messages', 'tasksAllDoneButChecklist', {
@@ -291,7 +303,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             if (!isPrMetadataConfigured(f)) {
               actions.push({
                 type: 'instruction' as const,
-                requiresUserOk: true,
+                category: 'pr_metadata_migrate',
+                requiresUserCheck: true,
                 message: tr(lang, 'messages', 'prLegacyAsk'),
               });
             }
@@ -302,7 +315,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
-                requiresUserOk: true,
+                category: 'task_execute',
+                requiresUserCheck: true,
                 message: tr(lang, 'messages', 'finishDoingTask', {
                   title: f.activeTask.title,
                   done: f.tasks.done,
@@ -316,7 +330,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
               return [
                 {
                   type: 'command',
-                  requiresUserOk: true,
+                  category: 'docs_commit',
+                  requiresUserCheck: true,
                   scope: 'docs',
                   cwd: f.git.docsGitCwd,
                   cmd: f.issueNumber
@@ -337,7 +352,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
-                requiresUserOk: true,
+                category: 'task_execute',
+                requiresUserCheck: true,
                 message: tr(lang, 'messages', 'startNextTodoTask', {
                   title: f.nextTodoTask.title,
                   done: f.tasks.done,
@@ -349,7 +365,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'instruction',
-              requiresUserOk: true,
+              category: 'task_execute',
+              requiresUserCheck: true,
               message: tr(lang, 'messages', 'checkTaskStatuses', {
                 done: f.tasks.done,
                 total: f.tasks.total,
@@ -370,7 +387,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
         actions: (f) => [
           {
             type: 'command',
-            requiresUserOk: true,
+            category: 'docs_commit',
+            requiresUserCheck: true,
             scope: 'docs',
             cwd: f.git.docsGitCwd,
             cmd: f.issueNumber
@@ -405,7 +423,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
-                requiresUserOk: true,
+                category: 'pr_metadata_migrate',
+                requiresUserCheck: true,
                 message: tr(lang, 'messages', 'prLegacyAsk'),
               },
             ];
@@ -413,7 +432,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'instruction',
-              requiresUserOk: true,
+              category: 'pr_create',
+              requiresUserCheck: true,
               message: tr(lang, 'messages', 'prCreate'),
             },
           ];
@@ -436,7 +456,8 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
-                requiresUserOk: true,
+                category: 'pr_status_update',
+                requiresUserCheck: true,
                 message: tr(lang, 'messages', 'prFillStatus'),
               },
             ];
@@ -445,6 +466,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
             return [
               {
                 type: 'instruction',
+                category: 'code_review',
                 message: tr(lang, 'messages', 'prResolveReview'),
               },
             ];
@@ -452,6 +474,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           return [
             {
               type: 'instruction',
+              category: 'code_review',
               message: tr(lang, 'messages', 'prRequestReview'),
             },
           ];
@@ -467,6 +490,7 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
         actions: () => [
           {
             type: 'instruction',
+            category: 'feature_done',
             message: tr(lang, 'messages', 'featureDone'),
           },
         ],

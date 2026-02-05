@@ -149,6 +149,10 @@ npx lee-spec-kit context --json
 
 - `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복사하여 붙여넣기 가능한 형태로 `cd ... && git ...` 형태로 출력)
 - `type: "instruction"`: 사람이 수행해야 하는 안내 메시지
+- `category`: 액션 분류 (자동화/반자동용 `approval.mode: "category"`에서 사용)
+- `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 정확히 `OK`로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
+
+또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "OK"`, `config`)
 
 ### 상태 확인
 
@@ -209,7 +213,8 @@ npx lee-spec-kit update --force
   "projectType": "single",
   "lang": "ko",
   "createdAt": "YYYY-MM-DD",
-  "docsRepo": "embedded"
+  "docsRepo": "embedded",
+  "approval": { "mode": "builtin" }
 }
 ```
 
@@ -223,11 +228,57 @@ npx lee-spec-kit update --force
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, fullstack: {fe, be}) |
+| `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
 
 > `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`, `projectRoot`가 추가됩니다.
 
 > 어디서 실행하든 설정을 찾을 수 있도록, CLI는 현재 디렉토리에서 상위로 올라가며 `.lee-spec-kit.json` 또는 `docs/.lee-spec-kit.json`을 탐색합니다.
 > standalone 환경에서 docs 레포 바깥(예: 프로젝트 레포)에서 실행해야 한다면 `LEE_SPEC_KIT_DOCS_DIR`에 docs 레포 경로를 지정할 수 있습니다.
+
+### approval (사용자 확인 정책)
+
+`approval`은 `context`가 출력하는 다음 값에만 영향을 줍니다:
+
+- 텍스트 출력의 `[확인 필요]` 표시
+- `context --json`의 `actions[].requiresUserCheck`
+- `checkPolicy.token` (`context --json`): 승인 토큰 (`OK`)
+
+> 실제 명령 실행을 강제/차단하는 기능은 아닙니다. (에이전트가 참고하도록 신호를 제공)
+> 기존 설정에 `approval`이 없으면 `builtin`으로 동작합니다. (마이그레이션 불필요)
+> `requiresUserCheck: true`인 액션은 에이전트가 사용자로부터 **정확히 `OK` 응답**을 받은 뒤 진행하는 것을 권장합니다.
+
+#### 모드
+
+- `builtin` (기본): 코드에 내장된 `requiresUserCheck`를 그대로 사용
+- `category` (권장): `actions[].category` 기준으로 확인 정책을 제어
+- `steps`: step 번호 기준(변경에 취약하므로 권장하지 않음)
+
+#### 설정 필드
+
+- `default` (`category`만): `keep` | `require` | `skip` (기본: `keep`)
+- `requireCheckCategories` (`category`만): 확인을 **항상** 요구할 category 목록 (예: `["pr_create"]`, `["*"]`)
+- `skipCheckCategories` (`category`만): 확인을 **절대** 요구하지 않을 category 목록 (예: `["docs_commit"]`, `["*"]`)
+- `requireCheckSteps` (`steps`만): 확인이 필요한 step 번호 목록 (예: `[3, 5, 12]`)
+
+#### category 예시
+
+```json
+{
+  "approval": { "mode": "category", "default": "skip" }
+}
+```
+
+```json
+{
+  "approval": {
+    "mode": "category",
+    "default": "keep",
+    "skipCheckCategories": ["docs_commit"]
+  }
+}
+```
+
+> 사용 가능한 `category` 값은 `context --json`의 `actions[].category`로 확인하는 것을 권장합니다.
 
 ### Standalone 프로젝트 설정 예시
 

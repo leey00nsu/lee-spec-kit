@@ -93,6 +93,7 @@ const I18N: Record<Lang, I18nData> = {
         'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',
 
       'context.noActiveFeatures': '⚠️  진행 중인 Feature를 찾을 수 없습니다.',
+      'context.header': '📍 현재 컨텍스트 확인',
       'context.envWarnings': '⚠️  환경 경고:',
       'context.openFallbackSummary':
         '(브랜치로 Feature를 특정하지 못해 미완료 Feature만 표시합니다. 진행 중: {inProgress}개 / 종료 대기: {readyToClose}개 / 완료: {done}개)',
@@ -101,9 +102,9 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipDetails': 'Tip: 특정 Feature의 상세 정보를 보려면:',
       'context.tipShowAll': '전체 보기',
       'context.tipShowDone': '완료만 보기',
-      'context.okRequired': '[OK 필요] ',
-      'context.okPolicyHint':
-        'ℹ️  사용자 확인(OK) 규칙: /docs/agents/agents.md 참고 (git push/merge 포함)',
+      'context.checkRequired': '[확인 필요] ',
+      'context.checkPolicyHint':
+        'ℹ️  사용자 확인 규칙: /docs/agents/agents.md 참고 (git push/merge/merge commit 포함) — [확인 필요]가 있으면 사용자에게 정확히 OK 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.tipDocsCommitRules':
         '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
@@ -217,7 +218,7 @@ const I18N: Record<Lang, I18nData> = {
       checkTaskStatuses:
         '태스크 상태를 확인하세요. ({done}/{total}) (skills/execute-task.md 참고)',
       prLegacyAsk:
-        'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (OK 필요)',
+        'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prCreate:
         'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (skills/create-pr.md 참고)',
       prFillStatus:
@@ -321,6 +322,7 @@ const I18N: Record<Lang, I18nData> = {
         'Feature folder name is not in F001-... format. (Cannot extract ID)',
 
       'context.noActiveFeatures': '⚠️  No active features found.',
+      'context.header': '📍 Current Context Check',
       'context.envWarnings': '⚠️  Environment warnings:',
       'context.openFallbackSummary':
         '(Could not detect a feature from the branch, so showing only open features. In Progress: {inProgress} / Ready To Close: {readyToClose} / Done: {done})',
@@ -329,9 +331,9 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipDetails': 'Tip: To view details for a feature:',
       'context.tipShowAll': 'Show all',
       'context.tipShowDone': 'Show done only',
-      'context.okRequired': '[OK required] ',
-      'context.okPolicyHint':
-        'ℹ️  User approval (OK) policy: see /docs/agents/agents.md (includes git push/merge)',
+      'context.checkRequired': '[CHECK required] ',
+      'context.checkPolicyHint':
+        'ℹ️  User check policy: see /docs/agents/agents.md (includes git push/merge and merge commits) — if you see [CHECK required], wait for explicit OK before proceeding (config: approval can override)',
       'context.tipDocsCommitRules':
         'Commit message rules: /docs/agents/git-workflow.md',
       'context.list.docsCommitNeeded': 'Commit docs changes',
@@ -446,7 +448,7 @@ const I18N: Record<Lang, I18nData> = {
       checkTaskStatuses:
         'Check task statuses. ({done}/{total}) (See skills/execute-task.md)',
       prLegacyAsk:
-        'tasks.md is missing PR/PR Status fields. Update to the latest template format? (OK required)',
+        'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prCreate: 'Create a PR and record the PR link in tasks.md. (See skills/create-pr.md)',
       prFillStatus:
         'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',

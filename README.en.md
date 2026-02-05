@@ -168,7 +168,8 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "projectType": "single",
   "lang": "en",
   "createdAt": "YYYY-MM-DD",
-  "docsRepo": "embedded"
+  "docsRepo": "embedded",
+  "approval": { "mode": "builtin" }
 }
 ```
 
@@ -182,9 +183,55 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
 | `projectRoot` | (standalone only) project repo path (single: string, fullstack: {fe, be}) |
+| `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
 
 > In standalone mode, `init` can add `pushDocs`, `docsRemote`, and `projectRoot` to this config.
 > If you run the CLI outside the docs repo in standalone mode, set `LEE_SPEC_KIT_DOCS_DIR` to the docs repo path.
+
+### approval (check policy)
+
+`approval` only affects the following values produced by `context`:
+
+- the `[CHECK required]` tag in text output
+- `actions[].requiresUserCheck` in `context --json`
+- `checkPolicy.token` (`context --json`): recommended approval token (`OK`)
+
+> This does not enforce/deny execution by itself; it’s a signal for agents.
+> If `approval` is omitted, it behaves as `builtin`. (No migration required)
+> When `requiresUserCheck: true`, it’s recommended that agents wait for an explicit `OK` response before proceeding.
+
+#### Modes
+
+- `builtin` (default): keep built-in `requiresUserCheck` in steps/actions
+- `category` (recommended): control CHECK policy by `actions[].category`
+- `steps`: control by step numbers (not recommended; fragile)
+
+#### Fields
+
+- `default` (`category` only): `keep` | `require` | `skip` (default: `keep`)
+- `requireCheckCategories` (`category` only): categories that **always** require CHECK (e.g. `["pr_create"]`, `["*"]`)
+- `skipCheckCategories` (`category` only): categories that **never** require CHECK (e.g. `["docs_commit"]`, `["*"]`)
+- `requireCheckSteps` (`steps` only): step numbers that require CHECK (e.g. `[3, 5, 12]`)
+
+#### category examples
+
+```json
+{
+  "approval": { "mode": "category", "default": "skip" }
+}
+```
+
+```json
+{
+  "approval": {
+    "mode": "category",
+    "default": "keep",
+    "skipCheckCategories": ["docs_commit"]
+  }
+}
+```
+
+> To discover available `category` values, check `actions[].category` in `context --json`.
 
 ## Generated Structure
 

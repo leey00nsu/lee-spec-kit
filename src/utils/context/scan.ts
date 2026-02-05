@@ -63,7 +63,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               docsDir: config.docsDir,
               projectBranchAvailable: Boolean(singleProject?.cwd),
             },
-            { lang: config.lang, stepDefinitions }
+            { lang: config.lang, stepDefinitions, approval: config.approval }
           )
         );
       }
@@ -86,7 +86,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               docsDir: config.docsDir,
               projectBranchAvailable: Boolean(feProject?.cwd),
             },
-            { lang: config.lang, stepDefinitions }
+            { lang: config.lang, stepDefinitions, approval: config.approval }
           )
         );
       }
@@ -105,7 +105,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               docsDir: config.docsDir,
               projectBranchAvailable: Boolean(beProject?.cwd),
             },
-            { lang: config.lang, stepDefinitions }
+            { lang: config.lang, stepDefinitions, approval: config.approval }
           )
         );
       }
@@ -124,4 +124,3 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
     warnings,
   };
 }
-

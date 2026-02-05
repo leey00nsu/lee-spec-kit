@@ -8,6 +8,7 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 > ⚠️ **The following actions require explicit user approval (OK) before proceeding.**
 > **If approval is not given, stop immediately and request confirmation.**
+> ✅ “OK” means the user replies with exactly `OK`.
 
 | Action                | When to Confirm          | What to Share             |
 | --------------------- | ------------------------ | ------------------------- |
@@ -17,7 +18,7 @@ Operating rules for AI code assistants to perform consistent code generation and
 | Issue Creation        | Before `gh issue create` | Title, body, labels       |
 | PR Creation           | Before `gh pr create`    | Title, body, labels       |
 | Assignee Change       | When assigning others    | Target username           |
-| Remote Git Operations | Before `push`, `merge`   | Branch, changes           |
+| Remote Git Operations | Before `push`, `merge` (including merge commits) | Branch, changes           |
 
 ### Approval Process
 
