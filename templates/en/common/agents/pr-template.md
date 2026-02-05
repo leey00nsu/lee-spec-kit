@@ -25,6 +25,11 @@ For file links within the repo in PR body, **always use current branch name**:
 > ⚠️ `main` branch links will return 404 until merged!
 > Always use the **current feature branch name** (e.g., `feat/5-feature-name`).
 
+### Labels (Required)
+
+- PRs must have **at least 1 label**. (cannot be empty)
+- If you're unsure which label to use, confirm with the user before creating the PR.
+
 ---
 
 ## PR Body Template

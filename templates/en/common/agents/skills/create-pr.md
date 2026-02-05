@@ -23,8 +23,10 @@ Guide for creating Pull Requests.
 | -------- | ---------------------------------- |
 | Title    | `feat(#{issue-number}): {feature} ({short description})` |
 | Body     | Overview, Changes, Tests, Docs     |
-| Labels   | Appropriate labels                 |
+| Labels   | **At least 1 required** (cannot be empty) |
 | Assignee | `@me` (default)                    |
+
+> ⚠️ Labels cannot be empty. If you’re unsure which label to use, ask/confirm with the user before creating the PR.
 
 ### 2. Test Verification
 
@@ -111,7 +113,7 @@ Before creating PR, share the following **in a code block** and wait for **expli
 
 - Title
 - Full body (`pr-template.md` format)
-- Labels
+- Labels (at least 1; cannot be empty)
 
 ### 5. Create PR
 
@@ -119,6 +121,7 @@ Before creating PR, share the following **in a code block** and wait for **expli
 gh pr create \
   --title "feat(#{issue-number}): {feature} ({short description})" \
   --body-file /tmp/pr-body.md \
+  --label "{label1,label2}" \
   --assignee @me \
   --base main
 ```
