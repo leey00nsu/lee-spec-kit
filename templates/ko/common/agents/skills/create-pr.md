@@ -47,6 +47,15 @@ PR 본문에 결과물을 포함합니다.
 - `agent-browser`로 스크린샷을 생성합니다.
 - 스크린샷 파일은 로컬 임시 폴더(`/tmp/lee-spec-kit/pr-assets/`)에 저장합니다.
 - 릴리스 자산(Release assets)으로 업로드한 뒤, 생성된 이미지 URL을 PR 본문 "스크린샷" 섹션에 넣습니다.
+- 스크린샷을 업로드하기 전에 **이미지 파일을 직접 열어** 다음을 확인하고, PR 생성 전 사용자에게도 검증받습니다.
+  - 로그인 화면/권한 오류/에러 화면/빈 화면이 아닌지
+  - 이번 PR의 변경 사항이 실제로 보이는지
+  - 민감 정보(실서비스 토큰/개인정보/내부 URL)가 노출되지 않았는지
+
+> 로그인/권한이 필요한 화면이라면, 스크린샷을 찍기 전에 사용자에게 아래 중 하나를 요청하세요.
+> - 개발 서버에서 **로그인 없이** 접근 가능한 미리보기 URL 제공 (dev-only bypass 포함)
+> - **테스트 계정** 제공(실계정/실서비스 토큰 금지) + 로그인 절차 안내
+> - 시드 데이터/더미 데이터로 재현 가능한 경로 제공
 
 ```bash
 # (최초 1회) agent-browser 설치
@@ -66,6 +75,11 @@ mkdir -p /tmp/lee-spec-kit/pr-assets
 agent-browser open "$PREVIEW_URL"
 agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
 agent-browser close
+
+# (필수) 스크린샷 파일을 열어 검증 (로그인/에러/빈 화면이면 재촬영)
+ls -lh /tmp/lee-spec-kit/pr-assets/ui-1.png
+# macOS: open /tmp/lee-spec-kit/pr-assets/ui-1.png
+# Linux: xdg-open /tmp/lee-spec-kit/pr-assets/ui-1.png
 
 # (권장) 스크린샷을 위해 띄운 개발 서버는 작업이 끝나면 종료합니다.
 kill \"$DEV_PID\" >/dev/null 2>&1 || true
@@ -87,7 +101,10 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### 로직/구조 변경 (백엔드 PR)
 
-- PR 본문에 Mermaid 다이어그램(예: flowchart/sequence)을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 참고)
+- PR 본문에 Mermaid 다이어그램을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 참고)
+- 기본은 **`flowchart TD`** 를 사용합니다. (코드래빗 스타일)
+- 컴포넌트/모듈/데이터 흐름 중심으로 그립니다. (구현 디테일보다 “구조/흐름”)
+- 노드 수는 **12개 이내**를 권장합니다. (너무 크면 핵심만 남기고 분리/요약)
 
 ### 4. 사용자 확인 요청
 

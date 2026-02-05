@@ -47,6 +47,15 @@ Include the artifacts in the PR body.
 - Use `agent-browser` to generate screenshots.
 - Save files under a local temp folder (`/tmp/lee-spec-kit/pr-assets/`).
 - Upload them as Release assets, then put the image URLs into the "Screenshots" section of the PR body.
+- Before uploading, **open the image file** and verify, then ask the user to validate before PR creation:
+  - It is not a login/permission/error/blank page
+  - The PR-relevant change is actually visible
+  - No sensitive info is exposed (prod tokens/PII/internal URLs)
+
+> If the page requires auth, request one of the following from the user before taking screenshots:
+> - A preview URL that is accessible **without login** (dev-only bypass is OK)
+> - A **test account** (no real accounts / no production tokens) + login instructions
+> - A reproducible route with seeded/dummy data
 
 ```bash
 # (one-time) install agent-browser
@@ -66,6 +75,11 @@ mkdir -p /tmp/lee-spec-kit/pr-assets
 agent-browser open "$PREVIEW_URL"
 agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
 agent-browser close
+
+# (required) open and validate the screenshot (re-capture if login/error/blank)
+ls -lh /tmp/lee-spec-kit/pr-assets/ui-1.png
+# macOS: open /tmp/lee-spec-kit/pr-assets/ui-1.png
+# Linux: xdg-open /tmp/lee-spec-kit/pr-assets/ui-1.png
 
 # (recommended) stop the dev server you started for screenshots
 kill \"$DEV_PID\" >/dev/null 2>&1 || true
@@ -87,7 +101,10 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### Logic/structure changes (Backend PR)
 
-- Write a Mermaid diagram (flowchart/sequence/etc.) in the PR body (see the "Architecture Diagram" section in `pr-template.md`).
+- Write a Mermaid diagram in the PR body (see the "Architecture Diagram" section in `pr-template.md`).
+- Default to **`flowchart TD`** (CodeRabbit-style).
+- Focus on components/modules/data flow (structure/flow over implementation detail).
+- Keep it small: **≤ 12 nodes** recommended (summarize or split if it gets too big).
 
 ### 4. Request User Approval
 

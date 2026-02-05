@@ -66,7 +66,10 @@ For file links within the repo in PR body, **always use current branch name**:
 ## Architecture Diagram (Backend / core structure changes)
 
 ```mermaid
-flowchart LR
+flowchart TD
+  %% Guidelines:
+  %% - Focus on components/modules/data flow (structure/flow)
+  %% - Keep it small (≤ 12 nodes recommended); summarize/split if needed
   A[Client] --> B[API]
   B --> C[DB]
 ```
