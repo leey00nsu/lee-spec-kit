@@ -219,9 +219,9 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         '모든 태스크가 DONE이지만 완료 조건 체크리스트가 완전히 체크되지 않았습니다. ({checked}/{total})',
       finishDoingTask:
-        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (skills/execute-task.md 참고)',
+        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 결과/검증 공유 + 승인(OK) 후 DONE 처리) (skills/execute-task.md 참고)',
       startNextTodoTask:
-        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (skills/execute-task.md 참고)',
+        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 제목 공유 + 승인(OK) 후 DOING 처리) (skills/execute-task.md 참고)',
       checkTaskStatuses:
         '태스크 상태를 확인하세요. ({done}/{total}) (skills/execute-task.md 참고)',
       prLegacyAsk:
@@ -458,9 +458,9 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         'All tasks are DONE, but the completion checklist is not fully checked. ({checked}/{total})',
       finishDoingTask:
-        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (See skills/execute-task.md)',
+        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (Share outcome/verification + get OK before marking DONE) (See skills/execute-task.md)',
       startNextTodoTask:
-        'Start the next TODO task: "{title}" ({done}/{total}) (See skills/execute-task.md)',
+        'Start the next TODO task: "{title}" ({done}/{total}) (Share title + get OK before marking DOING) (See skills/execute-task.md)',
       checkTaskStatuses:
         'Check task statuses. ({done}/{total}) (See skills/execute-task.md)',
       prLegacyAsk:

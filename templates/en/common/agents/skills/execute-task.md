@@ -21,6 +21,7 @@ Execute the `👉 Next Action` exactly as printed by the CLI.
 
 - If the CLI points to an active task, focus on that task only.
 - If there is no active task, **share the task title and get user approval (OK)**, then switch the next `[TODO]` task to `[DOING]` and start.
+- For **[DOING] → [DONE]**: before marking it `[DONE]`, **share the outcome/changes/verification (including tests)** and get user approval (OK). (Do not mark DONE first.)
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 
 ### Step 3: Update tasks.md (only what you did)
@@ -33,7 +34,8 @@ Keep `tasks.md` aligned with reality.
 ### Step 3.25: Commit per task (important)
 
 - Complete **only one task at a time** (do not batch-finish multiple tasks in one commit).
-- After marking a task `[DONE]` (and updating any checklist items), create commits (code commit + docs commit) so each task has its own history.
+- After you share the outcome/verification and get approval (OK), mark the task `[DONE]` (and update any checklist items), then create commits (code commit + docs commit) so each task has its own history.
+- If `context` shows `[CHECK required]`, for commits/push/merge, **share the commit message + included files and wait for explicit OK** before running the commands.
 - Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user and get **final approval (OK)**, then check it (especially the **Final user approval (OK) received** item).
   - Note: `Doc Status (Review→Approved)` is **progress approval (OK)**, while the completion checklist approval is **final approval (OK)**.
 

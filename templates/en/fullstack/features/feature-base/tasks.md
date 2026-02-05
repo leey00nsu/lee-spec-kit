@@ -3,6 +3,9 @@
 ## Task Rules
 
 - **Status**: `[TODO]` → `[DOING]` → `[DONE]`
+- **Approvals**:
+  - `[TODO] → [DOING]`: share task title first + user approval (OK)
+  - `[DOING] → [DONE]`: share result/verification first + user approval (OK)
 - **Priority**: P0(urgent) > P1(high) > P2(medium) > P3(low)
 
 ---
