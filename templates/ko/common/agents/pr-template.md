@@ -70,12 +70,18 @@ PR 본문에서 레포 내 파일 링크는 **반드시 현재 브랜치명을 �
 ## 아키텍처 다이어그램 (백엔드 / 핵심 구조 변경 시)
 
 ```mermaid
-flowchart TD
+sequenceDiagram
   %% 가이드:
-  %% - 컴포넌트/모듈/데이터 흐름 중심 (구조/흐름)
-  %% - 노드 수 12개 이내 권장 (너무 크면 핵심만 남기고 요약/분리)
-  A[Client] --> B[API]
-  B --> C[DB]
+  %% - 핵심 "요청→처리→저장/응답" 흐름을 시간 순서로 표현
+  %% - 참여자(participant)는 6개 이내 권장
+  %% - 메시지는 12개 이내 권장 (너무 길면 핵심만 남기고 요약/분리)
+  participant Client as Client
+  participant API as API
+  participant DB as DB
+  Client->>API: Request
+  API->>DB: Query/Command
+  DB-->>API: Result
+  API-->>Client: Response
 ```
 
 ## 관련 문서

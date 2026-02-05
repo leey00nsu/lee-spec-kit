@@ -72,12 +72,18 @@ For file links within the repo in PR body, **always use current branch name**:
 ## Architecture Diagram (Backend / core structure changes)
 
 ```mermaid
-flowchart TD
+sequenceDiagram
   %% Guidelines:
-  %% - Focus on components/modules/data flow (structure/flow)
-  %% - Keep it small (≤ 12 nodes recommended); summarize/split if needed
-  A[Client] --> B[API]
-  B --> C[DB]
+  %% - Express the key "request → processing → storage/response" flow in time order
+  %% - Keep participants ≤ 6
+  %% - Keep messages ≤ 12; summarize/split if needed
+  participant Client as Client
+  participant API as API
+  participant DB as DB
+  Client->>API: Request
+  API->>DB: Query/Command
+  DB-->>API: Result
+  API-->>Client: Response
 ```
 
 ## Related Documents

@@ -106,7 +106,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### 로직/구조 변경 (백엔드 PR)
 
-- PR 본문에 Mermaid 다이어그램을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 규칙을 그대로 따르세요)
+- PR 본문에 Mermaid **`sequenceDiagram`**을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 규칙을 그대로 따르세요)
 
 ### 4. 사용자 확인 요청
 

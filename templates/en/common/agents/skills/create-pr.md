@@ -106,7 +106,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### Logic/structure changes (Backend PR)
 
-- Write a Mermaid diagram in the PR body (follow the "Architecture Diagram" rules in `pr-template.md` as-is).
+- Write a Mermaid **`sequenceDiagram`** in the PR body (follow the "Architecture Diagram" rules in `pr-template.md` as-is).
 
 ### 4. Request User Approval
 
