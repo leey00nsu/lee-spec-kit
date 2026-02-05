@@ -46,6 +46,8 @@ PR 본문에 결과물을 포함합니다.
 
 #### UI 변경 (프론트엔드 PR)
 
+- 기본값은 `pr.screenshots.upload: false`입니다. 업로드/URL 포함이 필요하다면 `.lee-spec-kit.json`에서 `true`로 켜세요.
+- `.lee-spec-kit.json`에서 `pr.screenshots.upload: false`라면 **업로드/URL 포함을 하지 않으며**, PR 본문에서도 **"스크린샷" 섹션을 만들지 않습니다.**
 - `agent-browser`로 스크린샷을 생성합니다.
 - 스크린샷 파일은 로컬 임시 폴더(`/tmp/lee-spec-kit/pr-assets/`)에 저장합니다.
 - 릴리스 자산(Release assets)으로 업로드한 뒤, 생성된 이미지 URL을 PR 본문 "스크린샷" 섹션에 넣습니다.
@@ -89,6 +91,7 @@ kill \"$DEV_PID\" >/dev/null 2>&1 || true
 
 ```bash
 # 스크린샷을 Release assets로 업로드하고, PR 본문에 넣을 URL 만들기
+# - `.lee-spec-kit.json`에서 `pr.screenshots.upload: false`라면 이 단계는 생략합니다.
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 SAFE_BRANCH=$(git branch --show-current | tr '/' '-')
 TAG="pr-assets/${SAFE_BRANCH}"

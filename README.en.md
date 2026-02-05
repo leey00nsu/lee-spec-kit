@@ -169,6 +169,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "lang": "en",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
+  "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
 ```
@@ -183,6 +184,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
 | `projectRoot` | (standalone only) project repo path (single: string, fullstack: {fe, be}) |
+| `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
 | `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
 
 > In standalone mode, `init` can add `pushDocs`, `docsRemote`, and `projectRoot` to this config.
@@ -232,6 +234,10 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 ```
 
 > To discover available `category` values, check `actions[].category` in `context --json`.
+
+### pr (PR artifacts policy)
+
+- `pr.screenshots.upload` (default: `false`): When `true`, agents may upload screenshots (e.g. GitHub Release assets) and include URLs in PR body. When `false`, agents should not upload/include URLs and should omit screenshot sections from the PR body.
 
 ## Generated Structure
 

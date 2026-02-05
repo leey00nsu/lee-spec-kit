@@ -10,6 +10,16 @@ export interface ProjectConfig {
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | { fe: string; be: string };
+  pr?: {
+    screenshots?: {
+      /**
+       * When true, agents may upload screenshots (e.g. to GitHub Release assets)
+       * and include the URL in PR body.
+       * When false (default), screenshot upload is disabled and the PR body should omit screenshot sections.
+       */
+      upload?: boolean;
+    };
+  };
   approval?: {
     /**
      * builtin: Use `requiresUserCheck` embedded in steps/actions (default).
@@ -63,6 +73,7 @@ interface ConfigFile {
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | { fe: string; be: string };
+  pr?: ProjectConfig['pr'];
   approval?: ProjectConfig['approval'];
 }
 
@@ -117,6 +128,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
             pushDocs: configFile.pushDocs,
             docsRemote: configFile.docsRemote,
             projectRoot: configFile.projectRoot,
+            pr: configFile.pr,
             approval: configFile.approval,
           };
         } catch {

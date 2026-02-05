@@ -214,6 +214,7 @@ npx lee-spec-kit update --force
   "lang": "ko",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
+  "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
 ```
@@ -228,6 +229,7 @@ npx lee-spec-kit update --force
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, fullstack: {fe, be}) |
+| `pr`          | (선택) PR 결과물 정책 (예: 스크린샷 업로드 여부) |
 | `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
 
 > `docsRepo: "standalone"`을 선택하면 `pushDocs`, `docsRemote`, `projectRoot`가 추가됩니다.
@@ -279,6 +281,10 @@ npx lee-spec-kit update --force
 ```
 
 > 사용 가능한 `category` 값은 `context --json`의 `actions[].category`로 확인하는 것을 권장합니다.
+
+### pr (PR 결과물 정책)
+
+- `pr.screenshots.upload` (기본: `false`): `true`면 스크린샷을 업로드(예: GitHub Release assets)하고 PR 본문에 URL을 포함할 수 있습니다. `false`면 업로드/URL 포함을 하지 않으며 PR 본문에서도 스크린샷 섹션을 만들지 않는 것을 권장합니다.
 
 ### Standalone 프로젝트 설정 예시
 

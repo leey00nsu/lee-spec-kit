@@ -228,6 +228,11 @@ async function runContext(
         token: 'OK',
         config: config.approval ?? { mode: 'builtin' },
       },
+      prPolicy: {
+        screenshots: {
+          upload: config.pr?.screenshots?.upload ?? false,
+        },
+      },
       recommendation: '',
     };
 

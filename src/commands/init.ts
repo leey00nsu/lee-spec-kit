@@ -388,6 +388,9 @@ async function runInit(options: InitOptions): Promise<void> {
     lang,
     createdAt: new Date().toISOString().split('T')[0],
     docsRepo,
+    pr: {
+      screenshots: { upload: false },
+    },
     // Approval policy for "requiresUserCheck" actions shown by `context`.
     // - builtin (default): Use requiresUserCheck embedded in steps/actions.
     // - category: Override by action category (recommended for automation).

@@ -46,6 +46,8 @@ Include the artifacts in the PR body.
 
 #### UI changes (Frontend PR)
 
+- Default is `pr.screenshots.upload: false`. If you need upload/URL inclusion, enable it in `.lee-spec-kit.json`.
+- If `.lee-spec-kit.json` has `pr.screenshots.upload: false`, **do not upload/include URLs**, and **do not include a "Screenshots" section** in the PR body.
 - Use `agent-browser` to generate screenshots.
 - Save files under a local temp folder (`/tmp/lee-spec-kit/pr-assets/`).
 - Upload them as Release assets, then put the image URLs into the "Screenshots" section of the PR body.
@@ -89,6 +91,7 @@ kill \"$DEV_PID\" >/dev/null 2>&1 || true
 
 ```bash
 # Upload to Release assets and generate the URL to paste into the PR body
+# - If `.lee-spec-kit.json` has `pr.screenshots.upload: false`, skip this section.
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 SAFE_BRANCH=$(git branch --show-current | tr '/' '-')
 TAG="pr-assets/${SAFE_BRANCH}"
