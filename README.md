@@ -107,13 +107,15 @@ npx lee-spec-kit init --name my-project --type fullstack
 
 **옵션:**
 
-| 옵션                | 설명                           | 기본값      |
-| ------------------- | ------------------------------ | ----------- |
-| `-n, --name <name>` | 프로젝트 이름                  | 현재 폴더명 |
-| `-t, --type <type>` | `single` 또는 `fullstack`      | 대화형 선택 |
-| `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어) | `en`        |
-| `-d, --dir <dir>`   | 설치 디렉토리                  | `./docs`    |
-| `-y, --yes`         | 대화형 프롬프트 스킵           | -           |
+| 옵션                | 설명                                                                 | 기본값                    |
+| ------------------- | -------------------------------------------------------------------- | ------------------------- |
+| `-n, --name <name>` | 프로젝트 이름                                                        | 현재 폴더명               |
+| `-t, --type <type>` | `single` 또는 `fullstack`                                            | 대화형 선택 (`--yes`면 `single`) |
+| `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어)                                       | `en`                      |
+| `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
+| `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |
+
+> `init`은 docs 생성 후 Git 초기화/커밋(`git init`, `git add`, `git commit`)을 자동 시도합니다. 환경에 따라 자동 커밋이 생략될 수 있습니다.
 
 ### 새 기능 생성
 
@@ -124,7 +126,18 @@ npx lee-spec-kit feature user-auth
 # Fullstack 프로젝트
 npx lee-spec-kit feature --repo be user-auth
 npx lee-spec-kit feature --repo fe user-profile
+
+# Feature ID/설명 지정
+npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 ```
+
+**옵션:**
+
+| 옵션                | 설명                                         | 기본값      |
+| ------------------- | -------------------------------------------- | ----------- |
+| `-r, --repo <repo>` | `fe` 또는 `be` (fullstack일 때만)            | 대화형 선택 |
+| `--id <id>`         | Feature ID (`F001` 형식)                     | 자동 생성   |
+| `-d, --desc <desc>` | `spec.md`의 목적(설명) 기본 문구             | 빈 문자열   |
 
 ### Context 확인 (AI 에이전트 가이드)
 
@@ -141,9 +154,25 @@ npx lee-spec-kit context user-auth
 npx lee-spec-kit context F001
 npx lee-spec-kit context F001-user-auth
 
+# fullstack에서 레포 지정
+npx lee-spec-kit context --repo fe
+
+# 전체/완료 Feature 포함
+npx lee-spec-kit context --all
+npx lee-spec-kit context --done
+
 # 에이전트용 JSON 출력
 npx lee-spec-kit context --json
 ```
+
+**옵션:**
+
+| 옵션            | 설명                                            |
+| --------------- | ----------------------------------------------- |
+| `--json`        | 에이전트용 JSON 출력                            |
+| `--repo <repo>` | fullstack에서 대상 레포 지정 (`fe` 또는 `be`)   |
+| `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
+| `--done`        | 완료(workflow-done) Feature만 표시              |
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
 
@@ -162,7 +191,17 @@ npx lee-spec-kit status
 
 # 파일로 저장
 npx lee-spec-kit status --write
+
+# 중복/누락 ID가 있으면 실패 코드로 종료
+npx lee-spec-kit status --strict
 ```
+
+**옵션:**
+
+| 옵션           | 설명                                          |
+| -------------- | --------------------------------------------- |
+| `-w, --write`  | `features/status.md` 파일 생성                |
+| `-s, --strict` | 중복/누락 Feature ID 발견 시 종료 코드 1 반환 |
 
 ### 문서 진단 (Doctor)
 
@@ -343,12 +382,16 @@ docs/
 ├── agents/
 │   ├── agents.md           # 에이전트 운영 규칙
 │   ├── constitution.md     # 프로젝트 원칙
+│   ├── custom.md           # 프로젝트별 추가 규칙
 │   ├── git-workflow.md     # Git 자동화 규칙
 │   ├── issue-template.md
-│   └── pr-template.md
+│   ├── pr-template.md
+│   └── skills/             # 에이전트 실행 가이드
 ├── designs/                # 디자인 참고 자료
 ├── ideas/                  # 아이디어/To-do (Feature 승격 전)
 ├── prd/
+│   └── README.md
+├── scripts/
 │   └── README.md
 └── features/
     ├── README.md
@@ -363,9 +406,12 @@ docs/
 docs/
 ├── README.md
 ├── agents/
+│   ├── custom.md
+│   └── skills/
 ├── designs/
 ├── ideas/
 ├── prd/
+├── scripts/
 └── features/
     ├── feature-base/
     └── F001-feature/       # 개별 기능

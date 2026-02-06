@@ -92,13 +92,15 @@ npx lee-spec-kit init --name my-project --type fullstack
 
 **Options:**
 
-| Option              | Description                               | Default       |
-| ------------------- | ----------------------------------------- | ------------- |
-| `-n, --name <name>` | Project name                              | current folder |
-| `-t, --type <type>` | `single` or `fullstack`                   | interactive    |
-| `-l, --lang <lang>` | `ko` or `en`                              | `en`           |
-| `-d, --dir <dir>`   | Install directory                          | `./docs`       |
-| `-y, --yes`         | Skip interactive prompts                   | -              |
+| Option              | Description                                                                                 | Default                         |
+| ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------- |
+| `-n, --name <name>` | Project name                                                                                | current folder                  |
+| `-t, --type <type>` | `single` or `fullstack`                                                                     | interactive (`single` with `--yes`) |
+| `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
+| `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
+| `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
+
+> After generating docs, `init` automatically attempts Git setup/commit (`git init`, `git add`, `git commit`). Auto-commit may be skipped depending on environment/state.
 
 ### Create a feature
 
@@ -109,7 +111,18 @@ npx lee-spec-kit feature user-auth
 # Fullstack
 npx lee-spec-kit feature --repo be user-auth
 npx lee-spec-kit feature --repo fe user-profile
+
+# Specify Feature ID/description
+npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 ```
+
+**Options:**
+
+| Option              | Description                                 | Default      |
+| ------------------- | ------------------------------------------- | ------------ |
+| `-r, --repo <repo>` | `fe` or `be` (fullstack only)               | interactive  |
+| `--id <id>`         | Feature ID (`F001` format)                  | auto-generate |
+| `-d, --desc <desc>` | Default purpose/description text for `spec.md` | empty string |
 
 ### Context (agent guide)
 
@@ -124,16 +137,40 @@ npx lee-spec-kit context user-auth
 npx lee-spec-kit context F001
 npx lee-spec-kit context F001-user-auth
 
+# fullstack repo selector
+npx lee-spec-kit context --repo fe
+
+# include all / done features
+npx lee-spec-kit context --all
+npx lee-spec-kit context --done
+
 # JSON output (for agents)
 npx lee-spec-kit context --json
 ```
+
+**Options:**
+
+| Option         | Description                                     |
+| -------------- | ----------------------------------------------- |
+| `--json`       | JSON output for agents                          |
+| `--repo <repo>`| Select target repo in fullstack (`fe` or `be`) |
+| `--all`        | Include completed features when auto-detecting  |
+| `--done`       | Show completed (workflow-done) features only    |
 
 ### Status
 
 ```bash
 npx lee-spec-kit status
 npx lee-spec-kit status --write
+npx lee-spec-kit status --strict
 ```
+
+**Options:**
+
+| Option         | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `-w, --write`  | Write `features/status.md`                           |
+| `-s, --strict` | Exit with code 1 when duplicate/missing Feature IDs exist |
 
 ### Doctor
 
@@ -242,3 +279,5 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 ## Generated Structure
 
 See the Korean README for the full tree examples and workflow details: `README.md`.
+
+Note: generated docs include `agents/custom.md`, `agents/skills/`, and `scripts/` by default.
