@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
+import { resolveWorkflowPolicy } from '../utils/workflow.js';
 import {
   scanFeatures,
   FeatureContext,
@@ -328,7 +329,8 @@ function detectFromBranch(
 function getListLabel(
   f: FeatureContext,
   stepsMap: Record<number, string>,
-  lang: 'ko' | 'en'
+  lang: 'ko' | 'en',
+  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>
 ): string {
   // For "ready to close" features, show the closest missing workflow requirement
   // instead of generic step names like "tasks.md 작성".
@@ -336,19 +338,19 @@ function getListLabel(
     if (f.git.docsHasUncommittedChanges) {
       return tr(lang, 'cli', 'context.list.docsCommitNeeded');
     }
-    if (!f.issueNumber) {
+    if (workflowPolicy.requireIssue && !f.issueNumber) {
       return tr(lang, 'cli', 'context.list.issueNumberNeeded');
     }
-    if (!f.docs.prFieldExists || !f.docs.prStatusFieldExists) {
+    if (workflowPolicy.requirePr && (!f.docs.prFieldExists || !f.docs.prStatusFieldExists)) {
       return tr(lang, 'cli', 'context.list.addPrMetadata');
     }
-    if (!f.pr.link) {
+    if (workflowPolicy.requirePr && !f.pr.link) {
       return tr(lang, 'cli', 'context.list.recordPrLink');
     }
-    if (!f.pr.status) {
+    if (workflowPolicy.requireReview && !f.pr.status) {
       return tr(lang, 'cli', 'context.list.setPrStatus');
     }
-    if (f.pr.status !== 'Approved') {
+    if (workflowPolicy.requireReview && f.pr.status !== 'Approved') {
       return tr(lang, 'cli', 'context.list.prStatusToApproved', {
         status: f.pr.status,
       });
@@ -371,6 +373,7 @@ async function runContext(
   const cwd = process.cwd();
   const config = await getConfig(cwd);
   const lang = config?.lang ?? 'en';
+  const workflowPolicy = resolveWorkflowPolicy(config?.workflow);
 
   if (!config) {
     throw new Error(tr(DEFAULT_LANG, 'cli', 'common.configNotFound'));
@@ -380,8 +383,8 @@ async function runContext(
     throw new Error('`--execute` requires `--approve <label>`.');
   }
 
-  const stepDefinitions = getStepDefinitions(lang);
-  const stepsMap = getStepsMap(lang);
+  const stepDefinitions = getStepDefinitions(lang, config.workflow);
+  const stepsMap = getStepsMap(lang, config.workflow);
   const selectionOptions: ContextSelectionOptions = {
     repo: options.repo,
     all: options.all,
@@ -523,7 +526,7 @@ async function runContext(
         )
       );
       state.inProgressFeatures.forEach((f) => {
-        const stepName = getListLabel(f, stepsMap, lang);
+        const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
@@ -538,7 +541,7 @@ async function runContext(
         )
       );
       state.readyToCloseFeatures.forEach((f) => {
-        const stepName = getListLabel(f, stepsMap, lang);
+        const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
@@ -555,7 +558,7 @@ async function runContext(
       console.log(chalk.blue(title));
       console.log();
       state.targetFeatures.forEach((f) => {
-        const stepName = getListLabel(f, stepsMap, lang);
+        const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
         console.log(

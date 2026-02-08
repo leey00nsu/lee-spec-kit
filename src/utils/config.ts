@@ -20,6 +20,20 @@ export interface ProjectConfig {
       upload?: boolean;
     };
   };
+  workflow?: {
+    /**
+     * github: issue/branch/pr/review workflow required (default)
+     * local: local-only workflow (issue/branch/pr/review not required)
+     */
+    mode?: 'github' | 'local';
+    /**
+     * Optional per-requirement overrides.
+     */
+    requireIssue?: boolean;
+    requireBranch?: boolean;
+    requirePr?: boolean;
+    requireReview?: boolean;
+  };
   approval?: {
     /**
      * builtin: Use `requiresUserCheck` embedded in steps/actions (default).
@@ -74,6 +88,7 @@ interface ConfigFile {
   docsRemote?: string;
   projectRoot?: string | { fe: string; be: string };
   pr?: ProjectConfig['pr'];
+  workflow?: ProjectConfig['workflow'];
   approval?: ProjectConfig['approval'];
 }
 
@@ -129,6 +144,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
             docsRemote: configFile.docsRemote,
             projectRoot: configFile.projectRoot,
             pr: configFile.pr,
+            workflow: configFile.workflow,
             approval: configFile.approval,
           };
         } catch {

@@ -16,7 +16,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
 }> {
   const features: FeatureContext[] = [];
   const warnings: string[] = [];
-  const stepDefinitions = getStepDefinitions(config.lang);
+  const stepDefinitions = getStepDefinitions(config.lang, config.workflow);
 
   const docsBranch = getCurrentBranch(config.docsDir);
 
@@ -63,7 +63,12 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               docsDir: config.docsDir,
               projectBranchAvailable: Boolean(singleProject?.cwd),
             },
-            { lang: config.lang, stepDefinitions, approval: config.approval }
+            {
+              lang: config.lang,
+              stepDefinitions,
+              approval: config.approval,
+              workflow: config.workflow,
+            }
           )
         );
       }
@@ -86,7 +91,12 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               docsDir: config.docsDir,
               projectBranchAvailable: Boolean(feProject?.cwd),
             },
-            { lang: config.lang, stepDefinitions, approval: config.approval }
+            {
+              lang: config.lang,
+              stepDefinitions,
+              approval: config.approval,
+              workflow: config.workflow,
+            }
           )
         );
       }
@@ -105,7 +115,12 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               docsDir: config.docsDir,
               projectBranchAvailable: Boolean(beProject?.cwd),
             },
-            { lang: config.lang, stepDefinitions, approval: config.approval }
+            {
+              lang: config.lang,
+              stepDefinitions,
+              approval: config.approval,
+              workflow: config.workflow,
+            }
           )
         );
       }

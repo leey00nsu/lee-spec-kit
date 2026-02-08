@@ -18,6 +18,7 @@ import {
   TaskRef,
 } from './types.js';
 import { ProjectConfig } from '../config.js';
+import { resolveWorkflowPolicy } from '../workflow.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -180,9 +181,11 @@ export async function parseFeature(
     lang: Lang;
     stepDefinitions: StepDefinition[];
     approval?: ProjectConfig['approval'];
+    workflow?: ProjectConfig['workflow'];
   }
 ): Promise<FeatureContext> {
   const lang = options.lang;
+  const workflowPolicy = resolveWorkflowPolicy(options.workflow);
   const folderName = path.basename(featurePath);
   const match = folderName.match(/^(F\d+)-(.+)$/);
   const id = match?.[1];
@@ -301,9 +304,11 @@ export async function parseFeature(
     implementationDone &&
     specStatus === 'Approved' &&
     planStatus === 'Approved' &&
-    isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
-    !!prLink &&
-    prStatus === 'Approved';
+    (!workflowPolicy.requireIssue || !!issueNumber) &&
+    (!workflowPolicy.requirePr ||
+      (isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
+        !!prLink)) &&
+    (!workflowPolicy.requireReview || prStatus === 'Approved');
 
   if (implementationDone && !workflowDone) {
     if (specStatus !== 'Approved') {
@@ -313,12 +318,18 @@ export async function parseFeature(
       warnings.push(tr(lang, 'warnings', 'workflowPlanNotApproved'));
     }
 
+    if (workflowPolicy.requireIssue && !issueNumber) {
+      warnings.push(tr(lang, 'warnings', 'workflowIssueMissing'));
+    }
+
     // PR 필드가 없다면 legacyTasksPrFields가 이미 경고로 올라감
-    if (prFieldExists && prStatusFieldExists) {
+    if (workflowPolicy.requirePr && prFieldExists && prStatusFieldExists) {
       if (!prLink) warnings.push(tr(lang, 'warnings', 'workflowPrLinkMissing'));
-      if (!prStatus) warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
-      if (prStatus && prStatus !== 'Approved') {
-        warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
+      if (workflowPolicy.requireReview) {
+        if (!prStatus) warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
+        if (prStatus && prStatus !== 'Approved') {
+          warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
+        }
       }
     }
   }

@@ -64,10 +64,8 @@ export interface FeatureState {
      */
     implementationDone: boolean;
     /**
-     * Workflow is considered done when:
-     * - spec/plan are Approved
-     * - PR metadata is configured (PR + PR Status fields exist)
-     * - PR link exists and PR Status is Approved
+     * Workflow is considered done when required workflow conditions are met.
+     * Requirements can be configured (e.g. local mode can skip issue/PR/review).
      */
     workflowDone: boolean;
   };

@@ -239,7 +239,7 @@ const I18N: Record<Lang, I18nData> = {
       prRequestReview:
         '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 업데이트하세요.',
       featureDone:
-        'PR이 Approved이고 모든 태스크/완료 조건이 충족되었습니다. 이 Feature는 완료 상태입니다.',
+        '워크플로우 요구사항과 모든 태스크/완료 조건이 충족되었습니다. 이 Feature는 완료 상태입니다.',
       fallbackRerunContext:
         '상태를 판별할 수 없습니다. 문서를 확인한 뒤 다시 context를 실행하세요.',
     },
@@ -258,6 +258,8 @@ const I18N: Record<Lang, I18nData> = {
         '완료 상태이지만 spec.md 상태가 Approved가 아닙니다. (spec.md의 상태를 Approved로 업데이트하세요.)',
       workflowPlanNotApproved:
         '완료 상태이지만 plan.md 상태가 Approved가 아닙니다. (plan.md의 상태를 Approved로 업데이트하세요.)',
+      workflowIssueMissing:
+        '완료 상태이지만 이슈 번호가 비어있습니다. (spec.md/tasks.md의 이슈 번호를 채우세요.)',
       workflowPrLinkMissing:
         '완료 상태이지만 PR 링크가 비어있습니다. (tasks.md의 PR 필드를 채우세요.)',
       workflowPrStatusMissing:
@@ -480,7 +482,7 @@ const I18N: Record<Lang, I18nData> = {
         'Resolve review comments and update PR Status. (PR Status: Review → Approved)',
       prRequestReview: 'Request review and update PR Status to Review.',
       featureDone:
-        'PR is Approved and all tasks/completion criteria are satisfied. This feature is done.',
+        'Workflow requirements and all tasks/completion criteria are satisfied. This feature is done.',
       fallbackRerunContext:
         'Cannot determine status. Check the docs and run context again.',
     },
@@ -499,6 +501,8 @@ const I18N: Record<Lang, I18nData> = {
         'Implementation is done but spec.md Status is not Approved. (Update spec.md Status to Approved.)',
       workflowPlanNotApproved:
         'Implementation is done but plan.md Status is not Approved. (Update plan.md Status to Approved.)',
+      workflowIssueMissing:
+        'Implementation is done but Issue Number is missing. (Fill Issue Number in spec.md/tasks.md.)',
       workflowPrLinkMissing:
         'Implementation is done but PR link is missing. (Fill the PR field in tasks.md.)',
       workflowPrStatusMissing:

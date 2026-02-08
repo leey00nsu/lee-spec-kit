@@ -1,5 +1,7 @@
 import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
+import { ProjectConfig } from '../config.js';
+import { resolveWorkflowPolicy } from '../workflow.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
   return (
@@ -27,7 +29,10 @@ function isPrMetadataConfigured(feature: FeatureState): boolean {
   return feature.docs.prFieldExists && feature.docs.prStatusFieldExists;
 }
 
-function isFeatureDone(feature: FeatureState): boolean {
+function isFeatureDone(
+  feature: FeatureState,
+  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>
+): boolean {
   return (
     feature.specStatus === 'Approved' &&
     feature.planStatus === 'Approved' &&
@@ -36,13 +41,19 @@ function isFeatureDone(feature: FeatureState): boolean {
     feature.tasks.total === feature.tasks.done &&
     isCompletionChecklistDone(feature) &&
     isTasksDocApproved(feature) &&
-    isPrMetadataConfigured(feature) &&
-    !!feature.pr.link &&
-    feature.pr.status === 'Approved'
+    (!workflowPolicy.requireIssue || !!feature.issueNumber) &&
+    (!workflowPolicy.requirePr ||
+      (isPrMetadataConfigured(feature) && !!feature.pr.link)) &&
+    (!workflowPolicy.requireReview || feature.pr.status === 'Approved')
   );
 }
 
-export function getStepDefinitions(lang: Lang): StepDefinition[] {
+export function getStepDefinitions(
+  lang: Lang,
+  workflow?: ProjectConfig['workflow']
+): StepDefinition[] {
+  const workflowPolicy = resolveWorkflowPolicy(workflow);
+
   return [
     {
       step: 1,
@@ -249,10 +260,11 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       step: 8,
       name: tr(lang, 'steps', 'issueCreate'),
       checklist: {
-        done: (f) => !!f.issueNumber,
+        done: (f) => !workflowPolicy.requireIssue || !!f.issueNumber,
       },
       current: {
         when: (f) =>
+          workflowPolicy.requireIssue &&
           f.docs.tasksExists &&
           f.tasks.total > 0 &&
           f.specStatus === 'Approved' &&
@@ -275,13 +287,20 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
     {
       step: 9,
       name: tr(lang, 'steps', 'branchCreate'),
-      checklist: { done: (f) => f.git.onExpectedBranch || isImplementationDone(f) || isFeatureDone(f) },
+      checklist: {
+        done: (f) =>
+          !workflowPolicy.requireBranch ||
+          f.git.onExpectedBranch ||
+          isImplementationDone(f) ||
+          isFeatureDone(f, workflowPolicy),
+      },
       current: {
         when: (f) =>
+          workflowPolicy.requireBranch &&
           !!f.issueNumber &&
           f.tasks.total > 0 &&
           f.tasks.done < f.tasks.total &&
-          !isFeatureDone(f) &&
+          !isFeatureDone(f, workflowPolicy) &&
           (!f.git.projectBranchAvailable || !f.git.onExpectedBranch),
         actions: (f) => {
           if (!f.git.projectBranchAvailable || !f.git.projectGitCwd) {
@@ -329,7 +348,9 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
           f.tasks.total > 0 &&
           (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)) &&
           isTasksDocApproved(f) &&
-          (f.git.onExpectedBranch || f.tasks.done === f.tasks.total),
+          (!workflowPolicy.requireBranch ||
+            f.git.onExpectedBranch ||
+            f.tasks.done === f.tasks.total),
         actions: (f) => {
           if (f.tasks.total === f.tasks.done && !isCompletionChecklistDone(f)) {
             const actions: NextAction[] = [
@@ -456,9 +477,14 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
     {
       step: 12,
       name: tr(lang, 'steps', 'prCreate'),
-      checklist: { done: (f) => isPrMetadataConfigured(f) && !!f.pr.link },
+      checklist: {
+        done: (f) =>
+          !workflowPolicy.requirePr ||
+          (isPrMetadataConfigured(f) && !!f.pr.link),
+      },
       current: {
         when: (f) =>
+          workflowPolicy.requirePr &&
           f.docs.tasksExists &&
           f.tasks.total > 0 &&
           f.tasks.total === f.tasks.done &&
@@ -490,10 +516,13 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
       step: 13,
       name: tr(lang, 'steps', 'codeReview'),
       checklist: {
-        done: (f) => isPrMetadataConfigured(f) && f.pr.status === 'Approved',
+        done: (f) =>
+          !workflowPolicy.requireReview ||
+          (isPrMetadataConfigured(f) && f.pr.status === 'Approved'),
       },
       current: {
         when: (f) =>
+          workflowPolicy.requireReview &&
           isPrMetadataConfigured(f) &&
           !!f.pr.link &&
           f.pr.status !== 'Approved',
@@ -530,9 +559,9 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
     {
       step: 14,
       name: tr(lang, 'steps', 'featureDone'),
-      checklist: { done: (f) => isFeatureDone(f) },
+      checklist: { done: (f) => isFeatureDone(f, workflowPolicy) },
       current: {
-        when: (f) => isFeatureDone(f),
+        when: (f) => isFeatureDone(f, workflowPolicy),
         actions: () => [
           {
             type: 'instruction',
@@ -545,8 +574,13 @@ export function getStepDefinitions(lang: Lang): StepDefinition[] {
   ];
 }
 
-export function getStepsMap(lang: Lang): Record<number, string> {
-  return Object.fromEntries(getStepDefinitions(lang).map((d) => [d.step, d.name]));
+export function getStepsMap(
+  lang: Lang,
+  workflow?: ProjectConfig['workflow']
+): Record<number, string> {
+  return Object.fromEntries(
+    getStepDefinitions(lang, workflow).map((d) => [d.step, d.name])
+  );
 }
 
 export const STEP_DEFINITIONS: StepDefinition[] = getStepDefinitions('ko');
