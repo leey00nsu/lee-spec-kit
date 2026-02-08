@@ -15,7 +15,12 @@ import {
 } from '../utils/validation.js';
 import { execFileSync, execSync } from 'child_process';
 import { getInitLockPath, withFileLock } from '../utils/lock.js';
-import { createCliError, toCliError } from '../utils/cli-error.js';
+import {
+  createCliError,
+  getCliErrorSuggestions,
+  printCliErrorSuggestions,
+  toCliError,
+} from '../utils/cli-error.js';
 
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
@@ -63,10 +68,12 @@ export function initCommand(program: Command): void {
           process.exit(0);
         }
         const cliError = toCliError(error);
+        const suggestions = getCliErrorSuggestions(cliError.code);
         console.error(
           chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
+        printCliErrorSuggestions(suggestions);
         process.exit(1);
       }
     });

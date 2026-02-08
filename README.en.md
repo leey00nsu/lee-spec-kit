@@ -177,7 +177,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
 
-Error payloads (`status: "error"`) also include `reasonCode` (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`).
+Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`).
 
 ### Status
 
@@ -318,6 +318,52 @@ Example:
 ### pr (PR artifacts policy)
 
 - `pr.screenshots.upload` (default: `false`): When `true`, agents may upload screenshots (e.g. GitHub Release assets) and include URLs in PR body. When `false`, agents should not upload/include URLs and should omit screenshot sections from the PR body.
+
+### View/Update Config
+
+```bash
+# show current config
+npx lee-spec-kit config
+
+# update projectRoot (single)
+npx lee-spec-kit config --project-root /new/path
+
+# update projectRoot (fullstack)
+npx lee-spec-kit config --project-root /new/fe/path --repo fe
+npx lee-spec-kit config --project-root /new/be/path --repo be
+
+# non-interactive mode (fails immediately if required input is missing)
+npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
+```
+
+**Options:**
+
+| Option | Description |
+| --- | --- |
+| `--project-root <path>` | Set projectRoot path |
+| `--repo <repo>` | Target repo in fullstack (`fe` or `be`) |
+| `--non-interactive` | Fail immediately instead of prompting for user input |
+
+> `--non-interactive` is supported by `init`, `feature`, and `config`.
+> For automation, command errors print `[REASON_CODE]` (e.g. `PROMPT_BLOCKED`, `CONFIG_NOT_FOUND`).
+> Text-mode errors also print labeled next options under `👉 Next Options (Error)`.
+
+### Error Codes
+
+- This CLI exposes error reason codes for automation:
+  - `reasonCode` in JSON responses
+  - `[REASON_CODE]` in text error output
+- Error responses also provide labeled next-step suggestions (`A/B/C`):
+  - `suggestions` in JSON mode
+  - `👉 Next Options (Error)` in text mode
+- Common examples:
+  - `PROMPT_BLOCKED`
+  - `CONFIG_NOT_FOUND`
+  - `DOCS_NOT_FOUND`
+  - `LOCK_WAIT_TIMEOUT` / `LOCK_ACQUIRE_TIMEOUT`
+  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`
+
+For the full code list and meanings, see `errors.en.md` (English) or `errors.md` (Korean).
 
 ## Generated Structure
 

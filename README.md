@@ -40,6 +40,7 @@
 - [주요 기능](#주요-기능)
 - [사용법](#사용법)
 - [설정 파일](#설정-파일)
+- [오류 코드](#오류-코드)
 - [생성되는 구조](#생성되는-구조)
 - [Feature 워크플로우](#feature-워크플로우)
 - [문제 해결](#문제-해결)
@@ -198,7 +199,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "A"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
 
-오류 응답(`status: "error"`)에는 `reasonCode`가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`)
+오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`)
 
 ### 상태 확인
 
@@ -406,7 +407,35 @@ npx lee-spec-kit config --project-root /new/path
 # projectRoot 수정 (Fullstack)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe
 npx lee-spec-kit config --project-root /new/be/path --repo be
+
+# 비대화형 모드 (필수 옵션 누락 시 즉시 실패)
+npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 ```
+
+**옵션:**
+
+| 옵션                 | 설명 |
+| -------------------- | ---- |
+| `--project-root <path>` | projectRoot 경로 설정 |
+| `--repo <repo>` | fullstack 대상 레포 (`fe` 또는 `be`) |
+| `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패 |
+
+> `--non-interactive`는 `init`, `feature`, `config`에서 지원됩니다.
+> 오류 시 출력되는 `[REASON_CODE]` 형식(`PROMPT_BLOCKED`, `CONFIG_NOT_FOUND` 등)은 자동화 분기용으로 사용할 수 있습니다.
+> 또한 텍스트 모드 오류에는 `👉 Next Options (Error)`로 `A/B/C` 제안이 함께 출력됩니다.
+
+## 오류 코드
+
+- 이 CLI는 자동화 분기를 위해 에러에 `reasonCode`(JSON) 또는 `[REASON_CODE]`(텍스트)를 제공합니다.
+- 오류 시 다음 동작 제안이 `A/B/C` 라벨로 함께 제공됩니다. (JSON: `suggestions`, 텍스트: `👉 Next Options (Error)`)
+- 대표 코드:
+  - `PROMPT_BLOCKED`: 비대화형 모드에서 사용자 입력이 필요함
+  - `CONFIG_NOT_FOUND`: `.lee-spec-kit.json`을 찾지 못함
+  - `DOCS_NOT_FOUND`: docs 구조를 찾지 못함
+  - `LOCK_WAIT_TIMEOUT` / `LOCK_ACQUIRE_TIMEOUT`: 락 대기/획득 타임아웃
+  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`: `context --approve/--execute` 흐름 오류
+
+상세 코드 목록과 의미는 `errors.md`(한국어), `errors.en.md`(English)를 참고하세요.
 
 ## 생성되는 구조
 

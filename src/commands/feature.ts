@@ -18,7 +18,12 @@ import {
   validateFeatureId,
   assertValid,
 } from '../utils/validation.js';
-import { createCliError, toCliError } from '../utils/cli-error.js';
+import {
+  createCliError,
+  getCliErrorSuggestions,
+  printCliErrorSuggestions,
+  toCliError,
+} from '../utils/cli-error.js';
 
 interface FeatureOptions {
   repo?: 'be' | 'fe';
@@ -46,10 +51,12 @@ export function featureCommand(program: Command): void {
           process.exit(0);
         }
         const cliError = toCliError(error);
+        const suggestions = getCliErrorSuggestions(cliError.code);
         console.error(
           chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
+        printCliErrorSuggestions(suggestions);
         process.exit(1);
       }
     });

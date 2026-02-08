@@ -6,7 +6,12 @@ import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { resolveWorkflowPolicy } from '../utils/workflow.js';
-import { createCliError, toCliError } from '../utils/cli-error.js';
+import {
+  createCliError,
+  getCliErrorSuggestions,
+  printCliErrorSuggestions,
+  toCliError,
+} from '../utils/cli-error.js';
 import {
   scanFeatures,
   FeatureContext,
@@ -162,7 +167,10 @@ async function resolveContextState(
   options: ContextSelectionOptions
 ): Promise<ResolvedContextState> {
   if (!config) {
-    throw new Error(tr(DEFAULT_LANG, 'cli', 'common.configNotFound'));
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
+    );
   }
 
   const { features, branches, warnings } = await scanFeatures(config);
@@ -293,12 +301,14 @@ export function contextCommand(program: Command): void {
           await runContext(featureName, options);
         } catch (error) {
           const cliError = toCliError(error);
+          const suggestions = getCliErrorSuggestions(cliError.code);
           if (options.json) {
             console.log(
               JSON.stringify({
                 status: 'error',
                 reasonCode: cliError.code,
                 error: cliError.message,
+                suggestions,
               })
             );
           } else {
@@ -306,6 +316,7 @@ export function contextCommand(program: Command): void {
               chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
               chalk.red(`[${cliError.code}] ${cliError.message}`)
             );
+            printCliErrorSuggestions(suggestions);
           }
           process.exit(1);
         }
@@ -387,7 +398,10 @@ async function runContext(
   const workflowPolicy = resolveWorkflowPolicy(config?.workflow);
 
   if (!config) {
-    throw new Error(tr(DEFAULT_LANG, 'cli', 'common.configNotFound'));
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
+    );
   }
 
   if (options.execute && !options.approve) {

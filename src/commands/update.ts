@@ -8,7 +8,12 @@ import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { applyReplacements } from '../utils/template.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
-import { createCliError, toCliError } from '../utils/cli-error.js';
+import {
+  createCliError,
+  getCliErrorSuggestions,
+  printCliErrorSuggestions,
+  toCliError,
+} from '../utils/cli-error.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -39,10 +44,12 @@ export function updateCommand(program: Command): void {
           process.exit(0);
         }
         const cliError = toCliError(error);
+        const suggestions = getCliErrorSuggestions(cliError.code);
         console.error(
           chalk.red(tr(lang, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
+        printCliErrorSuggestions(suggestions);
         process.exit(1);
       }
     });
