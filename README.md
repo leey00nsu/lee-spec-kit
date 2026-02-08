@@ -188,6 +188,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
 
+- `reasonCode`: 상태 이유 코드 (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES` 등)
 - `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복사하여 붙여넣기 가능한 형태로 `cd ... && git ...` 형태로 출력)
 - `type: "instruction"`: 사람이 수행해야 하는 안내 메시지
 - `actionOptions`: `label`(`A`, `B`, `C`...)과 해당 `action` 매핑
@@ -196,6 +197,8 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "A"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
+
+오류 응답(`status: "error"`)에는 `reasonCode`가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`)
 
 ### 상태 확인
 

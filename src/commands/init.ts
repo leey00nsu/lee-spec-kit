@@ -15,6 +15,7 @@ import {
 } from '../utils/validation.js';
 import { execFileSync, execSync } from 'child_process';
 import { getInitLockPath, withFileLock } from '../utils/lock.js';
+import { createCliError, toCliError } from '../utils/cli-error.js';
 
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
@@ -61,7 +62,11 @@ export function initCommand(program: Command): void {
           );
           process.exit(0);
         }
-        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
+        const cliError = toCliError(error);
+        console.error(
+          chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+          chalk.red(`[${cliError.code}] ${cliError.message}`)
+        );
         process.exit(1);
       }
     });
@@ -82,7 +87,8 @@ async function runInit(options: InitOptions): Promise<void> {
   const targetDir = path.resolve(cwd, options.dir || './docs');
 
   if (options.nonInteractive && !options.yes) {
-    throw new Error(
+    throw createCliError(
+      'PROMPT_BLOCKED',
       '`--non-interactive` requires `--yes` (or explicit options) to avoid interactive prompts.'
     );
   }
@@ -344,7 +350,8 @@ async function runInit(options: InitOptions): Promise<void> {
         const files = await fs.readdir(targetDir);
         if (files.length > 0) {
           if (options.nonInteractive) {
-            throw new Error(
+            throw createCliError(
+              'PROMPT_BLOCKED',
               `Target directory is not empty: ${targetDir}. Re-run without --non-interactive to confirm overwrite.`
             );
           }

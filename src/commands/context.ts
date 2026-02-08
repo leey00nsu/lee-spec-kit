@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { resolveWorkflowPolicy } from '../utils/workflow.js';
+import { createCliError, toCliError } from '../utils/cli-error.js';
 import {
   scanFeatures,
   FeatureContext,
@@ -147,6 +148,14 @@ function toSelectionStatus(
   return 'no_match';
 }
 
+function toReasonCode(status: ContextStatus): string {
+  if (status === 'no_features') return 'NO_FEATURES';
+  if (status === 'no_open') return 'NO_OPEN_FEATURES';
+  if (status === 'single_matched') return 'SINGLE_MATCHED';
+  if (status === 'multiple_active') return 'MULTIPLE_ACTIVE_FEATURES';
+  return 'NO_MATCHED_FEATURES';
+}
+
 async function resolveContextState(
   config: Awaited<ReturnType<typeof getConfig>>,
   featureName: string | undefined,
@@ -283,17 +292,19 @@ export function contextCommand(program: Command): void {
         try {
           await runContext(featureName, options);
         } catch (error) {
+          const cliError = toCliError(error);
           if (options.json) {
             console.log(
               JSON.stringify({
                 status: 'error',
-                error: error instanceof Error ? error.message : String(error),
+                reasonCode: cliError.code,
+                error: cliError.message,
               })
             );
           } else {
             console.error(
               chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
-              error
+              chalk.red(`[${cliError.code}] ${cliError.message}`)
             );
           }
           process.exit(1);
@@ -380,7 +391,10 @@ async function runContext(
   }
 
   if (options.execute && !options.approve) {
-    throw new Error('`--execute` requires `--approve <label>`.');
+    throw createCliError(
+      'APPROVAL_REQUIRED',
+      '`--execute` requires `--approve <label>`.'
+    );
   }
 
   const stepDefinitions = getStepDefinitions(lang, config.workflow);
@@ -408,6 +422,7 @@ async function runContext(
   if (options.json) {
     const result = {
       status: state.status,
+      reasonCode: toReasonCode(state.status),
       selectionMode: state.selectionMode,
       branches: state.branches,
       warnings: state.warnings,
@@ -681,24 +696,27 @@ async function runApprovedOption(
   const approval = options.approve || '';
   const parsedLabel = parseApprovalLabel(approval);
   if (!parsedLabel) {
-    throw new Error(
+    throw createCliError(
+      'INVALID_APPROVAL',
       'Invalid approval reply. Use `<label>` or `<label> OK` (e.g. `A`, `A OK`).'
     );
   }
 
   if (state.status !== 'single_matched' || !state.matchedFeature) {
-    throw new Error(
+    throw createCliError(
+      'CONTEXT_SELECTION_REQUIRED',
       'Approval execution requires a single matched feature. Specify feature selector first.'
     );
   }
 
   if (state.actionOptions.length === 0) {
-    throw new Error('No action options to approve.');
+    throw createCliError('NO_ACTION_OPTIONS', 'No action options to approve.');
   }
 
   const selected = state.actionOptions.find((o) => o.label === parsedLabel);
   if (!selected) {
-    throw new Error(
+    throw createCliError(
+      'INVALID_APPROVAL',
       `Unknown label "${parsedLabel}". Valid labels: ${listLabels(state.actionOptions)}`
     );
   }
@@ -706,7 +724,8 @@ async function runApprovedOption(
   // Re-check right before execution/selection to avoid stale context approvals.
   const freshState = await resolveContextState(config, featureName, selectionOptions);
   if (freshState.contextVersion !== state.contextVersion) {
-    throw new Error(
+    throw createCliError(
+      'CONTEXT_STALE',
       'Context changed since approval was requested. Run `context` again and re-approve.'
     );
   }
@@ -715,7 +734,8 @@ async function runApprovedOption(
     (o) => o.label === parsedLabel
   );
   if (!freshSelected) {
-    throw new Error(
+    throw createCliError(
+      'ACTION_NOT_AVAILABLE',
       `Approved label "${parsedLabel}" is no longer available. Run \`context\` again.`
     );
   }
@@ -727,6 +747,7 @@ async function runApprovedOption(
         JSON.stringify(
           {
             status: 'approved_selected',
+            reasonCode: 'APPROVED_SELECTED',
             feature: freshState.matchedFeature?.folderName ?? null,
             label: parsedLabel,
             action: selectedAction,
@@ -759,6 +780,7 @@ async function runApprovedOption(
         JSON.stringify(
           {
             status: 'approved_instruction',
+            reasonCode: 'INSTRUCTION_ONLY',
             feature: freshState.matchedFeature?.folderName ?? null,
             label: parsedLabel,
             action: selectedAction,
@@ -794,6 +816,7 @@ async function runApprovedOption(
         JSON.stringify(
           {
             status: 'approved_executed',
+            reasonCode: 'APPROVED_EXECUTED',
             feature: freshState.matchedFeature?.folderName ?? null,
             label: parsedLabel,
             action: selectedAction,
@@ -812,7 +835,10 @@ async function runApprovedOption(
     console.log();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to execute option ${parsedLabel}: ${message}`);
+    throw createCliError(
+      'EXECUTION_FAILED',
+      `Failed to execute option ${parsedLabel}: ${message}`
+    );
   }
 }
 

@@ -170,6 +170,15 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 | `--approve <reply>` | Approve one labeled option (`A` or `A OK`) |
 | `--execute`    | Execute only the approved option when it is a command |
 
+`--json` output includes:
+
+- `reasonCode`: status reason code (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES`, etc.)
+- `actionOptions`: maps labels to atomic actions
+- `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
+- `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
+
+Error payloads (`status: "error"`) also include `reasonCode` (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`).
+
 ### Status
 
 ```bash

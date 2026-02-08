@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
+import { createCliError } from './cli-error.js';
 
 interface FileLockOptions {
   timeoutMs?: number;
@@ -74,7 +75,7 @@ export async function waitForLockRelease(
       break;
     }
     if (Date.now() - startedAt > timeoutMs) {
-      throw new Error(`Timed out waiting for lock: ${lockPath}`);
+      throw createCliError('LOCK_WAIT_TIMEOUT', `Timed out waiting for lock: ${lockPath}`);
     }
     await sleep(pollMs);
   }
@@ -100,7 +101,10 @@ export async function withFileLock<T>(
     }
 
     if (Date.now() - startedAt > timeoutMs) {
-      throw new Error(`Timed out acquiring lock: ${lockPath}`);
+      throw createCliError(
+        'LOCK_ACQUIRE_TIMEOUT',
+        `Timed out acquiring lock: ${lockPath}`
+      );
     }
     await sleep(pollMs);
   }

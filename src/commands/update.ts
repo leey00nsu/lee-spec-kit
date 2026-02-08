@@ -8,6 +8,7 @@ import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { applyReplacements } from '../utils/template.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
+import { createCliError, toCliError } from '../utils/cli-error.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -37,14 +38,11 @@ export function updateCommand(program: Command): void {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        if (error instanceof Error) {
-          console.error(
-            chalk.red(tr(lang, 'cli', 'common.errorLabel')),
-            chalk.red(error.message)
-          );
-        } else {
-          console.error(chalk.red(tr(lang, 'cli', 'common.errorLabel')), error);
-        }
+        const cliError = toCliError(error);
+        console.error(
+          chalk.red(tr(lang, 'cli', 'common.errorLabel')),
+          chalk.red(`[${cliError.code}] ${cliError.message}`)
+        );
         process.exit(1);
       }
     });
@@ -55,13 +53,10 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
   const config = await getConfig(cwd);
 
   if (!config) {
-    console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')));
-    console.error(
-      chalk.red(
-        tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
-      )
+    throw createCliError(
+      'DOCS_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
     );
-    process.exit(1);
   }
 
   const { docsDir, projectType, lang } = config;

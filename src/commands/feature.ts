@@ -18,6 +18,7 @@ import {
   validateFeatureId,
   assertValid,
 } from '../utils/validation.js';
+import { createCliError, toCliError } from '../utils/cli-error.js';
 
 interface FeatureOptions {
   repo?: 'be' | 'fe';
@@ -44,7 +45,11 @@ export function featureCommand(program: Command): void {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
+        const cliError = toCliError(error);
+        console.error(
+          chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+          chalk.red(`[${cliError.code}] ${cliError.message}`)
+        );
         process.exit(1);
       }
     });
@@ -62,12 +67,10 @@ async function runFeature(
   }
 
   if (!config) {
-    console.error(
-      chalk.red(
-        tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
-      )
+    throw createCliError(
+      'DOCS_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
     );
-    process.exit(1);
   }
 
   const { docsDir, projectType, lang } = config;
@@ -81,7 +84,8 @@ async function runFeature(
   // fullstack인 경우 repo 선택 필요
   if (projectType === 'fullstack' && !repo) {
     if (options.nonInteractive) {
-      throw new Error(
+      throw createCliError(
+        'PROMPT_BLOCKED',
         '`--repo` is required in fullstack mode when using `--non-interactive`.'
       );
     }
@@ -135,17 +139,16 @@ async function runFeature(
 
       // 중복 확인
       if (await fs.pathExists(featureDir)) {
-        console.error(
-          chalk.red(tr(lang, 'cli', 'feature.folderExists', { path: featureDir }))
+        throw createCliError(
+          'INVALID_ARGUMENT',
+          tr(lang, 'cli', 'feature.folderExists', { path: featureDir })
         );
-        process.exit(1);
       }
 
       // feature-base 복사
       const featureBasePath = path.join(docsDir, 'features', 'feature-base');
       if (!(await fs.pathExists(featureBasePath))) {
-        console.error(chalk.red(tr(lang, 'cli', 'feature.baseNotFound')));
-        process.exit(1);
+        throw createCliError('DOCS_NOT_FOUND', tr(lang, 'cli', 'feature.baseNotFound'));
       }
 
       await fs.copy(featureBasePath, featureDir);

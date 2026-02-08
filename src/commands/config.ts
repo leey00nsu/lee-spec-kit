@@ -6,6 +6,7 @@ import prompts from 'prompts';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
+import { createCliError, toCliError } from '../utils/cli-error.js';
 
 interface ConfigOptions {
   projectRoot?: string;
@@ -30,7 +31,11 @@ export function configCommand(program: Command): void {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
-        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
+        const cliError = toCliError(error);
+        console.error(
+          chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+          chalk.red(`[${cliError.code}] ${cliError.message}`)
+        );
         process.exit(1);
       }
     });
@@ -41,12 +46,10 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   const config = await getConfig(cwd);
 
   if (!config) {
-    console.log(
-      chalk.red(
-        tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
-      )
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
     );
-    process.exit(1);
   }
 
   const configPath = path.join(config.docsDir, '.lee-spec-kit.json');
@@ -89,7 +92,8 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         // Fullstack: --repo 필수
         if (!options.repo) {
           if (options.nonInteractive) {
-            throw new Error(
+            throw createCliError(
+              'PROMPT_BLOCKED',
               '`--repo` is required for fullstack projectRoot update when using `--non-interactive`.'
             );
           }
@@ -116,8 +120,10 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         }
 
         if (!options.repo || !['fe', 'be'].includes(options.repo)) {
-          console.log(chalk.red(tr(config.lang, 'cli', 'config.fullstackRepoRequired')));
-          return;
+          throw createCliError(
+            'INVALID_ARGUMENT',
+            tr(config.lang, 'cli', 'config.fullstackRepoRequired')
+          );
         }
 
         // 기존 projectRoot 가져오기 또는 초기화
