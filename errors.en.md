@@ -14,7 +14,9 @@ These codes are shared by major commands (`init`, `feature`, `config`, `update`,
 | `LOCK_WAIT_TIMEOUT` | Timed out while waiting for lock release | Another process holds lock too long |
 | `LOCK_ACQUIRE_TIMEOUT` | Timed out while acquiring lock | Long-running concurrent contention |
 | `INVALID_ARGUMENT` | Invalid arguments/input | Unsupported option combination |
-| `INVALID_APPROVAL` | Invalid approval reply format/label | `--approve` does not match `A` / `A OK` pattern |
+| `DUPLICATE_FEATURE_ID` | Duplicate Feature IDs detected | Duplicates found in `status --strict` |
+| `MISSING_FEATURE_ID` | Missing Feature IDs detected | Non-`F###-...` folders found in `status --strict` |
+| `INVALID_APPROVAL` | Invalid approval reply format/label | `--approve` does not match `<LABEL>` / `<LABEL> OK` pattern |
 | `APPROVAL_REQUIRED` | Required approval value is missing | Using `--execute` without `--approve` |
 | `CONTEXT_SELECTION_REQUIRED` | A single feature selection is required | Multiple/no feature selected for approval execution |
 | `NO_ACTION_OPTIONS` | No approvable action options available | No actions in current step |

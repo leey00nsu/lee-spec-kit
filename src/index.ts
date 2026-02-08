@@ -11,6 +11,13 @@ import { doctorCommand } from './commands/doctor.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
+function shouldShowBanner(): boolean {
+  const argv = process.argv.slice(2);
+  const disabledByEnv = (process.env.LEE_SPEC_KIT_NO_BANNER || '').trim() === '1';
+  const disabledByFlag = argv.includes('--no-banner');
+  return !disabledByEnv && !disabledByFlag;
+}
+
 function shouldCheckForUpdates(): boolean {
   const argv = process.argv.slice(2);
   const hasJsonFlag = argv.includes('--json');
@@ -56,7 +63,11 @@ program
     'Project documentation structure generator for AI-assisted development'
   )
   .version(cliVersion)
-  .addHelpText('beforeAll', getBanner({ version: cliVersion }));
+  .option('--no-banner', 'Hide banner in help output');
+
+if (shouldShowBanner()) {
+  program.addHelpText('beforeAll', getBanner({ version: cliVersion }));
+}
 
 initCommand(program);
 featureCommand(program);

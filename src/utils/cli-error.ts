@@ -7,6 +7,8 @@ export type CliReasonCode =
   | 'LOCK_WAIT_TIMEOUT'
   | 'LOCK_ACQUIRE_TIMEOUT'
   | 'INVALID_ARGUMENT'
+  | 'DUPLICATE_FEATURE_ID'
+  | 'MISSING_FEATURE_ID'
   | 'INVALID_APPROVAL'
   | 'APPROVAL_REQUIRED'
   | 'CONTEXT_SELECTION_REQUIRED'
@@ -75,8 +77,8 @@ export function getCliErrorSuggestions(
         },
         {
             title: {
-              ko: '필수 플래그를 모두 명시해 다시 실행하세요.',
-              en: 'Pass all required flags explicitly, then run again.',
+              ko: '필수 플래그를 모두 명시하거나(`--force` 포함) 다시 실행하세요.',
+              en: 'Pass all required flags (including `--force` when needed), then run again.',
             },
         },
         {
@@ -164,6 +166,56 @@ export function getCliErrorSuggestions(
             },
         },
       ],
+        resolvedLang
+      );
+    case 'DUPLICATE_FEATURE_ID':
+      return withLabels(
+        [
+          {
+            title: {
+              ko: '중복된 Feature ID를 정리한 뒤 다시 실행하세요.',
+              en: 'Resolve duplicate Feature IDs, then run again.',
+            },
+          },
+          {
+            title: {
+              ko: '각 Feature 폴더명이 고유한 `F###-slug` 형식인지 확인하세요.',
+              en: 'Ensure each feature folder has a unique `F###-slug` name.',
+            },
+          },
+          {
+            title: {
+              ko: '중복 여부를 JSON 진단으로 확인하세요.',
+              en: 'Inspect duplicates via JSON diagnostics.',
+            },
+            command: 'npx lee-spec-kit doctor --json',
+          },
+        ],
+        resolvedLang
+      );
+    case 'MISSING_FEATURE_ID':
+      return withLabels(
+        [
+          {
+            title: {
+              ko: 'ID가 없는 Feature 폴더를 `F###-slug` 형식으로 변경하세요.',
+              en: 'Rename feature folders without IDs to `F###-slug` format.',
+            },
+          },
+          {
+            title: {
+              ko: 'spec/tasks 문서의 Feature ID도 함께 정리하세요.',
+              en: 'Align Feature IDs in spec/tasks docs after renaming.',
+            },
+          },
+          {
+            title: {
+              ko: '누락 항목을 JSON 진단으로 확인하세요.',
+              en: 'Inspect missing IDs via JSON diagnostics.',
+            },
+            command: 'npx lee-spec-kit doctor --json',
+          },
+        ],
         resolvedLang
       );
     case 'INVALID_APPROVAL':

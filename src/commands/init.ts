@@ -41,7 +41,14 @@ interface InitOptions {
   lang?: 'ko' | 'en';
   workflow?: 'github' | 'local';
   dir?: string;
+  docsRepo?: 'embedded' | 'standalone';
+  projectRoot?: string;
+  feProjectRoot?: string;
+  beProjectRoot?: string;
+  pushDocs?: boolean;
+  docsRemote?: string;
   yes?: boolean;
+  force?: boolean;
   nonInteractive?: boolean;
 }
 
@@ -54,7 +61,20 @@ export function initCommand(program: Command): void {
     .option('-l, --lang <lang>', 'Language: ko | en (default: en)')
     .option('--workflow <mode>', 'Workflow mode: github | local')
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
+    .option('--docs-repo <mode>', 'Docs repository mode: embedded | standalone')
+    .option('--project-root <path>', 'Project repository path (standalone single)')
+    .option(
+      '--fe-project-root <path>',
+      'Frontend repository path (standalone fullstack)'
+    )
+    .option(
+      '--be-project-root <path>',
+      'Backend repository path (standalone fullstack)'
+    )
+    .option('--push-docs', 'Push standalone docs to remote')
+    .option('--docs-remote <url>', 'Remote URL for standalone docs repository')
     .option('-y, --yes', 'Skip prompts and use defaults')
+    .option('-f, --force', 'Overwrite target directory if not empty')
     .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (options: InitOptions) => {
       try {
@@ -88,12 +108,34 @@ async function runInit(options: InitOptions): Promise<void> {
   let projectType = options.type;
   let lang = options.lang || 'en';
   let workflowMode = options.workflow || 'github';
-  let docsRepo: 'embedded' | 'standalone' = 'embedded';
-  let pushDocs: boolean | undefined;
-  let docsRemote: string | undefined;
+  let docsRepo: 'embedded' | 'standalone' = options.docsRepo || 'embedded';
+  let pushDocs: boolean | undefined =
+    typeof options.pushDocs === 'boolean' ? options.pushDocs : undefined;
+  let docsRemote: string | undefined = options.docsRemote;
   let projectRoot: string | { fe: string; be: string } | undefined;
   const targetDir = path.resolve(cwd, options.dir || './docs');
   const skipPrompts = !!options.yes || !!options.nonInteractive;
+
+  if (options.docsRepo && !['embedded', 'standalone'].includes(options.docsRepo)) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--docs-repo` must be `embedded` or `standalone`.'
+    );
+  }
+
+  if (docsRemote && typeof pushDocs === 'undefined') {
+    // docs remote is meaningful only when standalone docs push is enabled.
+    pushDocs = true;
+  }
+
+  if (options.feProjectRoot || options.beProjectRoot) {
+    projectRoot = {
+      fe: options.feProjectRoot || '',
+      be: options.beProjectRoot || '',
+    };
+  } else if (options.projectRoot) {
+    projectRoot = options.projectRoot;
+  }
 
   // Git 환경 감지
   const isInsideGitRepo = checkGitRepo(cwd);
@@ -189,7 +231,7 @@ async function runInit(options: InitOptions): Promise<void> {
           initial: 0,
         },
         {
-          type: 'select',
+          type: options.docsRepo ? null : 'select',
           name: 'docsRepo',
           message: tr(lang, 'cli', 'init.prompt.docsMode'),
           choices: [
@@ -227,7 +269,7 @@ async function runInit(options: InitOptions): Promise<void> {
         const projectRootResponse = await prompts(
           [
             {
-              type: 'text',
+              type: options.feProjectRoot ? null : 'text',
               name: 'feRoot',
               message: tr(lang, 'cli', 'init.prompt.feRepoPath'),
               validate: (value: string) =>
@@ -236,7 +278,7 @@ async function runInit(options: InitOptions): Promise<void> {
                   : tr(lang, 'cli', 'init.validation.enterPath'),
             },
             {
-              type: 'text',
+              type: options.beProjectRoot ? null : 'text',
               name: 'beRoot',
               message: tr(lang, 'cli', 'init.prompt.beRepoPath'),
               validate: (value: string) =>
@@ -252,15 +294,17 @@ async function runInit(options: InitOptions): Promise<void> {
           }
         );
 
+        const currentRoot =
+          typeof projectRoot === 'string' ? { fe: '', be: '' } : projectRoot;
         projectRoot = {
-          fe: projectRootResponse.feRoot,
-          be: projectRootResponse.beRoot,
+          fe: projectRootResponse.feRoot || currentRoot?.fe || '',
+          be: projectRootResponse.beRoot || currentRoot?.be || '',
         };
       } else {
         const projectRootResponse = await prompts(
           [
             {
-              type: 'text',
+              type: options.projectRoot ? null : 'text',
               name: 'projectRoot',
               message: tr(lang, 'cli', 'init.prompt.projectRepoPath'),
               validate: (value: string) =>
@@ -276,13 +320,15 @@ async function runInit(options: InitOptions): Promise<void> {
           }
         );
 
-        projectRoot = projectRootResponse.projectRoot;
+        projectRoot =
+          projectRootResponse.projectRoot ||
+          (typeof projectRoot === 'string' ? projectRoot : '');
       }
 
       const standaloneResponse = await prompts(
         [
           {
-            type: 'select',
+            type: typeof options.pushDocs === 'boolean' ? null : 'select',
             name: 'pushDocs',
             message: tr(lang, 'cli', 'init.prompt.pushMode'),
             choices: [
@@ -305,14 +351,17 @@ async function runInit(options: InitOptions): Promise<void> {
         }
       );
 
-      pushDocs = standaloneResponse.pushDocs;
+      pushDocs =
+        typeof standaloneResponse.pushDocs === 'boolean'
+          ? standaloneResponse.pushDocs
+          : pushDocs;
 
       // remote 선택 시 URL 입력
       if (pushDocs === true) {
         const remoteResponse = await prompts(
           [
             {
-              type: 'text',
+              type: options.docsRemote ? null : 'text',
               name: 'docsRemote',
               message: tr(lang, 'cli', 'init.prompt.remoteUrl'),
               validate: (value: string) =>
@@ -328,7 +377,7 @@ async function runInit(options: InitOptions): Promise<void> {
           }
         );
 
-        docsRemote = remoteResponse.docsRemote;
+        docsRemote = remoteResponse.docsRemote || docsRemote;
       }
     }
   }
@@ -343,6 +392,62 @@ async function runInit(options: InitOptions): Promise<void> {
   assertValid(validateProjectType(projectType), '프로젝트 타입');
   assertValid(validateLanguage(lang), '언어');
   assertValid(validateWorkflowMode(workflowMode), '워크플로우 모드');
+
+  if (docsRepo !== 'standalone') {
+    if (
+      options.projectRoot ||
+      options.feProjectRoot ||
+      options.beProjectRoot ||
+      typeof options.pushDocs === 'boolean' ||
+      options.docsRemote
+    ) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        'Standalone-only options require `--docs-repo standalone`.'
+      );
+    }
+    projectRoot = undefined;
+    pushDocs = undefined;
+    docsRemote = undefined;
+  } else {
+    if (projectType === 'fullstack') {
+      const fullstackRoot =
+        typeof projectRoot === 'object'
+          ? projectRoot
+          : { fe: '', be: '' };
+      if (!fullstackRoot.fe.trim() || !fullstackRoot.be.trim()) {
+        throw createCliError(
+          'PROMPT_BLOCKED',
+          'Standalone fullstack mode requires both `--fe-project-root` and `--be-project-root`.'
+        );
+      }
+      projectRoot = fullstackRoot;
+    } else {
+      const singleRoot = typeof projectRoot === 'string' ? projectRoot.trim() : '';
+      if (!singleRoot) {
+        throw createCliError(
+          'PROMPT_BLOCKED',
+          'Standalone single mode requires `--project-root`.'
+        );
+      }
+      projectRoot = singleRoot;
+    }
+
+    if (typeof pushDocs !== 'boolean') {
+      pushDocs = false;
+    }
+
+    if (pushDocs === true && !docsRemote?.trim()) {
+      throw createCliError(
+        'PROMPT_BLOCKED',
+        '`--push-docs` requires `--docs-remote <url>` in standalone mode.'
+      );
+    }
+    if (pushDocs === false) {
+      docsRemote = undefined;
+    }
+  }
+
   const initLockPath = getInitLockPath(targetDir);
   await withFileLock(
     initLockPath,
@@ -351,23 +456,25 @@ async function runInit(options: InitOptions): Promise<void> {
       if (await fs.pathExists(targetDir)) {
         const files = await fs.readdir(targetDir);
         if (files.length > 0) {
-          if (options.nonInteractive) {
+          if (options.force) {
+            // Continue without confirmation in force mode.
+          } else if (options.nonInteractive) {
             throw createCliError(
               'PROMPT_BLOCKED',
-              `Target directory is not empty: ${targetDir}. Re-run without --non-interactive to confirm overwrite.`
+              `Target directory is not empty: ${targetDir}. Re-run with \`--force\` or without \`--non-interactive\` to confirm overwrite.`
             );
-          }
+          } else {
+            const { overwrite } = await prompts({
+              type: 'confirm',
+              name: 'overwrite',
+              message: tr(lang, 'cli', 'init.prompt.overwrite', { dir: targetDir }),
+              initial: false,
+            });
 
-          const { overwrite } = await prompts({
-            type: 'confirm',
-            name: 'overwrite',
-            message: tr(lang, 'cli', 'init.prompt.overwrite', { dir: targetDir }),
-            initial: false,
-          });
-
-          if (!overwrite) {
-            console.log(chalk.yellow(tr(lang, 'cli', 'common.canceled')));
-            return;
+            if (!overwrite) {
+              console.log(chalk.yellow(tr(lang, 'cli', 'common.canceled')));
+              return;
+            }
           }
         }
       }

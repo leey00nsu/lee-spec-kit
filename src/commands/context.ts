@@ -121,7 +121,7 @@ function getContextVersion(
 }
 
 function parseApprovalLabel(input: string): string | null {
-  const match = input.trim().match(/^([A-Z]{1,2})(?:\s+OK)?$/i);
+  const match = input.trim().match(/^([A-Z]+)(?:\s+OK)?$/i);
   if (!match) return null;
   return match[1].toUpperCase();
 }
@@ -457,9 +457,9 @@ async function runContext(
       checkPolicy: {
         docPath: '/docs/agents/agents.md',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
-        token: 'A',
-        acceptedTokens: ['A', 'A OK'],
-        tokenPattern: '^([A-Z]{1,2})(?:\\s+OK)?$',
+        token: '<LABEL>',
+        acceptedTokens: ['<LABEL>', '<LABEL> OK'],
+        tokenPattern: '^([A-Z]+)(?:\\s+OK)?$',
         validLabels: state.actionOptions.map((o) => o.label),
         oneApprovalPerAction: true,
         requireFreshContext: true,

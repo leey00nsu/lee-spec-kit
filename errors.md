@@ -14,7 +14,9 @@
 | `LOCK_WAIT_TIMEOUT` | 락 해제 대기 시간 초과 | 다른 프로세스 락 장기 점유 |
 | `LOCK_ACQUIRE_TIMEOUT` | 락 획득 시간 초과 | 동시 실행 경쟁이 장시간 지속 |
 | `INVALID_ARGUMENT` | 인자/입력값이 유효하지 않음 | 잘못된 옵션 조합 |
-| `INVALID_APPROVAL` | 승인 응답 형식/라벨이 유효하지 않음 | `--approve` 값이 `A`/`A OK` 규칙 불일치 |
+| `DUPLICATE_FEATURE_ID` | Feature ID 중복 감지 | `status --strict`에서 중복 ID 발견 |
+| `MISSING_FEATURE_ID` | Feature ID 누락 감지 | `status --strict`에서 `F###-...` 형식 누락 |
+| `INVALID_APPROVAL` | 승인 응답 형식/라벨이 유효하지 않음 | `--approve` 값이 `<LABEL>`/`<LABEL> OK` 규칙 불일치 |
 | `APPROVAL_REQUIRED` | 승인 값이 필수인데 누락됨 | `--execute`만 사용 |
 | `CONTEXT_SELECTION_REQUIRED` | 단일 Feature 선택이 필요함 | 승인 실행 시 대상 Feature 다중/없음 |
 | `NO_ACTION_OPTIONS` | 승인 가능한 액션이 없음 | 현재 단계에 액션 미존재 |

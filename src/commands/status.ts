@@ -13,6 +13,7 @@ import {
 } from '../utils/cli-error.js';
 
 interface StatusOptions {
+  json?: boolean;
   write?: boolean;
   strict?: boolean;
 }
@@ -31,6 +32,7 @@ export function statusCommand(program: Command): void {
   program
     .command('status')
     .description('Show feature status')
+    .option('--json', 'Output in JSON format for agents')
     .option('-w, --write', 'Write status.md file')
     .option('-s, --strict', 'Fail on missing/duplicate feature IDs')
     .action(async (options: StatusOptions) => {
@@ -109,11 +111,6 @@ async function runStatus(options: StatusOptions): Promise<void> {
     });
   }
 
-  if (features.length === 0) {
-    console.log(chalk.yellow(tr(lang, 'cli', 'status.noFeatures')));
-    return;
-  }
-
   // 중복 ID 확인
   if (options.strict) {
     const duplicates = [...idMap.entries()].filter(
@@ -122,7 +119,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
     if (duplicates.length > 0) {
       const duplicateIds = duplicates.map(([id]) => id).join(', ');
       throw createCliError(
-        'INVALID_ARGUMENT',
+        'DUPLICATE_FEATURE_ID',
         `${tr(lang, 'cli', 'status.duplicateIds')} ${duplicateIds}`
       );
     }
@@ -131,10 +128,29 @@ async function runStatus(options: StatusOptions): Promise<void> {
     if (unknowns.length > 0) {
       const missingPaths = unknowns.flatMap(([, paths]) => paths).join(', ');
       throw createCliError(
-        'INVALID_ARGUMENT',
+        'MISSING_FEATURE_ID',
         `${tr(lang, 'cli', 'status.missingIds')} ${missingPaths}`
       );
     }
+  }
+
+  // JSON 출력
+  if (options.json) {
+    const payload = {
+      status: 'ok',
+      reasonCode: features.length === 0 ? 'NO_FEATURES' : 'FEATURES_LISTED',
+      counts: {
+        features: features.length,
+      },
+      features: [...features].sort((a, b) => a.id.localeCompare(b.id)),
+    };
+    console.log(JSON.stringify(payload, null, 2));
+    return;
+  }
+
+  if (features.length === 0) {
+    console.log(chalk.yellow(tr(lang, 'cli', 'status.noFeatures')));
+    return;
   }
 
   // 정렬

@@ -115,7 +115,14 @@ npx lee-spec-kit init --name my-project --type fullstack
 | `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어)                                       | `en`                      |
 | `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
+| `--docs-repo <mode>` | docs 레포 모드 (`embedded` 또는 `standalone`)                        | `embedded`                |
+| `--project-root <path>` | standalone(single) 프로젝트 레포 경로                              | -                         |
+| `--fe-project-root <path>` | standalone(fullstack) FE 레포 경로                              | -                         |
+| `--be-project-root <path>` | standalone(fullstack) BE 레포 경로                              | -                         |
+| `--push-docs` | standalone docs 원격 push 사용 (`--docs-remote`와 함께 사용)     | `false`                   |
+| `--docs-remote <url>` | standalone docs 원격 URL (`--push-docs`와 함께 사용)              | -                         |
 | `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |
+| `-f, --force`       | 대상 디렉토리가 비어있지 않아도 확인 없이 덮어쓰기                  | `false`                   |
 | `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패                       | `false`                   |
 
 > `init`은 docs 생성 후 Git 초기화/커밋(`git init`, `git add`, `git commit`)을 자동 시도합니다. 환경에 따라 자동 커밋이 생략될 수 있습니다.
@@ -197,7 +204,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 - `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)으로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 
-또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "A"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
+또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
 
 오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`)
 
@@ -206,6 +213,9 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 ```bash
 # 터미널에 출력
 npx lee-spec-kit status
+
+# 에이전트용 JSON 출력
+npx lee-spec-kit status --json
 
 # 파일로 저장
 npx lee-spec-kit status --write
@@ -218,8 +228,18 @@ npx lee-spec-kit status --strict
 
 | 옵션           | 설명                                          |
 | -------------- | --------------------------------------------- |
+| `--json`       | 에이전트용 JSON 출력                          |
 | `-w, --write`  | `features/status.md` 파일 생성                |
 | `-s, --strict` | 중복/누락 Feature ID 발견 시 종료 코드 1 반환 |
+
+### 공통 옵션
+
+```bash
+# 도움말 배너 숨김
+npx lee-spec-kit --no-banner --help
+```
+
+또는 환경변수 `LEE_SPEC_KIT_NO_BANNER=1`로 배너 출력을 비활성화할 수 있습니다.
 
 ### 문서 진단 (Doctor)
 
@@ -302,8 +322,8 @@ npx lee-spec-kit update --force
 
 - 텍스트 출력의 `[확인 필요]` 표시
 - `context --json`의 `actions[].requiresUserCheck`
-- `checkPolicy.token` (`context --json`): 승인 토큰 형식 예시 (`A`)
-- `checkPolicy.acceptedTokens`: 허용되는 승인 응답 예시 (예: `["A", "A OK"]`)
+- `checkPolicy.token` (`context --json`): 승인 토큰 형식 (`<LABEL>`)
+- `checkPolicy.acceptedTokens`: 허용되는 승인 응답 템플릿 (예: `["<LABEL>", "<LABEL> OK"]`)
 - `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
 - `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
 - `checkPolicy.contextVersion`: stale context 검증용 스냅샷 해시

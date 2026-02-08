@@ -99,7 +99,14 @@ npx lee-spec-kit init --name my-project --type fullstack
 | `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
 | `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
+| `--docs-repo <mode>` | docs repo mode (`embedded` or `standalone`)                                               | `embedded`                      |
+| `--project-root <path>` | standalone(single) project repo path                                                   | -                               |
+| `--fe-project-root <path>` | standalone(fullstack) frontend repo path                                            | -                               |
+| `--be-project-root <path>` | standalone(fullstack) backend repo path                                             | -                               |
+| `--push-docs` | enable standalone docs push (use with `--docs-remote`)                                   | `false`                         |
+| `--docs-remote <url>` | standalone docs remote URL (used with `--push-docs`)                                    | -                               |
 | `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
+| `-f, --force`       | Overwrite non-empty target directory without confirmation                                  | `false`                         |
 | `--non-interactive` | Fail immediately instead of prompting for user input                                        | `false`                         |
 
 > After generating docs, `init` automatically attempts Git setup/commit (`git init`, `git add`, `git commit`). Auto-commit may be skipped depending on environment/state.
@@ -175,7 +182,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 - `reasonCode`: status reason code (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES`, etc.)
 - `actionOptions`: maps labels to atomic actions
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
-- `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
+- `checkPolicy`: approval validation policy (`token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`).
 
@@ -183,6 +190,7 @@ Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions
 
 ```bash
 npx lee-spec-kit status
+npx lee-spec-kit status --json
 npx lee-spec-kit status --write
 npx lee-spec-kit status --strict
 ```
@@ -191,8 +199,17 @@ npx lee-spec-kit status --strict
 
 | Option         | Description                                          |
 | -------------- | ---------------------------------------------------- |
+| `--json`       | JSON output for agents                               |
 | `-w, --write`  | Write `features/status.md`                           |
 | `-s, --strict` | Exit with code 1 when duplicate/missing Feature IDs exist |
+
+### Global Option
+
+```bash
+npx lee-spec-kit --no-banner --help
+```
+
+You can also disable banner output via `LEE_SPEC_KIT_NO_BANNER=1`.
 
 ### Doctor
 
@@ -257,8 +274,8 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 
 - the `[CHECK required]` tag in text output
 - `actions[].requiresUserCheck` in `context --json`
-- `checkPolicy.token` (`context --json`): recommended approval token format (`A`)
-- `checkPolicy.acceptedTokens`: accepted examples (e.g. `["A", "A OK"]`)
+- `checkPolicy.token` (`context --json`): approval token format (`<LABEL>`)
+- `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK"]`)
 - `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
