@@ -17,6 +17,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src",
+    "test:race": "pnpm build && node --test tests/race.test.mjs",
     "format": "prettier --write .",
     "prepublishOnly": "pnpm build"
   },
