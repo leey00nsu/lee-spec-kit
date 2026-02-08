@@ -193,6 +193,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 - `actionOptions`: `label`(`A`, `B`, `C`...)과 해당 `action` 매핑
 - `category`: 액션 분류 (자동화/반자동용 `approval.mode: "category"`에서 사용)
 - `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)으로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
+- `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "A"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
 

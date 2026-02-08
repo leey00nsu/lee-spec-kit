@@ -254,6 +254,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
 - `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
+- `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 
 > This does not enforce/deny execution by itself; it’s a signal for agents.
 > If `approval` is omitted, it behaves as `builtin`. (No migration required)

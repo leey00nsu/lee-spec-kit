@@ -422,6 +422,7 @@ async function runContext(
         state.selectionMode === 'open' ? state.readyToCloseFeatures : [],
       actions: state.actions,
       actionOptions: state.actionOptions,
+      workflowPolicy,
       checkPolicy: {
         docPath: '/docs/agents/agents.md',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
