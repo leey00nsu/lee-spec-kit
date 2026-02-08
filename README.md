@@ -112,6 +112,7 @@ npx lee-spec-kit init --name my-project --type fullstack
 | `-n, --name <name>` | 프로젝트 이름                                                        | 현재 폴더명               |
 | `-t, --type <type>` | `single` 또는 `fullstack`                                            | 대화형 선택 (`--yes`면 `single`) |
 | `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어)                                       | `en`                      |
+| `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
 | `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |
 
@@ -263,6 +264,7 @@ npx lee-spec-kit update --force
   "lang": "ko",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
+  "workflow": { "mode": "github" },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
@@ -278,6 +280,7 @@ npx lee-spec-kit update --force
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, fullstack: {fe, be}) |
+| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`) |
 | `pr`          | (선택) PR 결과물 정책 (예: 스크린샷 업로드 여부) |
 | `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
 
@@ -301,6 +304,19 @@ npx lee-spec-kit update --force
 > 실제 명령 실행을 강제/차단하는 기능은 아닙니다. (에이전트가 참고하도록 신호를 제공)
 > 기존 설정에 `approval`이 없으면 `builtin`으로 동작합니다. (마이그레이션 불필요)
 > `requiresUserCheck: true`인 액션은 에이전트가 사용자로부터 **정확히 `<라벨>` 또는 `<라벨> OK` 응답(예: `A`, `A OK`)**을 받은 뒤 진행하는 것을 권장합니다.
+
+### workflow (완료 조건 정책)
+
+- `workflow.mode: "github"` (기본): Issue/브랜치/PR/리뷰 단계를 포함한 전체 워크플로우를 완료 조건으로 사용
+- `workflow.mode: "local"`: 로컬 중심 워크플로우로 동작하며 Issue/브랜치/PR/리뷰 단계를 필수로 요구하지 않음
+
+예시:
+
+```json
+{
+  "workflow": { "mode": "local" }
+}
+```
 
 #### 모드
 

@@ -97,6 +97,7 @@ npx lee-spec-kit init --name my-project --type fullstack
 | `-n, --name <name>` | Project name                                                                                | current folder                  |
 | `-t, --type <type>` | `single` or `fullstack`                                                                     | interactive (`single` with `--yes`) |
 | `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
+| `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
 | `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
 
@@ -216,6 +217,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "lang": "en",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
+  "workflow": { "mode": "github" },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
@@ -231,6 +233,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
 | `projectRoot` | (standalone only) project repo path (single: string, fullstack: {fe, be}) |
+| `workflow`    | (optional) workflow completion policy (`github`/`local`) |
 | `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
 | `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
 
@@ -253,6 +256,19 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 > This does not enforce/deny execution by itself; it’s a signal for agents.
 > If `approval` is omitted, it behaves as `builtin`. (No migration required)
 > When `requiresUserCheck: true`, it’s recommended that agents wait for an explicit `<label>` or `<label> OK` response (e.g. `A`, `A OK`) before proceeding.
+
+### workflow (completion policy)
+
+- `workflow.mode: "github"` (default): issue/branch/PR/review are required in workflow completion
+- `workflow.mode: "local"`: local-first workflow; issue/branch/PR/review are not required
+
+Example:
+
+```json
+{
+  "workflow": { "mode": "local" }
+}
+```
 
 #### Modes
 
