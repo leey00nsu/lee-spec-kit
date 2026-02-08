@@ -7,6 +7,7 @@ import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { applyReplacements } from '../utils/template.js';
+import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -64,137 +65,139 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
   }
 
   const { docsDir, projectType, lang } = config;
-  const templatesDir = getTemplatesDir();
-  const sourceDir = path.join(templatesDir, lang, projectType);
+  await withFileLock(
+    getDocsLockPath(docsDir),
+    async () => {
+      const templatesDir = getTemplatesDir();
+      const sourceDir = path.join(templatesDir, lang, projectType);
 
-  // Default behavior: only allow update when docs working tree is clean.
-  // Then apply updates like --force. This keeps update predictable and simple.
-  const forceOverwrite =
-    !!options.force || (await isDocsWorktreeCleanOrThrow(docsDir, lang));
+      // Default behavior: only allow update when docs working tree is clean.
+      // Then apply updates like --force. This keeps update predictable and simple.
+      const forceOverwrite =
+        !!options.force || (await isDocsWorktreeCleanOrThrow(docsDir, lang));
 
-  // 업데이트 대상 결정
-  const hasExplicitSelection = !!(
-    options.agents ||
-    options.skills ||
-    options.templates
-  );
-  const updateAgents = options.agents || options.skills || !hasExplicitSelection;
-  const updateTemplates = options.templates || !hasExplicitSelection;
-  const agentsMode: 'all' | 'skills' =
-    options.skills && !options.agents ? 'skills' : 'all';
-
-  console.log(chalk.blue(tr(lang, 'cli', 'update.start')));
-  console.log(chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`));
-  console.log(
-    chalk.gray(`  - ${tr(lang, 'cli', 'update.typeLabel')}: ${projectType}`)
-  );
-  console.log();
-
-  let updatedCount = 0;
-
-  // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
-  if (updateAgents) {
-    console.log(
-      chalk.blue(
-        agentsMode === 'skills'
-          ? tr(lang, 'cli', 'update.updatingSkills')
-          : tr(lang, 'cli', 'update.updatingAgents')
-      )
-    );
-    const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
-    const typeAgentsBase = path.join(templatesDir, lang, projectType, 'agents');
-    const targetAgentsBase = path.join(docsDir, 'agents');
-
-    const commonAgents =
-      agentsMode === 'skills'
-        ? path.join(commonAgentsBase, 'skills')
-        : commonAgentsBase;
-    const typeAgents =
-      agentsMode === 'skills'
-        ? path.join(typeAgentsBase, 'skills')
-        : typeAgentsBase;
-    const targetAgents =
-      agentsMode === 'skills'
-        ? path.join(targetAgentsBase, 'skills')
-        : targetAgentsBase;
-
-    // featurePath 치환
-    const featurePath =
-      projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
-    const projectName = config.projectName ?? '{{projectName}}';
-    const commonReplacements: Record<string, string> = {
-      '{{projectName}}': projectName,
-      '{{featurePath}}': featurePath,
-    };
-    const typeReplacements: Record<string, string> = {
-      '{{projectName}}': projectName,
-    };
-
-    // common 먼저 업데이트
-    if (await fs.pathExists(commonAgents)) {
-      const count = await updateFolder(
-        commonAgents,
-        targetAgents,
-        forceOverwrite,
-        commonReplacements,
-        lang
+      // 업데이트 대상 결정
+      const hasExplicitSelection = !!(
+        options.agents ||
+        options.skills ||
+        options.templates
       );
-      updatedCount += count;
-    }
+      const updateAgents = options.agents || options.skills || !hasExplicitSelection;
+      const updateTemplates = options.templates || !hasExplicitSelection;
+      const agentsMode: 'all' | 'skills' =
+        options.skills && !options.agents ? 'skills' : 'all';
 
-    // 타입별 오버라이드
-    if (await fs.pathExists(typeAgents)) {
-      const count = await updateFolder(
-        typeAgents,
-        targetAgents,
-        forceOverwrite,
-        typeReplacements,
-        lang
-      );
-      updatedCount += count;
-    }
-    console.log(
-      chalk.green(
-        `  ✅ ${
-          agentsMode === 'skills'
-            ? tr(lang, 'cli', 'update.skillsUpdated')
-            : tr(lang, 'cli', 'update.agentsUpdated')
-        }`
-      )
-    );
-  }
-
-  // feature-base/ 폴더 업데이트
-  if (updateTemplates) {
-    console.log(chalk.blue(tr(lang, 'cli', 'update.updatingFeatureBase')));
-    const sourceFeatureBase = path.join(sourceDir, 'features', 'feature-base');
-    const targetFeatureBase = path.join(docsDir, 'features', 'feature-base');
-
-    if (await fs.pathExists(sourceFeatureBase)) {
-      const replacements: Record<string, string> = {
-        '{{projectName}}': config.projectName ?? '{{projectName}}',
-      };
-      const count = await updateFolder(
-        sourceFeatureBase,
-        targetFeatureBase,
-        forceOverwrite,
-        replacements,
-        lang
-      );
-      updatedCount += count;
+      console.log(chalk.blue(tr(lang, 'cli', 'update.start')));
+      console.log(chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`));
       console.log(
-        chalk.green(
-          `  ✅ ${tr(lang, 'cli', 'update.filesUpdated', { count })}`
-        )
+        chalk.gray(`  - ${tr(lang, 'cli', 'update.typeLabel')}: ${projectType}`)
       );
-    }
-  }
+      console.log();
 
-  console.log();
-  console.log(
-    chalk.green(
-      `✅ ${tr(lang, 'cli', 'update.updatedTotal', { count: updatedCount })}`
-    )
+      let updatedCount = 0;
+
+      // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
+      if (updateAgents) {
+        console.log(
+          chalk.blue(
+            agentsMode === 'skills'
+              ? tr(lang, 'cli', 'update.updatingSkills')
+              : tr(lang, 'cli', 'update.updatingAgents')
+          )
+        );
+        const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
+        const typeAgentsBase = path.join(templatesDir, lang, projectType, 'agents');
+        const targetAgentsBase = path.join(docsDir, 'agents');
+
+        const commonAgents =
+          agentsMode === 'skills'
+            ? path.join(commonAgentsBase, 'skills')
+            : commonAgentsBase;
+        const typeAgents =
+          agentsMode === 'skills'
+            ? path.join(typeAgentsBase, 'skills')
+            : typeAgentsBase;
+        const targetAgents =
+          agentsMode === 'skills'
+            ? path.join(targetAgentsBase, 'skills')
+            : targetAgentsBase;
+
+        // featurePath 치환
+        const featurePath =
+          projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
+        const projectName = config.projectName ?? '{{projectName}}';
+        const commonReplacements: Record<string, string> = {
+          '{{projectName}}': projectName,
+          '{{featurePath}}': featurePath,
+        };
+        const typeReplacements: Record<string, string> = {
+          '{{projectName}}': projectName,
+        };
+
+        // common 먼저 업데이트
+        if (await fs.pathExists(commonAgents)) {
+          const count = await updateFolder(
+            commonAgents,
+            targetAgents,
+            forceOverwrite,
+            commonReplacements,
+            lang
+          );
+          updatedCount += count;
+        }
+
+        // 타입별 오버라이드
+        if (await fs.pathExists(typeAgents)) {
+          const count = await updateFolder(
+            typeAgents,
+            targetAgents,
+            forceOverwrite,
+            typeReplacements,
+            lang
+          );
+          updatedCount += count;
+        }
+        console.log(
+          chalk.green(
+            `  ✅ ${
+              agentsMode === 'skills'
+                ? tr(lang, 'cli', 'update.skillsUpdated')
+                : tr(lang, 'cli', 'update.agentsUpdated')
+            }`
+          )
+        );
+      }
+
+      // feature-base/ 폴더 업데이트
+      if (updateTemplates) {
+        console.log(chalk.blue(tr(lang, 'cli', 'update.updatingFeatureBase')));
+        const sourceFeatureBase = path.join(sourceDir, 'features', 'feature-base');
+        const targetFeatureBase = path.join(docsDir, 'features', 'feature-base');
+
+        if (await fs.pathExists(sourceFeatureBase)) {
+          const replacements: Record<string, string> = {
+            '{{projectName}}': config.projectName ?? '{{projectName}}',
+          };
+          const count = await updateFolder(
+            sourceFeatureBase,
+            targetFeatureBase,
+            forceOverwrite,
+            replacements,
+            lang
+          );
+          updatedCount += count;
+          console.log(
+            chalk.green(`  ✅ ${tr(lang, 'cli', 'update.filesUpdated', { count })}`)
+          );
+        }
+      }
+
+      console.log();
+      console.log(
+        chalk.green(`✅ ${tr(lang, 'cli', 'update.updatedTotal', { count: updatedCount })}`)
+      );
+    },
+    { owner: 'update' }
   );
 }
 

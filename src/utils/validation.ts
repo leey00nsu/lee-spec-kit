@@ -15,6 +15,10 @@ export type ProjectType = (typeof VALID_PROJECT_TYPES)[number];
 const VALID_LANGUAGES = ['ko', 'en'] as const;
 export type Language = (typeof VALID_LANGUAGES)[number];
 
+// 허용된 워크플로우 모드
+const VALID_WORKFLOW_MODES = ['github', 'local'] as const;
+export type WorkflowMode = (typeof VALID_WORKFLOW_MODES)[number];
+
 // 허용된 레포지토리 타입
 const VALID_REPO_TYPES = ['be', 'fe'] as const;
 export type RepoType = (typeof VALID_REPO_TYPES)[number];
@@ -100,6 +104,19 @@ export function validateLanguage(lang: string): ValidationResult {
     return {
       valid: false,
       error: `언어는 ${VALID_LANGUAGES.join(', ')} 중 하나여야 합니다.`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * 워크플로우 모드 검증
+ */
+export function validateWorkflowMode(mode: string): ValidationResult {
+  if (!VALID_WORKFLOW_MODES.includes(mode as WorkflowMode)) {
+    return {
+      valid: false,
+      error: `워크플로우 모드는 ${VALID_WORKFLOW_MODES.join(', ')} 중 하나여야 합니다.`,
     };
   }
   return { valid: true };

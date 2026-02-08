@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import prompts from 'prompts';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
+import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 
 interface ConfigOptions {
   projectRoot?: string;
@@ -66,88 +67,88 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     return;
   }
 
-  // projectRoot 수정
-  const configFile = await fs.readJson(configPath);
+  await withFileLock(
+    getDocsLockPath(config.docsDir),
+    async () => {
+      // projectRoot 수정
+      const configFile = await fs.readJson(configPath);
 
-  // embedded인 경우 projectRoot 설정 불필요
-  if (configFile.docsRepo !== 'standalone') {
-    console.log(
-      chalk.yellow(
-        tr(config.lang, 'cli', 'config.projectRootStandaloneOnly')
-      )
-    );
-    return;
-  }
+      // embedded인 경우 projectRoot 설정 불필요
+      if (configFile.docsRepo !== 'standalone') {
+        console.log(
+          chalk.yellow(tr(config.lang, 'cli', 'config.projectRootStandaloneOnly'))
+        );
+        return;
+      }
 
-  const projectType = configFile.projectType as 'single' | 'fullstack';
+      const projectType = configFile.projectType as 'single' | 'fullstack';
 
-  if (projectType === 'fullstack') {
-    // Fullstack: --repo 필수
-    if (!options.repo) {
-      // 대화형으로 선택
-      const response = await prompts(
-        [
-          {
-            type: 'select',
-            name: 'repo',
-            message: tr(config.lang, 'cli', 'config.selectRepoToUpdate'),
-            choices: [
-              { title: 'Frontend (fe)', value: 'fe' },
-              { title: 'Backend (be)', value: 'be' },
+      if (projectType === 'fullstack') {
+        // Fullstack: --repo 필수
+        if (!options.repo) {
+          // 대화형으로 선택
+          const response = await prompts(
+            [
+              {
+                type: 'select',
+                name: 'repo',
+                message: tr(config.lang, 'cli', 'config.selectRepoToUpdate'),
+                choices: [
+                  { title: 'Frontend (fe)', value: 'fe' },
+                  { title: 'Backend (be)', value: 'be' },
+                ],
+              },
             ],
-          },
-        ],
-        {
-          onCancel: () => {
-            throw new Error('canceled');
-          },
+            {
+              onCancel: () => {
+                throw new Error('canceled');
+              },
+            }
+          );
+          options.repo = response.repo;
         }
-      );
-      options.repo = response.repo;
-    }
 
-    if (!options.repo || !['fe', 'be'].includes(options.repo)) {
-      console.log(
-        chalk.red(
-          tr(config.lang, 'cli', 'config.fullstackRepoRequired')
-        )
-      );
-      return;
-    }
+        if (!options.repo || !['fe', 'be'].includes(options.repo)) {
+          console.log(chalk.red(tr(config.lang, 'cli', 'config.fullstackRepoRequired')));
+          return;
+        }
 
-    // 기존 projectRoot 가져오기 또는 초기화
-    const currentRoot = configFile.projectRoot || { fe: '', be: '' };
-    if (typeof currentRoot === 'string') {
-      // 잘못된 형태면 객체로 변환
-      configFile.projectRoot = {
-        fe: options.repo === 'fe' ? options.projectRoot : '',
-        be: options.repo === 'be' ? options.projectRoot : '',
-      };
-    } else {
-      currentRoot[options.repo] = options.projectRoot;
-      configFile.projectRoot = currentRoot;
-    }
+        // 기존 projectRoot 가져오기 또는 초기화
+        const currentRoot = configFile.projectRoot || { fe: '', be: '' };
+        if (typeof currentRoot === 'string') {
+          // 잘못된 형태면 객체로 변환
+          configFile.projectRoot = {
+            fe: options.repo === 'fe' ? options.projectRoot : '',
+            be: options.repo === 'be' ? options.projectRoot : '',
+          };
+        } else {
+          currentRoot[options.repo] = options.projectRoot;
+          configFile.projectRoot = currentRoot;
+        }
 
-    console.log(
-      chalk.green(
-        tr(config.lang, 'cli', 'config.projectRootSet', {
-          repo: options.repo.toUpperCase(),
-          path: options.projectRoot,
-        })
-      )
-    );
-  } else {
-    // Single: 바로 설정
-    configFile.projectRoot = options.projectRoot;
-    console.log(
-      chalk.green(
-        tr(config.lang, 'cli', 'config.projectRootSetSingle', {
-          path: options.projectRoot,
-        })
-      )
-    );
-  }
+        console.log(
+          chalk.green(
+            tr(config.lang, 'cli', 'config.projectRootSet', {
+              repo: options.repo.toUpperCase(),
+              path: options.projectRoot,
+            })
+          )
+        );
+      } else {
+        // Single: 바로 설정
+        configFile.projectRoot = options.projectRoot;
+        console.log(
+          chalk.green(
+            tr(config.lang, 'cli', 'config.projectRootSetSingle', {
+              path: options.projectRoot,
+            })
+          )
+        );
+      }
 
-  await fs.writeJson(configPath, configFile, { spaces: 2 });
-  console.log();
+      await fs.writeJson(configPath, configFile, { spaces: 2 });
+      console.log();
+    },
+    { owner: 'config' }
+  );
 }

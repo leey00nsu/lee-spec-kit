@@ -10,9 +10,11 @@ import {
   validateSafeName,
   validateProjectType,
   validateLanguage,
+  validateWorkflowMode,
   assertValid,
 } from '../utils/validation.js';
 import { execFileSync, execSync } from 'child_process';
+import { getInitLockPath, withFileLock } from '../utils/lock.js';
 
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
@@ -31,6 +33,7 @@ interface InitOptions {
   name?: string;
   type?: 'single' | 'fullstack';
   lang?: 'ko' | 'en';
+  workflow?: 'github' | 'local';
   dir?: string;
   yes?: boolean;
 }
@@ -42,6 +45,7 @@ export function initCommand(program: Command): void {
     .option('-n, --name <name>', 'Project name (default: current folder name)')
     .option('-t, --type <type>', 'Project type: single | fullstack')
     .option('-l, --lang <lang>', 'Language: ko | en (default: en)')
+    .option('--workflow <mode>', 'Workflow mode: github | local')
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('-y, --yes', 'Skip prompts and use defaults')
     .action(async (options: InitOptions) => {
@@ -68,6 +72,7 @@ async function runInit(options: InitOptions): Promise<void> {
   let projectName = options.name || defaultName;
   let projectType = options.type;
   let lang = options.lang || 'en';
+  let workflowMode = options.workflow || 'github';
   let docsRepo: 'embedded' | 'standalone' = 'embedded';
   let pushDocs: boolean | undefined;
   let docsRemote: string | undefined;
@@ -321,109 +326,119 @@ async function runInit(options: InitOptions): Promise<void> {
   assertValid(validateSafeName(projectName), '프로젝트 이름');
   assertValid(validateProjectType(projectType), '프로젝트 타입');
   assertValid(validateLanguage(lang), '언어');
+  assertValid(validateWorkflowMode(workflowMode), '워크플로우 모드');
+  const initLockPath = getInitLockPath(targetDir);
+  await withFileLock(
+    initLockPath,
+    async () => {
+      // 디렉토리 존재 확인
+      if (await fs.pathExists(targetDir)) {
+        const files = await fs.readdir(targetDir);
+        if (files.length > 0) {
+          const { overwrite } = await prompts({
+            type: 'confirm',
+            name: 'overwrite',
+            message: tr(lang, 'cli', 'init.prompt.overwrite', { dir: targetDir }),
+            initial: false,
+          });
 
-  // 디렉토리 존재 확인
-  if (await fs.pathExists(targetDir)) {
-    const files = await fs.readdir(targetDir);
-    if (files.length > 0) {
-      const { overwrite } = await prompts({
-        type: 'confirm',
-        name: 'overwrite',
-        message: tr(lang, 'cli', 'init.prompt.overwrite', { dir: targetDir }),
-        initial: false,
-      });
-
-      if (!overwrite) {
-        console.log(chalk.yellow(tr(lang, 'cli', 'common.canceled')));
-        return;
+          if (!overwrite) {
+            console.log(chalk.yellow(tr(lang, 'cli', 'common.canceled')));
+            return;
+          }
+        }
       }
-    }
-  }
 
-  console.log();
-  console.log(chalk.blue(tr(lang, 'cli', 'init.log.creatingDocs')));
-  console.log(
-    chalk.gray(`  ${tr(lang, 'cli', 'init.log.projectLabel')}: ${projectName}`)
-  );
-  console.log(
-    chalk.gray(`  ${tr(lang, 'cli', 'init.log.typeLabel')}: ${projectType}`)
-  );
-  console.log(chalk.gray(`  ${tr(lang, 'cli', 'init.log.langLabel')}: ${lang}`));
-  console.log(
-    chalk.gray(`  ${tr(lang, 'cli', 'init.log.pathLabel')}: ${targetDir}`)
-  );
-  console.log();
+      console.log();
+      console.log(chalk.blue(tr(lang, 'cli', 'init.log.creatingDocs')));
+      console.log(
+        chalk.gray(`  ${tr(lang, 'cli', 'init.log.projectLabel')}: ${projectName}`)
+      );
+      console.log(
+        chalk.gray(`  ${tr(lang, 'cli', 'init.log.typeLabel')}: ${projectType}`)
+      );
+      console.log(chalk.gray(`  ${tr(lang, 'cli', 'init.log.langLabel')}: ${lang}`));
+      console.log(
+        chalk.gray(`  ${tr(lang, 'cli', 'init.log.pathLabel')}: ${targetDir}`)
+      );
+      console.log();
 
-  // 템플릿 복사 (common 먼저, 타입별 오버라이드)
-  const templatesDir = getTemplatesDir();
-  const commonPath = path.join(templatesDir, lang, 'common');
-  const typePath = path.join(templatesDir, lang, projectType);
+      // 템플릿 복사 (common 먼저, 타입별 오버라이드)
+      const templatesDir = getTemplatesDir();
+      const commonPath = path.join(templatesDir, lang, 'common');
+      const typePath = path.join(templatesDir, lang, projectType);
 
-  // common 템플릿 먼저 복사
-  if (await fs.pathExists(commonPath)) {
-    await copyTemplates(commonPath, targetDir);
-  }
+      // common 템플릿 먼저 복사
+      if (await fs.pathExists(commonPath)) {
+        await copyTemplates(commonPath, targetDir);
+      }
 
-  // 타입별 템플릿으로 오버라이드
-  if (!(await fs.pathExists(typePath))) {
-    throw new Error(tr(lang, 'cli', 'init.error.templateNotFound', { path: typePath }));
-  }
-  await copyTemplates(typePath, targetDir);
+      // 타입별 템플릿으로 오버라이드
+      if (!(await fs.pathExists(typePath))) {
+        throw new Error(
+          tr(lang, 'cli', 'init.error.templateNotFound', { path: typePath })
+        );
+      }
+      await copyTemplates(typePath, targetDir);
 
-  // 플레이스홀더 치환
-  const featurePath =
-    projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
-  const replacements: Record<string, string> = {
-    '{{projectName}}': projectName,
-    '{{date}}': new Date().toISOString().split('T')[0],
-    '{{featurePath}}': featurePath,
-  };
+      // 플레이스홀더 치환
+      const featurePath =
+        projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
+      const replacements: Record<string, string> = {
+        '{{projectName}}': projectName,
+        '{{date}}': new Date().toISOString().split('T')[0],
+        '{{featurePath}}': featurePath,
+      };
 
-  await replaceInFiles(targetDir, replacements);
+      await replaceInFiles(targetDir, replacements);
 
-  // Config 파일 생성
-  const config: Record<string, unknown> = {
-    projectName,
-    projectType,
-    lang,
-    createdAt: new Date().toISOString().split('T')[0],
-    docsRepo,
-    pr: {
-      screenshots: { upload: false },
+      // Config 파일 생성
+      const config: Record<string, unknown> = {
+        projectName,
+        projectType,
+        lang,
+        createdAt: new Date().toISOString().split('T')[0],
+        docsRepo,
+        workflow: { mode: workflowMode },
+        pr: {
+          screenshots: { upload: false },
+        },
+        // Approval policy for "requiresUserCheck" actions shown by `context`.
+        // - builtin (default): Use requiresUserCheck embedded in steps/actions.
+        // - category: Override by action category (recommended for automation).
+        // - steps: Override by step number (fragile; not recommended).
+        approval: { mode: 'builtin' },
+      };
+
+      // standalone일 때만 pushDocs, projectRoot 추가
+      if (docsRepo === 'standalone') {
+        config.pushDocs = pushDocs;
+        if (pushDocs && docsRemote) {
+          config.docsRemote = docsRemote;
+        }
+        if (projectRoot) {
+          config.projectRoot = projectRoot;
+        }
+      }
+
+      const configPath = path.join(targetDir, '.lee-spec-kit.json');
+      await fs.writeJson(configPath, config, { spaces: 2 });
+
+      console.log(chalk.green(tr(lang, 'cli', 'init.log.docsCreated')));
+      console.log();
+
+      // Git 초기화
+      await initGit(cwd, targetDir, docsRepo, lang, pushDocs, docsRemote);
+
+      console.log(chalk.blue(tr(lang, 'cli', 'init.log.nextStepsTitle')));
+      console.log(
+        chalk.gray(tr(lang, 'cli', 'init.log.nextSteps1', { docsDir: targetDir }))
+      );
+      console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
+      console.log();
     },
-    // Approval policy for "requiresUserCheck" actions shown by `context`.
-    // - builtin (default): Use requiresUserCheck embedded in steps/actions.
-    // - category: Override by action category (recommended for automation).
-    // - steps: Override by step number (fragile; not recommended).
-    approval: { mode: 'builtin' },
-  };
-
-  // standalone일 때만 pushDocs, projectRoot 추가
-  if (docsRepo === 'standalone') {
-    config.pushDocs = pushDocs;
-    if (pushDocs && docsRemote) {
-      config.docsRemote = docsRemote;
-    }
-    if (projectRoot) {
-      config.projectRoot = projectRoot;
-    }
-  }
-
-  const configPath = path.join(targetDir, '.lee-spec-kit.json');
-  await fs.writeJson(configPath, config, { spaces: 2 });
-
-  console.log(chalk.green(tr(lang, 'cli', 'init.log.docsCreated')));
-  console.log();
-
-  // Git 초기화
-  await initGit(cwd, targetDir, docsRepo, lang, pushDocs, docsRemote);
-
-  console.log(chalk.blue(tr(lang, 'cli', 'init.log.nextStepsTitle')));
-  console.log(
-    chalk.gray(tr(lang, 'cli', 'init.log.nextSteps1', { docsDir: targetDir }))
+    { owner: 'init' }
   );
-  console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
-  console.log();
 }
 
 async function initGit(
