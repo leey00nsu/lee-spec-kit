@@ -100,6 +100,7 @@ npx lee-spec-kit init --name my-project --type fullstack
 | `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
 | `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
+| `--non-interactive` | Fail immediately instead of prompting for user input                                        | `false`                         |
 
 > After generating docs, `init` automatically attempts Git setup/commit (`git init`, `git add`, `git commit`). Auto-commit may be skipped depending on environment/state.
 
@@ -124,6 +125,7 @@ npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 | `-r, --repo <repo>` | `fe` or `be` (fullstack only)               | interactive  |
 | `--id <id>`         | Feature ID (`F001` format)                  | auto-generate |
 | `-d, --desc <desc>` | Default purpose/description text for `spec.md` | empty string |
+| `--non-interactive` | Fail immediately instead of prompting for user input | `false` |
 
 ### Context (agent guide)
 

@@ -36,6 +36,7 @@ interface InitOptions {
   workflow?: 'github' | 'local';
   dir?: string;
   yes?: boolean;
+  nonInteractive?: boolean;
 }
 
 export function initCommand(program: Command): void {
@@ -48,6 +49,7 @@ export function initCommand(program: Command): void {
     .option('--workflow <mode>', 'Workflow mode: github | local')
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('-y, --yes', 'Skip prompts and use defaults')
+    .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (options: InitOptions) => {
       try {
         await runInit(options);
@@ -78,6 +80,12 @@ async function runInit(options: InitOptions): Promise<void> {
   let docsRemote: string | undefined;
   let projectRoot: string | { fe: string; be: string } | undefined;
   const targetDir = path.resolve(cwd, options.dir || './docs');
+
+  if (options.nonInteractive && !options.yes) {
+    throw new Error(
+      '`--non-interactive` requires `--yes` (or explicit options) to avoid interactive prompts.'
+    );
+  }
 
   // Git 환경 감지
   const isInsideGitRepo = checkGitRepo(cwd);
@@ -335,6 +343,12 @@ async function runInit(options: InitOptions): Promise<void> {
       if (await fs.pathExists(targetDir)) {
         const files = await fs.readdir(targetDir);
         if (files.length > 0) {
+          if (options.nonInteractive) {
+            throw new Error(
+              `Target directory is not empty: ${targetDir}. Re-run without --non-interactive to confirm overwrite.`
+            );
+          }
+
           const { overwrite } = await prompts({
             type: 'confirm',
             name: 'overwrite',

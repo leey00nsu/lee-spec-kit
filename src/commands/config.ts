@@ -10,6 +10,7 @@ import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 interface ConfigOptions {
   projectRoot?: string;
   repo?: 'fe' | 'be';
+  nonInteractive?: boolean;
 }
 
 export function configCommand(program: Command): void {
@@ -18,6 +19,7 @@ export function configCommand(program: Command): void {
     .description('View or modify project configuration')
     .option('--project-root <path>', 'Set project root path')
     .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (options: ConfigOptions) => {
       try {
         await runConfig(options);
@@ -86,6 +88,11 @@ async function runConfig(options: ConfigOptions): Promise<void> {
       if (projectType === 'fullstack') {
         // Fullstack: --repo 필수
         if (!options.repo) {
+          if (options.nonInteractive) {
+            throw new Error(
+              '`--repo` is required for fullstack projectRoot update when using `--non-interactive`.'
+            );
+          }
           // 대화형으로 선택
           const response = await prompts(
             [

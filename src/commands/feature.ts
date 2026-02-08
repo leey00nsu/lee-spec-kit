@@ -23,6 +23,7 @@ interface FeatureOptions {
   repo?: 'be' | 'fe';
   id?: string;
   desc?: string;
+  nonInteractive?: boolean;
 }
 
 export function featureCommand(program: Command): void {
@@ -32,6 +33,7 @@ export function featureCommand(program: Command): void {
     .option('-r, --repo <repo>', 'Repository type: be | fe (fullstack only)')
     .option('--id <id>', 'Feature ID (default: auto)')
     .option('-d, --desc <description>', 'Feature description for spec.md')
+    .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (name: string, options: FeatureOptions) => {
       try {
         await runFeature(name, options);
@@ -78,6 +80,11 @@ async function runFeature(
 
   // fullstack인 경우 repo 선택 필요
   if (projectType === 'fullstack' && !repo) {
+    if (options.nonInteractive) {
+      throw new Error(
+        '`--repo` is required in fullstack mode when using `--non-interactive`.'
+      );
+    }
     const response = await prompts(
       {
         type: 'select',

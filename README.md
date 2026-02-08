@@ -115,6 +115,7 @@ npx lee-spec-kit init --name my-project --type fullstack
 | `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
 | `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |
+| `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패                       | `false`                   |
 
 > `init`은 docs 생성 후 Git 초기화/커밋(`git init`, `git add`, `git commit`)을 자동 시도합니다. 환경에 따라 자동 커밋이 생략될 수 있습니다.
 
@@ -139,6 +140,7 @@ npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 | `-r, --repo <repo>` | `fe` 또는 `be` (fullstack일 때만)            | 대화형 선택 |
 | `--id <id>`         | Feature ID (`F001` 형식)                     | 자동 생성   |
 | `-d, --desc <desc>` | `spec.md`의 목적(설명) 기본 문구             | 빈 문자열   |
+| `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패 | `false`     |
 
 ### Context 확인 (AI 에이전트 가이드)
 
