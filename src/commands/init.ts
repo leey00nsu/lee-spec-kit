@@ -67,13 +67,14 @@ export function initCommand(program: Command): void {
           );
           process.exit(0);
         }
+        const lang = options.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
-        const suggestions = getCliErrorSuggestions(cliError.code);
+        const suggestions = getCliErrorSuggestions(cliError.code, lang);
         console.error(
-          chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+          chalk.red(tr(lang, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
-        printCliErrorSuggestions(suggestions);
+        printCliErrorSuggestions(suggestions, lang);
         process.exit(1);
       }
     });
@@ -92,19 +93,13 @@ async function runInit(options: InitOptions): Promise<void> {
   let docsRemote: string | undefined;
   let projectRoot: string | { fe: string; be: string } | undefined;
   const targetDir = path.resolve(cwd, options.dir || './docs');
-
-  if (options.nonInteractive && !options.yes) {
-    throw createCliError(
-      'PROMPT_BLOCKED',
-      '`--non-interactive` requires `--yes` (or explicit options) to avoid interactive prompts.'
-    );
-  }
+  const skipPrompts = !!options.yes || !!options.nonInteractive;
 
   // Git 환경 감지
   const isInsideGitRepo = checkGitRepo(cwd);
 
-  // 대화형 프롬프트 (--yes가 없을 때)
-  if (!options.yes) {
+  // 대화형 프롬프트 (--yes / --non-interactive가 없을 때)
+  if (!skipPrompts) {
     // 언어 선택을 먼저 받아 이후 모든 프롬프트/메시지를 동일 언어로 출력
     if (!options.lang) {
       const langResponse = await prompts(

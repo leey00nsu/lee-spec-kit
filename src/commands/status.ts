@@ -5,6 +5,12 @@ import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { scanFeatures } from '../utils/context.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
+import {
+  createCliError,
+  getCliErrorSuggestions,
+  printCliErrorSuggestions,
+  toCliError,
+} from '../utils/cli-error.js';
 
 interface StatusOptions {
   write?: boolean;
@@ -31,7 +37,15 @@ export function statusCommand(program: Command): void {
       try {
         await runStatus(options);
       } catch (error) {
-        console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), error);
+        const config = await getConfig(process.cwd());
+        const lang = config?.lang ?? DEFAULT_LANG;
+        const cliError = toCliError(error);
+        const suggestions = getCliErrorSuggestions(cliError.code, lang);
+        console.error(
+          chalk.red(tr(lang, 'cli', 'common.errorLabel')),
+          chalk.red(`[${cliError.code}] ${cliError.message}`)
+        );
+        printCliErrorSuggestions(suggestions, lang);
         process.exit(1);
       }
     });
@@ -42,13 +56,10 @@ async function runStatus(options: StatusOptions): Promise<void> {
   const config = await getConfig(cwd);
 
   if (!config) {
-    console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')));
-    console.error(
-      chalk.red(
-        tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
-      )
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
     );
-    process.exit(1);
   }
 
   const { docsDir, projectType, projectName, lang } = config;
@@ -109,25 +120,20 @@ async function runStatus(options: StatusOptions): Promise<void> {
       ([, paths]) => paths.length > 1
     );
     if (duplicates.length > 0) {
-      console.error(chalk.red(tr(lang, 'cli', 'status.duplicateIds')));
-      for (const [id, paths] of duplicates) {
-        console.error(chalk.red(`  ${id}:`));
-        for (const p of paths) {
-          console.error(chalk.red(`    - ${p}`));
-        }
-      }
-      process.exit(1);
+      const duplicateIds = duplicates.map(([id]) => id).join(', ');
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `${tr(lang, 'cli', 'status.duplicateIds')} ${duplicateIds}`
+      );
     }
 
-    const unknowns = [...idMap.entries()].filter(([id]) => id === "UNKNOWN");
+    const unknowns = [...idMap.entries()].filter(([id]) => id === 'UNKNOWN');
     if (unknowns.length > 0) {
-      console.error(chalk.red(tr(lang, 'cli', 'status.missingIds')));
-      for (const [, paths] of unknowns) {
-        for (const p of paths) {
-          console.error(chalk.red(`  - ${p}`));
-        }
-      }
-      process.exit(1);
+      const missingPaths = unknowns.flatMap(([, paths]) => paths).join(', ');
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `${tr(lang, 'cli', 'status.missingIds')} ${missingPaths}`
+      );
     }
   }
 

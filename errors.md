@@ -4,7 +4,7 @@
 
 ## 1) 공통 명령 오류 코드 (`CliReasonCode`)
 
-아래 코드는 주요 명령(`init`, `feature`, `config`, `update`, `context`)에서 공통으로 사용됩니다.
+아래 코드는 주요 명령(`init`, `feature`, `config`, `update`, `context`, `doctor`, `status`)에서 공통으로 사용됩니다.
 
 | 코드 | 의미 | 대표 발생 상황 |
 | --- | --- | --- |

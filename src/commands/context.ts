@@ -300,8 +300,10 @@ export function contextCommand(program: Command): void {
         try {
           await runContext(featureName, options);
         } catch (error) {
+          const config = await getConfig(process.cwd());
+          const lang = config?.lang ?? DEFAULT_LANG;
           const cliError = toCliError(error);
-          const suggestions = getCliErrorSuggestions(cliError.code);
+          const suggestions = getCliErrorSuggestions(cliError.code, lang);
           if (options.json) {
             console.log(
               JSON.stringify({
@@ -313,10 +315,10 @@ export function contextCommand(program: Command): void {
             );
           } else {
             console.error(
-              chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+              chalk.red(tr(lang, 'cli', 'common.errorLabel')),
               chalk.red(`[${cliError.code}] ${cliError.message}`)
             );
-            printCliErrorSuggestions(suggestions);
+            printCliErrorSuggestions(suggestions, lang);
           }
           process.exit(1);
         }

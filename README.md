@@ -111,7 +111,7 @@ npx lee-spec-kit init --name my-project --type fullstack
 | 옵션                | 설명                                                                 | 기본값                    |
 | ------------------- | -------------------------------------------------------------------- | ------------------------- |
 | `-n, --name <name>` | 프로젝트 이름                                                        | 현재 폴더명               |
-| `-t, --type <type>` | `single` 또는 `fullstack`                                            | 대화형 선택 (`--yes`면 `single`) |
+| `-t, --type <type>` | `single` 또는 `fullstack`                                            | 대화형 선택 (`--yes`/`--non-interactive`면 `single`) |
 | `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어)                                       | `en`                      |
 | `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |

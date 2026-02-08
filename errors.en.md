@@ -4,7 +4,7 @@
 
 ## 1) Common command error codes (`CliReasonCode`)
 
-These codes are shared by major commands (`init`, `feature`, `config`, `update`, `context`).
+These codes are shared by major commands (`init`, `feature`, `config`, `update`, `context`, `doctor`, `status`).
 
 | Code | Meaning | Typical trigger |
 | --- | --- | --- |

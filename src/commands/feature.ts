@@ -50,13 +50,15 @@ export function featureCommand(program: Command): void {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
+        const config = await getConfig(process.cwd());
+        const lang = config?.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
-        const suggestions = getCliErrorSuggestions(cliError.code);
+        const suggestions = getCliErrorSuggestions(cliError.code, lang);
         console.error(
-          chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')),
+          chalk.red(tr(lang, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
-        printCliErrorSuggestions(suggestions);
+        printCliErrorSuggestions(suggestions, lang);
         process.exit(1);
       }
     });

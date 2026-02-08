@@ -5,6 +5,12 @@ import path from 'path';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { scanFeatures, FeatureContext } from '../utils/context.js';
+import {
+  createCliError,
+  getCliErrorSuggestions,
+  printCliErrorSuggestions,
+  toCliError,
+} from '../utils/cli-error.js';
 
 type IssueLevel = 'error' | 'warn';
 
@@ -209,110 +215,137 @@ export function doctorCommand(program: Command): void {
     .option('--json', 'Output in JSON format for agents')
     .option('-s, --strict', 'Exit with non-zero code when issues are found')
     .action(async (options: DoctorOptions) => {
-      const cwd = process.cwd();
-      const config = await getConfig(cwd);
+      try {
+        const cwd = process.cwd();
+        const config = await getConfig(cwd);
 
-      if (!config) {
-        const message = tr(DEFAULT_LANG, 'cli', 'common.configNotFound');
+        if (!config) {
+          throw createCliError(
+            'CONFIG_NOT_FOUND',
+            tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
+          );
+        }
+
+        const { docsDir, projectType, lang } = config;
+        const { features, branches, warnings } = await scanFeatures(config);
+
+        const issues: DoctorIssue[] = [];
+        issues.push(...(await checkDocsStructure({ docsDir, projectType, lang }, cwd)));
+        issues.push(
+          ...(await checkFeatures({ docsDir, projectType, lang }, cwd, features))
+        );
+
+        const hasIssues = issues.length > 0;
+        const hasErrors = issues.some((i) => i.level === 'error');
+        const exitCode = options.strict && hasIssues ? 1 : 0;
+
         if (options.json) {
-          console.log(JSON.stringify({ status: 'error', error: message }, null, 2));
+          console.log(
+            JSON.stringify(
+              {
+                status: hasErrors ? 'error' : hasIssues ? 'warn' : 'ok',
+                meta: { docsDir, projectType, lang },
+                branches,
+                warnings,
+                counts: {
+                  features: features.length,
+                  issues: issues.length,
+                  errors: issues.filter((i) => i.level === 'error').length,
+                  warnings: issues.filter((i) => i.level === 'warn').length,
+                },
+                issues,
+              },
+              null,
+              2
+            )
+          );
+          process.exit(exitCode);
+        }
+
+        console.log();
+        console.log(chalk.bold(tr(lang, 'cli', 'doctor.title')));
+        console.log(chalk.gray(`- Docs: ${path.relative(cwd, docsDir)}`));
+        console.log(chalk.gray(`- Type: ${projectType}`));
+        console.log(chalk.gray(`- Lang: ${lang}`));
+        console.log();
+
+        if (warnings.length > 0) {
+          console.log(chalk.yellow(tr(lang, 'cli', 'doctor.envWarnings')));
+          warnings.forEach((w) => console.log(chalk.yellow(`  - ${w}`)));
+          console.log();
+        }
+
+        if (!hasIssues) {
+          console.log(chalk.green(tr(lang, 'cli', 'doctor.noIssues')));
+          console.log();
+          process.exit(0);
+        }
+
+        const errors = issues.filter((i) => i.level === 'error');
+        const warns = issues.filter((i) => i.level === 'warn');
+
+        if (errors.length > 0) {
+          console.log(
+            chalk.red(
+              `❌ ${tr(lang, 'cli', 'doctor.errorsTitle')} (${errors.length})`
+            )
+          );
+          errors.forEach((i) =>
+            console.log(chalk.red(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`))
+          );
+          console.log();
+        }
+
+        if (warns.length > 0) {
+          console.log(
+            chalk.yellow(
+              `⚠️  ${tr(lang, 'cli', 'doctor.warningsTitle')} (${warns.length})`
+            )
+          );
+          warns.forEach((i) =>
+            console.log(
+              chalk.yellow(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`)
+            )
+          );
+          console.log();
+        }
+
+        console.log(
+          chalk.gray(
+            tr(lang, 'cli', 'doctor.tipJson', {
+              strictFlag: options.strict ? ' --strict' : '',
+            })
+          )
+        );
+        console.log();
+
+        process.exit(exitCode);
+      } catch (error) {
+        const config = await getConfig(process.cwd());
+        const lang = config?.lang ?? DEFAULT_LANG;
+        const cliError = toCliError(error, 'UNKNOWN_ERROR');
+        const suggestions = getCliErrorSuggestions(cliError.code, lang);
+        if (options.json) {
+          console.log(
+            JSON.stringify(
+              {
+                status: 'error',
+                reasonCode: cliError.code,
+                error: cliError.message,
+                suggestions,
+              },
+              null,
+              2
+            )
+          );
         } else {
-          console.error(chalk.red(tr(DEFAULT_LANG, 'cli', 'common.errorLabel')), message);
+          console.error(
+            chalk.red(tr(lang, 'cli', 'common.errorLabel')),
+            chalk.red(`[${cliError.code}] ${cliError.message}`)
+          );
+          printCliErrorSuggestions(suggestions, lang);
         }
         process.exit(1);
       }
-
-      const { docsDir, projectType, lang } = config;
-      const { features, branches, warnings } = await scanFeatures(config);
-
-      const issues: DoctorIssue[] = [];
-      issues.push(...(await checkDocsStructure({ docsDir, projectType, lang }, cwd)));
-      issues.push(...(await checkFeatures({ docsDir, projectType, lang }, cwd, features)));
-
-      const hasIssues = issues.length > 0;
-      const hasErrors = issues.some((i) => i.level === 'error');
-      const exitCode = options.strict && hasIssues ? 1 : 0;
-
-      if (options.json) {
-        console.log(
-          JSON.stringify(
-            {
-              status: hasErrors ? 'error' : hasIssues ? 'warn' : 'ok',
-              meta: { docsDir, projectType, lang },
-              branches,
-              warnings,
-              counts: {
-                features: features.length,
-                issues: issues.length,
-                errors: issues.filter((i) => i.level === 'error').length,
-                warnings: issues.filter((i) => i.level === 'warn').length,
-              },
-              issues,
-            },
-            null,
-            2
-          )
-        );
-        process.exit(exitCode);
-      }
-
-      console.log();
-      console.log(chalk.bold(tr(lang, 'cli', 'doctor.title')));
-      console.log(chalk.gray(`- Docs: ${path.relative(cwd, docsDir)}`));
-      console.log(chalk.gray(`- Type: ${projectType}`));
-      console.log(chalk.gray(`- Lang: ${lang}`));
-      console.log();
-
-      if (warnings.length > 0) {
-        console.log(
-          chalk.yellow(tr(lang, 'cli', 'doctor.envWarnings'))
-        );
-        warnings.forEach((w) => console.log(chalk.yellow(`  - ${w}`)));
-        console.log();
-      }
-
-      if (!hasIssues) {
-        console.log(chalk.green(tr(lang, 'cli', 'doctor.noIssues')));
-        console.log();
-        process.exit(0);
-      }
-
-      const errors = issues.filter((i) => i.level === 'error');
-      const warns = issues.filter((i) => i.level === 'warn');
-
-      if (errors.length > 0) {
-        console.log(
-          chalk.red(`❌ ${tr(lang, 'cli', 'doctor.errorsTitle')} (${errors.length})`)
-        );
-        errors.forEach((i) =>
-          console.log(chalk.red(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`))
-        );
-        console.log();
-      }
-
-      if (warns.length > 0) {
-        console.log(
-          chalk.yellow(
-            `⚠️  ${tr(lang, 'cli', 'doctor.warningsTitle')} (${warns.length})`
-          )
-        );
-        warns.forEach((i) =>
-          console.log(
-            chalk.yellow(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`)
-          )
-        );
-        console.log();
-      }
-
-      console.log(
-        chalk.gray(
-          tr(lang, 'cli', 'doctor.tipJson', {
-            strictFlag: options.strict ? ' --strict' : '',
-          })
-        )
-      );
-      console.log();
-
-      process.exit(exitCode);
     });
 }

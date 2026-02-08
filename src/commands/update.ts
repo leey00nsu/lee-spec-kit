@@ -44,12 +44,12 @@ export function updateCommand(program: Command): void {
           process.exit(0);
         }
         const cliError = toCliError(error);
-        const suggestions = getCliErrorSuggestions(cliError.code);
+        const suggestions = getCliErrorSuggestions(cliError.code, lang);
         console.error(
           chalk.red(tr(lang, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
-        printCliErrorSuggestions(suggestions);
+        printCliErrorSuggestions(suggestions, lang);
         process.exit(1);
       }
     });

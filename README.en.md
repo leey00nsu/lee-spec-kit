@@ -95,7 +95,7 @@ npx lee-spec-kit init --name my-project --type fullstack
 | Option              | Description                                                                                 | Default                         |
 | ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------- |
 | `-n, --name <name>` | Project name                                                                                | current folder                  |
-| `-t, --type <type>` | `single` or `fullstack`                                                                     | interactive (`single` with `--yes`) |
+| `-t, --type <type>` | `single` or `fullstack`                                                                     | interactive (`single` with `--yes`/`--non-interactive`) |
 | `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
 | `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
