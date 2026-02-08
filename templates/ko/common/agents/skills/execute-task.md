@@ -19,7 +19,7 @@ npx lee-spec-kit context
 
 ### 2단계: 태스크 수행 (Action)
 
-CLI가 가리키는 **Active Task** 또는 **Next Action**을 수행합니다.
+CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단일 옵션**을 수행합니다.
 
 - **[DOING] 상태인 태스크가 있다면**: 해당 태스크를 최우선으로 완료하세요.
 - 태스크 상태 전환/승인 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다. (예: `[TODO]→[DOING]`, `[DOING]→[DONE]` 시점의 OK)

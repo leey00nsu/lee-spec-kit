@@ -123,7 +123,7 @@ gh pr create \
 After all reviews are resolved:
 
 > ⚠️ Merging (`git merge`/`gh pr merge`) and creating merge commits are considered **remote git operations**.
-> Before running these commands, share the changes with the user and proceed only after the user replies with exactly `OK`.
+> Before running these commands, share the changes with the user and proceed only after the user replies in **`<label>` or `<label> OK` format** (e.g. `A`, `A OK`).
 
 ```bash
 # Update main before merge

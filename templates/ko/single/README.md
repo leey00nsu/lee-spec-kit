@@ -30,7 +30,7 @@
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
-- `approval` (object, optional): `context` 출력의 `[확인 필요]` / `requiresUserCheck` 정책 오버라이드 (승인 토큰: `OK`)
+- `approval` (object, optional): `context` 출력의 `[확인 필요]` / `requiresUserCheck` 정책 오버라이드 (승인 토큰: `A`, 허용: `A`/`A OK`)
 
 ### 예시
 

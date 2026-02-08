@@ -31,7 +31,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output (approval token: `OK`)
+- `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output (approval token: `A`, accepted: `A`/`A OK`)
 
 ### Examples
 

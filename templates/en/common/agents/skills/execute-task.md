@@ -17,7 +17,7 @@ npx lee-spec-kit context
 
 ### Step 2: Do the next action only
 
-Execute the `👉 Next Action` exactly as printed by the CLI.
+Execute exactly one option from `👉 Next Options (Atomic)` as printed by the CLI.
 
 - If the CLI points to an active task, focus on that task only.
 - Treat the task state/approval rules in `tasks.md` **"Task Rules"** as SSOT (e.g. when OK is required for `[TODO]→[DOING]`, `[DOING]→[DONE]`).

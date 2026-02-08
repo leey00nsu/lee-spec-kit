@@ -142,6 +142,7 @@ npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 ### Context 확인 (AI 에이전트 가이드)
 
 현재 작업 중인 Feature의 상태와 다음 할 일을 확인합니다. 특히 AI 에이전트가 프로세스를 준수하는 데 유용합니다.
+단일 Feature 상세에서는 다음 작업을 항상 `A/B/C` 옵션으로 표시합니다.
 
 ```bash
 # 자동 감지 (Git 브랜치 기준)
@@ -163,6 +164,12 @@ npx lee-spec-kit context --done
 
 # 에이전트용 JSON 출력
 npx lee-spec-kit context --json
+
+# 라벨 승인 선택 (검증만)
+npx lee-spec-kit context F001 --approve A
+
+# 라벨 승인 + 단일 명령 실행
+npx lee-spec-kit context F001 --approve "A OK" --execute
 ```
 
 **옵션:**
@@ -173,15 +180,18 @@ npx lee-spec-kit context --json
 | `--repo <repo>` | fullstack에서 대상 레포 지정 (`fe` 또는 `be`)   |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
+| `--approve <reply>` | 라벨 승인 응답 (`A` 또는 `A OK`)으로 단일 옵션 선택 |
+| `--execute`     | `--approve`로 선택한 옵션이 command일 때 1개만 실행 |
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
 
 - `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복사하여 붙여넣기 가능한 형태로 `cd ... && git ...` 형태로 출력)
 - `type: "instruction"`: 사람이 수행해야 하는 안내 메시지
+- `actionOptions`: `label`(`A`, `B`, `C`...)과 해당 `action` 매핑
 - `category`: 액션 분류 (자동화/반자동용 `approval.mode: "category"`에서 사용)
-- `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 정확히 `OK`로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
+- `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)으로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
 
-또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "OK"`, `config`)
+또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "A"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
 
 ### 상태 확인
 
@@ -282,11 +292,15 @@ npx lee-spec-kit update --force
 
 - 텍스트 출력의 `[확인 필요]` 표시
 - `context --json`의 `actions[].requiresUserCheck`
-- `checkPolicy.token` (`context --json`): 승인 토큰 (`OK`)
+- `checkPolicy.token` (`context --json`): 승인 토큰 형식 예시 (`A`)
+- `checkPolicy.acceptedTokens`: 허용되는 승인 응답 예시 (예: `["A", "A OK"]`)
+- `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
+- `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
+- `checkPolicy.contextVersion`: stale context 검증용 스냅샷 해시
 
 > 실제 명령 실행을 강제/차단하는 기능은 아닙니다. (에이전트가 참고하도록 신호를 제공)
 > 기존 설정에 `approval`이 없으면 `builtin`으로 동작합니다. (마이그레이션 불필요)
-> `requiresUserCheck: true`인 액션은 에이전트가 사용자로부터 **정확히 `OK` 응답**을 받은 뒤 진행하는 것을 권장합니다.
+> `requiresUserCheck: true`인 액션은 에이전트가 사용자로부터 **정확히 `<라벨>` 또는 `<라벨> OK` 응답(예: `A`, `A OK`)**을 받은 뒤 진행하는 것을 권장합니다.
 
 #### 모드
 

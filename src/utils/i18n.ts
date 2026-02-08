@@ -108,7 +108,9 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 규칙: /docs/agents/agents.md 참고 (git push/merge/merge commit 포함) — [확인 필요]가 있으면 사용자에게 정확히 OK 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 규칙: /docs/agents/agents.md 참고 (git push/merge/merge commit 포함) — [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+      'context.actionOptionHint':
+        '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
       'context.tipDocsCommitRules':
         '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
@@ -191,17 +193,19 @@ const I18N: Record<Lang, I18nData> = {
       specCreate:
         'spec.md 템플릿을 복사해 작성하세요. (features/feature-base/spec.md 참고)',
       specImprove: 'spec.md를 보완하고 상태를 Review로 변경하세요.',
-      specApproval: 'spec.md 내용을 사용자에게 공유하고 승인(OK)을 받으세요.',
+      specApproval:
+        'spec.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       planCreate:
         'plan.md 템플릿을 복사해 작성하세요. (features/feature-base/plan.md 참고)',
       planImprove: 'plan.md를 보완하고 상태를 Review로 변경하세요.',
-      planApproval: 'plan.md 내용을 사용자에게 공유하고 승인(OK)을 받으세요.',
+      planApproval:
+        'plan.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       tasksCreate:
         'tasks.md 템플릿을 복사해 태스크를 작성하세요. (features/feature-base/tasks.md 참고)',
       tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
       tasksImprove: 'tasks.md를 보완하고 문서 상태를 Review로 변경하세요.',
       tasksApproval:
-        'tasks.md 내용을 사용자에게 공유하고 진행 승인(OK)을 받으세요. (승인 후 문서 상태를 Approved로 변경)',
+        'tasks.md 내용을 사용자에게 공유하고 진행 승인(`A` 또는 `A OK` 형식)을 받으세요. (승인 후 문서 상태를 Approved로 변경)',
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
@@ -219,9 +223,9 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         '모든 태스크가 DONE이지만 완료 조건 체크리스트가 완전히 체크되지 않았습니다. ({checked}/{total})',
       finishDoingTask:
-        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 결과/검증 공유 + 승인(OK) 후 DONE 처리) (skills/execute-task.md 참고)',
+        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리) (skills/execute-task.md 참고)',
       startNextTodoTask:
-        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 제목 공유 + 승인(OK) 후 DOING 처리) (skills/execute-task.md 참고)',
+        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리) (skills/execute-task.md 참고)',
       checkTaskStatuses:
         '태스크 상태를 확인하세요. ({done}/{total}) (skills/execute-task.md 참고)',
       prLegacyAsk:
@@ -346,7 +350,9 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  User check policy: see /docs/agents/agents.md (includes git push/merge and merge commits) — if you see [CHECK required], wait for explicit OK before proceeding (config: approval can override)',
+        'ℹ️  User check policy: see /docs/agents/agents.md (includes git push/merge and merge commits) — if you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
+      'context.actionOptionHint':
+        'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
       'context.tipDocsCommitRules':
         'Commit message rules: /docs/agents/git-workflow.md',
       'context.list.docsCommitNeeded': 'Commit docs changes',
@@ -430,17 +436,19 @@ const I18N: Record<Lang, I18nData> = {
       specCreate:
         'Create spec.md by copying the template. (See features/feature-base/spec.md)',
       specImprove: 'Improve spec.md and change Status to Review.',
-      specApproval: 'Share spec.md with the user and get approval (OK).',
+      specApproval:
+        'Share spec.md with the user and get approval (`A` or `A OK` format).',
       planCreate:
         'Create plan.md by copying the template. (See features/feature-base/plan.md)',
       planImprove: 'Improve plan.md and change Status to Review.',
-      planApproval: 'Share plan.md with the user and get approval (OK).',
+      planApproval:
+        'Share plan.md with the user and get approval (`A` or `A OK` format).',
       tasksCreate:
         'Create tasks.md by copying the template. (See features/feature-base/tasks.md)',
       tasksNeedAtLeastOne: 'Write at least 1 task in tasks.md.',
       tasksImprove: 'Improve tasks.md and change Doc Status to Review.',
       tasksApproval:
-        'Share tasks.md with the user and get progress approval (OK). (Then set Doc Status to Approved)',
+        'Share tasks.md with the user and get progress approval (`A` or `A OK` format). (Then set Doc Status to Approved)',
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:

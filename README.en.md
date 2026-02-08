@@ -126,6 +126,8 @@ npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 
 ### Context (agent guide)
 
+For a single matched feature, next steps are always shown as `A/B/C` options.
+
 ```bash
 # Auto-detect (based on git branch)
 npx lee-spec-kit context
@@ -146,6 +148,12 @@ npx lee-spec-kit context --done
 
 # JSON output (for agents)
 npx lee-spec-kit context --json
+
+# approve a labeled option (validation only)
+npx lee-spec-kit context F001 --approve A
+
+# approve + execute exactly one command option
+npx lee-spec-kit context F001 --approve "A OK" --execute
 ```
 
 **Options:**
@@ -156,6 +164,8 @@ npx lee-spec-kit context --json
 | `--repo <repo>`| Select target repo in fullstack (`fe` or `be`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
+| `--approve <reply>` | Approve one labeled option (`A` or `A OK`) |
+| `--execute`    | Execute only the approved option when it is a command |
 
 ### Status
 
@@ -233,11 +243,16 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 
 - the `[CHECK required]` tag in text output
 - `actions[].requiresUserCheck` in `context --json`
-- `checkPolicy.token` (`context --json`): recommended approval token (`OK`)
+- `checkPolicy.token` (`context --json`): recommended approval token format (`A`)
+- `checkPolicy.acceptedTokens`: accepted examples (e.g. `["A", "A OK"]`)
+- `checkPolicy.tokenPattern`: input validation regex for approval replies
+- `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
+- `checkPolicy.contextVersion`: snapshot hash for stale-context validation
+- `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
 
 > This does not enforce/deny execution by itself; it’s a signal for agents.
 > If `approval` is omitted, it behaves as `builtin`. (No migration required)
-> When `requiresUserCheck: true`, it’s recommended that agents wait for an explicit `OK` response before proceeding.
+> When `requiresUserCheck: true`, it’s recommended that agents wait for an explicit `<label>` or `<label> OK` response (e.g. `A`, `A OK`) before proceeding.
 
 #### Modes
 

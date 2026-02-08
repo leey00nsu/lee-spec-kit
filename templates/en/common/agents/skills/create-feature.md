@@ -17,9 +17,10 @@ Run this command whenever you start work or finish a step:
 npx lee-spec-kit context
 ```
 
-### Step 2: Do exactly what the CLI says
+### Step 2: Execute one option only (Next Options)
 
-Read the `👉 Next Action` output and execute **only that instruction**.
+Read `👉 Next Options (Atomic)`, choose exactly one option (`A/B/C`), and execute **only that option**.
+For gated actions, proceed only after the user replies in **`<label>` or `<label> OK` format** (e.g. `A`, `A OK`).
 
 - If the CLI indicates **Review**, share the document with the user and stop.
 - If the CLI asks for writing a file, write that file and follow the format.

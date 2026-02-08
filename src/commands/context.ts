@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
+import { createHash } from 'crypto';
+import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
@@ -16,6 +18,253 @@ interface ContextOptions {
   repo?: 'fe' | 'be';
   all?: boolean;
   done?: boolean;
+  approve?: string;
+  execute?: boolean;
+}
+
+type ContextSelectionOptions = Pick<ContextOptions, 'repo' | 'all' | 'done'>;
+
+type ContextStatus =
+  | 'no_features'
+  | 'no_open'
+  | 'single_matched'
+  | 'multiple_active'
+  | 'no_match';
+
+type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'all';
+
+type ActionOption = ReturnType<typeof toActionOptions>[number];
+
+interface ResolvedContextState {
+  features: FeatureContext[];
+  branches: {
+    docs: string;
+    project: { single?: string; fe?: string; be?: string };
+  };
+  warnings: string[];
+  doneFeatures: FeatureContext[];
+  openFeatures: FeatureContext[];
+  inProgressFeatures: FeatureContext[];
+  readyToCloseFeatures: FeatureContext[];
+  selectionMode: ContextSelectionMode;
+  targetFeatures: FeatureContext[];
+  status: ContextStatus;
+  matchedFeature: FeatureContext | null;
+  actions: FeatureContext['actions'];
+  actionOptions: ActionOption[];
+  contextVersion: string | null;
+}
+
+function getActionLabel(index: number): string {
+  // 0 -> A, 25 -> Z, 26 -> AA
+  let n = index + 1;
+  let label = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+function toActionOptions(actions: FeatureContext['actions']) {
+  return actions.map((action, index) => ({
+    label: getActionLabel(index),
+    action,
+  }));
+}
+
+function buildActionSnapshot(
+  actionOptions: ReturnType<typeof toActionOptions>
+): Array<Record<string, string | boolean | undefined>> {
+  return actionOptions.map(({ label, action }) => {
+    if (action.type === 'command') {
+      return {
+        label,
+        type: action.type,
+        scope: action.scope,
+        cwd: action.cwd,
+        cmd: action.cmd,
+        category: action.category,
+        requiresUserCheck: !!action.requiresUserCheck,
+      };
+    }
+    return {
+      label,
+      type: action.type,
+      message: action.message,
+      category: action.category,
+      requiresUserCheck: !!action.requiresUserCheck,
+    };
+  });
+}
+
+function getContextVersion(
+  feature: FeatureContext | null,
+  actionOptions: ReturnType<typeof toActionOptions>
+): string | null {
+  if (!feature) return null;
+  const payload = JSON.stringify({
+    id: feature.id || '',
+    folderName: feature.folderName,
+    currentStep: feature.currentStep,
+    actionSnapshot: buildActionSnapshot(actionOptions),
+  });
+  return createHash('sha256').update(payload).digest('hex').slice(0, 12);
+}
+
+function parseApprovalLabel(input: string): string | null {
+  const match = input.trim().match(/^([A-Z]{1,2})(?:\s+OK)?$/i);
+  if (!match) return null;
+  return match[1].toUpperCase();
+}
+
+function listLabels(actionOptions: ActionOption[]): string {
+  if (actionOptions.length === 0) return '-';
+  return actionOptions.map((o) => o.label).join(', ');
+}
+
+function formatActionSummary(action: FeatureContext['actions'][number]): string {
+  if (action.type === 'command') {
+    return `(${action.scope}) ${action.cmd}`;
+  }
+  return action.message;
+}
+
+function toSelectionStatus(
+  features: FeatureContext[],
+  selectionMode: ContextSelectionMode,
+  openFeatures: FeatureContext[],
+  targetFeatures: FeatureContext[]
+): ContextStatus {
+  const isNoOpen =
+    selectionMode === 'open' && features.length > 0 && openFeatures.length === 0;
+  if (features.length === 0) return 'no_features';
+  if (isNoOpen) return 'no_open';
+  if (targetFeatures.length === 1) return 'single_matched';
+  if (targetFeatures.length > 1) return 'multiple_active';
+  return 'no_match';
+}
+
+async function resolveContextState(
+  config: Awaited<ReturnType<typeof getConfig>>,
+  featureName: string | undefined,
+  options: ContextSelectionOptions
+): Promise<ResolvedContextState> {
+  if (!config) {
+    throw new Error(tr(DEFAULT_LANG, 'cli', 'common.configNotFound'));
+  }
+
+  const { features, branches, warnings } = await scanFeatures(config);
+  const doneFeatures = features.filter((f) => f.completion.workflowDone);
+  const openFeatures = features.filter((f) => !f.completion.workflowDone);
+  const inProgressFeatures = openFeatures.filter(
+    (f) => !f.completion.implementationDone
+  );
+  const readyToCloseFeatures = openFeatures.filter(
+    (f) => f.completion.implementationDone
+  );
+
+  let targetFeatures: FeatureContext[] = [];
+  let selectionMode: ContextSelectionMode = 'explicit';
+
+  if (featureName) {
+    targetFeatures = features.filter((f) => matchesFeatureSelector(f, featureName));
+    if (options.repo) {
+      targetFeatures = targetFeatures.filter((f) => f.type === options.repo);
+    }
+    selectionMode = 'explicit';
+  } else {
+    if (config.projectType === 'single') {
+      const branchName = branches.project.single || '';
+      targetFeatures = detectFromBranch(branchName, features);
+    } else if (options.repo) {
+      const branchName = branches.project[options.repo] || '';
+      targetFeatures = detectFromBranch(
+        branchName,
+        features.filter((f) => f.type === options.repo)
+      );
+    } else {
+      const feMatches = branches.project.fe
+        ? detectFromBranch(
+            branches.project.fe,
+            features.filter((f) => f.type === 'fe')
+          )
+        : [];
+      const beMatches = branches.project.be
+        ? detectFromBranch(
+            branches.project.be,
+            features.filter((f) => f.type === 'be')
+          )
+        : [];
+      targetFeatures = [...feMatches, ...beMatches];
+    }
+
+    if (targetFeatures.length > 0) {
+      selectionMode = 'branch';
+    } else if (options.all) {
+      targetFeatures = features;
+      selectionMode = 'all';
+    } else if (options.done) {
+      targetFeatures = doneFeatures;
+      selectionMode = 'done';
+    } else {
+      targetFeatures = openFeatures;
+      selectionMode = 'open';
+    }
+  }
+
+  const status = toSelectionStatus(
+    features,
+    selectionMode,
+    openFeatures,
+    targetFeatures
+  );
+  const matchedFeature = targetFeatures.length === 1 ? targetFeatures[0] : null;
+  const actions = matchedFeature?.actions ?? [];
+  const actionOptions = toActionOptions(actions);
+  const contextVersion = getContextVersion(matchedFeature, actionOptions);
+
+  return {
+    features,
+    branches,
+    warnings,
+    doneFeatures,
+    openFeatures,
+    inProgressFeatures,
+    readyToCloseFeatures,
+    selectionMode,
+    targetFeatures,
+    status,
+    matchedFeature,
+    actions,
+    actionOptions,
+    contextVersion,
+  };
+}
+
+function executeCommandAction(
+  cmd: string,
+  jsonMode: boolean
+): { stdout?: string; stderr?: string } {
+  const shellPath =
+    process.env.SHELL ||
+    (process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh');
+
+  if (jsonMode) {
+    const stdout = execSync(cmd, {
+      shell: shellPath,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { stdout };
+  }
+
+  execSync(cmd, {
+    shell: shellPath,
+    stdio: 'inherit',
+  });
+  return {};
 }
 
 export function contextCommand(program: Command): void {
@@ -26,6 +275,8 @@ export function contextCommand(program: Command): void {
     .option('--repo <repo>', 'Repository type for fullstack: fe | be')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
+    .option('--approve <reply>', 'Approve one labeled option: A or A OK')
+    .option('--execute', 'Execute approved option when it is a command')
     .action(
       async (featureName: string | undefined, options: ContextOptions) => {
         try {
@@ -125,107 +376,59 @@ async function runContext(
     throw new Error(tr(DEFAULT_LANG, 'cli', 'common.configNotFound'));
   }
 
+  if (options.execute && !options.approve) {
+    throw new Error('`--execute` requires `--approve <label>`.');
+  }
+
   const stepDefinitions = getStepDefinitions(lang);
   const stepsMap = getStepsMap(lang);
+  const selectionOptions: ContextSelectionOptions = {
+    repo: options.repo,
+    all: options.all,
+    done: options.done,
+  };
+  const state = await resolveContextState(config, featureName, selectionOptions);
 
-  const { features, branches, warnings } = await scanFeatures(config);
-  const doneFeatures = features.filter((f) => f.completion.workflowDone);
-  const openFeatures = features.filter((f) => !f.completion.workflowDone);
-  const inProgressFeatures = openFeatures.filter(
-    (f) => !f.completion.implementationDone
-  );
-  const readyToCloseFeatures = openFeatures.filter(
-    (f) => f.completion.implementationDone
-  );
-
-  // 1. 타겟 Feature 찾기
-  let targetFeatures: FeatureContext[] = [];
-  let selectionMode:
-    | 'explicit'
-    | 'branch'
-    | 'open'
-    | 'done'
-    | 'all' = 'explicit';
-
-  if (featureName) {
-    // selector로 검색: slug | F001 | F001-user-auth
-    targetFeatures = features.filter((f) => matchesFeatureSelector(f, featureName));
-    if (options.repo) {
-      targetFeatures = targetFeatures.filter((f) => f.type === options.repo);
-    }
-    selectionMode = 'explicit';
-  } else {
-    // 자동 감지: 브랜치 이름에서 추출
-    if (config.projectType === 'single') {
-      const branchName = branches.project.single || '';
-      targetFeatures = detectFromBranch(branchName, features);
-    } else if (options.repo) {
-      const branchName = branches.project[options.repo] || '';
-      targetFeatures = detectFromBranch(
-        branchName,
-        features.filter((f) => f.type === options.repo)
-      );
-    } else {
-      const feMatches = branches.project.fe
-        ? detectFromBranch(
-            branches.project.fe,
-            features.filter((f) => f.type === 'fe')
-          )
-        : [];
-      const beMatches = branches.project.be
-        ? detectFromBranch(
-            branches.project.be,
-            features.filter((f) => f.type === 'be')
-          )
-        : [];
-      targetFeatures = [...feMatches, ...beMatches];
-    }
-
-    if (targetFeatures.length > 0) {
-      selectionMode = 'branch';
-    } else if (options.all) {
-      targetFeatures = features;
-      selectionMode = 'all';
-    } else if (options.done) {
-      targetFeatures = doneFeatures;
-      selectionMode = 'done';
-    } else {
-      targetFeatures = openFeatures;
-      selectionMode = 'open';
-    }
+  if (options.approve) {
+    await runApprovedOption(
+      state,
+      config,
+      lang,
+      featureName,
+      selectionOptions,
+      options
+    );
+    return;
   }
 
   // 2. 결과 출력 (JSON)
   if (options.json) {
-    const isNoOpen =
-      selectionMode === 'open' && features.length > 0 && openFeatures.length === 0;
     const result = {
-      status:
-        features.length === 0
-          ? 'no_features'
-          : isNoOpen
-            ? 'no_open'
-            : targetFeatures.length === 1
-              ? 'single_matched'
-              : targetFeatures.length > 1
-                ? 'multiple_active'
-                : 'no_match',
-      selectionMode,
-      branches,
-      warnings,
-      matchedFeature: targetFeatures.length === 1 ? targetFeatures[0] : null,
-      candidates: targetFeatures.length > 1 ? targetFeatures : [],
+      status: state.status,
+      selectionMode: state.selectionMode,
+      branches: state.branches,
+      warnings: state.warnings,
+      matchedFeature: state.matchedFeature,
+      candidates: state.targetFeatures.length > 1 ? state.targetFeatures : [],
       // "Completed" now means workflow-done.
-      completedCandidates: selectionMode === 'open' ? doneFeatures : [],
-      openCandidates: selectionMode === 'open' ? openFeatures : [],
-      inProgressCandidates: selectionMode === 'open' ? inProgressFeatures : [],
+      completedCandidates: state.selectionMode === 'open' ? state.doneFeatures : [],
+      openCandidates: state.selectionMode === 'open' ? state.openFeatures : [],
+      inProgressCandidates:
+        state.selectionMode === 'open' ? state.inProgressFeatures : [],
       readyToCloseCandidates:
-        selectionMode === 'open' ? readyToCloseFeatures : [],
-      actions: targetFeatures.length === 1 ? targetFeatures[0].actions : [],
+        state.selectionMode === 'open' ? state.readyToCloseFeatures : [],
+      actions: state.actions,
+      actionOptions: state.actionOptions,
       checkPolicy: {
         docPath: '/docs/agents/agents.md',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
-        token: 'OK',
+        token: 'A',
+        acceptedTokens: ['A', 'A OK'],
+        tokenPattern: '^([A-Z]{1,2})(?:\\s+OK)?$',
+        validLabels: state.actionOptions.map((o) => o.label),
+        oneApprovalPerAction: true,
+        requireFreshContext: true,
+        contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
       },
       prPolicy: {
@@ -244,7 +447,7 @@ async function runContext(
     } else if (result.status === 'no_match') {
       result.recommendation = 'No features found.';
     } else {
-      result.recommendation = targetFeatures[0].nextAction;
+      result.recommendation = state.targetFeatures[0].nextAction;
     }
 
     console.log(JSON.stringify(result, null, 2));
@@ -255,13 +458,15 @@ async function runContext(
   console.log();
   console.log(chalk.bold(tr(lang, 'cli', 'context.header')));
   if (config.projectType === 'single') {
-    if (branches.project.single) {
+    if (state.branches.project.single) {
       console.log(
-        chalk.gray(`   (Detected from Project Branch: ${branches.project.single})`)
+        chalk.gray(
+          `   (Detected from Project Branch: ${state.branches.project.single})`
+        )
       );
     }
   } else if (options.repo) {
-    const branchName = branches.project[options.repo] || '';
+    const branchName = state.branches.project[options.repo] || '';
     if (branchName) {
       console.log(
         chalk.gray(
@@ -269,20 +474,20 @@ async function runContext(
         )
       );
     }
-  } else if (branches.project.fe || branches.project.be) {
+  } else if (state.branches.project.fe || state.branches.project.be) {
     const parts = [
-      branches.project.fe ? `FE ${branches.project.fe}` : null,
-      branches.project.be ? `BE ${branches.project.be}` : null,
+      state.branches.project.fe ? `FE ${state.branches.project.fe}` : null,
+      state.branches.project.be ? `BE ${state.branches.project.be}` : null,
     ].filter(Boolean);
     console.log(chalk.gray(`   (Detected from Project Branch: ${parts.join(' / ')})`));
   }
-  if (config.docsRepo === 'standalone' && branches.docs) {
-    console.log(chalk.gray(`   (Docs Branch: ${branches.docs})`));
+  if (config.docsRepo === 'standalone' && state.branches.docs) {
+    console.log(chalk.gray(`   (Docs Branch: ${state.branches.docs})`));
   }
   console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
   console.log();
 
-  if (features.length === 0) {
+  if (state.features.length === 0) {
     console.log(
       chalk.yellow(
         tr(lang, 'cli', 'context.noActiveFeatures')
@@ -292,32 +497,32 @@ async function runContext(
     return;
   }
 
-  if (warnings.length > 0) {
+  if (state.warnings.length > 0) {
     console.log(chalk.yellow(tr(lang, 'cli', 'context.envWarnings')));
-    warnings.forEach((w) => console.log(chalk.yellow(`   - ${w}`)));
+    state.warnings.forEach((w) => console.log(chalk.yellow(`   - ${w}`)));
     console.log();
   }
 
-  if (targetFeatures.length > 1) {
-    if (selectionMode === 'open') {
+  if (state.targetFeatures.length > 1) {
+    if (state.selectionMode === 'open') {
       console.log(
         chalk.gray(
           `   ${tr(lang, 'cli', 'context.openFallbackSummary', {
-            inProgress: inProgressFeatures.length,
-            readyToClose: readyToCloseFeatures.length,
-            done: doneFeatures.length,
+            inProgress: state.inProgressFeatures.length,
+            readyToClose: state.readyToCloseFeatures.length,
+            done: state.doneFeatures.length,
           })}`
         )
       );
       console.log();
     }
-    if (selectionMode === 'open') {
+    if (state.selectionMode === 'open') {
       console.log(
         chalk.blue(
-          `🔹 ${tr(lang, 'cli', 'context.sectionInProgress')} (${inProgressFeatures.length})`
+          `🔹 ${tr(lang, 'cli', 'context.sectionInProgress')} (${state.inProgressFeatures.length})`
         )
       );
-      inProgressFeatures.forEach((f) => {
+      state.inProgressFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
@@ -329,10 +534,10 @@ async function runContext(
       console.log();
       console.log(
         chalk.blue(
-          `🔸 ${tr(lang, 'cli', 'context.sectionReadyToClose')} (${readyToCloseFeatures.length})`
+          `🔸 ${tr(lang, 'cli', 'context.sectionReadyToClose')} (${state.readyToCloseFeatures.length})`
         )
       );
-      readyToCloseFeatures.forEach((f) => {
+      state.readyToCloseFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
@@ -342,14 +547,14 @@ async function runContext(
       });
     } else {
       const title =
-        selectionMode === 'all'
-          ? `🔹 ${targetFeatures.length} Features:`
-          : selectionMode === 'done'
-            ? `🔹 ${targetFeatures.length} Done Features:`
-            : `🔹 ${targetFeatures.length} Features Detected:`;
+        state.selectionMode === 'all'
+          ? `🔹 ${state.targetFeatures.length} Features:`
+          : state.selectionMode === 'done'
+            ? `🔹 ${state.targetFeatures.length} Done Features:`
+            : `🔹 ${state.targetFeatures.length} Features Detected:`;
       console.log(chalk.blue(title));
       console.log();
-      targetFeatures.forEach((f) => {
+      state.targetFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang);
         const typeStr =
           config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
@@ -364,7 +569,7 @@ async function runContext(
     console.log(
       chalk.gray('   $ npx lee-spec-kit context <slug|F001|F001-slug> [--repo fe|be]')
     );
-    if (selectionMode === 'open') {
+    if (state.selectionMode === 'open') {
       console.log(
         chalk.gray(
           `   $ npx lee-spec-kit context --all   # ${tr(lang, 'cli', 'context.tipShowAll')}`
@@ -381,7 +586,7 @@ async function runContext(
   }
 
   // Single Matched Feature
-  const f = targetFeatures[0];
+  const f = state.targetFeatures[0];
   const stepName = stepsMap[f.currentStep] || 'Unknown';
 
   const checkTag = (requiresUserCheck?: boolean): string =>
@@ -439,38 +644,172 @@ async function runContext(
     return;
   }
 
-  if (f.actions.length === 1) {
-    const action = f.actions[0];
-    if (action.type === 'command') {
-      console.log(
-        `👉 Next Action (${chalk.cyan(action.scope)}): ${checkTag(action.requiresUserCheck)}${chalk.green(chalk.bold(action.cmd))}`
-      );
-      if (action.scope === 'docs') {
-        console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
-      }
-    } else {
-      console.log(
-        `👉 Next Action: ${checkTag(action.requiresUserCheck)}${chalk.green(chalk.bold(action.message))}`
-      );
-    }
-    console.log();
-    return;
-  }
-
-  console.log(chalk.green(chalk.bold('👉 Next Actions:')));
+  const actionOptions = toActionOptions(f.actions);
+  console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
-  f.actions.forEach((action) => {
+  actionOptions.forEach(({ label, action }) => {
     if (action.type === 'command') {
-      console.log(`   • (${action.scope}) ${checkTag(action.requiresUserCheck)}${action.cmd}`);
+      console.log(
+        `   ${label}. (${action.scope}) ${checkTag(action.requiresUserCheck)}${action.cmd}`
+      );
       if (action.scope === 'docs') hasDocsCommand = true;
     } else {
-      console.log(`   • ${checkTag(action.requiresUserCheck)}${action.message}`);
+      console.log(`   ${label}. ${checkTag(action.requiresUserCheck)}${action.message}`);
     }
   });
   if (hasDocsCommand) {
     console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
   }
+  if (hasCheckAction) {
+    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionOptionHint')}`));
+  }
   console.log();
+}
+
+async function runApprovedOption(
+  state: ResolvedContextState,
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  lang: 'ko' | 'en',
+  featureName: string | undefined,
+  selectionOptions: ContextSelectionOptions,
+  options: ContextOptions
+): Promise<void> {
+  const approval = options.approve || '';
+  const parsedLabel = parseApprovalLabel(approval);
+  if (!parsedLabel) {
+    throw new Error(
+      'Invalid approval reply. Use `<label>` or `<label> OK` (e.g. `A`, `A OK`).'
+    );
+  }
+
+  if (state.status !== 'single_matched' || !state.matchedFeature) {
+    throw new Error(
+      'Approval execution requires a single matched feature. Specify feature selector first.'
+    );
+  }
+
+  if (state.actionOptions.length === 0) {
+    throw new Error('No action options to approve.');
+  }
+
+  const selected = state.actionOptions.find((o) => o.label === parsedLabel);
+  if (!selected) {
+    throw new Error(
+      `Unknown label "${parsedLabel}". Valid labels: ${listLabels(state.actionOptions)}`
+    );
+  }
+
+  // Re-check right before execution/selection to avoid stale context approvals.
+  const freshState = await resolveContextState(config, featureName, selectionOptions);
+  if (freshState.contextVersion !== state.contextVersion) {
+    throw new Error(
+      'Context changed since approval was requested. Run `context` again and re-approve.'
+    );
+  }
+
+  const freshSelected = freshState.actionOptions.find(
+    (o) => o.label === parsedLabel
+  );
+  if (!freshSelected) {
+    throw new Error(
+      `Approved label "${parsedLabel}" is no longer available. Run \`context\` again.`
+    );
+  }
+
+  const selectedAction = freshSelected.action;
+  if (!options.execute) {
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          {
+            status: 'approved_selected',
+            feature: freshState.matchedFeature?.folderName ?? null,
+            label: parsedLabel,
+            action: selectedAction,
+            contextVersion: freshState.contextVersion,
+            executable: selectedAction.type === 'command',
+            oneApprovalPerAction: true,
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    console.log();
+    console.log(chalk.green(`✅ Approved option: ${parsedLabel}`));
+    console.log(chalk.gray(`   - Action: ${formatActionSummary(selectedAction)}`));
+    if (selectedAction.type === 'command') {
+      console.log(chalk.gray('   - Run with: --execute'));
+    } else {
+      console.log(chalk.gray('   - Instruction-only action (no command execution).'));
+    }
+    console.log();
+    return;
+  }
+
+  if (selectedAction.type !== 'command') {
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          {
+            status: 'approved_instruction',
+            feature: freshState.matchedFeature?.folderName ?? null,
+            label: parsedLabel,
+            action: selectedAction,
+            contextVersion: freshState.contextVersion,
+            executed: false,
+            reason: 'instruction_only',
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    console.log();
+    console.log(chalk.yellow(`⚠️  Approved label ${parsedLabel} is instruction-only.`));
+    console.log(chalk.gray(`   ${selectedAction.message}`));
+    console.log();
+    return;
+  }
+
+  if (!options.json) {
+    console.log();
+    console.log(chalk.blue(`▶ Executing option ${parsedLabel}...`));
+    console.log(chalk.gray(`   ${selectedAction.cmd}`));
+    console.log();
+  }
+
+  try {
+    const execResult = executeCommandAction(selectedAction.cmd, !!options.json);
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          {
+            status: 'approved_executed',
+            feature: freshState.matchedFeature?.folderName ?? null,
+            label: parsedLabel,
+            action: selectedAction,
+            contextVersion: freshState.contextVersion,
+            executed: true,
+            stdout: execResult.stdout?.trim() || undefined,
+            stderr: execResult.stderr?.trim() || undefined,
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+    console.log(chalk.green(`✅ Executed option ${parsedLabel}.`));
+    console.log();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to execute option ${parsedLabel}: ${message}`);
+  }
 }
 
 function printChecklist(f: FeatureContext, stepDefinitions: StepDefinition[]): void {

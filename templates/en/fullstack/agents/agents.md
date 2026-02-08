@@ -8,7 +8,7 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 > ⚠️ **The following actions require explicit user approval (OK) before proceeding.**
 > **If approval is not given, stop immediately and request confirmation.**
-> ✅ “OK” means the user replies with exactly `OK`.
+> ✅ Approval replies must be in **`<label>` or `<label> OK` format** (e.g. `A`, `A OK`).
 
 | Action                | When to Confirm          | What to Share             |
 | --------------------- | ------------------------ | ------------------------- |
