@@ -106,6 +106,24 @@ function getAncestorDirs(startDir: string): string[] {
   return dirs;
 }
 
+function hasWorkspaceBoundary(dir: string): boolean {
+  return (
+    fs.existsSync(path.join(dir, 'package.json')) ||
+    fs.existsSync(path.join(dir, '.git'))
+  );
+}
+
+function getSearchBaseDirs(cwd: string): string[] {
+  const ancestors = getAncestorDirs(cwd);
+  const boundaryIndex = ancestors.findIndex(hasWorkspaceBoundary);
+  if (boundaryIndex === -1) {
+    // Without a clear workspace boundary, keep lookup local to cwd to avoid
+    // accidentally binding to unrelated ancestor docs directories.
+    return [ancestors[0]];
+  }
+  return ancestors.slice(0, boundaryIndex + 1);
+}
+
 export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
   const explicitDocsDir = (
     process.env.LEE_SPEC_KIT_DOCS_DIR ||
@@ -113,7 +131,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
   ).trim();
   const baseDirs = [
     ...(explicitDocsDir ? [path.resolve(explicitDocsDir)] : []),
-    ...getAncestorDirs(cwd),
+    ...getSearchBaseDirs(cwd),
   ];
 
   const visitedBaseDirs = new Set<string>();

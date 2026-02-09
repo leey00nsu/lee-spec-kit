@@ -42,6 +42,15 @@ async function withTempDir(prefix, run) {
   }
 }
 
+async function withTempRoot(prefix, run) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  try {
+    await run(root);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
+
 test('feature started before init still succeeds via lock/wait', async () => {
   await withTempDir('lsk-race-init-feature-', async (dir) => {
     const featurePromise = runCli(dir, ['feature', 'race-feature', '--desc', 'race']);
@@ -106,5 +115,56 @@ test('two concurrent feature commands allocate unique sequential IDs', async () 
 
     const names = new Set(featureFolders.map((name) => name.replace(/^F\d+-/, '')));
     assert.deepEqual(names, new Set(['alpha', 'beta']));
+  });
+});
+
+test('feature started before init ignores unrelated ancestor docs fallback', async () => {
+  await withTempRoot('lsk-race-ancestor-docs-', async (root) => {
+    const ancestor = path.join(root, 'workspace');
+    const projectDir = path.join(ancestor, 'project');
+    const unrelatedDocs = path.join(ancestor, 'docs');
+    await fs.mkdir(projectDir, { recursive: true });
+
+    // Simulate legacy docs-like structure without .lee-spec-kit.json at ancestor level.
+    await fs.mkdir(path.join(unrelatedDocs, 'agents'), { recursive: true });
+    await fs.mkdir(path.join(unrelatedDocs, 'features', 'feature-base'), {
+      recursive: true,
+    });
+
+    const featurePromise = runCli(projectDir, ['feature', 'scoped-feature']);
+    await sleep(30);
+    const initPromise = runCli(projectDir, [
+      'init',
+      '-t',
+      'single',
+      '-l',
+      'en',
+      '--workflow',
+      'local',
+      '-y',
+    ]);
+
+    const [featureResult, initResult] = await Promise.all([
+      featurePromise,
+      initPromise,
+    ]);
+
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const expectedFeatureDir = path.join(
+      projectDir,
+      'docs',
+      'features',
+      'F001-scoped-feature'
+    );
+    await fs.access(expectedFeatureDir);
+
+    const wrongFeatureDir = path.join(
+      unrelatedDocs,
+      'features',
+      'F001-scoped-feature'
+    );
+    await assert.rejects(() => fs.access(wrongFeatureDir));
   });
 });
