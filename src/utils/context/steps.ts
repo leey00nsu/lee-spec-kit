@@ -246,11 +246,17 @@ export function getStepDefinitions(
               requiresUserCheck: true,
               scope: 'docs',
               cwd: f.git.docsGitCwd,
-              cmd: tr(lang, 'messages', 'docsCommitPlanning', {
-                docsGitCwd: f.git.docsGitCwd,
-                featurePath: f.docs.featurePathFromDocs,
-                folderName: f.folderName,
-              }),
+              cmd: isImplementationDone(f)
+                ? tr(lang, 'messages', 'docsCommitUpdate', {
+                    docsGitCwd: f.git.docsGitCwd,
+                    featurePath: f.docs.featurePathFromDocs,
+                    folderName: f.folderName,
+                  })
+                : tr(lang, 'messages', 'docsCommitPlanning', {
+                    docsGitCwd: f.git.docsGitCwd,
+                    featurePath: f.docs.featurePathFromDocs,
+                    folderName: f.folderName,
+                  }),
             },
           ];
         },
