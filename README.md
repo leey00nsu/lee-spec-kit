@@ -181,6 +181,9 @@ npx lee-spec-kit context F001 --approve A
 
 # 라벨 승인 + 단일 명령 실행
 npx lee-spec-kit context F001 --approve "A OK" --execute
+
+# 승인 라벨이 instruction-only면 실패 처리
+npx lee-spec-kit context F001 --approve A --execute --execute-strict
 ```
 
 **옵션:**
@@ -193,6 +196,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 | `--approve <reply>` | 라벨 승인 응답 (`A` 또는 `A OK`)으로 단일 옵션 선택 |
 | `--execute`     | `--approve`로 선택한 옵션이 command일 때 1개만 실행 |
+| `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
 
@@ -206,7 +210,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
 
-오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`)
+오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`)
 
 ### 상태 확인
 
@@ -231,6 +235,10 @@ npx lee-spec-kit status --strict
 | `--json`       | 에이전트용 JSON 출력                          |
 | `-w, --write`  | `features/status.md` 파일 생성                |
 | `-s, --strict` | 중복/누락 Feature ID 발견 시 종료 코드 1 반환 |
+
+상태값은 구현 완료와 워크플로우 완료를 구분합니다.
+- `DONE`: 태스크는 모두 완료됐지만 워크플로우 요구사항이 완전히 충족되진 않음
+- `WORKFLOW_DONE`: 구현 + 워크플로우 요구사항까지 모두 충족
 
 ### 공통 옵션
 
@@ -336,6 +344,7 @@ npx lee-spec-kit update --force
 
 - `workflow.mode: "github"` (기본): Issue/브랜치/PR/리뷰 단계를 포함한 전체 워크플로우를 완료 조건으로 사용
 - `workflow.mode: "local"`: 로컬 중심 워크플로우로 동작하며 Issue/브랜치/PR/리뷰 단계를 필수로 요구하지 않음
+  - local 모드로 생성한 Feature 템플릿은 기본적으로 Issue/PR 중심 섹션을 축소합니다.
 
 예시:
 
@@ -453,7 +462,7 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
   - `CONFIG_NOT_FOUND`: `.lee-spec-kit.json`을 찾지 못함
   - `DOCS_NOT_FOUND`: docs 구조를 찾지 못함
   - `LOCK_WAIT_TIMEOUT` / `LOCK_ACQUIRE_TIMEOUT`: 락 대기/획득 타임아웃
-  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`: `context --approve/--execute` 흐름 오류
+  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`: `context --approve/--execute` 흐름 오류
 
 상세 코드 목록과 의미는 `errors.md`(한국어), `errors.en.md`(English)를 참고하세요.
 

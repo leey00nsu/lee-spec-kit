@@ -22,6 +22,7 @@ These codes are shared by major commands (`init`, `feature`, `config`, `update`,
 | `NO_ACTION_OPTIONS` | No approvable action options available | No actions in current step |
 | `CONTEXT_STALE` | Context changed after approval request | State changed after label approval |
 | `ACTION_NOT_AVAILABLE` | Approved label is no longer available | Action list changed |
+| `EXECUTION_NOT_COMMAND` | Approved label is instruction-only | `--execute-strict` used with non-command action |
 | `EXECUTION_FAILED` | Approved command execution failed | Shell command failed |
 | `UNKNOWN_ERROR` | Unclassified exception | Any uncategorized runtime error |
 

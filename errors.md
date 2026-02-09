@@ -22,6 +22,7 @@
 | `NO_ACTION_OPTIONS` | 승인 가능한 액션이 없음 | 현재 단계에 액션 미존재 |
 | `CONTEXT_STALE` | 승인 시점 이후 컨텍스트 변경 | 라벨 승인 후 상태 변동 |
 | `ACTION_NOT_AVAILABLE` | 승인 라벨 액션이 더 이상 유효하지 않음 | 액션 목록 변경 |
+| `EXECUTION_NOT_COMMAND` | 승인 라벨이 instruction-only 액션임 | non-command 라벨에 `--execute-strict` 사용 |
 | `EXECUTION_FAILED` | 승인된 command 실행 실패 | shell 명령 자체 실패 |
 | `UNKNOWN_ERROR` | 분류되지 않은 예외 | 미분류 런타임 에러 |
 

@@ -164,6 +164,9 @@ npx lee-spec-kit context F001 --approve A
 
 # approve + execute exactly one command option
 npx lee-spec-kit context F001 --approve "A OK" --execute
+
+# fail when the approved label is instruction-only
+npx lee-spec-kit context F001 --approve A --execute --execute-strict
 ```
 
 **Options:**
@@ -176,6 +179,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 | `--done`       | Show completed (workflow-done) features only    |
 | `--approve <reply>` | Approve one labeled option (`A` or `A OK`) |
 | `--execute`    | Execute only the approved option when it is a command |
+| `--execute-strict` | With `--execute`, fail if the approved option is instruction-only |
 
 `--json` output includes:
 
@@ -184,7 +188,7 @@ npx lee-spec-kit context F001 --approve "A OK" --execute
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `checkPolicy`: approval validation policy (`token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
 
-Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`).
+Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
 
 ### Status
 
@@ -202,6 +206,10 @@ npx lee-spec-kit status --strict
 | `--json`       | JSON output for agents                               |
 | `-w, --write`  | Write `features/status.md`                           |
 | `-s, --strict` | Exit with code 1 when duplicate/missing Feature IDs exist |
+
+Status values distinguish implementation vs workflow completion:
+- `DONE`: all tasks are marked done, but workflow requirements are not fully satisfied
+- `WORKFLOW_DONE`: implementation + workflow requirements are both satisfied
 
 ### Global Option
 
@@ -290,6 +298,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 
 - `workflow.mode: "github"` (default): issue/branch/PR/review are required in workflow completion
 - `workflow.mode: "local"`: local-first workflow; issue/branch/PR/review are not required
+  - Feature templates generated in local mode minimize Issue/PR-focused sections by default.
 
 Example:
 
@@ -378,7 +387,7 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
   - `CONFIG_NOT_FOUND`
   - `DOCS_NOT_FOUND`
   - `LOCK_WAIT_TIMEOUT` / `LOCK_ACQUIRE_TIMEOUT`
-  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`
+  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`
 
 For the full code list and meanings, see `errors.en.md` (English) or `errors.md` (Korean).
 
