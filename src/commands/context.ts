@@ -423,6 +423,19 @@ function getListLabel(
   return stepsMap[f.currentStep] || 'Unknown';
 }
 
+function getMultipleFeaturesRecommendation(
+  projectType: 'single' | 'multi',
+  selectedComponent: string
+): string {
+  if (projectType === 'single') {
+    return 'Multiple features detected. Please specify feature name (slug | F001 | F001-slug).';
+  }
+  if (selectedComponent) {
+    return `Multiple features detected in component "${selectedComponent}". Please specify feature name (slug | F001 | F001-slug).`;
+  }
+  return 'Multiple features detected across components. Please specify feature name (slug | F001 | F001-slug) or use --component.';
+}
+
 async function runContext(
   featureName: string | undefined,
   options: ContextOptions
@@ -530,8 +543,10 @@ async function runContext(
     };
 
     if (result.status === 'multiple_active') {
-      result.recommendation =
-        'Multiple features detected. Please specify feature name (slug | F001 | F001-slug) or use --component.';
+      result.recommendation = getMultipleFeaturesRecommendation(
+        config.projectType,
+        selectedComponent
+      );
     } else if (result.status === 'no_features') {
       result.recommendation = 'No features found. Create a feature first.';
     } else if (result.status === 'no_open') {
@@ -680,10 +695,14 @@ async function runContext(
 
     console.log();
     console.log(chalk.gray(tr(lang, 'cli', 'context.tipDetails')));
+    const selectorTip =
+      config.projectType === 'multi'
+        ? selectedComponent
+          ? `   $ npx lee-spec-kit context <slug|F001|F001-slug> --component ${selectedComponent}`
+          : '   $ npx lee-spec-kit context <slug|F001|F001-slug> [--component <component>]'
+        : '   $ npx lee-spec-kit context <slug|F001|F001-slug>';
     console.log(
-      chalk.gray(
-        '   $ npx lee-spec-kit context <slug|F001|F001-slug> [--component <component>]'
-      )
+      chalk.gray(selectorTip)
     );
     if (state.selectionMode === 'open') {
       console.log(

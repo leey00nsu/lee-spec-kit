@@ -161,10 +161,14 @@ async function runView(
       console.log(chalk.gray(`  next: ${f.nextAction}`));
     }
     console.log();
+    const selectorTip =
+      config.projectType === 'multi'
+        ? selectedComponent
+          ? `Tip: npx lee-spec-kit view <slug|F001|F001-slug> --component ${selectedComponent}`
+          : 'Tip: npx lee-spec-kit view <slug|F001|F001-slug> [--component <component>]'
+        : 'Tip: npx lee-spec-kit view <slug|F001|F001-slug>';
     console.log(
-      chalk.gray(
-        'Tip: npx lee-spec-kit view <slug|F001|F001-slug> [--component <component>]'
-      )
+      chalk.gray(selectorTip)
     );
     console.log();
     return;

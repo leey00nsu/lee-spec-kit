@@ -680,6 +680,25 @@ async function initGit(
       }
     };
 
+    const toGitPath = (input: string): string =>
+      input.replace(/\\/g, '/').replace(/^\.\//, '');
+
+    const toRepoRelativePath = (workdir: string, relativePath: string): string => {
+      if (relativePath === '.') return '.';
+      try {
+        const prefix = execFileSync('git', ['rev-parse', '--show-prefix'], {
+          cwd: workdir,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+        const normalizedPrefix = toGitPath(prefix).replace(/\/+$/, '');
+        const normalizedPath = toGitPath(relativePath);
+        return normalizedPrefix ? `${normalizedPrefix}/${normalizedPath}` : normalizedPath;
+      } catch {
+        return toGitPath(relativePath);
+      }
+    };
+
     // Git이 이미 초기화되어 있는지 확인
     try {
       runGit(['rev-parse', '--is-inside-work-tree'], cwd);
@@ -706,14 +725,21 @@ async function initGit(
     }
 
     if (relativePath !== '.' && isPathIgnored(cwd, relativePath)) {
+      const repoRelativePath = toRepoRelativePath(cwd, relativePath);
       console.log(
         chalk.yellow(
           tr(lang, 'cli', 'init.warn.docsPathIgnoredSkipCommit', {
-            path: relativePath,
+            path: repoRelativePath,
           })
         )
       );
-      console.log(chalk.gray(tr(lang, 'cli', 'init.warn.commitManually')));
+      console.log(
+        chalk.gray(
+          tr(lang, 'cli', 'init.warn.docsPathIgnoredHint', {
+            path: repoRelativePath,
+          })
+        )
+      );
       console.log();
       return;
     }

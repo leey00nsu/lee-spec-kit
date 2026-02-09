@@ -1094,6 +1094,71 @@ test('context --component scopes fallback selection in multi project', async () 
   });
 });
 
+test('context recommendation in single project does not mention --component', async () => {
+  await withTempDir('lsk-context-single-recommendation-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const f1 = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    const f2 = await runCli(dir, ['feature', 'beta', '--id', 'F002']);
+    assert.equal(f1.code, 0, f1.stderr || f1.stdout);
+    assert.equal(f2.code, 0, f2.stderr || f2.stdout);
+
+    const result = await runCli(dir, ['context', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'multiple_active');
+    assert.doesNotMatch(payload.recommendation, /--component/);
+  });
+});
+
+test('context recommendation with selected component does not re-suggest --component', async () => {
+  await withTempDir('lsk-context-multi-recommendation-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'web,api',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const f1 = await runCli(dir, ['feature', 'chat-ui', '--component', 'web', '--id', 'F001']);
+    const f2 = await runCli(dir, ['feature', 'chat-theme', '--component', 'web', '--id', 'F002']);
+    assert.equal(f1.code, 0, f1.stderr || f1.stdout);
+    assert.equal(f2.code, 0, f2.stderr || f2.stdout);
+
+    const result = await runCli(dir, ['context', '--component', 'web', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'multiple_active');
+    assert.match(payload.recommendation, /component "web"/);
+    assert.doesNotMatch(payload.recommendation, /use --component/i);
+  });
+});
+
 test('view and flow accept --component and stay scoped', async () => {
   await withTempDir('lsk-view-flow-component-scope-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1144,6 +1209,40 @@ test('view and flow accept --component and stay scoped', async () => {
     const flowPayload = JSON.parse(flowResult.stdout.trim());
     assert.equal(flowPayload.context.before.matchedFeature.type, 'web');
     assert.match(flowPayload.suggestion, /--component web/);
+  });
+});
+
+test('init ignore warning shows repo-relative path and actionable hint', async () => {
+  await withTempDir('lsk-init-ignore-warning-', async (dir) => {
+    const repoRoot = path.join(dir, 'repo');
+    const appDir = path.join(repoRoot, 'workspace', 'app');
+    await fs.mkdir(appDir, { recursive: true });
+    await fs.writeFile(path.join(repoRoot, '.gitignore'), 'workspace/\n', 'utf-8');
+
+    const child = spawn('git', ['init'], {
+      cwd: repoRoot,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    const gitCode = await new Promise((resolve) => child.on('close', resolve));
+    assert.equal(gitCode, 0);
+
+    const result = await runCli(appDir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /workspace\/app\/docs/);
+    assert.match(result.stdout, /git add -f workspace\/app\/docs/);
   });
 });
 
