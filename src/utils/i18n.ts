@@ -165,6 +165,8 @@ const I18N: Record<Lang, I18nData> = {
       'init.log.gitInit': '📦 Git 초기화 중...',
       'init.warn.stagedChangesSkip':
         '⚠️  현재 Git index에 이미 stage된 변경이 있습니다. (--dir "." 인 경우 커밋 범위를 안전하게 제한할 수 없어 자동 커밋을 건너뜁니다)',
+      'init.warn.docsPathIgnoredSkipCommit':
+        '⚠️  docs 경로가 .gitignore 규칙에 매칭되어 자동 커밋을 건너뜁니다: {path}',
       'init.warn.commitManually': '    수동으로 변경 내용을 확인한 뒤 커밋해주세요.',
       'init.log.gitRemoteSet': '✅ Git remote 설정 완료: {remote}',
       'init.warn.gitRemoteExists': '⚠️  Git remote가 이미 존재합니다.',
@@ -412,6 +414,8 @@ const I18N: Record<Lang, I18nData> = {
       'init.log.gitInit': '📦 Initializing Git...',
       'init.warn.stagedChangesSkip':
         '⚠️  There are already staged changes in the Git index. (With --dir ".", commit scope cannot be safely restricted, so auto-commit is skipped.)',
+      'init.warn.docsPathIgnoredSkipCommit':
+        '⚠️  Docs path is matched by .gitignore, so auto-commit is skipped: {path}',
       'init.warn.commitManually': '    Review the changes and commit manually.',
       'init.log.gitRemoteSet': '✅ Git remote set: {remote}',
       'init.warn.gitRemoteExists': '⚠️  Git remote already exists.',

@@ -24,6 +24,7 @@ import {
 interface ContextOptions {
   json?: boolean;
   repo?: string;
+  component?: string;
   all?: boolean;
   done?: boolean;
   approve?: string;
@@ -31,7 +32,10 @@ interface ContextOptions {
   executeStrict?: boolean;
 }
 
-type ContextSelectionOptions = Pick<ContextOptions, 'repo' | 'all' | 'done'>;
+type ContextSelectionOptions = Pick<
+  ContextOptions,
+  'repo' | 'component' | 'all' | 'done'
+>;
 
 type ContextStatus =
   | 'no_features'
@@ -177,8 +181,16 @@ async function resolveContextState(
   }
 
   const { features, branches, warnings } = await scanFeatures(config);
-  const doneFeatures = features.filter((f) => f.completion.workflowDone);
-  const openFeatures = features.filter((f) => !f.completion.workflowDone);
+  const selectedComponent = (
+    options.component || options.repo || ''
+  )
+    .trim()
+    .toLowerCase();
+  const scopedFeatures = selectedComponent
+    ? features.filter((f) => f.type === selectedComponent)
+    : features;
+  const doneFeatures = scopedFeatures.filter((f) => f.completion.workflowDone);
+  const openFeatures = scopedFeatures.filter((f) => !f.completion.workflowDone);
   const inProgressFeatures = openFeatures.filter(
     (f) => !f.completion.implementationDone
   );
@@ -190,24 +202,23 @@ async function resolveContextState(
   let selectionMode: ContextSelectionMode = 'explicit';
 
   if (featureName) {
-    targetFeatures = features.filter((f) => matchesFeatureSelector(f, featureName));
-    if (options.repo) {
-      targetFeatures = targetFeatures.filter((f) => f.type === options.repo);
-    }
+    targetFeatures = scopedFeatures.filter((f) =>
+      matchesFeatureSelector(f, featureName)
+    );
     selectionMode = 'explicit';
   } else {
     if (config.projectType === 'single') {
       const branchName = branches.project.single || '';
-      targetFeatures = detectFromBranch(branchName, features);
-    } else if (options.repo) {
-      const branchName = branches.project[options.repo] || '';
+      targetFeatures = detectFromBranch(branchName, scopedFeatures);
+    } else if (selectedComponent) {
+      const branchName = branches.project[selectedComponent] || '';
       targetFeatures = detectFromBranch(
         branchName,
-        features.filter((f) => f.type === options.repo)
+        scopedFeatures
       );
     } else {
       const matches: FeatureContext[] = [];
-      const componentKeys = [...new Set(features.map((f) => f.type))]
+      const componentKeys = [...new Set(scopedFeatures.map((f) => f.type))]
         .filter((key) => key !== 'single');
       for (const component of componentKeys) {
         const branchName = branches.project[component] || '';
@@ -215,7 +226,7 @@ async function resolveContextState(
         matches.push(
           ...detectFromBranch(
             branchName,
-            features.filter((f) => f.type === component)
+            scopedFeatures.filter((f) => f.type === component)
           )
         );
       }
@@ -225,7 +236,7 @@ async function resolveContextState(
     if (targetFeatures.length > 0) {
       selectionMode = 'branch';
     } else if (options.all) {
-      targetFeatures = features;
+      targetFeatures = scopedFeatures;
       selectionMode = 'all';
     } else if (options.done) {
       targetFeatures = doneFeatures;
@@ -237,7 +248,7 @@ async function resolveContextState(
   }
 
   const status = toSelectionStatus(
-    features,
+    scopedFeatures,
     selectionMode,
     openFeatures,
     targetFeatures
@@ -248,7 +259,7 @@ async function resolveContextState(
   const contextVersion = getContextVersion(matchedFeature, actionOptions);
 
   return {
-    features,
+    features: scopedFeatures,
     branches,
     warnings,
     doneFeatures,
@@ -308,6 +319,7 @@ export function contextCommand(program: Command): void {
     .description('Show current feature context and next actions')
     .option('--json', 'Output in JSON format for agents')
     .option('--repo <repo>', 'Component name for multi projects')
+    .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
     .option('--approve <reply>', 'Approve one labeled option: A or A OK')
@@ -441,10 +453,25 @@ async function runContext(
     );
   }
 
+  if (
+    options.repo &&
+    options.component &&
+    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--repo` and `--component` must reference the same value when both are provided.'
+    );
+  }
+
+  const selectedComponent = (options.component || options.repo || '')
+    .trim()
+    .toLowerCase();
+
   const stepDefinitions = getStepDefinitions(lang, config.workflow);
   const stepsMap = getStepsMap(lang, config.workflow);
   const selectionOptions: ContextSelectionOptions = {
-    repo: options.repo,
+    component: selectedComponent || undefined,
     all: options.all,
     done: options.done,
   };
@@ -504,7 +531,7 @@ async function runContext(
 
     if (result.status === 'multiple_active') {
       result.recommendation =
-        'Multiple features detected. Please specify feature name (slug | F001 | F001-slug) or use --repo.';
+        'Multiple features detected. Please specify feature name (slug | F001 | F001-slug) or use --component.';
     } else if (result.status === 'no_features') {
       result.recommendation = 'No features found. Create a feature first.';
     } else if (result.status === 'no_open') {
@@ -533,12 +560,12 @@ async function runContext(
         )
       );
     }
-  } else if (options.repo) {
-    const branchName = state.branches.project[options.repo] || '';
+  } else if (selectedComponent) {
+    const branchName = state.branches.project[selectedComponent] || '';
     if (branchName) {
       console.log(
         chalk.gray(
-          `   (Detected from Project Branch: ${options.repo.toUpperCase()} ${branchName})`
+          `   (Detected from Project Branch: ${selectedComponent.toUpperCase()} ${branchName})`
         )
       );
     }
@@ -654,7 +681,9 @@ async function runContext(
     console.log();
     console.log(chalk.gray(tr(lang, 'cli', 'context.tipDetails')));
     console.log(
-      chalk.gray('   $ npx lee-spec-kit context <slug|F001|F001-slug> [--repo <component>]')
+      chalk.gray(
+        '   $ npx lee-spec-kit context <slug|F001|F001-slug> [--component <component>]'
+      )
     );
     if (state.selectionMode === 'open') {
       console.log(

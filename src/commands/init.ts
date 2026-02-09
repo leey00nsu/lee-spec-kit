@@ -666,6 +666,20 @@ async function initGit(
       }
     };
 
+    const isPathIgnored = (workdir: string, relativePath: string): boolean => {
+      try {
+        execFileSync('git', ['check-ignore', '-q', '--', relativePath], {
+          cwd: workdir,
+          stdio: 'ignore',
+        });
+        return true;
+      } catch (error) {
+        const status = (error as { status?: number } | undefined)?.status;
+        if (status === 1) return false;
+        return false;
+      }
+    };
+
     // Git이 이미 초기화되어 있는지 확인
     try {
       runGit(['rev-parse', '--is-inside-work-tree'], cwd);
@@ -684,6 +698,19 @@ async function initGit(
       console.log(
         chalk.yellow(
           tr(lang, 'cli', 'init.warn.stagedChangesSkip')
+        )
+      );
+      console.log(chalk.gray(tr(lang, 'cli', 'init.warn.commitManually')));
+      console.log();
+      return;
+    }
+
+    if (relativePath !== '.' && isPathIgnored(cwd, relativePath)) {
+      console.log(
+        chalk.yellow(
+          tr(lang, 'cli', 'init.warn.docsPathIgnoredSkipCommit', {
+            path: relativePath,
+          })
         )
       );
       console.log(chalk.gray(tr(lang, 'cli', 'init.warn.commitManually')));

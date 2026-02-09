@@ -339,22 +339,35 @@ async function checkFeatures(
     if (!idMap.has(id)) idMap.set(id, []);
     idMap.get(id)!.push(rel);
 
+    const isInitialTemplateState =
+      f.docs.specExists &&
+      f.docs.planExists &&
+      f.docs.tasksExists &&
+      !f.specStatus &&
+      !f.planStatus &&
+      f.tasks.total === 0 &&
+      (!f.docs.tasksDocStatusFieldExists ||
+        !f.tasksDocStatus ||
+        f.tasksDocStatus === 'Draft');
+
     // placeholder 잔존 여부는 "feature 폴더 내부"만 검사 (agents/prd 등은 템플릿 성격이라 제외)
-    const featureDocs = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md'];
-    for (const file of featureDocs) {
-      const p = path.join(f.path, file);
-      if (!(await fs.pathExists(p))) continue;
-      const content = await fs.readFile(p, 'utf-8');
-      const placeholders = detectPlaceholders(content);
-      if (placeholders.length === 0) continue;
-      issues.push({
-        level: 'warn',
-        code: 'placeholder_left',
-        message: tr(config.lang, 'cli', 'doctor.issue.placeholdersLeft', {
-          placeholders: placeholders.join(', '),
-        }),
-        path: formatPath(cwd, p),
-      });
+    if (!isInitialTemplateState) {
+      const featureDocs = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md'];
+      for (const file of featureDocs) {
+        const p = path.join(f.path, file);
+        if (!(await fs.pathExists(p))) continue;
+        const content = await fs.readFile(p, 'utf-8');
+        const placeholders = detectPlaceholders(content);
+        if (placeholders.length === 0) continue;
+        issues.push({
+          level: 'warn',
+          code: 'placeholder_left',
+          message: tr(config.lang, 'cli', 'doctor.issue.placeholdersLeft', {
+            placeholders: placeholders.join(', '),
+          }),
+          path: formatPath(cwd, p),
+        });
+      }
     }
 
     if (!f.docs.specExists) {
@@ -364,7 +377,7 @@ async function checkFeatures(
         message: tr(config.lang, 'cli', 'doctor.issue.missingSpec'),
         path: formatPath(cwd, f.path),
       });
-    } else if (!f.specStatus) {
+    } else if (!f.specStatus && !isInitialTemplateState) {
       issues.push({
         level: 'warn',
         code: 'spec_status_unset',
@@ -373,7 +386,7 @@ async function checkFeatures(
       });
     }
 
-    if (f.docs.planExists && !f.planStatus) {
+    if (f.docs.planExists && !f.planStatus && !isInitialTemplateState) {
       issues.push({
         level: 'warn',
         code: 'plan_status_unset',
@@ -382,7 +395,7 @@ async function checkFeatures(
       });
     }
 
-    if (f.docs.tasksExists && f.tasks.total === 0) {
+    if (f.docs.tasksExists && f.tasks.total === 0 && !isInitialTemplateState) {
       issues.push({
         level: 'warn',
         code: 'tasks_empty',
@@ -391,7 +404,11 @@ async function checkFeatures(
       });
     }
 
-    if (f.docs.tasksExists && !f.docs.tasksDocStatusFieldExists) {
+    if (
+      f.docs.tasksExists &&
+      !f.docs.tasksDocStatusFieldExists &&
+      !isInitialTemplateState
+    ) {
       issues.push({
         level: 'warn',
         code: 'tasks_doc_status_missing',
@@ -400,7 +417,12 @@ async function checkFeatures(
       });
     }
 
-    if (f.docs.tasksExists && f.docs.tasksDocStatusFieldExists && !f.tasksDocStatus) {
+    if (
+      f.docs.tasksExists &&
+      f.docs.tasksDocStatusFieldExists &&
+      !f.tasksDocStatus &&
+      !isInitialTemplateState
+    ) {
       issues.push({
         level: 'warn',
         code: 'tasks_doc_status_unset',

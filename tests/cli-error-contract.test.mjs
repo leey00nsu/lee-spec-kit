@@ -1037,6 +1037,177 @@ test('flow --json includes approval result when approve is provided', async () =
   });
 });
 
+test('context --component scopes fallback selection in multi project', async () => {
+  await withTempDir('lsk-context-component-scope-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'web,api',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const webFeature = await runCli(dir, [
+      'feature',
+      'chat-ui',
+      '--component',
+      'web',
+      '--id',
+      'F001',
+    ]);
+    const apiFeature = await runCli(dir, [
+      'feature',
+      'chat-api',
+      '--component',
+      'api',
+      '--id',
+      'F002',
+    ]);
+    assert.equal(webFeature.code, 0, webFeature.stderr || webFeature.stdout);
+    assert.equal(apiFeature.code, 0, apiFeature.stderr || apiFeature.stdout);
+
+    const webContext = await runCli(dir, ['context', '--component', 'web', '--json']);
+    assert.equal(webContext.code, 0, webContext.stderr || webContext.stdout);
+    const webPayload = JSON.parse(webContext.stdout.trim());
+    assert.equal(webPayload.status, 'single_matched');
+    assert.equal(webPayload.matchedFeature.type, 'web');
+    assert.equal(
+      (webPayload.openCandidates || []).every((feature) => feature.type === 'web'),
+      true
+    );
+
+    const apiContext = await runCli(dir, ['context', '--repo', 'api', '--json']);
+    assert.equal(apiContext.code, 0, apiContext.stderr || apiContext.stdout);
+    const apiPayload = JSON.parse(apiContext.stdout.trim());
+    assert.equal(apiPayload.status, 'single_matched');
+    assert.equal(apiPayload.matchedFeature.type, 'api');
+  });
+});
+
+test('view and flow accept --component and stay scoped', async () => {
+  await withTempDir('lsk-view-flow-component-scope-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'web,api',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const webFeature = await runCli(dir, [
+      'feature',
+      'chat-ui',
+      '--component',
+      'web',
+      '--id',
+      'F001',
+    ]);
+    const apiFeature = await runCli(dir, [
+      'feature',
+      'chat-api',
+      '--component',
+      'api',
+      '--id',
+      'F002',
+    ]);
+    assert.equal(webFeature.code, 0, webFeature.stderr || webFeature.stdout);
+    assert.equal(apiFeature.code, 0, apiFeature.stderr || apiFeature.stdout);
+
+    const viewResult = await runCli(dir, ['view', '--component', 'web', '--json']);
+    assert.equal(viewResult.code, 0, viewResult.stderr || viewResult.stdout);
+    const viewPayload = JSON.parse(viewResult.stdout.trim());
+    assert.equal(viewPayload.counts.features, 1);
+    assert.equal(viewPayload.matchedFeature.type, 'web');
+
+    const flowResult = await runCli(dir, ['flow', '--component', 'web', '--json']);
+    assert.equal(flowResult.code, 0, flowResult.stderr || flowResult.stdout);
+    const flowPayload = JSON.parse(flowResult.stdout.trim());
+    assert.equal(flowPayload.context.before.matchedFeature.type, 'web');
+    assert.match(flowPayload.suggestion, /--component web/);
+  });
+});
+
+test('context rejects mismatched --repo and --component values', async () => {
+  await withTempDir('lsk-context-mismatch-component-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, [
+      'context',
+      '--repo',
+      'web',
+      '--component',
+      'api',
+      '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'INVALID_ARGUMENT');
+  });
+});
+
+test('doctor ignores initial template-only warnings for fresh features', async () => {
+  await withTempDir('lsk-doctor-initial-template-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.counts.issues, 0);
+  });
+});
+
 test('--no-banner hides ASCII banner in help output', async () => {
   await withTempDir('lsk-no-banner-help-', async (dir) => {
     const result = await runCli(dir, ['--no-banner', '--help']);

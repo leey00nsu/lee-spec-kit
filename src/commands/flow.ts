@@ -23,6 +23,21 @@ interface FlowOptions extends ContextSelectionOptions {
   strict?: boolean;
 }
 
+function resolveComponentOption(options: Pick<FlowOptions, 'repo' | 'component'>): string | undefined {
+  if (
+    options.repo &&
+    options.component &&
+    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--repo` and `--component` must reference the same value when both are provided.'
+    );
+  }
+  const component = (options.component || options.repo || '').trim().toLowerCase();
+  return component || undefined;
+}
+
 interface CliRunResult {
   code: number;
   stdout: string;
@@ -74,7 +89,8 @@ function buildSelectionArgs(
 ): string[] {
   const args: string[] = [];
   if (featureName) args.push(featureName);
-  if (options.repo) args.push('--repo', options.repo);
+  const component = (options.component || options.repo || '').trim();
+  if (component) args.push('--component', component);
   if (options.all) args.push('--all');
   if (options.done) args.push('--done');
   return args;
@@ -86,6 +102,7 @@ export function flowCommand(program: Command): void {
     .description('Run combined workflow checks (context + status + doctor)')
     .option('--json', 'Output in JSON format for agents')
     .option('--repo <repo>', 'Component name for multi projects')
+    .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
     .option('--approve <reply>', 'Approve one labeled context option')
@@ -143,11 +160,15 @@ async function runFlow(
     );
   }
 
+  const selectedComponent = resolveComponentOption(options);
   const selectionOptions: ContextSelectionOptions = {
-    repo: options.repo,
+    component: selectedComponent,
     all: options.all,
     done: options.done,
   };
+  const componentHint = selectedComponent
+    ? ` --component ${selectedComponent}`
+    : '';
 
   const before = await resolveContextSelection(config, featureName, selectionOptions);
 
@@ -214,8 +235,8 @@ async function runFlow(
       doctorReport,
       strictChecks,
       suggestion: after.matchedFeature
-        ? `npx lee-spec-kit context ${after.matchedFeature.folderName}`
-        : 'npx lee-spec-kit context',
+        ? `npx lee-spec-kit context ${after.matchedFeature.folderName}${componentHint}`
+        : `npx lee-spec-kit context${componentHint}`,
     };
     console.log(JSON.stringify(payload, null, 2));
     return;
@@ -259,9 +280,13 @@ async function runFlow(
 
   console.log();
   if (after.matchedFeature) {
-    console.log(chalk.blue(`Next: npx lee-spec-kit context ${after.matchedFeature.folderName}`));
+    console.log(
+      chalk.blue(
+        `Next: npx lee-spec-kit context ${after.matchedFeature.folderName}${componentHint}`
+      )
+    );
   } else {
-    console.log(chalk.blue('Next: npx lee-spec-kit context'));
+    console.log(chalk.blue(`Next: npx lee-spec-kit context${componentHint}`));
   }
   console.log(chalk.gray('Tip: add --approve <LABEL> [--execute] to run the selected atomic action.'));
   console.log();

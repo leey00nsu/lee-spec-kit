@@ -13,6 +13,7 @@ export type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'al
 
 export interface ContextSelectionOptions {
   repo?: string;
+  component?: string;
   all?: boolean;
   done?: boolean;
 }
@@ -40,6 +41,11 @@ export interface ContextSelectionState {
   actions: FeatureContext['actions'];
   actionOptions: ActionOption[];
   contextVersion: string | null;
+}
+
+function resolveComponentOption(options: ContextSelectionOptions): string | undefined {
+  const component = (options.component || options.repo || '').trim().toLowerCase();
+  return component || undefined;
 }
 
 function getActionLabel(index: number): string {
@@ -149,8 +155,13 @@ export async function resolveContextSelection(
   options: ContextSelectionOptions
 ): Promise<ContextSelectionState> {
   const { features, branches, warnings } = await scanFeatures(config);
-  const doneFeatures = features.filter((f) => f.completion.workflowDone);
-  const openFeatures = features.filter((f) => !f.completion.workflowDone);
+  const selectedComponent = resolveComponentOption(options);
+  const scopedFeatures = selectedComponent
+    ? features.filter((f) => f.type === selectedComponent)
+    : features;
+
+  const doneFeatures = scopedFeatures.filter((f) => f.completion.workflowDone);
+  const openFeatures = scopedFeatures.filter((f) => !f.completion.workflowDone);
   const inProgressFeatures = openFeatures.filter(
     (f) => !f.completion.implementationDone
   );
@@ -162,24 +173,23 @@ export async function resolveContextSelection(
   let selectionMode: ContextSelectionMode = 'explicit';
 
   if (featureName) {
-    targetFeatures = features.filter((f) => matchesFeatureSelector(f, featureName));
-    if (options.repo) {
-      targetFeatures = targetFeatures.filter((f) => f.type === options.repo);
-    }
+    targetFeatures = scopedFeatures.filter((f) =>
+      matchesFeatureSelector(f, featureName)
+    );
     selectionMode = 'explicit';
   } else {
     if (config.projectType === 'single') {
       const branchName = branches.project.single || '';
-      targetFeatures = detectFromBranch(branchName, features);
-    } else if (options.repo) {
-      const branchName = branches.project[options.repo] || '';
+      targetFeatures = detectFromBranch(branchName, scopedFeatures);
+    } else if (selectedComponent) {
+      const branchName = branches.project[selectedComponent] || '';
       targetFeatures = detectFromBranch(
         branchName,
-        features.filter((f) => f.type === options.repo)
+        scopedFeatures
       );
     } else {
       const matches: FeatureContext[] = [];
-      const componentKeys = [...new Set(features.map((f) => f.type))]
+      const componentKeys = [...new Set(scopedFeatures.map((f) => f.type))]
         .filter((key) => key !== 'single');
       for (const component of componentKeys) {
         const branchName = branches.project[component] || '';
@@ -187,7 +197,7 @@ export async function resolveContextSelection(
         matches.push(
           ...detectFromBranch(
             branchName,
-            features.filter((f) => f.type === component)
+            scopedFeatures.filter((f) => f.type === component)
           )
         );
       }
@@ -197,7 +207,7 @@ export async function resolveContextSelection(
     if (targetFeatures.length > 0) {
       selectionMode = 'branch';
     } else if (options.all) {
-      targetFeatures = features;
+      targetFeatures = scopedFeatures;
       selectionMode = 'all';
     } else if (options.done) {
       targetFeatures = doneFeatures;
@@ -209,7 +219,7 @@ export async function resolveContextSelection(
   }
 
   const status = toSelectionStatus(
-    features,
+    scopedFeatures,
     selectionMode,
     openFeatures,
     targetFeatures
@@ -220,7 +230,7 @@ export async function resolveContextSelection(
   const contextVersion = getContextVersion(matchedFeature, actionOptions);
 
   return {
-    features,
+    features: scopedFeatures,
     branches,
     warnings,
     doneFeatures,
