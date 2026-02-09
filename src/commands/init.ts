@@ -597,7 +597,7 @@ async function runInit(options: InitOptions): Promise<void> {
         lang,
         createdAt: getLocalDateString(),
         docsRepo,
-        workflow: { mode: workflowMode },
+        workflow: { mode: workflowMode, codeDirtyScope: 'auto' },
         pr: {
           screenshots: { upload: false },
         },

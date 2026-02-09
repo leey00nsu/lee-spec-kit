@@ -36,6 +36,20 @@ export interface ProjectConfig {
     requireBranch?: boolean;
     requirePr?: boolean;
     requireReview?: boolean;
+    /**
+     * Scope for "project code dirty" detection used by context/status/workflow completion.
+     * - repo: entire project repo worktree
+     * - component: only paths mapped to the current feature component
+     * - auto: single=>repo, multi=>component
+     *
+     * Backward compatibility: when omitted, runtime defaults to "repo".
+     */
+    codeDirtyScope?: 'repo' | 'component' | 'auto';
+    /**
+     * Optional component path mapping (relative to project git root) used when
+     * codeDirtyScope resolves to "component".
+     */
+    componentPaths?: Record<string, string[]>;
   };
   approval?: {
     /**

@@ -8,6 +8,8 @@ export interface WorkflowPolicy {
   requireReview: boolean;
 }
 
+export type CodeDirtyScopePolicy = 'repo' | 'component';
+
 export function resolveWorkflowPolicy(
   workflow?: ProjectConfig['workflow']
 ): WorkflowPolicy {
@@ -55,4 +57,21 @@ export function resolveWorkflowPolicy(
   }
 
   return policy;
+}
+
+export function resolveCodeDirtyScopePolicy(
+  workflow: ProjectConfig['workflow'] | undefined,
+  projectType: 'single' | 'multi'
+): CodeDirtyScopePolicy {
+  const raw = workflow?.codeDirtyScope;
+
+  // Backward compatibility for existing configs that do not define scope.
+  if (!raw) return 'repo';
+
+  if (raw === 'repo') return 'repo';
+  if (raw === 'component') {
+    return projectType === 'multi' ? 'component' : 'repo';
+  }
+  // auto
+  return projectType === 'multi' ? 'component' : 'repo';
 }

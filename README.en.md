@@ -345,7 +345,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "lang": "en",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
-  "workflow": { "mode": "github" },
+  "workflow": { "mode": "github", "codeDirtyScope": "auto" },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
@@ -362,7 +362,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
 | `projectRoot` | (standalone only) project repo path (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (optional) workflow completion policy (`github`/`local`) |
+| `workflow`    | (optional) workflow completion policy (`github`/`local`, `codeDirtyScope`) |
 | `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
 | `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
 
@@ -392,12 +392,18 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `workflow.mode: "github"` (default): issue/branch/PR/review are required in workflow completion
 - `workflow.mode: "local"`: local-first workflow; issue/branch/PR/review are not required
   - Feature templates generated in local mode minimize Issue/PR-focused sections by default.
+- `workflow.codeDirtyScope`:
+  - `repo`: evaluate uncommitted code changes across the whole project repo
+  - `component`: evaluate only paths mapped to the current feature component (recommended for multi)
+  - `auto`: `single => repo`, `multi => component`
+  - `workflow.componentPaths` (optional): explicit per-component paths for component-scoped checks (e.g. `"web": ["apps/web", "packages/web-ui"]`)
+  - backward compatibility: if omitted, runtime defaults to `repo`
 
 Example:
 
 ```json
 {
-  "workflow": { "mode": "local" }
+  "workflow": { "mode": "local", "codeDirtyScope": "auto" }
 }
 ```
 

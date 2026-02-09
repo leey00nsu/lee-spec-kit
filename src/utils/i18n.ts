@@ -114,6 +114,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipDocsCommitRules':
         '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
+      'context.list.projectCommitNeeded': '프로젝트 코드 커밋 필요',
       'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
       'context.list.addPrMetadata': 'PR 메타데이터(PR/PR 상태) 추가',
       'context.list.recordPrLink': 'PR 링크 기록',
@@ -218,6 +219,10 @@ const I18N: Record<Lang, I18nData> = {
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs: {folderName} 문서 업데이트"',
+      projectCommitIssueUpdate:
+        'cd "{projectGitCwd}" && git add -A && git commit -m "feat(#{issueNumber}): {folderName} 구현 업데이트"',
+      projectCommitUpdate:
+        'cd "{projectGitCwd}" && git add -A && git commit -m "feat: {folderName} 구현 업데이트"',
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -256,6 +261,8 @@ const I18N: Record<Lang, I18nData> = {
         '현재 Feature 문서 경로가 git ignore 대상입니다: {path} (docs 커밋 감지가 제한될 수 있습니다.)',
       docsUncommittedChanges:
         '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
+      projectUncommittedChanges:
+        '프로젝트 코드 변경사항이 커밋되지 않았습니다. (추가 코드 커밋 필요)',
       legacyTasksDocStatusField:
         '구버전 tasks.md 포맷입니다. `문서 상태` 필드(Review/Approved)를 추가해 태스크 승인 단계를 활성화하세요.',
       legacyTasksPrFields:
@@ -266,6 +273,8 @@ const I18N: Record<Lang, I18nData> = {
         '완료 상태이지만 plan.md 상태가 Approved가 아닙니다. (plan.md의 상태를 Approved로 업데이트하세요.)',
       workflowIssueMissing:
         '완료 상태이지만 이슈 번호가 비어있습니다. (spec.md/tasks.md의 이슈 번호를 채우세요.)',
+      workflowProjectUncommittedChanges:
+        '완료 조건 이전에 프로젝트 코드 변경사항을 커밋해야 합니다. (프로젝트 워크트리 미커밋 변경 존재)',
       workflowPrLinkMissing:
         '완료 상태이지만 PR 링크가 비어있습니다. (tasks.md의 PR 필드를 채우세요.)',
       workflowPrStatusMissing:
@@ -364,6 +373,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipDocsCommitRules':
         'Commit message rules: /docs/agents/git-workflow.md',
       'context.list.docsCommitNeeded': 'Commit docs changes',
+      'context.list.projectCommitNeeded': 'Commit project code changes',
       'context.list.issueNumberNeeded': 'Fill issue number in docs',
       'context.list.addPrMetadata': 'Add PR metadata (PR/PR Status)',
       'context.list.recordPrLink': 'Record PR link',
@@ -469,6 +479,10 @@ const I18N: Record<Lang, I18nData> = {
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs: {folderName} docs update"',
+      projectCommitIssueUpdate:
+        'cd "{projectGitCwd}" && git add -A && git commit -m "feat(#{issueNumber}): {folderName} implementation update"',
+      projectCommitUpdate:
+        'cd "{projectGitCwd}" && git add -A && git commit -m "feat: {folderName} implementation update"',
       standaloneNeedsProjectRoot:
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -505,6 +519,8 @@ const I18N: Record<Lang, I18nData> = {
         'Current feature docs path is ignored by git: {path} (docs commit detection may be limited).',
       docsUncommittedChanges:
         'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: /docs/agents/git-workflow.md',
+      projectUncommittedChanges:
+        'Project code changes are not committed. (Additional code commit needed.)',
       legacyTasksDocStatusField:
         'Legacy tasks.md format detected. Add a `Doc Status` field (Review/Approved) to enable tasks approval.',
       legacyTasksPrFields:
@@ -515,6 +531,8 @@ const I18N: Record<Lang, I18nData> = {
         'Implementation is done but plan.md Status is not Approved. (Update plan.md Status to Approved.)',
       workflowIssueMissing:
         'Implementation is done but Issue Number is missing. (Fill Issue Number in spec.md/tasks.md.)',
+      workflowProjectUncommittedChanges:
+        'Commit project code changes before completing workflow. (Project worktree has uncommitted changes.)',
       workflowPrLinkMissing:
         'Implementation is done but PR link is missing. (Fill the PR field in tasks.md.)',
       workflowPrStatusMissing:

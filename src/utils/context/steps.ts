@@ -36,6 +36,8 @@ function isFeatureDone(
   return (
     feature.specStatus === 'Approved' &&
     feature.planStatus === 'Approved' &&
+    !feature.git.docsHasUncommittedChanges &&
+    !feature.git.projectHasUncommittedChanges &&
     feature.docs.tasksExists &&
     feature.tasks.total > 0 &&
     feature.tasks.total === feature.tasks.done &&
@@ -453,31 +455,68 @@ export function getStepDefinitions(
       step: 11,
       name: tr(lang, 'steps', 'docsCommitSync'),
       checklist: {
-        done: (f) => !f.git.docsHasUncommittedChanges,
+        done: (f) =>
+          !f.git.docsHasUncommittedChanges && !f.git.projectHasUncommittedChanges,
       },
       current: {
-        when: (f) => isImplementationDone(f) && f.git.docsHasUncommittedChanges,
-        actions: (f) => [
-          {
-            type: 'command',
-            category: 'docs_commit',
-            requiresUserCheck: true,
-            scope: 'docs',
-            cwd: f.git.docsGitCwd,
-            cmd: f.issueNumber
-              ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
-                  docsGitCwd: f.git.docsGitCwd,
-                  featurePath: f.docs.featurePathFromDocs,
-                  issueNumber: f.issueNumber,
-                  folderName: f.folderName,
-                })
-              : tr(lang, 'messages', 'docsCommitUpdate', {
-                  docsGitCwd: f.git.docsGitCwd,
-                  featurePath: f.docs.featurePathFromDocs,
-                  folderName: f.folderName,
-                }),
-          },
-        ],
+        when: (f) =>
+          isImplementationDone(f) &&
+          (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges),
+        actions: (f) => {
+          if (f.git.docsHasUncommittedChanges) {
+            return [
+              {
+                type: 'command',
+                category: 'docs_commit',
+                requiresUserCheck: true,
+                scope: 'docs',
+                cwd: f.git.docsGitCwd,
+                cmd: f.issueNumber
+                  ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
+                      docsGitCwd: f.git.docsGitCwd,
+                      featurePath: f.docs.featurePathFromDocs,
+                      issueNumber: f.issueNumber,
+                      folderName: f.folderName,
+                    })
+                  : tr(lang, 'messages', 'docsCommitUpdate', {
+                      docsGitCwd: f.git.docsGitCwd,
+                      featurePath: f.docs.featurePathFromDocs,
+                      folderName: f.folderName,
+                    }),
+              },
+            ];
+          }
+
+          if (!f.git.projectGitCwd) {
+            return [
+              {
+                type: 'instruction',
+                category: 'task_execute',
+                message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+              },
+            ];
+          }
+
+          return [
+            {
+              type: 'command',
+              category: 'task_execute',
+              requiresUserCheck: true,
+              scope: 'project',
+              cwd: f.git.projectGitCwd,
+              cmd: f.issueNumber
+                ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
+                    projectGitCwd: f.git.projectGitCwd,
+                    issueNumber: f.issueNumber,
+                    folderName: f.folderName,
+                  })
+                : tr(lang, 'messages', 'projectCommitUpdate', {
+                    projectGitCwd: f.git.projectGitCwd,
+                    folderName: f.folderName,
+                  }),
+            },
+          ];
+        },
       },
     },
     {

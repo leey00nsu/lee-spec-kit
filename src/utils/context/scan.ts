@@ -63,6 +63,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               stepDefinitions,
               approval: config.approval,
               workflow: config.workflow,
+              projectType: config.projectType,
             }
           )
         );
@@ -95,6 +96,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
               stepDefinitions,
               approval: config.approval,
               workflow: config.workflow,
+              projectType: config.projectType,
             }
           )
         );

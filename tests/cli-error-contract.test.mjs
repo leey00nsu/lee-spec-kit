@@ -118,6 +118,58 @@ async function setFeatureAsDone(dir, featureFolderName) {
   await fs.writeFile(path.join(featureDir, 'tasks.md'), tasks, 'utf-8');
 }
 
+async function setMultiFeatureAsDone(dir, component, featureFolderName) {
+  const match = featureFolderName.match(/^F\d+-(.+)$/);
+  const featureName = match?.[1] || featureFolderName;
+  const featureDir = path.join(dir, 'docs', 'features', component, featureFolderName);
+
+  const spec = `# Feature Spec: ${featureName}
+
+## Overview
+
+- **Feature ID**: ${featureFolderName.slice(0, 4)}
+- **Feature Name**: ${featureName}
+- **Target Repo**: ${component}
+- **Issue Number**: #
+- **Created**: 2026-02-08
+- **Status**: Approved
+`;
+
+  const plan = `# Implementation Plan: ${featureName}
+
+## Overview
+
+- **Feature ID**: ${featureFolderName.slice(0, 4)}
+- **Target Repo**: ${component}
+- **Created**: 2026-02-08
+- **Status**: Approved
+`;
+
+  const tasks = `# Tasks: ${featureName}
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: ${component}
+- **Issue**: #
+- **Branch**: feat/-${featureName}
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [DONE] T-${featureFolderName}-01 ${featureName}
+
+## Completion Criteria
+
+- [x] done
+`;
+
+  await fs.writeFile(path.join(featureDir, 'spec.md'), spec, 'utf-8');
+  await fs.writeFile(path.join(featureDir, 'plan.md'), plan, 'utf-8');
+  await fs.writeFile(path.join(featureDir, 'tasks.md'), tasks, 'utf-8');
+}
+
 test('init --non-interactive works with explicit flags without --yes', async () => {
   await withTempDir('lsk-init-noninteractive-', async (dir) => {
     const result = await runCli(dir, [
@@ -578,6 +630,30 @@ test('status --json marks workflow completion as WORKFLOW_DONE', async () => {
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
     await setFeatureAsDone(dir, 'F001-alpha');
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: F001-alpha done',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
     const result = await runCli(dir, ['status', '--json']);
     assert.equal(result.code, 0, result.stderr || result.stdout);
@@ -891,6 +967,30 @@ test('context handles no-open state without crashing', async () => {
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
     await setFeatureAsDone(dir, 'F001-alpha');
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: F001-alpha done',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
     const jsonResult = await runCli(dir, ['context', '--json']);
     assert.equal(jsonResult.code, 0, jsonResult.stderr || jsonResult.stdout);
@@ -934,6 +1034,184 @@ test('step7 uses docs update commit message when implementation is already done'
     const cmd = payload.actions?.[0]?.cmd || '';
     assert.match(cmd, /git commit -m "docs: F001-alpha docs update"/);
     assert.doesNotMatch(cmd, /docs\(planning\):/);
+  });
+});
+
+test('context treats docs-only changes as docs dirty (not project dirty) in embedded mode', async () => {
+  await withTempDir('lsk-context-embedded-docs-only-dirty-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    await fs.writeFile(path.join(dir, 'app.js'), "console.log('app');\n", 'utf-8');
+    const baseCommit = await runCommand(dir, 'git', ['add', 'app.js']);
+    assert.equal(baseCommit.code, 0, baseCommit.stderr || baseCommit.stdout);
+    const initCommit = await runCommand(dir, 'git', ['commit', '-m', 'init']);
+    assert.equal(initCommit.code, 0, initCommit.stderr || initCommit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const docsCommitAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+    ]);
+    assert.equal(docsCommitAdd.code, 0, docsCommitAdd.stderr || docsCommitAdd.stdout);
+    const docsCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: F001-alpha done',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.appendFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      '\n<!-- docs tweak -->\n',
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, true);
+    assert.equal(payload.matchedFeature.git.projectHasUncommittedChanges, false);
+    assert.equal(payload.matchedFeature.completion.workflowDone, false);
+    const warnings = payload.matchedFeature.warnings || [];
+    assert.equal(
+      warnings.some((warning) => /Docs changes are not committed/i.test(String(warning))),
+      true
+    );
+    assert.equal(
+      warnings.some((warning) => /Project code changes are not committed/i.test(String(warning))),
+      false
+    );
+  });
+});
+
+test('standalone docs dirty marks workflow as not done', async () => {
+  await withTempDir('lsk-context-standalone-docs-dirty-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs-repo');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRoot, { recursive: true });
+
+    const gitInitProject = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(gitInitProject.code, 0, gitInitProject.stderr || gitInitProject.stdout);
+    const projectEmail = await runCommand(projectRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(projectEmail.code, 0, projectEmail.stderr || projectEmail.stdout);
+    const projectName = await runCommand(projectRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(projectName.code, 0, projectName.stderr || projectName.stdout);
+    await fs.writeFile(path.join(projectRoot, 'app.js'), "console.log('app');\n", 'utf-8');
+    const projectAdd = await runCommand(projectRoot, 'git', ['add', 'app.js']);
+    assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
+    const projectCommit = await runCommand(projectRoot, 'git', ['commit', '-m', 'init']);
+    assert.equal(projectCommit.code, 0, projectCommit.stderr || projectCommit.stdout);
+
+    const initResult = await runCli(docsRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      projectRoot,
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(docsRoot, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(docsRoot, 'F001-alpha');
+
+    const docsGitRoot = path.join(docsRoot, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: F001-alpha done',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.appendFile(
+      path.join(docsGitRoot, 'features', 'F001-alpha', 'tasks.md'),
+      '\n<!-- docs tweak -->\n',
+      'utf-8'
+    );
+
+    const context = await runCli(docsRoot, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    assert.equal(contextPayload.matchedFeature.currentStep, 11);
+    assert.equal(contextPayload.matchedFeature.git.docsHasUncommittedChanges, true);
+    assert.equal(contextPayload.matchedFeature.git.projectHasUncommittedChanges, false);
+    assert.equal(contextPayload.matchedFeature.completion.workflowDone, false);
+
+    const status = await runCli(docsRoot, ['status', '--json']);
+    assert.equal(status.code, 0, status.stderr || status.stdout);
+    const statusPayload = JSON.parse(status.stdout.trim());
+    assert.equal(statusPayload.counts.workflowDone, 0);
+    assert.equal(statusPayload.features[0].status, 'DONE');
   });
 });
 
@@ -1167,6 +1445,129 @@ test('context --component scopes fallback selection in multi project', async () 
     const apiPayload = JSON.parse(apiContext.stdout.trim());
     assert.equal(apiPayload.status, 'single_matched');
     assert.equal(apiPayload.matchedFeature.type, 'api');
+  });
+});
+
+test('init writes workflow.codeDirtyScope=auto for new projects', async () => {
+  await withTempDir('lsk-init-dirty-scope-auto-', async (dir) => {
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.workflow?.codeDirtyScope, 'auto');
+  });
+});
+
+test('multi auto dirty scope ignores unrelated component changes, missing key defaults to repo', async () => {
+  await withTempDir('lsk-context-dirty-scope-multi-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'web,api',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const webFeature = await runCli(dir, [
+      'feature',
+      'chat-ui',
+      '--component',
+      'web',
+      '--id',
+      'F001',
+    ]);
+    assert.equal(webFeature.code, 0, webFeature.stderr || webFeature.stdout);
+    await setMultiFeatureAsDone(dir, 'web', 'F001-chat-ui');
+
+    await fs.mkdir(path.join(dir, 'apps', 'web'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'apps', 'api'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'apps', 'web', 'index.js'), "console.log('web');\n", 'utf-8');
+    await fs.writeFile(path.join(dir, 'apps', 'api', 'index.js'), "console.log('api');\n", 'utf-8');
+
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const addAll = await runCommand(dir, 'git', ['add', '-A']);
+    assert.equal(addAll.code, 0, addAll.stderr || addAll.stdout);
+    const firstCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'baseline',
+    ]);
+    assert.equal(firstCommit.code, 0, firstCommit.stderr || firstCommit.stdout);
+
+    await fs.appendFile(
+      path.join(dir, 'apps', 'api', 'index.js'),
+      "console.log('api tweak');\n",
+      'utf-8'
+    );
+
+    const autoResult = await runCli(dir, [
+      'context',
+      'F001-chat-ui',
+      '--component',
+      'web',
+      '--json',
+    ]);
+    assert.equal(autoResult.code, 0, autoResult.stderr || autoResult.stdout);
+    const autoPayload = JSON.parse(autoResult.stdout.trim());
+    assert.equal(autoPayload.matchedFeature.git.projectHasUncommittedChanges, false);
+    assert.equal(autoPayload.matchedFeature.completion.workflowDone, true);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    if (config.workflow) {
+      delete config.workflow.codeDirtyScope;
+    }
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const legacyResult = await runCli(dir, [
+      'context',
+      'F001-chat-ui',
+      '--component',
+      'web',
+      '--json',
+    ]);
+    assert.equal(legacyResult.code, 0, legacyResult.stderr || legacyResult.stdout);
+    const legacyPayload = JSON.parse(legacyResult.stdout.trim());
+    assert.equal(legacyPayload.matchedFeature.git.projectHasUncommittedChanges, true);
+    assert.equal(legacyPayload.matchedFeature.completion.workflowDone, false);
   });
 });
 

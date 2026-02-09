@@ -397,7 +397,7 @@ npx lee-spec-kit update --force
   "lang": "ko",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
-  "workflow": { "mode": "github" },
+  "workflow": { "mode": "github", "codeDirtyScope": "auto" },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
@@ -414,7 +414,7 @@ npx lee-spec-kit update --force
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`) |
+| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`, `codeDirtyScope`) |
 | `pr`          | (선택) PR 결과물 정책 (예: 스크린샷 업로드 여부) |
 | `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
 
@@ -444,12 +444,18 @@ npx lee-spec-kit update --force
 - `workflow.mode: "github"` (기본): Issue/브랜치/PR/리뷰 단계를 포함한 전체 워크플로우를 완료 조건으로 사용
 - `workflow.mode: "local"`: 로컬 중심 워크플로우로 동작하며 Issue/브랜치/PR/리뷰 단계를 필수로 요구하지 않음
   - local 모드로 생성한 Feature 템플릿은 기본적으로 Issue/PR 중심 섹션을 축소합니다.
+- `workflow.codeDirtyScope`:
+  - `repo`: 프로젝트 레포 전체 변경으로 코드 미커밋 여부를 판정
+  - `component`: 현재 Feature 컴포넌트 경로 변경만 판정 (multi 권장)
+  - `auto`: `single => repo`, `multi => component`
+  - `workflow.componentPaths`(선택): component 판정 경로를 컴포넌트별로 명시 (예: `"web": ["apps/web", "packages/web-ui"]`)
+  - 하위 호환: 값이 없으면 기존 동작인 `repo`로 처리
 
 예시:
 
 ```json
 {
-  "workflow": { "mode": "local" }
+  "workflow": { "mode": "local", "codeDirtyScope": "auto" }
 }
 ```
 

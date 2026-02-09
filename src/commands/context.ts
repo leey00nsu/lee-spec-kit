@@ -395,6 +395,9 @@ function getListLabel(
     if (f.git.docsHasUncommittedChanges) {
       return tr(lang, 'cli', 'context.list.docsCommitNeeded');
     }
+    if (f.git.projectHasUncommittedChanges) {
+      return tr(lang, 'cli', 'context.list.projectCommitNeeded');
+    }
     if (workflowPolicy.requireIssue && !f.issueNumber) {
       return tr(lang, 'cli', 'context.list.issueNumberNeeded');
     }

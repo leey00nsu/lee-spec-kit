@@ -19,7 +19,10 @@ import {
   TaskRef,
 } from './types.js';
 import { ProjectConfig } from '../config.js';
-import { resolveWorkflowPolicy } from '../workflow.js';
+import {
+  resolveCodeDirtyScopePolicy,
+  resolveWorkflowPolicy,
+} from '../workflow.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -85,6 +88,82 @@ function parsePrLink(value: string | undefined): string | undefined {
   }
   if (trimmed.includes('{') || trimmed.includes('}')) return undefined;
   return trimmed;
+}
+
+function normalizeGitPath(value: string): string {
+  return value.split(path.sep).join('/');
+}
+
+function resolveProjectStatusPaths(
+  projectGitCwd: string,
+  docsDir: string
+): string[] {
+  const relativeDocsDir = path.relative(projectGitCwd, docsDir);
+  if (!relativeDocsDir) return [];
+  if (path.isAbsolute(relativeDocsDir)) return [];
+  if (relativeDocsDir === '..' || relativeDocsDir.startsWith(`..${path.sep}`)) {
+    return [];
+  }
+
+  const normalizedDocsDir = normalizeGitPath(relativeDocsDir).replace(/\/+$/, '');
+  if (!normalizedDocsDir) return [];
+  return ['.', `:(exclude)${normalizedDocsDir}/**`];
+}
+
+function uniqueNormalizedPaths(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const normalized = normalizeGitPath(value).replace(/^\.\/+/, '').replace(/\/+$/, '');
+    if (!normalized || normalized === '.' || normalized === '..') continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+async function resolveComponentStatusPaths(
+  projectGitCwd: string,
+  component: string,
+  workflow?: ProjectConfig['workflow']
+): Promise<string[]> {
+  const configured = workflow?.componentPaths?.[component];
+  const configuredCandidates = Array.isArray(configured)
+    ? configured.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+
+  const candidates =
+    configuredCandidates.length > 0
+      ? configuredCandidates
+      : [
+          component,
+          `apps/${component}`,
+          `packages/${component}`,
+          `services/${component}`,
+          `modules/${component}`,
+        ];
+
+  const normalizedCandidates = uniqueNormalizedPaths(
+    candidates
+      .map((candidate) => {
+        if (!candidate) return '';
+        if (!path.isAbsolute(candidate)) return candidate;
+        const relative = path.relative(projectGitCwd, candidate);
+        if (!relative) return '';
+        if (relative === '..' || relative.startsWith(`..${path.sep}`)) return '';
+        return relative;
+      })
+      .filter(Boolean)
+  );
+
+  const existing: string[] = [];
+  for (const candidate of normalizedCandidates) {
+    if (await fs.pathExists(path.join(projectGitCwd, candidate))) {
+      existing.push(candidate);
+    }
+  }
+  return existing;
 }
 
 function parseTasks(content: string): {
@@ -183,6 +262,7 @@ export async function parseFeature(
     stepDefinitions: StepDefinition[];
     approval?: ProjectConfig['approval'];
     workflow?: ProjectConfig['workflow'];
+    projectType: 'single' | 'multi';
   }
 ): Promise<FeatureContext> {
   const lang = options.lang;
@@ -278,6 +358,31 @@ export async function parseFeature(
   );
   const docsStatus = getGitStatusPorcelain(context.docsGitCwd, [relativeFeaturePathFromDocs]);
   const docsHasUncommittedChanges = docsStatus === undefined ? true : docsStatus.trim().length > 0;
+  const dirtyScopePolicy = resolveCodeDirtyScopePolicy(options.workflow, options.projectType);
+  let projectStatusPaths: string[] = [];
+  if (context.projectGitCwd) {
+    if (dirtyScopePolicy === 'component' && type !== 'single') {
+      const componentStatusPaths = await resolveComponentStatusPaths(
+        context.projectGitCwd,
+        type,
+        options.workflow
+      );
+      projectStatusPaths =
+        componentStatusPaths.length > 0
+          ? componentStatusPaths
+          : resolveProjectStatusPaths(context.projectGitCwd, context.docsDir);
+    } else {
+      projectStatusPaths = resolveProjectStatusPaths(
+        context.projectGitCwd,
+        context.docsDir
+      );
+    }
+  }
+  const projectStatus = context.projectGitCwd
+    ? getGitStatusPorcelain(context.projectGitCwd, projectStatusPaths)
+    : undefined;
+  const projectHasUncommittedChanges =
+    projectStatus === undefined ? false : projectStatus.trim().length > 0;
   const docsLastCommit = getLastCommitForPath(
     context.docsGitCwd,
     relativeFeaturePathFromDocs
@@ -303,6 +408,9 @@ export async function parseFeature(
   if (docsEverCommitted && docsHasUncommittedChanges) {
     warnings.push(tr(lang, 'warnings', 'docsUncommittedChanges'));
   }
+  if (projectHasUncommittedChanges) {
+    warnings.push(tr(lang, 'warnings', 'projectUncommittedChanges'));
+  }
 
   const tasksDocApproved = !tasksDocStatusFieldExists || tasksDocStatus === 'Approved';
   const implementationDone =
@@ -314,6 +422,8 @@ export async function parseFeature(
 
   const workflowDone =
     implementationDone &&
+    !docsHasUncommittedChanges &&
+    !projectHasUncommittedChanges &&
     specStatus === 'Approved' &&
     planStatus === 'Approved' &&
     (!workflowPolicy.requireIssue || !!issueNumber) &&
@@ -332,6 +442,9 @@ export async function parseFeature(
 
     if (workflowPolicy.requireIssue && !issueNumber) {
       warnings.push(tr(lang, 'warnings', 'workflowIssueMissing'));
+    }
+    if (projectHasUncommittedChanges) {
+      warnings.push(tr(lang, 'warnings', 'workflowProjectUncommittedChanges'));
     }
 
     // PR 필드가 없다면 legacyTasksPrFields가 이미 경고로 올라감
@@ -374,6 +487,7 @@ export async function parseFeature(
       onExpectedBranch,
       docsEverCommitted,
       docsHasUncommittedChanges,
+      projectHasUncommittedChanges,
       docsPathIgnored: docsPathIgnored === true,
     },
     docs: {

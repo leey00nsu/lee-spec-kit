@@ -95,6 +95,7 @@ export interface FeatureState {
     onExpectedBranch: boolean;
     docsEverCommitted: boolean;
     docsHasUncommittedChanges: boolean;
+    projectHasUncommittedChanges: boolean;
     docsPathIgnored?: boolean;
   };
   docs: {
