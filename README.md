@@ -316,6 +316,12 @@ npx lee-spec-kit doctor --strict
 
 # 에이전트용 JSON 출력
 npx lee-spec-kit doctor --json
+
+# 안전한 자동 수정 적용
+npx lee-spec-kit doctor --fix
+
+# 수정 예정 항목만 미리 확인 (파일 미변경)
+npx lee-spec-kit doctor --fix --dry-run
 ```
 
 ### 템플릿 업데이트

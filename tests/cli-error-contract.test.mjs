@@ -195,6 +195,117 @@ test('doctor --json error includes reasonCode and labeled suggestions', async ()
   });
 });
 
+test('doctor --dry-run without --fix returns INVALID_ARGUMENT', async () => {
+  await withTempDir('lsk-doctor-dryrun-invalid-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['doctor', '--dry-run']);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /\[INVALID_ARGUMENT\]/);
+  });
+});
+
+test('doctor --fix --dry-run reports fixes without modifying files', async () => {
+  await withTempDir('lsk-doctor-fix-dryrun-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    await fs.appendFile(specPath, '\n- Placeholder: {Story Title}\n', 'utf-8');
+    const before = await fs.readFile(specPath, 'utf-8');
+
+    const result = await runCli(dir, ['doctor', '--fix', '--dry-run', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.fixes.enabled, true);
+    assert.equal(payload.fixes.dryRun, true);
+    assert.equal(payload.fixes.changedFiles > 0, true);
+
+    const after = await fs.readFile(specPath, 'utf-8');
+    assert.equal(after, before);
+  });
+});
+
+test('doctor --fix applies safe fixes to tasks doc status', async () => {
+  await withTempDir('lsk-doctor-fix-apply-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## Local Tracking
+
+- **Repo**: demo
+- **Branch**: feat/1-alpha
+
+## Task List
+
+- [TODO] T-F001-alpha-01 example
+`,
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['doctor', '--fix', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.fixes.enabled, true);
+    assert.equal(payload.fixes.dryRun, false);
+    assert.equal(payload.fixes.changedFiles > 0, true);
+
+    const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(tasksAfter, /\*\*Doc Status\*\*:\s*Review/);
+  });
+});
+
 test('status text-mode errors include reason code and labeled next options', async () => {
   await withTempDir('lsk-status-error-text-', async (dir) => {
     const result = await runCli(dir, ['status']);

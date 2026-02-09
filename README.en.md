@@ -279,6 +279,8 @@ You can also disable banner output via `LEE_SPEC_KIT_NO_BANNER=1`.
 npx lee-spec-kit doctor
 npx lee-spec-kit doctor --strict
 npx lee-spec-kit doctor --json
+npx lee-spec-kit doctor --fix
+npx lee-spec-kit doctor --fix --dry-run
 ```
 
 ### Update templates
