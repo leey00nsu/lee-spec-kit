@@ -6,6 +6,7 @@ export type CliReasonCode =
   | 'DOCS_NOT_FOUND'
   | 'LOCK_WAIT_TIMEOUT'
   | 'LOCK_ACQUIRE_TIMEOUT'
+  | 'PRECONDITION_FAILED'
   | 'INVALID_ARGUMENT'
   | 'DUPLICATE_FEATURE_ID'
   | 'MISSING_FEATURE_ID'
@@ -15,6 +16,7 @@ export type CliReasonCode =
   | 'NO_ACTION_OPTIONS'
   | 'CONTEXT_STALE'
   | 'ACTION_NOT_AVAILABLE'
+  | 'EXECUTION_NOT_COMMAND'
   | 'EXECUTION_FAILED'
   | 'UNKNOWN_ERROR';
 
@@ -166,6 +168,31 @@ export function getCliErrorSuggestions(
             },
         },
       ],
+        resolvedLang
+      );
+    case 'PRECONDITION_FAILED':
+      return withLabels(
+        [
+          {
+            title: {
+              ko: '실행 전제조건을 만족하도록 환경/작업트리를 먼저 정리하세요.',
+              en: 'Satisfy the command preconditions first (environment/worktree).',
+            },
+          },
+          {
+            title: {
+              ko: '워크스페이스 진단으로 현재 상태를 확인하세요.',
+              en: 'Run workspace diagnostics to inspect current state.',
+            },
+            command: 'npx lee-spec-kit doctor --json',
+          },
+          {
+            title: {
+              ko: '의도한 덮어쓰기라면 강제 옵션 사용을 검토하세요.',
+              en: 'If overwrite is intentional, consider the force flag.',
+            },
+          },
+        ],
         resolvedLang
       );
     case 'DUPLICATE_FEATURE_ID':
@@ -351,12 +378,19 @@ export function getCliErrorSuggestions(
         resolvedLang
       );
     case 'EXECUTION_FAILED':
+    case 'EXECUTION_NOT_COMMAND':
       return withLabels(
         [
         {
             title: {
-              ko: '실패한 명령의 출력과 선행 조건을 확인하세요.',
-              en: 'Review the failed command output and fix prerequisites.',
+              ko:
+                code === 'EXECUTION_NOT_COMMAND'
+                  ? '승인 라벨이 command인지 먼저 확인하세요.'
+                  : '실패한 명령의 출력과 선행 조건을 확인하세요.',
+              en:
+                code === 'EXECUTION_NOT_COMMAND'
+                  ? 'Check whether the approved label points to a command action.'
+                  : 'Review the failed command output and fix prerequisites.',
             },
         },
         {

@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { resolveWorkflowPolicy } from '../utils/workflow.js';
+import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -27,6 +28,7 @@ interface ContextOptions {
   done?: boolean;
   approve?: string;
   execute?: boolean;
+  executeStrict?: boolean;
 }
 
 type ContextSelectionOptions = Pick<ContextOptions, 'repo' | 'all' | 'done'>;
@@ -41,6 +43,7 @@ type ContextStatus =
 type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'all';
 
 type ActionOption = ReturnType<typeof toActionOptions>[number];
+type CommandAction = Extract<FeatureContext['actions'][number], { type: 'command' }>;
 
 interface ResolvedContextState {
   features: FeatureContext[];
@@ -263,7 +266,8 @@ async function resolveContextState(
 
 function executeCommandAction(
   cmd: string,
-  jsonMode: boolean
+  jsonMode: boolean,
+  cwd?: string
 ): { stdout?: string; stderr?: string } {
   const shellPath =
     process.env.SHELL ||
@@ -272,6 +276,7 @@ function executeCommandAction(
   if (jsonMode) {
     const stdout = execSync(cmd, {
       shell: shellPath,
+      cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -280,9 +285,20 @@ function executeCommandAction(
 
   execSync(cmd, {
     shell: shellPath,
+    cwd,
     stdio: 'inherit',
   });
   return {};
+}
+
+function getCommandExecutionLockPath(
+  action: CommandAction,
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>
+): string {
+  if (action.scope === 'docs') {
+    return getDocsLockPath(config.docsDir);
+  }
+  return path.join(action.cwd, '.lee-spec-kit.project.lock');
 }
 
 export function contextCommand(program: Command): void {
@@ -295,6 +311,10 @@ export function contextCommand(program: Command): void {
     .option('--done', 'Show completed (workflow-done) features only')
     .option('--approve <reply>', 'Approve one labeled option: A or A OK')
     .option('--execute', 'Execute approved option when it is a command')
+    .option(
+      '--execute-strict',
+      'Fail when approved option is instruction-only (use with --execute)'
+    )
     .action(
       async (featureName: string | undefined, options: ContextOptions) => {
         try {
@@ -413,6 +433,13 @@ async function runContext(
     );
   }
 
+  if (options.executeStrict && !options.execute) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--execute-strict` requires `--execute`.'
+    );
+  }
+
   const stepDefinitions = getStepDefinitions(lang, config.workflow);
   const stepsMap = getStepsMap(lang, config.workflow);
   const selectionOptions: ContextSelectionOptions = {
@@ -479,10 +506,15 @@ async function runContext(
         'Multiple features detected. Please specify feature name (slug | F001 | F001-slug) or use --repo.';
     } else if (result.status === 'no_features') {
       result.recommendation = 'No features found. Create a feature first.';
+    } else if (result.status === 'no_open') {
+      result.recommendation =
+        'No open features found. Use `context --done` to inspect completed features.';
     } else if (result.status === 'no_match') {
       result.recommendation = 'No features found.';
-    } else {
+    } else if (state.targetFeatures.length === 1) {
       result.recommendation = state.targetFeatures[0].nextAction;
+    } else {
+      result.recommendation = 'No matched feature.';
     }
 
     console.log(JSON.stringify(result, null, 2));
@@ -536,6 +568,24 @@ async function runContext(
     console.log(chalk.yellow(tr(lang, 'cli', 'context.envWarnings')));
     state.warnings.forEach((w) => console.log(chalk.yellow(`   - ${w}`)));
     console.log();
+  }
+
+  if (state.targetFeatures.length === 0) {
+    console.log(chalk.yellow(tr(lang, 'cli', 'context.noActiveFeatures')));
+    if (state.status === 'no_open') {
+      console.log(
+        chalk.gray(
+          `   $ npx lee-spec-kit context --done  # ${tr(lang, 'cli', 'context.tipShowDone')}`
+        )
+      );
+      console.log(
+        chalk.gray(
+          `   $ npx lee-spec-kit context --all   # ${tr(lang, 'cli', 'context.tipShowAll')}`
+        )
+      );
+    }
+    console.log();
+    return;
   }
 
   if (state.targetFeatures.length > 1) {
@@ -791,6 +841,12 @@ async function runApprovedOption(
   }
 
   if (selectedAction.type !== 'command') {
+    if (options.executeStrict) {
+      throw createCliError(
+        'EXECUTION_NOT_COMMAND',
+        `Approved label "${parsedLabel}" is instruction-only. Re-run without \`--execute\` or pick a command option.`
+      );
+    }
     if (options.json) {
       console.log(
         JSON.stringify(
@@ -826,7 +882,17 @@ async function runApprovedOption(
   }
 
   try {
-    const execResult = executeCommandAction(selectedAction.cmd, !!options.json);
+    const lockPath = getCommandExecutionLockPath(selectedAction, config);
+    const execResult = await withFileLock(
+      lockPath,
+      async () =>
+        executeCommandAction(
+          selectedAction.cmd,
+          !!options.json,
+          selectedAction.cwd
+        ),
+      { owner: `context-execute:${selectedAction.scope}` }
+    );
     if (options.json) {
       console.log(
         JSON.stringify(
