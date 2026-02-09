@@ -33,6 +33,30 @@ function runCli(cwd, args) {
   });
 }
 
+function runCommand(cwd, command, args) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+
+    child.on('close', (code) => {
+      resolve({ code: code ?? 1, stdout, stderr });
+    });
+  });
+}
+
 async function withTempDir(prefix, run) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
   try {
@@ -803,6 +827,45 @@ test('update reports PRECONDITION_FAILED when git status is unavailable', async 
     const result = await runCli(dir, ['update']);
     assert.equal(result.code, 1);
     assert.match(result.stderr, /\[PRECONDITION_FAILED\]/);
+  });
+});
+
+test('update succeeds on clean docs worktree (internal lock ignored)', async () => {
+  await withTempDir('lsk-update-clean-lock-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+    assert.doesNotMatch(updateResult.stderr, /\[PRECONDITION_FAILED\]/);
   });
 });
 

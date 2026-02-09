@@ -74,11 +74,13 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     async () => {
       const templatesDir = getTemplatesDir();
       const sourceDir = path.join(templatesDir, lang, toTemplateProjectType(projectType));
+      const docsLockPath = getDocsLockPath(docsDir);
 
       // Default behavior: only allow update when docs working tree is clean.
       // Then apply updates like --force. This keeps update predictable and simple.
       const forceOverwrite =
-        !!options.force || (await isDocsWorktreeCleanOrThrow(docsDir, lang));
+        !!options.force ||
+        (await isDocsWorktreeCleanOrThrow(docsDir, lang, [docsLockPath]));
 
       // 업데이트 대상 결정
       const hasExplicitSelection = !!(
@@ -305,16 +307,62 @@ function getGitTopLevel(cwd: string): string | null {
   }
 }
 
-function getDocsPorcelainStatus(docsDir: string): string | null {
+function normalizeGitPath(input: string): string {
+  return input.replace(/\\/g, '/').replace(/^\.\/+/, '');
+}
+
+function stripOuterQuotes(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).replace(/\\"/g, '"');
+  }
+  return trimmed;
+}
+
+function extractPorcelainPaths(line: string): string[] {
+  if (line.length < 4) return [];
+  const body = line.slice(3).trim();
+  if (!body) return [];
+  if (body.includes(' -> ')) {
+    return body
+      .split(' -> ')
+      .map((part) => normalizeGitPath(stripOuterQuotes(part)));
+  }
+  return [normalizeGitPath(stripOuterQuotes(body))];
+}
+
+function getDocsPorcelainStatus(
+  docsDir: string,
+  ignoredAbsPaths: string[] = []
+): string | null {
   const top = getGitTopLevel(docsDir);
   if (!top) return null;
   const rel = path.relative(top, docsDir) || '.';
   try {
-    return execFileSync('git', ['status', '--porcelain=v1', '--', rel], {
+    const output = execFileSync('git', ['status', '--porcelain=v1', '--', rel], {
       cwd: top,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
+    if (ignoredAbsPaths.length === 0) {
+      return output;
+    }
+
+    const ignoredRelPaths = new Set(
+      ignoredAbsPaths.map((absPath) =>
+        normalizeGitPath(path.relative(top, absPath) || '.')
+      )
+    );
+    const filtered = output
+      .split('\n')
+      .filter((line) => {
+        if (!line.trim()) return false;
+        const touchedPaths = extractPorcelainPaths(line);
+        if (touchedPaths.length === 0) return true;
+        return touchedPaths.some((p) => !ignoredRelPaths.has(p));
+      })
+      .join('\n');
+    return filtered;
   } catch {
     return null;
   }
@@ -322,9 +370,10 @@ function getDocsPorcelainStatus(docsDir: string): string | null {
 
 async function isDocsWorktreeCleanOrThrow(
   docsDir: string,
-  lang: 'ko' | 'en'
+  lang: 'ko' | 'en',
+  ignoredAbsPaths: string[] = []
 ): Promise<boolean> {
-  const status = getDocsPorcelainStatus(docsDir);
+  const status = getDocsPorcelainStatus(docsDir, ignoredAbsPaths);
   if (status === null) {
     throw createCliError(
       'PRECONDITION_FAILED',
