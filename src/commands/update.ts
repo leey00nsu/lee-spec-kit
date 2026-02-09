@@ -315,10 +315,16 @@ async function isDocsWorktreeCleanOrThrow(
 ): Promise<boolean> {
   const status = getDocsPorcelainStatus(docsDir);
   if (status === null) {
-    throw new Error(tr(lang, 'cli', 'update.gitStatusUnavailable'));
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      tr(lang, 'cli', 'update.gitStatusUnavailable')
+    );
   }
   if (status.trim().length > 0) {
-    throw new Error(tr(lang, 'cli', 'update.docsWorktreeDirty'));
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      tr(lang, 'cli', 'update.docsWorktreeDirty')
+    );
   }
   return true;
 }

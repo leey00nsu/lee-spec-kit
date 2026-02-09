@@ -1,6 +1,7 @@
 /**
  * 입력 검증 및 보안 유틸리티
  */
+import { createCliError } from './cli-error.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -178,6 +179,6 @@ export function assertValid(result: ValidationResult, context?: string): void {
     const message = context
       ? `${context}: ${result.error}`
       : (result.error ?? '검증 실패');
-    throw new Error(message);
+    throw createCliError('INVALID_ARGUMENT', message);
   }
 }
