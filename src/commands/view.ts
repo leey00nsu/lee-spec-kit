@@ -97,6 +97,7 @@ async function runView(
       status: state.status,
       reasonCode: toReasonCode(state.status),
       selectionMode: state.selectionMode,
+      selectionFallback: state.selectionFallback,
       counts: {
         features: state.features.length,
         open: state.openFeatures.length,

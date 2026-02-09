@@ -600,6 +600,7 @@ test('context --json exposes generic label token policy', async () => {
     const result = await runCli(dir, ['context', '--json']);
     assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.selectionFallback, 'open_features');
     assert.equal(payload.checkPolicy.token, '<LABEL>');
     assert.deepEqual(payload.checkPolicy.acceptedTokens, [
       '<LABEL>',
@@ -641,12 +642,26 @@ test('context --json actionOptions include summary and approvalPrompt', async ()
     assert.equal(payload.status, 'single_matched');
     assert.equal(Array.isArray(payload.actionOptions), true);
     assert.equal(payload.actionOptions.length > 0, true);
+    assert.equal(payload.selectionFallback, 'none');
+    assert.equal(payload.checkPolicy.policyOnly, true);
     assert.equal(typeof payload.actionOptions[0].summary, 'string');
     assert.equal(payload.actionOptions[0].summary.length > 0, true);
     assert.equal(typeof payload.actionOptions[0].approvalPrompt, 'string');
     assert.match(payload.actionOptions[0].approvalPrompt, /^[A-Z]+:\s+/);
+    assert.equal(typeof payload.primaryActionLabel, 'string');
+    assert.equal(payload.primaryActionType, payload.actionOptions[0].action.type);
+    assert.equal(payload.primaryActionCategory, payload.actionOptions[0].action.category);
+    assert.equal(
+      payload.primaryActionOperationType,
+      payload.actionOptions[0].action.operationType
+    );
+    assert.equal(payload.actionOptions[0].action.operationType, 'manual');
     assert.equal(Array.isArray(payload.approvalRequest?.options), true);
     assert.equal(payload.approvalRequest.options.length, payload.actionOptions.length);
+    assert.equal(
+      payload.approvalRequest.options[0].operationType,
+      payload.actionOptions[0].action.operationType
+    );
   });
 });
 
@@ -1075,6 +1090,8 @@ test('step7 uses docs update commit message when implementation is already done'
     const cmd = payload.actions?.[0]?.cmd || '';
     assert.match(cmd, /git commit -m "docs: F001-alpha docs update"/);
     assert.doesNotMatch(cmd, /docs\(planning\):/);
+    assert.equal(payload.actions?.[0]?.operationType, 'local');
+    assert.equal(payload.primaryActionOperationType, 'local');
   });
 });
 

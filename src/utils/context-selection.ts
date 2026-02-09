@@ -1,6 +1,12 @@
 import { createHash } from 'crypto';
 import { ProjectConfig } from './config.js';
-import { FeatureContext, scanFeatures } from './context/index.js';
+import {
+  ActionCategory,
+  FeatureContext,
+  NextAction,
+  OperationType,
+  scanFeatures,
+} from './context/index.js';
 
 export type ContextStatus =
   | 'no_features'
@@ -10,6 +16,11 @@ export type ContextStatus =
   | 'no_match';
 
 export type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'all';
+export type ContextSelectionFallback =
+  | 'none'
+  | 'open_features'
+  | 'all_features'
+  | 'done_features';
 
 export interface ContextSelectionOptions {
   repo?: string;
@@ -18,12 +29,14 @@ export interface ContextSelectionOptions {
   done?: boolean;
 }
 
+export type ContextAction = NextAction & { operationType: OperationType };
+
 export interface ActionOption {
   label: string;
   summary: string;
   detail: string;
   approvalPrompt: string;
-  action: FeatureContext['actions'][number];
+  action: ContextAction;
 }
 
 export interface ContextSelectionState {
@@ -38,13 +51,29 @@ export interface ContextSelectionState {
   inProgressFeatures: FeatureContext[];
   readyToCloseFeatures: FeatureContext[];
   selectionMode: ContextSelectionMode;
+  selectionFallback: ContextSelectionFallback;
   targetFeatures: FeatureContext[];
   status: ContextStatus;
   matchedFeature: FeatureContext | null;
-  actions: FeatureContext['actions'];
+  actions: ContextAction[];
   actionOptions: ActionOption[];
   contextVersion: string | null;
 }
+
+const REMOTE_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
+  'issue_create',
+  'pr_create',
+  'pr_status_update',
+  'code_review',
+]);
+
+const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
+  'docs_commit',
+  'branch_create',
+  'task_execute',
+]);
+
+const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
 
 function resolveComponentOption(options: ContextSelectionOptions): string | undefined {
   const component = (options.component || options.repo || '').trim().toLowerCase();
@@ -62,7 +91,39 @@ function getActionLabel(index: number): string {
   return label;
 }
 
-function getActionSummary(action: FeatureContext['actions'][number]): string {
+export function resolveActionOperationType(
+  action: FeatureContext['actions'][number]
+): OperationType {
+  if (action.operationType) return action.operationType;
+  if (action.type === 'command') {
+    if (REMOTE_COMMAND_PATTERN.test(action.cmd)) return 'remote';
+    return 'local';
+  }
+
+  if (action.category && REMOTE_ACTION_CATEGORIES.has(action.category)) {
+    return 'remote';
+  }
+  if (action.category && LOCAL_ACTION_CATEGORIES.has(action.category)) {
+    return 'local';
+  }
+
+  return 'manual';
+}
+
+function annotateActionOperationType(
+  action: FeatureContext['actions'][number]
+): ContextAction {
+  return {
+    ...action,
+    operationType: resolveActionOperationType(action),
+  } as ContextAction;
+}
+
+function annotateActions(actions: FeatureContext['actions']): ContextAction[] {
+  return actions.map((action) => annotateActionOperationType(action));
+}
+
+function getActionSummary(action: ContextAction): string {
   if (action.category === 'docs_commit') return 'Commit docs updates';
   if (action.category === 'issue_create') return 'Create and record issue';
   if (action.category === 'branch_create') return 'Create feature branch';
@@ -84,14 +145,14 @@ function getActionSummary(action: FeatureContext['actions'][number]): string {
   return action.message;
 }
 
-function formatActionSummary(action: FeatureContext['actions'][number]): string {
+function formatActionSummary(action: ContextAction): string {
   if (action.type === 'command') {
     return `(${action.scope}) ${action.cmd}`;
   }
   return action.message;
 }
 
-function toActionOptions(actions: FeatureContext['actions']): ActionOption[] {
+function toActionOptions(actions: ContextAction[]): ActionOption[] {
   return actions.map((action, index) => {
     const label = getActionLabel(index);
     const summary = getActionSummary(action);
@@ -116,6 +177,7 @@ function buildActionSnapshot(actionOptions: ActionOption[]): Array<Record<string
         cwd: action.cwd,
         cmd: action.cmd,
         category: action.category,
+        operationType: action.operationType,
         requiresUserCheck: !!action.requiresUserCheck,
       };
     }
@@ -124,6 +186,7 @@ function buildActionSnapshot(actionOptions: ActionOption[]): Array<Record<string
       type: action.type,
       message: action.message,
       category: action.category,
+      operationType: action.operationType,
       requiresUserCheck: !!action.requiresUserCheck,
     };
   });
@@ -211,6 +274,7 @@ export async function resolveContextSelection(
 
   let targetFeatures: FeatureContext[] = [];
   let selectionMode: ContextSelectionMode = 'explicit';
+  let selectionFallback: ContextSelectionFallback = 'none';
 
   if (featureName) {
     targetFeatures = scopedFeatures.filter((f) =>
@@ -246,15 +310,19 @@ export async function resolveContextSelection(
 
     if (targetFeatures.length > 0) {
       selectionMode = 'branch';
+      selectionFallback = 'none';
     } else if (options.all) {
       targetFeatures = scopedFeatures;
       selectionMode = 'all';
+      selectionFallback = 'all_features';
     } else if (options.done) {
       targetFeatures = doneFeatures;
       selectionMode = 'done';
+      selectionFallback = 'done_features';
     } else {
       targetFeatures = openFeatures;
       selectionMode = 'open';
+      selectionFallback = 'open_features';
     }
   }
 
@@ -265,7 +333,7 @@ export async function resolveContextSelection(
     targetFeatures
   );
   const matchedFeature = targetFeatures.length === 1 ? targetFeatures[0] : null;
-  const actions = matchedFeature?.actions ?? [];
+  const actions = annotateActions(matchedFeature?.actions ?? []);
   const actionOptions = toActionOptions(actions);
   const contextVersion = getContextVersion(matchedFeature, actionOptions);
 
@@ -278,6 +346,7 @@ export async function resolveContextSelection(
     inProgressFeatures,
     readyToCloseFeatures,
     selectionMode,
+    selectionFallback,
     targetFeatures,
     status,
     matchedFeature,

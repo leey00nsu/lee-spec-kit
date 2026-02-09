@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { createHash } from 'crypto';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
@@ -14,12 +13,18 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import {
-  scanFeatures,
   FeatureContext,
   getStepDefinitions,
   getStepsMap,
   StepDefinition,
 } from '../utils/context.js';
+import {
+  ActionOption,
+  ContextSelectionOptions,
+  ContextSelectionState,
+  resolveContextSelection,
+  toReasonCode,
+} from '../utils/context-selection.js';
 
 interface ContextOptions {
   json?: boolean;
@@ -32,129 +37,21 @@ interface ContextOptions {
   executeStrict?: boolean;
 }
 
-type ContextSelectionOptions = Pick<
-  ContextOptions,
-  'repo' | 'component' | 'all' | 'done'
->;
+type CommandAction = Extract<ActionOption['action'], { type: 'command' }>;
+type ResolvedContextState = ContextSelectionState;
 
-type ContextStatus =
-  | 'no_features'
-  | 'no_open'
-  | 'single_matched'
-  | 'multiple_active'
-  | 'no_match';
-
-type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'all';
-
-type ActionOption = ReturnType<typeof toActionOptions>[number];
-type CommandAction = Extract<FeatureContext['actions'][number], { type: 'command' }>;
-
-interface ResolvedContextState {
-  features: FeatureContext[];
-  branches: {
-    docs: string;
-    project: Record<string, string>;
-  };
-  warnings: string[];
-  doneFeatures: FeatureContext[];
-  openFeatures: FeatureContext[];
-  inProgressFeatures: FeatureContext[];
-  readyToCloseFeatures: FeatureContext[];
-  selectionMode: ContextSelectionMode;
-  targetFeatures: FeatureContext[];
-  status: ContextStatus;
-  matchedFeature: FeatureContext | null;
-  actions: FeatureContext['actions'];
-  actionOptions: ActionOption[];
-  contextVersion: string | null;
-}
-
-function getActionLabel(index: number): string {
-  // 0 -> A, 25 -> Z, 26 -> AA
-  let n = index + 1;
-  let label = '';
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    label = String.fromCharCode(65 + rem) + label;
-    n = Math.floor((n - 1) / 26);
+async function resolveContextState(
+  config: Awaited<ReturnType<typeof getConfig>>,
+  featureName: string | undefined,
+  options: ContextSelectionOptions
+): Promise<ResolvedContextState> {
+  if (!config) {
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
+    );
   }
-  return label;
-}
-
-function getActionSummary(action: FeatureContext['actions'][number]): string {
-  if (action.category === 'docs_commit') return 'Commit docs updates';
-  if (action.category === 'issue_create') return 'Create and record issue';
-  if (action.category === 'branch_create') return 'Create feature branch';
-  if (action.category === 'pr_create') return 'Create PR and record link';
-  if (action.category === 'pr_status_update') return 'Update PR status';
-  if (action.category === 'code_review') return 'Process code review feedback';
-  if (action.category === 'task_execute') return 'Proceed with task execution';
-  if (action.category === 'feature_done') return 'Feature is complete';
-  if (action.category === 'spec_approve') return 'Request spec approval';
-  if (action.category === 'plan_approve') return 'Request plan approval';
-  if (action.category === 'tasks_approve') return 'Request tasks approval';
-  if (action.category === 'pr_metadata_migrate') return 'Update tasks.md to latest PR fields';
-  if (action.category === 'fallback') return 'Re-check context and rerun';
-  if (action.type === 'command') {
-    return action.scope === 'docs'
-      ? 'Run docs command'
-      : 'Run project command';
-  }
-  return action.message;
-}
-
-function toActionOptions(actions: FeatureContext['actions']) {
-  return actions.map((action, index) => {
-    const label = getActionLabel(index);
-    const summary = getActionSummary(action);
-    const detail = formatActionSummary(action);
-    return {
-      label,
-      summary,
-      detail,
-      approvalPrompt: `${label}: ${summary}`,
-      action,
-    };
-  });
-}
-
-function buildActionSnapshot(
-  actionOptions: ReturnType<typeof toActionOptions>
-): Array<Record<string, string | boolean | undefined>> {
-  return actionOptions.map(({ label, action }) => {
-    if (action.type === 'command') {
-      return {
-        label,
-        type: action.type,
-        scope: action.scope,
-        cwd: action.cwd,
-        cmd: action.cmd,
-        category: action.category,
-        requiresUserCheck: !!action.requiresUserCheck,
-      };
-    }
-    return {
-      label,
-      type: action.type,
-      message: action.message,
-      category: action.category,
-      requiresUserCheck: !!action.requiresUserCheck,
-    };
-  });
-}
-
-function getContextVersion(
-  feature: FeatureContext | null,
-  actionOptions: ReturnType<typeof toActionOptions>
-): string | null {
-  if (!feature) return null;
-  const payload = JSON.stringify({
-    id: feature.id || '',
-    folderName: feature.folderName,
-    currentStep: feature.currentStep,
-    actionSnapshot: buildActionSnapshot(actionOptions),
-  });
-  return createHash('sha256').update(payload).digest('hex').slice(0, 12);
+  return resolveContextSelection(config, featureName, options);
 }
 
 function parseApprovalLabel(input: string): string | null {
@@ -168,142 +65,11 @@ function listLabels(actionOptions: ActionOption[]): string {
   return actionOptions.map((o) => o.label).join(', ');
 }
 
-function formatActionSummary(action: FeatureContext['actions'][number]): string {
+function formatActionSummary(action: ActionOption['action']): string {
   if (action.type === 'command') {
     return `(${action.scope}) ${action.cmd}`;
   }
   return action.message;
-}
-
-function toSelectionStatus(
-  features: FeatureContext[],
-  selectionMode: ContextSelectionMode,
-  openFeatures: FeatureContext[],
-  targetFeatures: FeatureContext[]
-): ContextStatus {
-  const isNoOpen =
-    selectionMode === 'open' && features.length > 0 && openFeatures.length === 0;
-  if (features.length === 0) return 'no_features';
-  if (isNoOpen) return 'no_open';
-  if (targetFeatures.length === 1) return 'single_matched';
-  if (targetFeatures.length > 1) return 'multiple_active';
-  return 'no_match';
-}
-
-function toReasonCode(status: ContextStatus): string {
-  if (status === 'no_features') return 'NO_FEATURES';
-  if (status === 'no_open') return 'NO_OPEN_FEATURES';
-  if (status === 'single_matched') return 'SINGLE_MATCHED';
-  if (status === 'multiple_active') return 'MULTIPLE_ACTIVE_FEATURES';
-  return 'NO_MATCHED_FEATURES';
-}
-
-async function resolveContextState(
-  config: Awaited<ReturnType<typeof getConfig>>,
-  featureName: string | undefined,
-  options: ContextSelectionOptions
-): Promise<ResolvedContextState> {
-  if (!config) {
-    throw createCliError(
-      'CONFIG_NOT_FOUND',
-      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
-    );
-  }
-
-  const { features, branches, warnings } = await scanFeatures(config);
-  const selectedComponent = (
-    options.component || options.repo || ''
-  )
-    .trim()
-    .toLowerCase();
-  const scopedFeatures = selectedComponent
-    ? features.filter((f) => f.type === selectedComponent)
-    : features;
-  const doneFeatures = scopedFeatures.filter((f) => f.completion.workflowDone);
-  const openFeatures = scopedFeatures.filter((f) => !f.completion.workflowDone);
-  const inProgressFeatures = openFeatures.filter(
-    (f) => !f.completion.implementationDone
-  );
-  const readyToCloseFeatures = openFeatures.filter(
-    (f) => f.completion.implementationDone
-  );
-
-  let targetFeatures: FeatureContext[] = [];
-  let selectionMode: ContextSelectionMode = 'explicit';
-
-  if (featureName) {
-    targetFeatures = scopedFeatures.filter((f) =>
-      matchesFeatureSelector(f, featureName)
-    );
-    selectionMode = 'explicit';
-  } else {
-    if (config.projectType === 'single') {
-      const branchName = branches.project.single || '';
-      targetFeatures = detectFromBranch(branchName, scopedFeatures);
-    } else if (selectedComponent) {
-      const branchName = branches.project[selectedComponent] || '';
-      targetFeatures = detectFromBranch(
-        branchName,
-        scopedFeatures
-      );
-    } else {
-      const matches: FeatureContext[] = [];
-      const componentKeys = [...new Set(scopedFeatures.map((f) => f.type))]
-        .filter((key) => key !== 'single');
-      for (const component of componentKeys) {
-        const branchName = branches.project[component] || '';
-        if (!branchName) continue;
-        matches.push(
-          ...detectFromBranch(
-            branchName,
-            scopedFeatures.filter((f) => f.type === component)
-          )
-        );
-      }
-      targetFeatures = matches;
-    }
-
-    if (targetFeatures.length > 0) {
-      selectionMode = 'branch';
-    } else if (options.all) {
-      targetFeatures = scopedFeatures;
-      selectionMode = 'all';
-    } else if (options.done) {
-      targetFeatures = doneFeatures;
-      selectionMode = 'done';
-    } else {
-      targetFeatures = openFeatures;
-      selectionMode = 'open';
-    }
-  }
-
-  const status = toSelectionStatus(
-    scopedFeatures,
-    selectionMode,
-    openFeatures,
-    targetFeatures
-  );
-  const matchedFeature = targetFeatures.length === 1 ? targetFeatures[0] : null;
-  const actions = matchedFeature?.actions ?? [];
-  const actionOptions = toActionOptions(actions);
-  const contextVersion = getContextVersion(matchedFeature, actionOptions);
-
-  return {
-    features: scopedFeatures,
-    branches,
-    warnings,
-    doneFeatures,
-    openFeatures,
-    inProgressFeatures,
-    readyToCloseFeatures,
-    selectionMode,
-    targetFeatures,
-    status,
-    matchedFeature,
-    actions,
-    actionOptions,
-    contextVersion,
-  };
 }
 
 function executeCommandAction(
@@ -387,30 +153,6 @@ export function contextCommand(program: Command): void {
         }
       }
     );
-}
-
-function matchesFeatureSelector(f: FeatureContext, selector: string): boolean {
-  const s = selector.trim();
-  if (!s) return false;
-  if (f.folderName.toLowerCase() === s.toLowerCase()) return true;
-  if (f.slug.toLowerCase() === s.toLowerCase()) return true;
-  if (f.id && f.id.toLowerCase() === s.toLowerCase()) return true;
-  return false;
-}
-
-function detectFromBranch(
-  branchName: string,
-  features: FeatureContext[]
-): FeatureContext[] {
-  // feat/123-user-auth  또는 feat/123-F001-user-auth
-  const match = branchName.match(/^feat\/\d+-(.+)$/);
-  if (!match) return [];
-  const detected = match[1];
-  return features.filter(
-    (f) =>
-      f.slug.toLowerCase() === detected.toLowerCase() ||
-      f.folderName.toLowerCase() === detected.toLowerCase()
-  );
 }
 
 function getListLabel(
@@ -537,10 +279,12 @@ async function runContext(
 
   // 2. 결과 출력 (JSON)
   if (options.json) {
+    const primaryAction = state.actionOptions[0] ?? null;
     const result = {
       status: state.status,
       reasonCode: toReasonCode(state.status),
       selectionMode: state.selectionMode,
+      selectionFallback: state.selectionFallback,
       branches: state.branches,
       warnings: state.warnings,
       matchedFeature: state.matchedFeature,
@@ -554,10 +298,15 @@ async function runContext(
         state.selectionMode === 'open' ? state.readyToCloseFeatures : [],
       actions: state.actions,
       actionOptions: state.actionOptions,
+      primaryActionLabel: primaryAction?.label ?? null,
+      primaryActionType: primaryAction?.action.type ?? null,
+      primaryActionCategory: primaryAction?.action.category ?? null,
+      primaryActionOperationType: primaryAction?.action.operationType ?? null,
       workflowPolicy,
       checkPolicy: {
         docPath: '/docs/agents/agents.md',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
+        policyOnly: true,
         token: '<LABEL>',
         acceptedTokens: ['<LABEL>', '<LABEL> OK'],
         tokenPattern: '^([A-Z]+)(?:\\s+OK)?$',
@@ -579,6 +328,7 @@ async function runContext(
           summary: o.summary,
           approvalPrompt: o.approvalPrompt,
           requiresUserCheck: !!o.action.requiresUserCheck,
+          operationType: o.action.operationType,
         })),
       },
       prPolicy: {
@@ -826,7 +576,7 @@ async function runContext(
     return;
   }
 
-  const actionOptions = toActionOptions(f.actions);
+  const actionOptions = state.actionOptions;
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
   actionOptions.forEach(({ label, action }) => {

@@ -23,6 +23,8 @@ export type ActionCategory =
   | 'feature_done'
   | 'fallback';
 
+export type OperationType = 'local' | 'remote' | 'manual';
+
 export type NextAction =
   | {
       type: 'command';
@@ -31,12 +33,14 @@ export type NextAction =
       cmd: string;
       requiresUserCheck?: boolean;
       category?: ActionCategory;
+      operationType?: OperationType;
     }
   | {
       type: 'instruction';
       message: string;
       requiresUserCheck?: boolean;
       category?: ActionCategory;
+      operationType?: OperationType;
     };
 
 export interface TaskRef {

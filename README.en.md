@@ -203,9 +203,12 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 `--json` output includes:
 
 - `reasonCode`: status reason code (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES`, etc.)
+- `operationType`: action nature (`local` | `remote` | `manual`)
 - `actionOptions`: maps labels to atomic actions plus `summary`/`approvalPrompt` for user-facing label explanation
+- `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: metadata for the first atomic action
+- `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
-- `checkPolicy`: approval validation policy (`token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
+- `checkPolicy`: approval validation policy (`hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
 

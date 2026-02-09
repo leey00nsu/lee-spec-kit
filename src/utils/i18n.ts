@@ -108,7 +108,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 규칙: /docs/agents/agents.md 참고 (git push/merge/merge commit 포함) — [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 정책 안내(현재 Next Action 아님): /docs/agents/agents.md 참고 (git push/merge/merge commit 포함). [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
         '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
       'context.actionExplainHint':
@@ -369,7 +369,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  User check policy: see /docs/agents/agents.md (includes git push/merge and merge commits) — if you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
+        'ℹ️  User check policy notice (not the current next action): see /docs/agents/agents.md (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
         'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
       'context.actionExplainHint':
