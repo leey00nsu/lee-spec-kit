@@ -24,6 +24,8 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { getLocalDateString } from '../utils/date.js';
+import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-template.js';
 
 interface FeatureOptions {
   repo?: 'be' | 'fe';
@@ -89,6 +91,13 @@ async function runFeature(
   assertValid(validateSafeName(name), '기능 이름');
 
   let repo = options.repo;
+
+  if (projectType === 'single' && repo) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--repo` can only be used in fullstack mode.'
+    );
+  }
 
   // fullstack인 경우 repo 선택 필요
   if (projectType === 'fullstack' && !repo) {
@@ -174,7 +183,7 @@ async function runFeature(
         // ko placeholders
         '{기능명}': name,
         '{번호}': idNumber,
-        'YYYY-MM-DD': new Date().toISOString().split('T')[0],
+        'YYYY-MM-DD': getLocalDateString(),
         '{be|fe}': repo || '',
         '{이슈번호}': '',
         '{{description}}': options.desc || '',
@@ -197,6 +206,10 @@ async function runFeature(
       }
 
       await replaceInFiles(featureDir, replacements);
+
+      if (config.workflow?.mode === 'local') {
+        await applyLocalWorkflowTemplateToFeatureDir(featureDir, lang);
+      }
 
       console.log();
       console.log(chalk.green(tr(lang, 'cli', 'feature.created', { path: featureDir })));

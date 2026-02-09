@@ -15,6 +15,8 @@ import {
 } from '../utils/validation.js';
 import { execFileSync, execSync } from 'child_process';
 import { getInitLockPath, withFileLock } from '../utils/lock.js';
+import { getLocalDateString } from '../utils/date.js';
+import { applyLocalWorkflowTemplateToFeatureBase } from '../utils/local-workflow-template.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -516,18 +518,22 @@ async function runInit(options: InitOptions): Promise<void> {
         projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
       const replacements: Record<string, string> = {
         '{{projectName}}': projectName,
-        '{{date}}': new Date().toISOString().split('T')[0],
+        '{{date}}': getLocalDateString(),
         '{{featurePath}}': featurePath,
       };
 
       await replaceInFiles(targetDir, replacements);
+
+      if (workflowMode === 'local') {
+        await applyLocalWorkflowTemplateToFeatureBase(targetDir, lang);
+      }
 
       // Config 파일 생성
       const config: Record<string, unknown> = {
         projectName,
         projectType,
         lang,
-        createdAt: new Date().toISOString().split('T')[0],
+        createdAt: getLocalDateString(),
         docsRepo,
         workflow: { mode: workflowMode },
         pr: {

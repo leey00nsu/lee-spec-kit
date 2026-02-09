@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { scanFeatures } from '../utils/context.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
+import { getLocalDateString } from '../utils/date.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -26,6 +27,8 @@ interface FeatureInfo {
   status: string;
   progress: string;
   path: string;
+  implementationDone: boolean;
+  workflowDone: boolean;
 }
 
 export function statusCommand(program: Command): void {
@@ -72,9 +75,13 @@ async function runStatus(options: StatusOptions): Promise<void> {
   const idMap = new Map<string, string[]>();
 
   for (const f of scan.features) {
+    const id = f.id || 'UNKNOWN';
+    const relPath = path.relative(docsDir, f.path);
+    if (!idMap.has(id)) idMap.set(id, []);
+    idMap.get(id)!.push(relPath);
+
     if (!f.docs.specExists || !f.docs.tasksExists) continue;
 
-    const id = f.id || 'UNKNOWN';
     const name = await getFeatureNameFromSpec(f.path, f.slug, f.folderName);
     const repo =
       projectType === 'fullstack'
@@ -85,17 +92,14 @@ async function runStatus(options: StatusOptions): Promise<void> {
         : projectName ?? '{{projectName}}';
     const issue = f.issueNumber ? `#${f.issueNumber}` : '-';
 
-    const relPath = path.relative(docsDir, f.path);
-    if (!idMap.has(id)) idMap.set(id, []);
-    idMap.get(id)!.push(relPath);
-
     const total = f.tasks.total;
     const done = f.tasks.done;
     const doing = f.tasks.doing;
     const todo = f.tasks.todo;
 
     let status = 'TODO';
-    if (total > 0 && done === total) status = 'DONE';
+    if (f.completion.workflowDone) status = 'WORKFLOW_DONE';
+    else if (total > 0 && done === total) status = 'DONE';
     else if (doing > 0) status = 'DOING';
     else if (todo > 0) status = 'TODO';
     else if (total === 0) status = 'NO_TASKS';
@@ -108,28 +112,30 @@ async function runStatus(options: StatusOptions): Promise<void> {
       status,
       progress: `${done}/${total}`,
       path: relPath,
+      implementationDone: f.completion.implementationDone,
+      workflowDone: f.completion.workflowDone,
     });
   }
 
   // 중복 ID 확인
   if (options.strict) {
-    const duplicates = [...idMap.entries()].filter(
-      ([, paths]) => paths.length > 1
-    );
-    if (duplicates.length > 0) {
-      const duplicateIds = duplicates.map(([id]) => id).join(', ');
-      throw createCliError(
-        'DUPLICATE_FEATURE_ID',
-        `${tr(lang, 'cli', 'status.duplicateIds')} ${duplicateIds}`
-      );
-    }
-
     const unknowns = [...idMap.entries()].filter(([id]) => id === 'UNKNOWN');
     if (unknowns.length > 0) {
       const missingPaths = unknowns.flatMap(([, paths]) => paths).join(', ');
       throw createCliError(
         'MISSING_FEATURE_ID',
         `${tr(lang, 'cli', 'status.missingIds')} ${missingPaths}`
+      );
+    }
+
+    const duplicates = [...idMap.entries()].filter(
+      ([id, paths]) => id !== 'UNKNOWN' && paths.length > 1
+    );
+    if (duplicates.length > 0) {
+      const duplicateIds = duplicates.map(([id]) => id).join(', ');
+      throw createCliError(
+        'DUPLICATE_FEATURE_ID',
+        `${tr(lang, 'cli', 'status.duplicateIds')} ${duplicateIds}`
       );
     }
   }
@@ -141,6 +147,8 @@ async function runStatus(options: StatusOptions): Promise<void> {
       reasonCode: features.length === 0 ? 'NO_FEATURES' : 'FEATURES_LISTED',
       counts: {
         features: features.length,
+        workflowDone: features.filter((f) => f.workflowDone).length,
+        implementationDone: features.filter((f) => f.implementationDone).length,
       },
       features: [...features].sort((a, b) => a.id.localeCompare(b.id)),
     };
@@ -165,8 +173,10 @@ async function runStatus(options: StatusOptions): Promise<void> {
   console.log(separator);
   for (const f of features) {
     const statusColor =
-      f.status === 'DONE'
+      f.status === 'WORKFLOW_DONE'
         ? chalk.green
+        : f.status === 'DONE'
+          ? chalk.cyan
         : f.status === 'DOING'
           ? chalk.yellow
           : chalk.gray;
@@ -179,7 +189,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
   // 파일 쓰기
   if (options.write) {
     const outputPath = path.join(featuresDir, 'status.md');
-    const date = new Date().toISOString().split('T')[0];
+    const date = getLocalDateString();
 
     const content = [
       '# Feature Status',
