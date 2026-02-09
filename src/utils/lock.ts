@@ -9,6 +9,10 @@ interface FileLockOptions {
   owner?: string;
 }
 
+interface LockPayload {
+  pid?: number;
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_MS = 150;
 const DEFAULT_STALE_MS = 2 * 60_000;
@@ -31,8 +35,47 @@ export function getInitLockPath(targetDir: string): string {
 async function isStaleLock(lockPath: string, staleMs: number): Promise<boolean> {
   try {
     const stat = await fs.stat(lockPath);
-    return Date.now() - stat.mtimeMs > staleMs;
+    if (Date.now() - stat.mtimeMs <= staleMs) {
+      return false;
+    }
+
+    const payload = await readLockPayload(lockPath);
+    if (
+      typeof payload?.pid === 'number' &&
+      Number.isFinite(payload.pid) &&
+      isProcessAlive(payload.pid)
+    ) {
+      return false;
+    }
+
+    return true;
   } catch {
+    return false;
+  }
+}
+
+async function readLockPayload(lockPath: string): Promise<LockPayload | null> {
+  try {
+    const raw = await fs.readFile(lockPath, 'utf8');
+    const parsed = JSON.parse(raw) as LockPayload;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === 'EPERM') {
+      // Alive but not permitted to signal.
+      return true;
+    }
     return false;
   }
 }
