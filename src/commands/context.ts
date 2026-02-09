@@ -81,11 +81,41 @@ function getActionLabel(index: number): string {
   return label;
 }
 
+function getActionSummary(action: FeatureContext['actions'][number]): string {
+  if (action.category === 'docs_commit') return 'Commit docs updates';
+  if (action.category === 'issue_create') return 'Create and record issue';
+  if (action.category === 'branch_create') return 'Create feature branch';
+  if (action.category === 'pr_create') return 'Create PR and record link';
+  if (action.category === 'pr_status_update') return 'Update PR status';
+  if (action.category === 'code_review') return 'Process code review feedback';
+  if (action.category === 'task_execute') return 'Proceed with task execution';
+  if (action.category === 'feature_done') return 'Feature is complete';
+  if (action.category === 'spec_approve') return 'Request spec approval';
+  if (action.category === 'plan_approve') return 'Request plan approval';
+  if (action.category === 'tasks_approve') return 'Request tasks approval';
+  if (action.category === 'pr_metadata_migrate') return 'Update tasks.md to latest PR fields';
+  if (action.category === 'fallback') return 'Re-check context and rerun';
+  if (action.type === 'command') {
+    return action.scope === 'docs'
+      ? 'Run docs command'
+      : 'Run project command';
+  }
+  return action.message;
+}
+
 function toActionOptions(actions: FeatureContext['actions']) {
-  return actions.map((action, index) => ({
-    label: getActionLabel(index),
-    action,
-  }));
+  return actions.map((action, index) => {
+    const label = getActionLabel(index);
+    const summary = getActionSummary(action);
+    const detail = formatActionSummary(action);
+    return {
+      label,
+      summary,
+      detail,
+      approvalPrompt: `${label}: ${summary}`,
+      action,
+    };
+  });
 }
 
 function buildActionSnapshot(
@@ -532,10 +562,24 @@ async function runContext(
         acceptedTokens: ['<LABEL>', '<LABEL> OK'],
         tokenPattern: '^([A-Z]+)(?:\\s+OK)?$',
         validLabels: state.actionOptions.map((o) => o.label),
+        requireExplanationBeforeApproval: true,
+        requiredExplanationFields: ['actionOptions[].summary', 'actionOptions[].approvalPrompt'],
+        recommendation:
+          'Before asking for approval, explain each label with summary and then ask for `<LABEL>` or `<LABEL> OK`.',
         oneApprovalPerAction: true,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
+      },
+      approvalRequest: {
+        guidance:
+          'Present each label with summary (e.g. `A: <summary>`) before asking for approval.',
+        options: state.actionOptions.map((o) => ({
+          label: o.label,
+          summary: o.summary,
+          approvalPrompt: o.approvalPrompt,
+          requiresUserCheck: !!o.action.requiresUserCheck,
+        })),
       },
       prPolicy: {
         screenshots: {
@@ -800,6 +844,7 @@ async function runContext(
   }
   if (hasCheckAction) {
     console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionOptionHint')}`));
+    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionExplainHint')}`));
   }
   console.log();
 }

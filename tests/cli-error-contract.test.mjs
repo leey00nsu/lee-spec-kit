@@ -606,6 +606,47 @@ test('context --json exposes generic label token policy', async () => {
       '<LABEL> OK',
     ]);
     assert.equal(payload.checkPolicy.tokenPattern, '^([A-Z]+)(?:\\s+OK)?$');
+    assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, true);
+    assert.deepEqual(payload.checkPolicy.requiredExplanationFields, [
+      'actionOptions[].summary',
+      'actionOptions[].approvalPrompt',
+    ]);
+  });
+});
+
+test('context --json actionOptions include summary and approvalPrompt', async () => {
+  await withTempDir('lsk-context-action-summary-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(Array.isArray(payload.actionOptions), true);
+    assert.equal(payload.actionOptions.length > 0, true);
+    assert.equal(typeof payload.actionOptions[0].summary, 'string');
+    assert.equal(payload.actionOptions[0].summary.length > 0, true);
+    assert.equal(typeof payload.actionOptions[0].approvalPrompt, 'string');
+    assert.match(payload.actionOptions[0].approvalPrompt, /^[A-Z]+:\s+/);
+    assert.equal(Array.isArray(payload.approvalRequest?.options), true);
+    assert.equal(payload.approvalRequest.options.length, payload.actionOptions.length);
   });
 });
 

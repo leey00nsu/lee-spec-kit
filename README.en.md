@@ -203,9 +203,9 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 `--json` output includes:
 
 - `reasonCode`: status reason code (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES`, etc.)
-- `actionOptions`: maps labels to atomic actions
+- `actionOptions`: maps labels to atomic actions plus `summary`/`approvalPrompt` for user-facing label explanation
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
-- `checkPolicy`: approval validation policy (`token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
+- `checkPolicy`: approval validation policy (`token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
 
@@ -379,6 +379,8 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK"]`)
 - `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
+- `checkPolicy.requireExplanationBeforeApproval`: require label-by-label explanation before asking approval
+- `checkPolicy.requiredExplanationFields`: fields to use for explanation (e.g. `actionOptions[].summary`)
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
 - `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)

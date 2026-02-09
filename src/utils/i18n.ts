@@ -111,6 +111,8 @@ const I18N: Record<Lang, I18nData> = {
         'ℹ️  사용자 확인 규칙: /docs/agents/agents.md 참고 (git push/merge/merge commit 포함) — [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
         '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
+      'context.actionExplainHint':
+        '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.tipDocsCommitRules':
         '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
@@ -370,6 +372,8 @@ const I18N: Record<Lang, I18nData> = {
         'ℹ️  User check policy: see /docs/agents/agents.md (includes git push/merge and merge commits) — if you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
         'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
+      'context.actionExplainHint':
+        'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.tipDocsCommitRules':
         'Commit message rules: /docs/agents/git-workflow.md',
       'context.list.docsCommitNeeded': 'Commit docs changes',
