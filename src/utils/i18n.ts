@@ -248,6 +248,8 @@ const I18N: Record<Lang, I18nData> = {
         '프로젝트 브랜치를 확인할 수 없습니다. (standalone 모드에서는 projectRoot가 필요합니다.)',
       docsGitUnavailable:
         'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
+      docsPathIgnored:
+        '현재 Feature 문서 경로가 git ignore 대상입니다: {path} (docs 커밋 감지가 제한될 수 있습니다.)',
       docsUncommittedChanges:
         '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
       legacyTasksDocStatusField:
@@ -491,6 +493,8 @@ const I18N: Record<Lang, I18nData> = {
         'Cannot determine project branch. (In standalone mode, projectRoot is required.)',
       docsGitUnavailable:
         'Cannot read git status for the docs repo. (Check repo location / git init.)',
+      docsPathIgnored:
+        'Current feature docs path is ignored by git: {path} (docs commit detection may be limited).',
       docsUncommittedChanges:
         'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: /docs/agents/git-workflow.md',
       legacyTasksDocStatusField:

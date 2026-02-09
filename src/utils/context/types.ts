@@ -95,6 +95,7 @@ export interface FeatureState {
     onExpectedBranch: boolean;
     docsEverCommitted: boolean;
     docsHasUncommittedChanges: boolean;
+    docsPathIgnored?: boolean;
   };
   docs: {
     featurePathFromDocs: string;

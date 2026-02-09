@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { ProjectConfig } from '../config.js';
 import { RepoType } from './types.js';
 
@@ -45,6 +45,25 @@ export function getLastCommitForPath(
     }).trim();
     return out || undefined;
   } catch {
+    return undefined;
+  }
+}
+
+export function isGitPathIgnored(
+  cwd: string,
+  relativePath: string
+): boolean | undefined {
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', relativePath], {
+      cwd,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const status = (error as { status?: number }).status;
+      if (status === 1) return false;
+    }
     return undefined;
   }
 }

@@ -5,6 +5,7 @@ import {
   getGitStatusPorcelain,
   getLastCommitForPath,
   isExpectedFeatureBranch,
+  isGitPathIgnored,
 } from './git.js';
 import { resolveFeatureProgress } from './progress.js';
 import {
@@ -271,6 +272,10 @@ export async function parseFeature(
   );
 
   const relativeFeaturePathFromDocs = path.relative(context.docsDir, featurePath);
+  const docsPathIgnored = isGitPathIgnored(
+    context.docsGitCwd,
+    relativeFeaturePathFromDocs
+  );
   const docsStatus = getGitStatusPorcelain(context.docsGitCwd, [relativeFeaturePathFromDocs]);
   const docsHasUncommittedChanges = docsStatus === undefined ? true : docsStatus.trim().length > 0;
   const docsLastCommit = getLastCommitForPath(
@@ -281,7 +286,14 @@ export async function parseFeature(
   if (docsStatus === undefined) {
     warnings.push(tr(lang, 'warnings', 'docsGitUnavailable'));
   }
-  if (tasksExists && (!prFieldExists || !prStatusFieldExists)) {
+  if (docsPathIgnored === true) {
+    warnings.push(
+      tr(lang, 'warnings', 'docsPathIgnored', {
+        path: relativeFeaturePathFromDocs,
+      })
+    );
+  }
+  if (tasksExists && workflowPolicy.requirePr && (!prFieldExists || !prStatusFieldExists)) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrFields'));
   }
   if (tasksExists && !tasksDocStatusFieldExists) {
@@ -362,6 +374,7 @@ export async function parseFeature(
       onExpectedBranch,
       docsEverCommitted,
       docsHasUncommittedChanges,
+      docsPathIgnored: docsPathIgnored === true,
     },
     docs: {
       featurePathFromDocs: relativeFeaturePathFromDocs,
