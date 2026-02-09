@@ -413,8 +413,12 @@ Example:
 # show current config
 npx lee-spec-kit config
 
+# target a specific docs path when multiple docs directories exist
+npx lee-spec-kit config --dir ./docs2
+
 # update projectRoot (single)
 npx lee-spec-kit config --project-root /new/path
+npx lee-spec-kit config --dir ./docs2 --project-root /new/path
 
 # update projectRoot (multi)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe
@@ -429,6 +433,7 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 
 | Option | Description |
 | --- | --- |
+| `--dir <dir>` | Target docs directory or project path |
 | `--project-root <path>` | Set projectRoot path |
 | `--repo <repo>` | Target component in multi mode (backward-compatible alias) |
 | `--component <id>` | Target component in multi mode |

@@ -318,7 +318,20 @@ test('doctor --fix --dry-run reports fixes without modifying files', async () =>
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
     const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
-    await fs.appendFile(specPath, '\n- Placeholder: {Story Title}\n', 'utf-8');
+    await fs.writeFile(
+      specPath,
+      `# Feature Spec: alpha
+
+## Overview
+
+- **Feature ID**: F001
+- **Feature Name**: alpha
+- **Created**: 2026-02-08
+- **Status**: Review
+- Placeholder: {Story Title}
+`,
+      'utf-8'
+    );
     const before = await fs.readFile(specPath, 'utf-8');
 
     const result = await runCli(dir, ['doctor', '--fix', '--dry-run', '--json']);
@@ -1304,6 +1317,67 @@ test('doctor ignores initial template-only warnings for fresh features', async (
     const payload = JSON.parse(doctor.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.counts.issues, 0);
+
+    const dryFix = await runCli(dir, ['doctor', '--fix', '--dry-run', '--json']);
+    assert.equal(dryFix.code, 0, dryFix.stderr || dryFix.stdout);
+    const dryPayload = JSON.parse(dryFix.stdout.trim());
+    assert.equal(dryPayload.fixes.enabled, true);
+    assert.equal(dryPayload.fixes.changedFiles, 0);
+  });
+});
+
+test('config --dir targets the selected docs directory when multiple docs exist', async () => {
+  await withTempDir('lsk-config-dir-target-', async (dir) => {
+    const embedded = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo-embedded',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(embedded.code, 0, embedded.stderr || embedded.stdout);
+
+    const standalone = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo-standalone',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs2',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      '/tmp/project-a',
+    ]);
+    assert.equal(standalone.code, 0, standalone.stderr || standalone.stdout);
+
+    const configSet = await runCli(dir, [
+      'config',
+      '--dir',
+      './docs2',
+      '--project-root',
+      '/tmp/project-b',
+    ]);
+    assert.equal(configSet.code, 0, configSet.stderr || configSet.stdout);
+
+    const docs2Config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs2', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.equal(docs2Config.docsRepo, 'standalone');
+    assert.equal(docs2Config.projectRoot, '/tmp/project-b');
   });
 });
 

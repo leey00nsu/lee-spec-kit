@@ -496,8 +496,12 @@ npx lee-spec-kit update --force
 # 현재 설정 확인
 npx lee-spec-kit config
 
+# 여러 docs 경로가 있을 때 대상 지정
+npx lee-spec-kit config --dir ./docs2
+
 # projectRoot 수정 (Single)
 npx lee-spec-kit config --project-root /new/path
+npx lee-spec-kit config --dir ./docs2 --project-root /new/path
 
 # projectRoot 수정 (Multi)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe
@@ -512,6 +516,7 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 
 | 옵션                 | 설명 |
 | -------------------- | ---- |
+| `--dir <dir>` | 대상 docs 디렉터리 또는 프로젝트 경로 지정 |
 | `--project-root <path>` | projectRoot 경로 설정 |
 | `--repo <repo>` | multi 대상 컴포넌트(하위호환 alias) |
 | `--component <id>` | multi 대상 컴포넌트 |

@@ -42,6 +42,14 @@ interface DoctorFixResult {
   entries: DoctorFixEntry[];
 }
 
+const FIXABLE_ISSUE_CODES = new Set([
+  'placeholder_left',
+  'spec_status_unset',
+  'plan_status_unset',
+  'tasks_doc_status_missing',
+  'tasks_doc_status_unset',
+]);
+
 function formatPath(cwd: string, p: string | undefined): string {
   if (!p) return '';
   return path.isAbsolute(p) ? path.relative(cwd, p) : p;
@@ -460,6 +468,10 @@ async function checkFeatures(
   return issues;
 }
 
+function hasFixableIssues(issues: DoctorIssue[]): boolean {
+  return issues.some((issue) => FIXABLE_ISSUE_CODES.has(issue.code));
+}
+
 export function doctorCommand(program: Command): void {
   program
     .command('doctor')
@@ -499,12 +511,21 @@ export function doctorCommand(program: Command): void {
 
         let fixResult: DoctorFixResult | null = null;
         if (options.fix) {
-          fixResult = await applyDoctorFixes(
-            { docsDir, projectType, lang, projectName: config.projectName },
-            cwd,
-            features,
-            !!options.dryRun
-          );
+          if (hasFixableIssues(issues)) {
+            fixResult = await applyDoctorFixes(
+              { docsDir, projectType, lang, projectName: config.projectName },
+              cwd,
+              features,
+              !!options.dryRun
+            );
+          } else {
+            fixResult = {
+              enabled: true,
+              dryRun: !!options.dryRun,
+              changedFiles: 0,
+              entries: [],
+            };
+          }
 
           if (!options.dryRun && fixResult.changedFiles > 0) {
             scan = await scanFeatures(config);

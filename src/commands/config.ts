@@ -19,6 +19,7 @@ import {
 } from '../utils/cli-error.js';
 
 interface ConfigOptions {
+  dir?: string;
   projectRoot?: string;
   repo?: string;
   component?: string;
@@ -29,6 +30,7 @@ export function configCommand(program: Command): void {
   program
     .command('config')
     .description('View or modify project configuration')
+    .option('--dir <dir>', 'Docs directory or project path to target')
     .option('--project-root <path>', 'Set project root path')
     .option('--repo <repo>', 'Component name for multi projects')
     .option('--component <component>', 'Component name for multi projects')
@@ -59,7 +61,8 @@ export function configCommand(program: Command): void {
 
 async function runConfig(options: ConfigOptions): Promise<void> {
   const cwd = process.cwd();
-  const config = await getConfig(cwd);
+  const targetCwd = options.dir ? path.resolve(cwd, options.dir) : cwd;
+  const config = await getConfig(targetCwd);
 
   if (!config) {
     throw createCliError(
