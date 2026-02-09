@@ -8,6 +8,8 @@ import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
 import { contextCommand } from './commands/context.js';
 import { doctorCommand } from './commands/doctor.js';
+import { viewCommand } from './commands/view.js';
+import { flowCommand } from './commands/flow.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -76,5 +78,7 @@ updateCommand(program);
 configCommand(program);
 contextCommand(program);
 doctorCommand(program);
+viewCommand(program);
+flowCommand(program);
 
 await program.parseAsync();

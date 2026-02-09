@@ -59,10 +59,13 @@ npx lee-spec-kit feature user-auth
 # 3. 진행 상황 및 다음 단계 확인 (AI 에이전트용)
 npx lee-spec-kit context
 
-# 4. 전체 상태 확인
+# 4. 워크플로우 대시보드 확인
+npx lee-spec-kit view
+
+# 5. 전체 상태 확인
 npx lee-spec-kit status
 
-# 5. 문서/Feature 진단
+# 6. 문서/Feature 진단
 npx lee-spec-kit doctor
 ```
 
@@ -84,6 +87,16 @@ npx lee-spec-kit doctor
 
 - 전체 Feature 진행 상태 한눈에 확인
 - 터미널 출력 또는 마크다운 파일로 저장
+
+### 👀 View 대시보드
+
+- Context 기반 워크플로우 현황을 한 번에 확인
+- 단일 Feature/전체 Feature 모두 조회 가능
+
+### 🔁 Flow 오케스트레이션
+
+- `context + status + doctor`를 한 번에 실행/요약
+- 승인/실행 옵션을 그대로 전달해 원자 액션 자동화 가능
 
 ### 🩺 문서 진단 (Doctor)
 
@@ -211,6 +224,47 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, `config`)
 
 오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`)
+
+### View 대시보드
+
+```bash
+npx lee-spec-kit view
+npx lee-spec-kit view F001
+npx lee-spec-kit view --all
+npx lee-spec-kit view --json
+```
+
+**옵션:**
+
+| 옵션            | 설명                                            |
+| --------------- | ----------------------------------------------- |
+| `--json`        | 에이전트용 JSON 출력                            |
+| `--repo <repo>` | fullstack에서 대상 레포 지정 (`fe` 또는 `be`)   |
+| `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
+| `--done`        | 완료(workflow-done) Feature만 표시              |
+
+### Flow 오케스트레이션
+
+```bash
+npx lee-spec-kit flow
+npx lee-spec-kit flow F001 --approve A
+npx lee-spec-kit flow F001 --approve "A OK" --execute
+npx lee-spec-kit flow --strict
+npx lee-spec-kit flow --json
+```
+
+**옵션:**
+
+| 옵션               | 설명 |
+| ------------------ | ---- |
+| `--json`           | 에이전트용 JSON 출력 |
+| `--repo <repo>`    | fullstack에서 대상 레포 지정 (`fe` 또는 `be`) |
+| `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
+| `--done`           | 완료(workflow-done) Feature만 표시 |
+| `--approve <reply>`| context 라벨 승인 응답 전달 (`A` 또는 `A OK`) |
+| `--execute`        | 승인한 옵션이 command일 때 실행 |
+| `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
+| `--strict`         | `status --strict`, `doctor --strict`까지 함께 검사 |
 
 ### 상태 확인
 

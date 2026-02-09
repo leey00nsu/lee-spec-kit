@@ -765,6 +765,90 @@ test('context --execute-strict fails for instruction-only approved option', asyn
   });
 });
 
+test('view --json returns NO_FEATURES on initialized empty docs', async () => {
+  await withTempDir('lsk-view-json-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['view', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'NO_FEATURES');
+    assert.equal(payload.counts.features, 0);
+  });
+});
+
+test('flow --json aggregates context/status/doctor', async () => {
+  await withTempDir('lsk-flow-json-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['flow', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.context.before.reasonCode, 'NO_FEATURES');
+    assert.equal(payload.statusReport.reasonCode, 'NO_FEATURES');
+    assert.equal(payload.doctorReport.status, 'warn');
+  });
+});
+
+test('flow --json includes approval result when approve is provided', async () => {
+  await withTempDir('lsk-flow-approve-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['flow', 'F001', '--approve', 'A', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.approval.status, 'approved_selected');
+    assert.equal(payload.approval.reasonCode, 'APPROVED_SELECTED');
+  });
+});
+
 test('--no-banner hides ASCII banner in help output', async () => {
   await withTempDir('lsk-no-banner-help-', async (dir) => {
     const result = await runCli(dir, ['--no-banner', '--help']);

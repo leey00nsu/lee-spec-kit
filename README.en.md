@@ -46,10 +46,13 @@ npx lee-spec-kit feature user-auth
 # 3) Show next steps (for agents)
 npx lee-spec-kit context
 
-# 4) Show overall status
+# 4) Show workflow dashboard
+npx lee-spec-kit view
+
+# 5) Show overall status
 npx lee-spec-kit status
 
-# 5) Validate docs / feature metadata
+# 6) Validate docs / feature metadata
 npx lee-spec-kit doctor
 ```
 
@@ -71,6 +74,16 @@ npx lee-spec-kit doctor
 
 - View feature progress at a glance
 - Print to terminal or write a Markdown report
+
+### 👀 View dashboard
+
+- Show context-style workflow dashboard in one command
+- Works for single feature or aggregated feature list
+
+### 🔁 Flow orchestration
+
+- Combine `context + status + doctor` in one command
+- Supports approval/execute passthrough for atomic context actions
 
 ### 🩺 Doctor
 
@@ -189,6 +202,47 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 - `checkPolicy`: approval validation policy (`token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
+
+### View
+
+```bash
+npx lee-spec-kit view
+npx lee-spec-kit view F001
+npx lee-spec-kit view --all
+npx lee-spec-kit view --json
+```
+
+**Options:**
+
+| Option         | Description                                     |
+| -------------- | ----------------------------------------------- |
+| `--json`       | JSON output for agents                          |
+| `--repo <repo>`| Select target repo in fullstack (`fe` or `be`) |
+| `--all`        | Include completed features when auto-detecting  |
+| `--done`       | Show completed (workflow-done) features only    |
+
+### Flow
+
+```bash
+npx lee-spec-kit flow
+npx lee-spec-kit flow F001 --approve A
+npx lee-spec-kit flow F001 --approve "A OK" --execute
+npx lee-spec-kit flow --strict
+npx lee-spec-kit flow --json
+```
+
+**Options:**
+
+| Option            | Description |
+| ----------------- | ----------- |
+| `--json`          | JSON output for agents |
+| `--repo <repo>`   | Select target repo in fullstack (`fe` or `be`) |
+| `--all`           | Include completed features when auto-detecting |
+| `--done`          | Show completed (workflow-done) features only |
+| `--approve <reply>` | Pass through context label approval (`A` or `A OK`) |
+| `--execute`       | Execute approved option when it is a command |
+| `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
+| `--strict`        | Also run `status --strict` and `doctor --strict` |
 
 ### Status
 
