@@ -44,14 +44,41 @@ function detectPlaceholders(content: string): string[] {
     { key: '{number}', re: /\{number\}/g },
     { key: '{issue-number}', re: /\{issue-number\}/g },
     { key: '{be|fe}', re: /\{be\|fe\}/g },
+    { key: '{Story Title}', re: /\{Story Title\}/g },
+    { key: '{user type}', re: /\{user type\}/g },
+    { key: '{desired action}', re: /\{desired action\}/g },
+    { key: '{reason/value}', re: /\{reason\/value\}/g },
+    { key: '{Requirement Title}', re: /\{Requirement Title\}/g },
+    { key: '{Phase Name}', re: /\{Phase Name\}/g },
+    { key: '{Task Title}', re: /\{Task Title\}/g },
+    { key: '{Decision Title}', re: /\{Decision Title\}/g },
+    { key: '{test command you ran}', re: /\{test command you ran\}/g },
+    { key: '{PASS/FAIL summary}', re: /\{PASS\/FAIL summary\}/g },
+    { key: '{스토리 제목}', re: /\{스토리 제목\}/g },
+    { key: '{사용자 유형}', re: /\{사용자 유형\}/g },
+    { key: '{원하는 것}', re: /\{원하는 것\}/g },
+    { key: '{이유/가치}', re: /\{이유\/가치\}/g },
+    { key: '{요구사항 제목}', re: /\{요구사항 제목\}/g },
+    { key: '{단계명}', re: /\{단계명\}/g },
+    { key: '{태스크 제목}', re: /\{태스크 제목\}/g },
+    { key: '{실행한 테스트 명령어}', re: /\{실행한 테스트 명령어\}/g },
+    { key: '{PASS/FAIL 요약}', re: /\{PASS\/FAIL 요약\}/g },
     { key: 'YYYY-MM-DD', re: /\bYYYY-MM-DD\b/g },
   ];
 
-  const hits: string[] = [];
+  const hits = new Set<string>();
   for (const { key, re } of patterns) {
-    if (re.test(content)) hits.push(key);
+    if (re.test(content)) hits.add(key);
   }
-  return hits;
+
+  const genericBraceTokens = content.match(
+    /\{[A-Za-z가-힣][A-Za-z0-9가-힣 _/\-|]{1,40}\}/g
+  );
+  if (genericBraceTokens && genericBraceTokens.length > 0) {
+    hits.add('{...}');
+  }
+
+  return [...hits];
 }
 
 async function checkDocsStructure(
