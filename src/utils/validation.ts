@@ -9,7 +9,7 @@ export interface ValidationResult {
 }
 
 // 허용된 프로젝트 타입
-const VALID_PROJECT_TYPES = ['single', 'fullstack'] as const;
+const VALID_PROJECT_TYPES = ['single', 'multi', 'fullstack'] as const;
 export type ProjectType = (typeof VALID_PROJECT_TYPES)[number];
 
 // 허용된 언어
@@ -19,10 +19,6 @@ export type Language = (typeof VALID_LANGUAGES)[number];
 // 허용된 워크플로우 모드
 const VALID_WORKFLOW_MODES = ['github', 'local'] as const;
 export type WorkflowMode = (typeof VALID_WORKFLOW_MODES)[number];
-
-// 허용된 레포지토리 타입
-const VALID_REPO_TYPES = ['be', 'fe'] as const;
-export type RepoType = (typeof VALID_REPO_TYPES)[number];
 
 /**
  * 안전한 이름 검증 (Path Traversal 방지)
@@ -118,19 +114,6 @@ export function validateWorkflowMode(mode: string): ValidationResult {
     return {
       valid: false,
       error: `워크플로우 모드는 ${VALID_WORKFLOW_MODES.join(', ')} 중 하나여야 합니다.`,
-    };
-  }
-  return { valid: true };
-}
-
-/**
- * 레포지토리 타입 검증
- */
-export function validateRepoType(repo: string): ValidationResult {
-  if (!VALID_REPO_TYPES.includes(repo as RepoType)) {
-    return {
-      valid: false,
-      error: `레포지토리 타입은 ${VALID_REPO_TYPES.join(', ')} 중 하나여야 합니다.`,
     };
   }
   return { valid: true };

@@ -4,7 +4,12 @@ import path from 'path';
 import fs from 'fs-extra';
 import prompts from 'prompts';
 import { getConfig } from '../utils/config.js';
+import {
+  assertAllowedComponent,
+  resolveProjectComponents,
+} from '../utils/components.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
+import { normalizeProjectType } from '../utils/project-type.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
   createCliError,
@@ -15,7 +20,8 @@ import {
 
 interface ConfigOptions {
   projectRoot?: string;
-  repo?: 'fe' | 'be';
+  repo?: string;
+  component?: string;
   nonInteractive?: boolean;
 }
 
@@ -24,7 +30,8 @@ export function configCommand(program: Command): void {
     .command('config')
     .description('View or modify project configuration')
     .option('--project-root <path>', 'Set project root path')
-    .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .option('--repo <repo>', 'Component name for multi projects')
+    .option('--component <component>', 'Component name for multi projects')
     .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (options: ConfigOptions) => {
       try {
@@ -95,15 +102,30 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         return;
       }
 
-      const projectType = configFile.projectType as 'single' | 'fullstack';
+      const projectType = normalizeProjectType(String(configFile.projectType || 'single'));
+      const targetFromOptions =
+        options.component?.trim().toLowerCase() || options.repo?.trim().toLowerCase();
 
-      if (projectType === 'fullstack') {
-        // Fullstack: --repo 필수
-        if (!options.repo) {
+      if (
+        options.component &&
+        options.repo &&
+        options.component.trim().toLowerCase() !== options.repo.trim().toLowerCase()
+      ) {
+        throw createCliError(
+          'INVALID_ARGUMENT',
+          '`--repo` and `--component` must reference the same value when both are provided.'
+        );
+      }
+
+      if (projectType === 'multi') {
+        const components = resolveProjectComponents(projectType, configFile.components);
+        let targetComponent = targetFromOptions;
+
+        if (!targetComponent) {
           if (options.nonInteractive) {
             throw createCliError(
               'PROMPT_BLOCKED',
-              '`--repo` is required for fullstack projectRoot update when using `--non-interactive`.'
+              '`--component` (or `--repo`) is required for multi projectRoot update when using `--non-interactive`.'
             );
           }
           // 대화형으로 선택
@@ -111,12 +133,12 @@ async function runConfig(options: ConfigOptions): Promise<void> {
             [
               {
                 type: 'select',
-                name: 'repo',
+                name: 'component',
                 message: tr(config.lang, 'cli', 'config.selectRepoToUpdate'),
-                choices: [
-                  { title: 'Frontend (fe)', value: 'fe' },
-                  { title: 'Backend (be)', value: 'be' },
-                ],
+                choices: components.map((value) => ({
+                  title: value.toUpperCase(),
+                  value,
+                })),
               },
             ],
             {
@@ -125,38 +147,40 @@ async function runConfig(options: ConfigOptions): Promise<void> {
               },
             }
           );
-          options.repo = response.repo;
+          targetComponent = response.component;
         }
-
-        if (!options.repo || !['fe', 'be'].includes(options.repo)) {
+        if (!targetComponent) {
           throw createCliError(
             'INVALID_ARGUMENT',
-            tr(config.lang, 'cli', 'config.fullstackRepoRequired')
+            'Component selection is required.'
           );
         }
 
+        assertAllowedComponent(targetComponent, components);
+
         // 기존 projectRoot 가져오기 또는 초기화
-        const currentRoot = configFile.projectRoot || { fe: '', be: '' };
-        if (typeof currentRoot === 'string') {
-          // 잘못된 형태면 객체로 변환
-          configFile.projectRoot = {
-            fe: options.repo === 'fe' ? options.projectRoot : '',
-            be: options.repo === 'be' ? options.projectRoot : '',
-          };
-        } else {
-          currentRoot[options.repo] = options.projectRoot;
-          configFile.projectRoot = currentRoot;
-        }
+        const currentRoot: Record<string, string> =
+          typeof configFile.projectRoot === 'object' && configFile.projectRoot
+            ? configFile.projectRoot
+            : {};
+        currentRoot[targetComponent] = options.projectRoot;
+        configFile.projectRoot = currentRoot;
 
         console.log(
           chalk.green(
             tr(config.lang, 'cli', 'config.projectRootSet', {
-              repo: options.repo.toUpperCase(),
+              repo: targetComponent.toUpperCase(),
               path: options.projectRoot,
             })
           )
         );
       } else {
+        if (targetFromOptions) {
+          throw createCliError(
+            'INVALID_ARGUMENT',
+            '`--repo`/`--component` is only valid for multi projectRoot updates.'
+          );
+        }
         // Single: 바로 설정
         configFile.projectRoot = options.projectRoot;
         console.log(

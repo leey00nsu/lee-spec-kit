@@ -4,8 +4,10 @@ import path from 'path';
 import fs from 'fs-extra';
 import { execFileSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
+import { isDefaultFullstackComponents } from '../utils/components.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
+import { toTemplateProjectType } from '../utils/project-type.js';
 import { applyReplacements } from '../utils/template.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
@@ -71,7 +73,7 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     getDocsLockPath(docsDir),
     async () => {
       const templatesDir = getTemplatesDir();
-      const sourceDir = path.join(templatesDir, lang, projectType);
+      const sourceDir = path.join(templatesDir, lang, toTemplateProjectType(projectType));
 
       // Default behavior: only allow update when docs working tree is clean.
       // Then apply updates like --force. This keeps update predictable and simple.
@@ -108,7 +110,12 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           )
         );
         const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
-        const typeAgentsBase = path.join(templatesDir, lang, projectType, 'agents');
+        const typeAgentsBase = path.join(
+          templatesDir,
+          lang,
+          toTemplateProjectType(projectType),
+          'agents'
+        );
         const targetAgentsBase = path.join(docsDir, 'agents');
 
         const commonAgents =
@@ -126,7 +133,11 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
 
         // featurePath 치환
         const featurePath =
-          projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
+          projectType === 'multi'
+            ? isDefaultFullstackComponents(config.components || [])
+              ? 'docs/features/{be|fe}'
+              : 'docs/features/{component}'
+            : 'docs/features';
         const projectName = config.projectName ?? '{{projectName}}';
         const commonReplacements: Record<string, string> = {
           '{{projectName}}': projectName,

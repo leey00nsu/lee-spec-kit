@@ -156,7 +156,7 @@ function applyPlaceholderFixes(
     projectName?: string;
     featureName: string;
     featurePath: string;
-    repoType: 'single' | 'fe' | 'be';
+    repoType: string;
     featureNumber: string;
   },
   lang: 'ko' | 'en'
@@ -209,7 +209,7 @@ function applyPlaceholderFixes(
 }
 
 async function applyDoctorFixes(
-  config: { docsDir: string; projectType: 'single' | 'fullstack'; lang: 'ko' | 'en'; projectName?: string },
+  config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en'; projectName?: string },
   cwd: string,
   features: FeatureContext[],
   dryRun: boolean
@@ -285,7 +285,7 @@ async function applyDoctorFixes(
 }
 
 async function checkDocsStructure(
-  config: { docsDir: string; projectType: 'single' | 'fullstack'; lang: 'ko' | 'en' },
+  config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en' },
   cwd: string
 ): Promise<DoctorIssue[]> {
   const issues: DoctorIssue[] = [];
@@ -317,7 +317,7 @@ async function checkDocsStructure(
 }
 
 async function checkFeatures(
-  config: { docsDir: string; projectType: 'single' | 'fullstack'; lang: 'ko' | 'en' },
+  config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en' },
   cwd: string,
   features: FeatureContext[]
 ): Promise<DoctorIssue[]> {

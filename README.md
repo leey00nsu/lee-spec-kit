@@ -74,7 +74,7 @@ npx lee-spec-kit doctor
 ### 📁 프로젝트 초기화
 
 - 대화형 모드 또는 CLI 옵션으로 프로젝트 설정
-- Single(단일 레포) / Fullstack(FE/BE 분리) 프로젝트 타입 지원
+- Single(단일 레포) / Multi(멀티 컴포넌트) 프로젝트 타입 지원 (`fullstack`는 하위호환 alias)
 - 한국어/영어 템플릿 선택
 
 ### 🚀 Feature 생성
@@ -116,7 +116,8 @@ npx lee-spec-kit doctor
 npx lee-spec-kit init
 
 # 옵션 지정
-npx lee-spec-kit init --name my-project --type fullstack
+npx lee-spec-kit init --name my-project --type multi
+npx lee-spec-kit init --name my-project --type fullstack  # alias
 ```
 
 **옵션:**
@@ -124,14 +125,15 @@ npx lee-spec-kit init --name my-project --type fullstack
 | 옵션                | 설명                                                                 | 기본값                    |
 | ------------------- | -------------------------------------------------------------------- | ------------------------- |
 | `-n, --name <name>` | 프로젝트 이름                                                        | 현재 폴더명               |
-| `-t, --type <type>` | `single` 또는 `fullstack`                                            | 대화형 선택 (`--yes`/`--non-interactive`면 `single`) |
+| `-t, --type <type>` | `single` 또는 `multi` (`fullstack` alias 지원)                        | 대화형 선택 (`--yes`/`--non-interactive`면 `single`) |
+| `--components <list>` | multi 컴포넌트 목록 (쉼표 구분, 예: `fe,be,worker`)                  | `fe,be`                   |
 | `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어)                                       | `en`                      |
 | `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
 | `--docs-repo <mode>` | docs 레포 모드 (`embedded` 또는 `standalone`)                        | `embedded`                |
 | `--project-root <path>` | standalone(single) 프로젝트 레포 경로                              | -                         |
-| `--fe-project-root <path>` | standalone(fullstack) FE 레포 경로                              | -                         |
-| `--be-project-root <path>` | standalone(fullstack) BE 레포 경로                              | -                         |
+| `--fe-project-root <path>` | standalone(multi) FE 레포 경로                                  | -                         |
+| `--be-project-root <path>` | standalone(multi) BE 레포 경로                                  | -                         |
 | `--push-docs` | standalone docs 원격 push 사용 (`--docs-remote`와 함께 사용)     | `false`                   |
 | `--docs-remote <url>` | standalone docs 원격 URL (`--push-docs`와 함께 사용)              | -                         |
 | `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |
@@ -146,9 +148,10 @@ npx lee-spec-kit init --name my-project --type fullstack
 # Single 프로젝트
 npx lee-spec-kit feature user-auth
 
-# Fullstack 프로젝트
+# Multi 프로젝트
 npx lee-spec-kit feature --repo be user-auth
 npx lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --component worker queue-jobs
 
 # Feature ID/설명 지정
 npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
@@ -158,7 +161,8 @@ npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 
 | 옵션                | 설명                                         | 기본값      |
 | ------------------- | -------------------------------------------- | ----------- |
-| `-r, --repo <repo>` | `fe` 또는 `be` (fullstack일 때만)            | 대화형 선택 |
+| `-r, --repo <repo>` | multi 대상 컴포넌트 (하위호환 alias)          | 대화형 선택 |
+| `--component <id>`  | multi 대상 컴포넌트                           | 대화형 선택 |
 | `--id <id>`         | Feature ID (`F001` 형식)                     | 자동 생성   |
 | `-d, --desc <desc>` | `spec.md`의 목적(설명) 기본 문구             | 빈 문자열   |
 | `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패 | `false`     |
@@ -179,8 +183,9 @@ npx lee-spec-kit context user-auth
 npx lee-spec-kit context F001
 npx lee-spec-kit context F001-user-auth
 
-# fullstack에서 레포 지정
+# multi에서 컴포넌트 지정
 npx lee-spec-kit context --repo fe
+npx lee-spec-kit context --repo worker
 
 # 전체/완료 Feature 포함
 npx lee-spec-kit context --all
@@ -204,7 +209,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
-| `--repo <repo>` | fullstack에서 대상 레포 지정 (`fe` 또는 `be`)   |
+| `--repo <repo>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 | `--approve <reply>` | 라벨 승인 응답 (`A` 또는 `A OK`)으로 단일 옵션 선택 |
@@ -239,7 +244,7 @@ npx lee-spec-kit view --json
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
-| `--repo <repo>` | fullstack에서 대상 레포 지정 (`fe` 또는 `be`)   |
+| `--repo <repo>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 
@@ -258,7 +263,7 @@ npx lee-spec-kit flow --json
 | 옵션               | 설명 |
 | ------------------ | ---- |
 | `--json`           | 에이전트용 JSON 출력 |
-| `--repo <repo>`    | fullstack에서 대상 레포 지정 (`fe` 또는 `be`) |
+| `--repo <repo>`    | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
 | `--approve <reply>`| context 라벨 승인 응답 전달 (`A` 또는 `A OK`) |
@@ -368,13 +373,14 @@ npx lee-spec-kit update --force
 | 필드          | 설명                                    |
 | ------------- | --------------------------------------- |
 | `projectName` | 프로젝트 이름                           |
-| `projectType` | `single` 또는 `fullstack`               |
+| `projectType` | `single` 또는 `multi` (`fullstack` alias 지원) |
+| `components`  | (multi만) 컴포넌트 목록 (예: `["fe","be","worker"]`) |
 | `lang`        | `ko` 또는 `en`                          |
 | `createdAt`   | 생성 날짜                               |
 | `docsRepo`    | `embedded` 또는 `standalone`            |
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
-| `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, fullstack: {fe, be}) |
+| `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, multi: `{ [component]: path }`) |
 | `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`) |
 | `pr`          | (선택) PR 결과물 정책 (예: 스크린샷 업로드 여부) |
 | `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
@@ -467,12 +473,12 @@ npx lee-spec-kit update --force
 }
 ```
 
-**Fullstack 프로젝트:**
+**Multi 프로젝트:**
 
 ```json
 {
   "projectName": "my-project",
-  "projectType": "fullstack",
+  "projectType": "multi",
   "lang": "ko",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "standalone",
@@ -493,9 +499,10 @@ npx lee-spec-kit config
 # projectRoot 수정 (Single)
 npx lee-spec-kit config --project-root /new/path
 
-# projectRoot 수정 (Fullstack)
+# projectRoot 수정 (Multi)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe
 npx lee-spec-kit config --project-root /new/be/path --repo be
+npx lee-spec-kit config --project-root /new/worker/path --component worker
 
 # 비대화형 모드 (필수 옵션 누락 시 즉시 실패)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
@@ -506,7 +513,8 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 | 옵션                 | 설명 |
 | -------------------- | ---- |
 | `--project-root <path>` | projectRoot 경로 설정 |
-| `--repo <repo>` | fullstack 대상 레포 (`fe` 또는 `be`) |
+| `--repo <repo>` | multi 대상 컴포넌트(하위호환 alias) |
+| `--component <id>` | multi 대상 컴포넌트 |
 | `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패 |
 
 > `--non-interactive`는 `init`, `feature`, `config`에서 지원됩니다.
@@ -591,7 +599,8 @@ flowchart LR
 | 프로젝트 타입 | 설명                                         |
 | ------------- | -------------------------------------------- |
 | `single`      | 단일 레포 프로젝트 (모노레포 또는 단일 스택) |
-| `fullstack`   | FE/BE 분리 프로젝트                          |
+| `multi`       | 멀티 컴포넌트 프로젝트 (예: FE/BE/worker)    |
+| `fullstack`   | `multi`의 하위호환 alias                     |
 
 ## 문제 해결
 
@@ -614,10 +623,10 @@ flowchart LR
 </details>
 
 <details>
-<summary><strong>Fullstack 프로젝트에서 --repo 옵션이 동작하지 않습니다</strong></summary>
+<summary><strong>Multi 프로젝트에서 --repo/--component 옵션이 동작하지 않습니다</strong></summary>
 
-- `.lee-spec-kit.json`의 `projectType`이 `fullstack`인지 확인하세요
-- `--repo` 값은 `fe` 또는 `be`만 가능합니다
+- `.lee-spec-kit.json`의 `projectType`이 `multi`(또는 구버전 `fullstack`)인지 확인하세요
+- `.lee-spec-kit.json`의 `components` 목록에 해당 값이 포함되어 있는지 확인하세요
 
 </details>
 

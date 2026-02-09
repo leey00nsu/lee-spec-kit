@@ -61,13 +61,13 @@ npx lee-spec-kit doctor
 ### 📁 Project initialization
 
 - Interactive init or CLI options
-- Supports `single` and `fullstack` (FE/BE split)
+- Supports `single` and `multi` (`fullstack` remains as a backward-compatible alias)
 - Korean/English templates
 
 ### 🚀 Feature creation
 
 - Generates `spec.md`, `plan.md`, `tasks.md`, `decisions.md`
-- Fullstack mode supports FE/BE separation
+- Multi mode supports flexible component separation (e.g. FE/BE/worker)
 - Integrates Issue/PR templates (docs side)
 
 ### 📊 Status management
@@ -100,7 +100,8 @@ npx lee-spec-kit doctor
 
 ```bash
 npx lee-spec-kit init
-npx lee-spec-kit init --name my-project --type fullstack
+npx lee-spec-kit init --name my-project --type multi
+npx lee-spec-kit init --name my-project --type fullstack  # alias
 ```
 
 **Options:**
@@ -108,14 +109,15 @@ npx lee-spec-kit init --name my-project --type fullstack
 | Option              | Description                                                                                 | Default                         |
 | ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------- |
 | `-n, --name <name>` | Project name                                                                                | current folder                  |
-| `-t, --type <type>` | `single` or `fullstack`                                                                     | interactive (`single` with `--yes`/`--non-interactive`) |
+| `-t, --type <type>` | `single` or `multi` (`fullstack` alias supported)                                          | interactive (`single` with `--yes`/`--non-interactive`) |
+| `--components <list>` | multi component list (comma-separated, e.g. `fe,be,worker`)                              | `fe,be`                         |
 | `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
 | `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
 | `--docs-repo <mode>` | docs repo mode (`embedded` or `standalone`)                                               | `embedded`                      |
 | `--project-root <path>` | standalone(single) project repo path                                                   | -                               |
-| `--fe-project-root <path>` | standalone(fullstack) frontend repo path                                            | -                               |
-| `--be-project-root <path>` | standalone(fullstack) backend repo path                                             | -                               |
+| `--fe-project-root <path>` | standalone(multi) frontend repo path                                                | -                               |
+| `--be-project-root <path>` | standalone(multi) backend repo path                                                 | -                               |
 | `--push-docs` | enable standalone docs push (use with `--docs-remote`)                                   | `false`                         |
 | `--docs-remote <url>` | standalone docs remote URL (used with `--push-docs`)                                    | -                               |
 | `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
@@ -130,9 +132,10 @@ npx lee-spec-kit init --name my-project --type fullstack
 # Single
 npx lee-spec-kit feature user-auth
 
-# Fullstack
+# Multi
 npx lee-spec-kit feature --repo be user-auth
 npx lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --component worker queue-jobs
 
 # Specify Feature ID/description
 npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
@@ -142,7 +145,8 @@ npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 
 | Option              | Description                                 | Default      |
 | ------------------- | ------------------------------------------- | ------------ |
-| `-r, --repo <repo>` | `fe` or `be` (fullstack only)               | interactive  |
+| `-r, --repo <repo>` | Multi target component (backward-compatible alias) | interactive  |
+| `--component <id>`  | Multi target component                       | interactive  |
 | `--id <id>`         | Feature ID (`F001` format)                  | auto-generate |
 | `-d, --desc <desc>` | Default purpose/description text for `spec.md` | empty string |
 | `--non-interactive` | Fail immediately instead of prompting for user input | `false` |
@@ -162,8 +166,9 @@ npx lee-spec-kit context user-auth
 npx lee-spec-kit context F001
 npx lee-spec-kit context F001-user-auth
 
-# fullstack repo selector
+# multi component selector
 npx lee-spec-kit context --repo fe
+npx lee-spec-kit context --repo worker
 
 # include all / done features
 npx lee-spec-kit context --all
@@ -187,7 +192,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
-| `--repo <repo>`| Select target repo in fullstack (`fe` or `be`) |
+| `--repo <repo>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
 | `--approve <reply>` | Approve one labeled option (`A` or `A OK`) |
@@ -217,7 +222,7 @@ npx lee-spec-kit view --json
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
-| `--repo <repo>`| Select target repo in fullstack (`fe` or `be`) |
+| `--repo <repo>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
 
@@ -236,7 +241,7 @@ npx lee-spec-kit flow --json
 | Option            | Description |
 | ----------------- | ----------- |
 | `--json`          | JSON output for agents |
-| `--repo <repo>`   | Select target repo in fullstack (`fe` or `be`) |
+| `--repo <repo>`   | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
 | `--approve <reply>` | Pass through context label approval (`A` or `A OK`) |
@@ -318,13 +323,14 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | Field         | Description                                      |
 | ------------- | ------------------------------------------------ |
 | `projectName` | Project name                                     |
-| `projectType` | `single` or `fullstack`                          |
+| `projectType` | `single` or `multi` (`fullstack` alias supported) |
+| `components`  | (multi only) component list (e.g. `["fe","be","worker"]`) |
 | `lang`        | `ko` or `en`                                     |
 | `createdAt`   | Creation date                                    |
 | `docsRepo`    | `embedded` or `standalone`                       |
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
-| `projectRoot` | (standalone only) project repo path (single: string, fullstack: {fe, be}) |
+| `projectRoot` | (standalone only) project repo path (single: string, multi: `{ [component]: path }`) |
 | `workflow`    | (optional) workflow completion policy (`github`/`local`) |
 | `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
 | `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
@@ -410,9 +416,10 @@ npx lee-spec-kit config
 # update projectRoot (single)
 npx lee-spec-kit config --project-root /new/path
 
-# update projectRoot (fullstack)
+# update projectRoot (multi)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe
 npx lee-spec-kit config --project-root /new/be/path --repo be
+npx lee-spec-kit config --project-root /new/worker/path --component worker
 
 # non-interactive mode (fails immediately if required input is missing)
 npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
@@ -423,7 +430,8 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 | Option | Description |
 | --- | --- |
 | `--project-root <path>` | Set projectRoot path |
-| `--repo <repo>` | Target repo in fullstack (`fe` or `be`) |
+| `--repo <repo>` | Target component in multi mode (backward-compatible alias) |
+| `--component <id>` | Target component in multi mode |
 | `--non-interactive` | Fail immediately instead of prompting for user input |
 
 > `--non-interactive` is supported by `init`, `feature`, and `config`.

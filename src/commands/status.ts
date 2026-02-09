@@ -84,11 +84,8 @@ async function runStatus(options: StatusOptions): Promise<void> {
 
     const name = await getFeatureNameFromSpec(f.path, f.slug, f.folderName);
     const repo =
-      projectType === 'fullstack'
-        ? `${projectName ?? '{{projectName}}'}-${f.type === 'single' ? '' : f.type}`.replace(
-            /-$/,
-            ''
-          )
+      projectType === 'multi'
+        ? `${projectName ?? '{{projectName}}'}-${f.type}`
         : projectName ?? '{{projectName}}';
     const issue = f.issueNumber ? `#${f.issueNumber}` : '-';
 

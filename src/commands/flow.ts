@@ -85,7 +85,7 @@ export function flowCommand(program: Command): void {
     .command('flow [feature-name]')
     .description('Run combined workflow checks (context + status + doctor)')
     .option('--json', 'Output in JSON format for agents')
-    .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .option('--repo <repo>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
     .option('--approve <reply>', 'Approve one labeled context option')

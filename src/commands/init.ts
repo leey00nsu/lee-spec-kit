@@ -5,6 +5,15 @@ import path from 'path';
 import fs from 'fs-extra';
 import { copyTemplates, replaceInFiles } from '../utils/template.js';
 import { getTemplatesDir } from '../utils/paths.js';
+import {
+  assertValidComponentId,
+  isDefaultFullstackComponents,
+  parseComponentsOption,
+} from '../utils/components.js';
+import {
+  normalizeProjectType,
+  toTemplateProjectType,
+} from '../utils/project-type.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   validateSafeName,
@@ -39,7 +48,8 @@ function checkGitRepo(cwd: string): boolean {
 
 interface InitOptions {
   name?: string;
-  type?: 'single' | 'fullstack';
+  type?: 'single' | 'multi' | 'fullstack';
+  components?: string;
   lang?: 'ko' | 'en';
   workflow?: 'github' | 'local';
   dir?: string;
@@ -59,7 +69,11 @@ export function initCommand(program: Command): void {
     .command('init')
     .description('Initialize project documentation structure')
     .option('-n, --name <name>', 'Project name (default: current folder name)')
-    .option('-t, --type <type>', 'Project type: single | fullstack')
+    .option('-t, --type <type>', 'Project type: single | multi (fullstack alias)')
+    .option(
+      '--components <list>',
+      'Component list for multi (comma-separated, e.g. fe,be,worker)'
+    )
     .option('-l, --lang <lang>', 'Language: ko | en (default: en)')
     .option('--workflow <mode>', 'Workflow mode: github | local')
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
@@ -67,11 +81,11 @@ export function initCommand(program: Command): void {
     .option('--project-root <path>', 'Project repository path (standalone single)')
     .option(
       '--fe-project-root <path>',
-      'Frontend repository path (standalone fullstack)'
+      'Frontend repository path (standalone multi)'
     )
     .option(
       '--be-project-root <path>',
-      'Backend repository path (standalone fullstack)'
+      'Backend repository path (standalone multi)'
     )
     .option('--push-docs', 'Push standalone docs to remote')
     .option('--docs-remote <url>', 'Remote URL for standalone docs repository')
@@ -108,13 +122,14 @@ async function runInit(options: InitOptions): Promise<void> {
 
   let projectName = options.name || defaultName;
   let projectType = options.type;
+  let components = parseComponentsOption(options.components);
   let lang = options.lang || 'en';
   let workflowMode = options.workflow || 'github';
   let docsRepo: 'embedded' | 'standalone' = options.docsRepo || 'embedded';
   let pushDocs: boolean | undefined =
     typeof options.pushDocs === 'boolean' ? options.pushDocs : undefined;
   let docsRemote: string | undefined = options.docsRemote;
-  let projectRoot: string | { fe: string; be: string } | undefined;
+  let projectRoot: string | Record<string, string> | undefined;
   const targetDir = path.resolve(cwd, options.dir || './docs');
   const skipPrompts = !!options.yes || !!options.nonInteractive;
 
@@ -226,7 +241,7 @@ async function runInit(options: InitOptions): Promise<void> {
             },
             {
               title: tr(lang, 'cli', 'init.choice.projectType.fullstack.title'),
-              value: 'fullstack',
+              value: 'multi',
               description: tr(lang, 'cli', 'init.choice.projectType.fullstack.desc'),
             },
           ],
@@ -265,9 +280,11 @@ async function runInit(options: InitOptions): Promise<void> {
     // standalone 선택 시 추가 질문
     if (docsRepo === 'standalone') {
       // projectRoot 입력 (프로젝트 타입에 따라 다름)
-      const resolvedType = projectType || response.projectType || 'single';
+      const resolvedType = normalizeProjectType(
+        String(projectType || response.projectType || 'single')
+      );
 
-      if (resolvedType === 'fullstack') {
+      if (resolvedType === 'multi') {
         const projectRootResponse = await prompts(
           [
             {
@@ -392,8 +409,23 @@ async function runInit(options: InitOptions): Promise<void> {
   // 입력 검증
   assertValid(validateSafeName(projectName), '프로젝트 이름');
   assertValid(validateProjectType(projectType), '프로젝트 타입');
+  projectType = normalizeProjectType(projectType);
   assertValid(validateLanguage(lang), '언어');
   assertValid(validateWorkflowMode(workflowMode), '워크플로우 모드');
+
+  if (projectType === 'single') {
+    if (components.length > 0) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        '`--components` can only be used when `--type multi`.'
+      );
+    }
+  } else {
+    if (components.length === 0) {
+      components = ['fe', 'be'];
+    }
+    components.forEach(assertValidComponentId);
+  }
 
   if (docsRepo !== 'standalone') {
     if (
@@ -412,7 +444,13 @@ async function runInit(options: InitOptions): Promise<void> {
     pushDocs = undefined;
     docsRemote = undefined;
   } else {
-    if (projectType === 'fullstack') {
+    if (projectType === 'multi') {
+      if (!isDefaultFullstackComponents(components)) {
+        throw createCliError(
+          'INVALID_ARGUMENT',
+          'Standalone multi init currently supports default components only: fe,be.'
+        );
+      }
       const fullstackRoot =
         typeof projectRoot === 'object'
           ? projectRoot
@@ -420,7 +458,7 @@ async function runInit(options: InitOptions): Promise<void> {
       if (!fullstackRoot.fe.trim() || !fullstackRoot.be.trim()) {
         throw createCliError(
           'PROMPT_BLOCKED',
-          'Standalone fullstack mode requires both `--fe-project-root` and `--be-project-root`.'
+          'Standalone multi mode requires both `--fe-project-root` and `--be-project-root`.'
         );
       }
       projectRoot = fullstackRoot;
@@ -498,7 +536,8 @@ async function runInit(options: InitOptions): Promise<void> {
       // 템플릿 복사 (common 먼저, 타입별 오버라이드)
       const templatesDir = getTemplatesDir();
       const commonPath = path.join(templatesDir, lang, 'common');
-      const typePath = path.join(templatesDir, lang, projectType);
+      const templateProjectType = toTemplateProjectType(projectType);
+      const typePath = path.join(templatesDir, lang, templateProjectType);
 
       // common 템플릿 먼저 복사
       if (await fs.pathExists(commonPath)) {
@@ -513,9 +552,31 @@ async function runInit(options: InitOptions): Promise<void> {
       }
       await copyTemplates(typePath, targetDir);
 
+      if (projectType === 'multi' && !isDefaultFullstackComponents(components)) {
+        const featuresRoot = path.join(targetDir, 'features');
+        await fs.remove(path.join(featuresRoot, 'fe'));
+        await fs.remove(path.join(featuresRoot, 'be'));
+        for (const component of components) {
+          const componentDir = path.join(featuresRoot, component);
+          await fs.ensureDir(componentDir);
+          const readmePath = path.join(componentDir, 'README.md');
+          if (!(await fs.pathExists(readmePath))) {
+            await fs.writeFile(
+              readmePath,
+              `# ${component.toUpperCase()} Features\n\nStore ${component} feature specs here.\n`,
+              'utf-8'
+            );
+          }
+        }
+      }
+
       // 플레이스홀더 치환
       const featurePath =
-        projectType === 'fullstack' ? 'docs/features/{be|fe}' : 'docs/features';
+        projectType === 'multi'
+          ? isDefaultFullstackComponents(components)
+            ? 'docs/features/{be|fe}'
+            : 'docs/features/{component}'
+          : 'docs/features';
       const replacements: Record<string, string> = {
         '{{projectName}}': projectName,
         '{{date}}': getLocalDateString(),
@@ -532,6 +593,7 @@ async function runInit(options: InitOptions): Promise<void> {
       const config: Record<string, unknown> = {
         projectName,
         projectType,
+        ...(projectType === 'multi' ? { components } : {}),
         lang,
         createdAt: getLocalDateString(),
         docsRepo,

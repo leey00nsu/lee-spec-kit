@@ -49,7 +49,7 @@ const I18N: Record<Lang, I18nData> = {
         '⚠️  projectRoot는 standalone 모드에서만 설정 가능합니다.',
       'config.selectRepoToUpdate': '수정할 레포지토리를 선택하세요:',
       'config.fullstackRepoRequired':
-        'Fullstack 프로젝트는 --repo fe 또는 --repo be를 지정해야 합니다.',
+        'Multi 프로젝트는 --repo 또는 --component로 대상 컴포넌트를 지정해야 합니다.',
       'config.projectRootSet': '✅ {repo} projectRoot 설정 완료: {path}',
       'config.projectRootSetSingle': '✅ projectRoot 설정 완료: {path}',
 
@@ -135,8 +135,8 @@ const I18N: Record<Lang, I18nData> = {
       'init.prompt.projectType': '프로젝트 타입을 선택하세요:',
       'init.choice.projectType.single.title': 'Single - 단일 레포 프로젝트',
       'init.choice.projectType.single.desc': 'features/ 폴더 하나로 관리',
-      'init.choice.projectType.fullstack.title': 'Fullstack - FE/BE 분리 프로젝트',
-      'init.choice.projectType.fullstack.desc': 'features/be/, features/fe/ 분리 관리',
+      'init.choice.projectType.fullstack.title': 'Multi - 멀티 컴포넌트 프로젝트',
+      'init.choice.projectType.fullstack.desc': 'Multi 컴포넌트 프로젝트 (기본: features/be/, features/fe/)',
       'init.prompt.docsMode': 'Docs 관리 방식을 선택하세요:',
       'init.choice.docsRepo.embedded.title': 'embedded - 프로젝트 내 포함 (./docs)',
       'init.choice.docsRepo.embedded.desc': '프로젝트와 함께 push됩니다',
@@ -297,7 +297,7 @@ const I18N: Record<Lang, I18nData> = {
         '⚠️  projectRoot can only be set in standalone mode.',
       'config.selectRepoToUpdate': 'Select a repository to update:',
       'config.fullstackRepoRequired':
-        'For fullstack projects, you must specify `--repo fe` or `--repo be`.',
+        'For multi projects, specify a target component via `--repo` or `--component`.',
       'config.projectRootSet': '✅ {repo} projectRoot set: {path}',
       'config.projectRootSetSingle': '✅ projectRoot set: {path}',
 
@@ -382,8 +382,8 @@ const I18N: Record<Lang, I18nData> = {
       'init.prompt.projectType': 'Select project type:',
       'init.choice.projectType.single.title': 'Single - single repo project',
       'init.choice.projectType.single.desc': 'Manage with a single features/ folder',
-      'init.choice.projectType.fullstack.title': 'Fullstack - split FE/BE repos',
-      'init.choice.projectType.fullstack.desc': 'Manage with features/be/ and features/fe/',
+      'init.choice.projectType.fullstack.title': 'Multi - multi-component project',
+      'init.choice.projectType.fullstack.desc': 'Default structure uses features/be/ and features/fe/',
       'init.prompt.docsMode': 'Select docs mode:',
       'init.choice.docsRepo.embedded.title': 'embedded - inside the project (./docs)',
       'init.choice.docsRepo.embedded.desc': 'Pushed together with the project',

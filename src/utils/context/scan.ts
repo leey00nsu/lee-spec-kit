@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import { ProjectConfig } from '../config.js';
+import { resolveProjectComponents } from '../components.js';
 import { getCurrentBranch, resolveProjectGitCwd } from './git.js';
 import { parseFeature } from './parse.js';
 import { getStepDefinitions } from './steps.js';
@@ -10,7 +11,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
   features: FeatureContext[];
   branches: {
     docs: string;
-    project: { single?: string; fe?: string; be?: string };
+    project: Record<string, string>;
   };
   warnings: string[];
 }> {
@@ -20,26 +21,20 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
 
   const docsBranch = getCurrentBranch(config.docsDir);
 
-  const projectBranches: { single: string; fe: string; be: string } = {
-    single: '',
-    fe: '',
-    be: '',
-  };
+  const projectBranches: Record<string, string> = {};
   let singleProject: { cwd: string | null; warning?: string } | undefined;
-  let feProject: { cwd: string | null; warning?: string } | undefined;
-  let beProject: { cwd: string | null; warning?: string } | undefined;
 
   if (config.projectType === 'single') {
     singleProject = resolveProjectGitCwd(config, 'single');
     if (singleProject.warning) warnings.push(singleProject.warning);
     projectBranches.single = singleProject.cwd ? getCurrentBranch(singleProject.cwd) : '';
   } else {
-    feProject = resolveProjectGitCwd(config, 'fe');
-    beProject = resolveProjectGitCwd(config, 'be');
-    if (feProject.warning) warnings.push(feProject.warning);
-    if (beProject.warning) warnings.push(beProject.warning);
-    projectBranches.fe = feProject.cwd ? getCurrentBranch(feProject.cwd) : '';
-    projectBranches.be = beProject.cwd ? getCurrentBranch(beProject.cwd) : '';
+    const components = resolveProjectComponents(config.projectType, config.components);
+    for (const component of components) {
+      const project = resolveProjectGitCwd(config, component);
+      if (project.warning) warnings.push(project.warning);
+      projectBranches[component] = project.cwd ? getCurrentBranch(project.cwd) : '';
+    }
   }
 
   if (config.projectType === 'single') {
@@ -74,46 +69,26 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
       }
     }
   } else {
-    const feDirs = await glob('features/fe/*/', { cwd: config.docsDir, absolute: true });
-    const beDirs = await glob('features/be/*/', { cwd: config.docsDir, absolute: true });
-
-    for (const dir of feDirs) {
-      if ((await fs.stat(dir)).isDirectory()) {
+    const components = resolveProjectComponents(config.projectType, config.components);
+    for (const component of components) {
+      const project = resolveProjectGitCwd(config, component);
+      const componentDirs = await glob(`features/${component}/*/`, {
+        cwd: config.docsDir,
+        absolute: true,
+      });
+      for (const dir of componentDirs) {
+        if (!(await fs.stat(dir)).isDirectory()) continue;
         features.push(
           await parseFeature(
             dir,
-            'fe',
+            component,
             {
-              projectBranch: projectBranches.fe,
+              projectBranch: projectBranches[component] || '',
               docsBranch,
               docsGitCwd: config.docsDir,
-              projectGitCwd: feProject?.cwd ?? undefined,
+              projectGitCwd: project.cwd ?? undefined,
               docsDir: config.docsDir,
-              projectBranchAvailable: Boolean(feProject?.cwd),
-            },
-            {
-              lang: config.lang,
-              stepDefinitions,
-              approval: config.approval,
-              workflow: config.workflow,
-            }
-          )
-        );
-      }
-    }
-    for (const dir of beDirs) {
-      if ((await fs.stat(dir)).isDirectory()) {
-        features.push(
-          await parseFeature(
-            dir,
-            'be',
-            {
-              projectBranch: projectBranches.be,
-              docsBranch,
-              docsGitCwd: config.docsDir,
-              projectGitCwd: beProject?.cwd ?? undefined,
-              docsDir: config.docsDir,
-              projectBranchAvailable: Boolean(beProject?.cwd),
+              projectBranchAvailable: Boolean(project.cwd),
             },
             {
               lang: config.lang,
@@ -131,10 +106,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
     features,
     branches: {
       docs: docsBranch,
-      project:
-        config.projectType === 'single'
-          ? { single: projectBranches.single }
-          : { fe: projectBranches.fe, be: projectBranches.be },
+      project: projectBranches,
     },
     warnings,
   };

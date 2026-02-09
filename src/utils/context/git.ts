@@ -1,6 +1,5 @@
 import { execFileSync, execSync } from 'child_process';
 import { ProjectConfig } from '../config.js';
-import { RepoType } from './types.js';
 
 export function getCurrentBranch(cwd: string): string {
   try {
@@ -82,7 +81,7 @@ function getGitTopLevel(cwd: string): string | null {
 
 export function resolveProjectGitCwd(
   config: ProjectConfig,
-  repo: RepoType
+  repo: string
 ): { cwd: string | null; warning?: string } {
   const docsRepo = config.docsRepo;
   if (docsRepo !== 'standalone') {
@@ -98,19 +97,19 @@ export function resolveProjectGitCwd(
     };
   }
 
-  if (config.projectType === 'fullstack') {
+  if (config.projectType === 'multi') {
     if (typeof config.projectRoot === 'string') {
       return {
         cwd: null,
         warning:
-          'fullstack standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: { "fe": "...", "be": "..." })',
+          'multi standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: { "fe": "...", "be": "...", "worker": "..." })',
       };
     }
-    const root = config.projectRoot[repo as 'fe' | 'be'];
+    const root = config.projectRoot[repo];
     if (!root) {
       return {
         cwd: null,
-        warning: `projectRoot.${repo}가 비어있습니다. (npx lee-spec-kit config --project-root ... --repo ${repo})`,
+        warning: `projectRoot.${repo}가 비어있습니다. (npx lee-spec-kit config --project-root ... --component ${repo})`,
       };
     }
     return { cwd: getGitTopLevel(root) || root };

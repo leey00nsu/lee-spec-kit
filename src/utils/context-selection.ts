@@ -12,7 +12,7 @@ export type ContextStatus =
 export type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'all';
 
 export interface ContextSelectionOptions {
-  repo?: 'fe' | 'be';
+  repo?: string;
   all?: boolean;
   done?: boolean;
 }
@@ -26,7 +26,7 @@ export interface ContextSelectionState {
   features: FeatureContext[];
   branches: {
     docs: string;
-    project: { single?: string; fe?: string; be?: string };
+    project: Record<string, string>;
   };
   warnings: string[];
   doneFeatures: FeatureContext[];
@@ -178,19 +178,20 @@ export async function resolveContextSelection(
         features.filter((f) => f.type === options.repo)
       );
     } else {
-      const feMatches = branches.project.fe
-        ? detectFromBranch(
-            branches.project.fe,
-            features.filter((f) => f.type === 'fe')
+      const matches: FeatureContext[] = [];
+      const componentKeys = [...new Set(features.map((f) => f.type))]
+        .filter((key) => key !== 'single');
+      for (const component of componentKeys) {
+        const branchName = branches.project[component] || '';
+        if (!branchName) continue;
+        matches.push(
+          ...detectFromBranch(
+            branchName,
+            features.filter((f) => f.type === component)
           )
-        : [];
-      const beMatches = branches.project.be
-        ? detectFromBranch(
-            branches.project.be,
-            features.filter((f) => f.type === 'be')
-          )
-        : [];
-      targetFeatures = [...feMatches, ...beMatches];
+        );
+      }
+      targetFeatures = matches;
     }
 
     if (targetFeatures.length > 0) {

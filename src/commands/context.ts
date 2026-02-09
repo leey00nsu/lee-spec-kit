@@ -23,7 +23,7 @@ import {
 
 interface ContextOptions {
   json?: boolean;
-  repo?: 'fe' | 'be';
+  repo?: string;
   all?: boolean;
   done?: boolean;
   approve?: string;
@@ -49,7 +49,7 @@ interface ResolvedContextState {
   features: FeatureContext[];
   branches: {
     docs: string;
-    project: { single?: string; fe?: string; be?: string };
+    project: Record<string, string>;
   };
   warnings: string[];
   doneFeatures: FeatureContext[];
@@ -206,19 +206,20 @@ async function resolveContextState(
         features.filter((f) => f.type === options.repo)
       );
     } else {
-      const feMatches = branches.project.fe
-        ? detectFromBranch(
-            branches.project.fe,
-            features.filter((f) => f.type === 'fe')
+      const matches: FeatureContext[] = [];
+      const componentKeys = [...new Set(features.map((f) => f.type))]
+        .filter((key) => key !== 'single');
+      for (const component of componentKeys) {
+        const branchName = branches.project[component] || '';
+        if (!branchName) continue;
+        matches.push(
+          ...detectFromBranch(
+            branchName,
+            features.filter((f) => f.type === component)
           )
-        : [];
-      const beMatches = branches.project.be
-        ? detectFromBranch(
-            branches.project.be,
-            features.filter((f) => f.type === 'be')
-          )
-        : [];
-      targetFeatures = [...feMatches, ...beMatches];
+        );
+      }
+      targetFeatures = matches;
     }
 
     if (targetFeatures.length > 0) {
@@ -306,7 +307,7 @@ export function contextCommand(program: Command): void {
     .command('context [feature-name]')
     .description('Show current feature context and next actions')
     .option('--json', 'Output in JSON format for agents')
-    .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .option('--repo <repo>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
     .option('--approve <reply>', 'Approve one labeled option: A or A OK')
@@ -541,12 +542,13 @@ async function runContext(
         )
       );
     }
-  } else if (state.branches.project.fe || state.branches.project.be) {
-    const parts = [
-      state.branches.project.fe ? `FE ${state.branches.project.fe}` : null,
-      state.branches.project.be ? `BE ${state.branches.project.be}` : null,
-    ].filter(Boolean);
-    console.log(chalk.gray(`   (Detected from Project Branch: ${parts.join(' / ')})`));
+  } else {
+    const parts = Object.entries(state.branches.project)
+      .filter(([key, value]) => key !== 'single' && !!value)
+      .map(([key, value]) => `${key.toUpperCase()} ${value}`);
+    if (parts.length > 0) {
+      console.log(chalk.gray(`   (Detected from Project Branch: ${parts.join(' / ')})`));
+    }
   }
   if (config.docsRepo === 'standalone' && state.branches.docs) {
     console.log(chalk.gray(`   (Docs Branch: ${state.branches.docs})`));
@@ -610,7 +612,7 @@ async function runContext(
       state.inProgressFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
         const typeStr =
-          config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
+          config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
           `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
         );
@@ -625,7 +627,7 @@ async function runContext(
       state.readyToCloseFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
         const typeStr =
-          config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
+          config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
           `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
         );
@@ -642,7 +644,7 @@ async function runContext(
       state.targetFeatures.forEach((f) => {
         const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
         const typeStr =
-          config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : '';
+          config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
           `   • ${chalk.bold(f.folderName)} ${typeStr} - ${chalk.yellow(stepName)}`
         );
@@ -652,7 +654,7 @@ async function runContext(
     console.log();
     console.log(chalk.gray(tr(lang, 'cli', 'context.tipDetails')));
     console.log(
-      chalk.gray('   $ npx lee-spec-kit context <slug|F001|F001-slug> [--repo fe|be]')
+      chalk.gray('   $ npx lee-spec-kit context <slug|F001|F001-slug> [--repo <component>]')
     );
     if (state.selectionMode === 'open') {
       console.log(
@@ -681,7 +683,7 @@ async function runContext(
   const hasCheckAction = (f.actions || []).some((a) => !!a.requiresUserCheck);
 
   console.log(
-    `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'fullstack' ? chalk.cyan(`(${f.type})`) : ''}`
+    `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : ''}`
   );
   console.log(
     `   • Completion: ${f.completion.implementationDone ? chalk.green('Implementation ✅') : chalk.gray('Implementation ◯')} / ${f.completion.workflowDone ? chalk.green('Workflow ✅') : chalk.yellow('Workflow ◯')}`

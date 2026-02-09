@@ -24,7 +24,7 @@ export function viewCommand(program: Command): void {
     .command('view [feature-name]')
     .description('Show workflow dashboard for features')
     .option('--json', 'Output in JSON format for agents')
-    .option('--repo <repo>', 'Repository type for fullstack: fe | be')
+    .option('--repo <repo>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
     .action(async (featureName: string | undefined, options: ViewOptions) => {
@@ -145,7 +145,7 @@ async function runView(
     }
     console.log();
     console.log(
-      chalk.gray('Tip: npx lee-spec-kit view <slug|F001|F001-slug> [--repo fe|be]')
+      chalk.gray('Tip: npx lee-spec-kit view <slug|F001|F001-slug> [--repo <component>]')
     );
     console.log();
     return;

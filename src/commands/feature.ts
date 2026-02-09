@@ -4,6 +4,10 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
+import {
+  assertAllowedComponent,
+  resolveProjectComponents,
+} from '../utils/components.js';
 import { replaceInFiles } from '../utils/template.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
@@ -14,7 +18,6 @@ import {
 } from '../utils/lock.js';
 import {
   validateSafeName,
-  validateRepoType,
   validateFeatureId,
   assertValid,
 } from '../utils/validation.js';
@@ -28,7 +31,8 @@ import { getLocalDateString } from '../utils/date.js';
 import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-template.js';
 
 interface FeatureOptions {
-  repo?: 'be' | 'fe';
+  repo?: string;
+  component?: string;
   id?: string;
   desc?: string;
   nonInteractive?: boolean;
@@ -38,7 +42,8 @@ export function featureCommand(program: Command): void {
   program
     .command('feature <name>')
     .description('Create a new feature folder')
-    .option('-r, --repo <repo>', 'Repository type: be | fe (fullstack only)')
+    .option('-r, --repo <repo>', 'Component name (multi only)')
+    .option('--component <component>', 'Component name (multi only)')
     .option('--id <id>', 'Feature ID (default: auto)')
     .option('-d, --desc <description>', 'Feature description for spec.md')
     .option('--non-interactive', 'Fail instead of prompting for input')
@@ -86,36 +91,54 @@ async function runFeature(
 
   const { docsDir, projectType, lang } = config;
   const projectName = config.projectName;
+  const configuredComponents = resolveProjectComponents(
+    projectType,
+    config.components
+  );
 
   // 기능 이름 검증 (Path Traversal 방지)
   assertValid(validateSafeName(name), '기능 이름');
 
-  let repo = options.repo;
-
-  if (projectType === 'single' && repo) {
+  if (
+    options.repo &&
+    options.component &&
+    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
+  ) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--repo` can only be used in fullstack mode.'
+      '`--repo` and `--component` must reference the same value when both are provided.'
     );
   }
 
-  // fullstack인 경우 repo 선택 필요
-  if (projectType === 'fullstack' && !repo) {
+  let component = (options.component || options.repo || '')
+    .trim()
+    .toLowerCase();
+  if (!component) component = '';
+
+  if (projectType === 'single' && component) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--repo`/`--component` can only be used in multi mode.'
+    );
+  }
+
+  // multi인 경우 component 선택 필요
+  if (projectType === 'multi' && !component) {
     if (options.nonInteractive) {
       throw createCliError(
         'PROMPT_BLOCKED',
-        '`--repo` is required in fullstack mode when using `--non-interactive`.'
+        '`--component` (or `--repo`) is required in multi mode when using `--non-interactive`.'
       );
     }
     const response = await prompts(
       {
         type: 'select',
-        name: 'repo',
+        name: 'component',
         message: tr(lang, 'cli', 'feature.selectRepo'),
-        choices: [
-          { title: 'Backend (be)', value: 'be' },
-          { title: 'Frontend (fe)', value: 'fe' },
-        ],
+        choices: configuredComponents.map((value) => ({
+          title: value.toUpperCase(),
+          value,
+        })),
       },
       {
         onCancel: () => {
@@ -123,12 +146,11 @@ async function runFeature(
         },
       }
     );
-    repo = response.repo;
+    component = response.component;
   }
 
-  // 레포지토리 타입 검증
-  if (repo) {
-    assertValid(validateRepoType(repo), '레포지토리 타입');
+  if (projectType === 'multi') {
+    assertAllowedComponent(component, configuredComponents);
   }
 
   const docsLockPath = getDocsLockPath(docsDir);
@@ -141,13 +163,13 @@ async function runFeature(
         assertValid(validateFeatureId(options.id), 'Feature ID');
         featureId = options.id;
       } else {
-        featureId = await getNextFeatureId(docsDir, projectType);
+        featureId = await getNextFeatureId(docsDir, projectType, configuredComponents);
       }
 
       // 기능 폴더 경로
       let featuresDir: string;
-      if (projectType === 'fullstack' && repo) {
-        featuresDir = path.join(docsDir, 'features', repo);
+      if (projectType === 'multi') {
+        featuresDir = path.join(docsDir, 'features', component);
       } else {
         featuresDir = path.join(docsDir, 'features');
       }
@@ -174,8 +196,8 @@ async function runFeature(
       // 플레이스홀더 치환
       const idNumber = featureId.replace('F', '');
       const repoName =
-        projectType === 'fullstack' && repo
-          ? `{{projectName}}-${repo}`
+        projectType === 'multi'
+          ? `{{projectName}}-${component}`
           : '{{projectName}}';
 
       const replacements: Record<string, string> = {
@@ -184,7 +206,7 @@ async function runFeature(
         '{기능명}': name,
         '{번호}': idNumber,
         'YYYY-MM-DD': getLocalDateString(),
-        '{be|fe}': repo || '',
+        '{be|fe}': component || '',
         '{이슈번호}': '',
         '{{description}}': options.desc || '',
 
@@ -270,16 +292,16 @@ async function waitForConfigAfterInit(
 
 async function getNextFeatureId(
   docsDir: string,
-  projectType: string
+  projectType: string,
+  components: string[]
 ): Promise<string> {
   const featuresDir = path.join(docsDir, 'features');
   let max = 0;
 
   const scanDirs: string[] = [];
 
-  if (projectType === 'fullstack') {
-    scanDirs.push(path.join(featuresDir, 'be'));
-    scanDirs.push(path.join(featuresDir, 'fe'));
+  if (projectType === 'multi') {
+    scanDirs.push(...components.map((component) => path.join(featuresDir, component)));
   } else {
     scanDirs.push(featuresDir);
   }

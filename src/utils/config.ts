@@ -1,15 +1,18 @@
 import path from 'path';
 import fs from 'fs-extra';
+import { resolveProjectComponents } from './components.js';
+import { normalizeProjectType, ProjectType, RawProjectType } from './project-type.js';
 
 export interface ProjectConfig {
   docsDir: string;
   projectName?: string;
-  projectType: 'single' | 'fullstack';
+  projectType: ProjectType;
+  components?: string[];
   lang: 'ko' | 'en';
   docsRepo?: 'embedded' | 'standalone';
   pushDocs?: boolean;
   docsRemote?: string;
-  projectRoot?: string | { fe: string; be: string };
+  projectRoot?: string | Record<string, string>;
   pr?: {
     screenshots?: {
       /**
@@ -80,13 +83,14 @@ export interface ProjectConfig {
 
 interface ConfigFile {
   projectName: string;
-  projectType: 'single' | 'fullstack';
+  projectType: RawProjectType;
+  components?: string[];
   lang: 'ko' | 'en';
   createdAt: string;
   docsRepo?: 'embedded' | 'standalone';
   pushDocs?: boolean;
   docsRemote?: string;
-  projectRoot?: string | { fe: string; be: string };
+  projectRoot?: string | Record<string, string>;
   pr?: ProjectConfig['pr'];
   workflow?: ProjectConfig['workflow'];
   approval?: ProjectConfig['approval'];
@@ -152,10 +156,17 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
       if (await fs.pathExists(configPath)) {
         try {
           const configFile: ConfigFile = await fs.readJson(configPath);
+          const projectType = normalizeProjectType(configFile.projectType);
+          const components = resolveProjectComponents(
+            projectType,
+            configFile.components
+          );
           return {
             docsDir: resolvedDocsDir,
             projectName: configFile.projectName,
-            projectType: configFile.projectType,
+            projectType,
+            components:
+              projectType === 'multi' ? components : undefined,
             lang: configFile.lang,
             docsRepo: configFile.docsRepo,
             pushDocs: configFile.pushDocs,
@@ -183,8 +194,12 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
         const fePath = path.join(featuresPath, 'fe');
         const projectType =
           (await fs.pathExists(bePath)) || (await fs.pathExists(fePath))
-            ? 'fullstack'
+            ? 'multi'
             : 'single';
+        const components =
+          projectType === 'multi'
+            ? resolveProjectComponents('multi', ['fe', 'be'])
+            : undefined;
 
         // 언어 감지 (agents.md 내용 기반)
         const agentsMdPath = path.join(agentsPath, 'agents.md');
@@ -195,7 +210,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
           if (/[가-힣]/.test(content)) lang = 'ko';
         }
 
-        return { docsDir: resolvedDocsDir, projectType, lang };
+        return { docsDir: resolvedDocsDir, projectType, components, lang };
       }
     }
   }

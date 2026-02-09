@@ -181,6 +181,83 @@ test('init non-interactive can overwrite non-empty directory with --force', asyn
   });
 });
 
+test('fullstack init supports custom components and feature --component', async () => {
+  await withTempDir('lsk-components-custom-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'fullstack',
+      '--components',
+      'fe,be,worker',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.projectType, 'multi');
+    assert.deepEqual(config.components, ['fe', 'be', 'worker']);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'queue-jobs',
+      '--component',
+      'worker',
+      '--id',
+      'F001',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const featureDir = path.join(dir, 'docs', 'features', 'worker', 'F001-queue-jobs');
+    const exists = await fs.stat(featureDir);
+    assert.equal(exists.isDirectory(), true);
+
+    const status = await runCli(dir, ['status', '--json']);
+    assert.equal(status.code, 0, status.stderr || status.stdout);
+    const payload = JSON.parse(status.stdout.trim());
+    assert.equal(payload.features[0].repo, 'demo-worker');
+  });
+});
+
+test('feature --component rejects unknown component in fullstack project', async () => {
+  await withTempDir('lsk-components-invalid-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'fullstack',
+      '--components',
+      'fe,be,worker',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'queue-jobs',
+      '--component',
+      'mobile',
+    ]);
+    assert.equal(featureResult.code, 1);
+    assert.match(featureResult.stderr, /\[INVALID_ARGUMENT\]/);
+  });
+});
+
 test('doctor --json error includes reasonCode and labeled suggestions', async () => {
   await withTempDir('lsk-doctor-error-json-', async (dir) => {
     const result = await runCli(dir, ['doctor', '--json']);

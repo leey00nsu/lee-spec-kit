@@ -308,10 +308,10 @@ export function getCliErrorSuggestions(
         },
         {
             title: {
-              ko: 'fullstack 모드에서는 --repo로 범위를 좁히세요.',
-              en: 'Narrow by repository in fullstack mode.',
+              ko: 'multi 모드에서는 --repo(또는 --component)로 범위를 좁히세요.',
+              en: 'Narrow by component in multi mode.',
             },
-            command: 'npx lee-spec-kit context --repo fe',
+            command: 'npx lee-spec-kit context --repo <component>',
         },
         {
             title: {
