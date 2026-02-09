@@ -10,6 +10,7 @@ import { contextCommand } from './commands/context.js';
 import { doctorCommand } from './commands/doctor.js';
 import { viewCommand } from './commands/view.js';
 import { flowCommand } from './commands/flow.js';
+import { githubCommand } from './commands/github.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -80,5 +81,6 @@ contextCommand(program);
 doctorCommand(program);
 viewCommand(program);
 flowCommand(program);
+githubCommand(program);
 
 await program.parseAsync();

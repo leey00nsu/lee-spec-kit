@@ -36,6 +36,15 @@ interface FeatureOptions {
   id?: string;
   desc?: string;
   nonInteractive?: boolean;
+  json?: boolean;
+}
+
+interface FeatureRunResult {
+  featureId: string;
+  featureName: string;
+  component?: string;
+  featurePath: string;
+  featurePathFromDocs: string;
 }
 
 export function featureCommand(program: Command): void {
@@ -47,13 +56,40 @@ export function featureCommand(program: Command): void {
     .option('--id <id>', 'Feature ID (default: auto)')
     .option('-d, --desc <description>', 'Feature description for spec.md')
     .option('--non-interactive', 'Fail instead of prompting for input')
+    .option('--json', 'Output in JSON format for agents')
     .action(async (name: string, options: FeatureOptions) => {
       try {
-        await runFeature(name, options);
+        const result = await runFeature(name, options);
+        if (options.json) {
+          console.log(
+            JSON.stringify(
+              {
+                status: 'ok',
+                reasonCode: 'FEATURE_CREATED',
+                featureId: result.featureId,
+                featureName: result.featureName,
+                component: result.component,
+                featurePath: result.featurePath,
+                featurePathFromDocs: result.featurePathFromDocs,
+              },
+              null,
+              2
+            )
+          );
+        }
       } catch (error) {
         if (error instanceof Error && error.message === 'canceled') {
           const config = await getConfig(process.cwd());
           const lang = config?.lang ?? DEFAULT_LANG;
+          if (options.json) {
+            console.log(
+              JSON.stringify({
+                status: 'canceled',
+                reasonCode: 'CANCELED',
+              })
+            );
+            process.exit(0);
+          }
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           process.exit(0);
         }
@@ -61,6 +97,17 @@ export function featureCommand(program: Command): void {
         const lang = config?.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
+        if (options.json) {
+          console.log(
+            JSON.stringify({
+              status: 'error',
+              reasonCode: cliError.code,
+              error: cliError.message,
+              suggestions,
+            })
+          );
+          process.exit(1);
+        }
         console.error(
           chalk.red(tr(lang, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
@@ -74,7 +121,7 @@ export function featureCommand(program: Command): void {
 async function runFeature(
   name: string,
   options: FeatureOptions
-): Promise<void> {
+): Promise<FeatureRunResult> {
   const cwd = process.cwd();
   let config = await getConfig(cwd);
 
@@ -154,7 +201,7 @@ async function runFeature(
   }
 
   const docsLockPath = getDocsLockPath(docsDir);
-  await withFileLock(
+  return withFileLock(
     docsLockPath,
     async () => {
       // Feature ID 생성
@@ -205,6 +252,8 @@ async function runFeature(
         // ko placeholders
         '{기능명}': name,
         '{번호}': idNumber,
+        '{결정 제목}': `${name} 결정`,
+        '{YYYY-MM-DD}': getLocalDateString(),
         'YYYY-MM-DD': getLocalDateString(),
         '{be|fe}': component || '',
         '{이슈번호}': '',
@@ -213,6 +262,7 @@ async function runFeature(
         // en placeholders
         '{feature-name}': name,
         '{number}': idNumber,
+        '{Decision Title}': `${name} design decision`,
         '{issue-number}': '',
         '{{projectName}}-{be|fe}': repoName,
       };
@@ -233,14 +283,24 @@ async function runFeature(
         await applyLocalWorkflowTemplateToFeatureDir(featureDir, lang);
       }
 
-      console.log();
-      console.log(chalk.green(tr(lang, 'cli', 'feature.created', { path: featureDir })));
-      console.log();
-      console.log(chalk.blue(tr(lang, 'cli', 'feature.nextStepsTitle')));
-      console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps1', { path: featureDir })));
-      console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps2')));
-      console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps3')));
-      console.log();
+      if (!options.json) {
+        console.log();
+        console.log(chalk.green(tr(lang, 'cli', 'feature.created', { path: featureDir })));
+        console.log();
+        console.log(chalk.blue(tr(lang, 'cli', 'feature.nextStepsTitle')));
+        console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps1', { path: featureDir })));
+        console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps2')));
+        console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps3')));
+        console.log();
+      }
+
+      return {
+        featureId,
+        featureName: name,
+        component: projectType === 'multi' ? component : undefined,
+        featurePath: featureDir,
+        featurePathFromDocs: path.relative(docsDir, featureDir),
+      };
     },
     { owner: 'feature' }
   );

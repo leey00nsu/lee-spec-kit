@@ -166,6 +166,7 @@ npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 | `--id <id>`         | Feature ID (`F001` 형식)                     | 자동 생성   |
 | `-d, --desc <desc>` | `spec.md`의 목적(설명) 기본 문구             | 빈 문자열   |
 | `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패 | `false`     |
+| `--json`            | JSON 출력 (`featureId`, `featurePath`, `component`) | `false` |
 
 ### Context 확인 (AI 에이전트 가이드)
 
@@ -271,6 +272,28 @@ npx lee-spec-kit flow --json
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 | `--strict`         | `status --strict`, `doctor --strict`까지 함께 검사 |
 
+### GitHub helper
+
+```bash
+# 선택된 Feature 기준 Issue 본문 생성
+npx lee-spec-kit github issue F001
+
+# Issue 본문 생성 + 실제 Issue 생성
+npx lee-spec-kit github issue F001 --create --labels enhancement,frontend
+
+# PR 본문 생성
+npx lee-spec-kit github pr F001
+
+# PR 본문 생성 + PR 생성 + tasks.md 메타데이터 동기화 + merge 재시도
+npx lee-spec-kit github pr F001 --create --merge --labels enhancement,frontend
+```
+
+핵심 동작:
+- Issue/PR helper는 필수 섹션과 관련 문서 경로를 검증합니다.
+- 라벨은 최소 1개 이상 필수입니다.
+- PR helper는 기본적으로 `tasks.md`의 `PR`/`PR Status`를 동기화합니다. (`--no-sync-tasks`로 비활성화)
+- merge 시 head 브랜치가 뒤쳐진 경우 fetch/rebase/force-push 후 재시도합니다.
+
 ### 상태 확인
 
 ```bash
@@ -327,7 +350,17 @@ npx lee-spec-kit doctor --fix
 
 # 수정 예정 항목만 미리 확인 (파일 미변경)
 npx lee-spec-kit doctor --fix --dry-run
+
+# decisions.md 플레이스홀더 진단 레벨 조정
+npx lee-spec-kit doctor --decisions-placeholders off
+npx lee-spec-kit doctor --decisions-placeholders info
+npx lee-spec-kit doctor --decisions-placeholders warn
 ```
+
+- `--decisions-placeholders <mode>`
+  - `off`: `decisions.md` 플레이스홀더를 진단에서 제외
+  - `info` (기본): 정보 레벨로만 보고 (strict 실패 대상 아님)
+  - `warn`: 경고로 보고
 
 ### 템플릿 업데이트
 

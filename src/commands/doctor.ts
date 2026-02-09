@@ -14,7 +14,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 
-type IssueLevel = 'error' | 'warn';
+type IssueLevel = 'error' | 'warn' | 'info';
 
 type DoctorIssue = {
   level: IssueLevel;
@@ -28,6 +28,7 @@ interface DoctorOptions {
   strict?: boolean;
   fix?: boolean;
   dryRun?: boolean;
+  decisionsPlaceholders?: string;
 }
 
 interface DoctorFixEntry {
@@ -234,11 +235,10 @@ async function applyDoctorFixes(
       featureNumber,
     };
 
-    const files: Array<'spec.md' | 'plan.md' | 'tasks.md' | 'decisions.md'> = [
+    const files: Array<'spec.md' | 'plan.md' | 'tasks.md'> = [
       'spec.md',
       'plan.md',
       'tasks.md',
-      'decisions.md',
     ];
 
     for (const file of files) {
@@ -327,7 +327,8 @@ async function checkDocsStructure(
 async function checkFeatures(
   config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en' },
   cwd: string,
-  features: FeatureContext[]
+  features: FeatureContext[],
+  decisionsPlaceholderMode: 'off' | 'info' | 'warn'
 ): Promise<DoctorIssue[]> {
   const issues: DoctorIssue[] = [];
 
@@ -360,7 +361,7 @@ async function checkFeatures(
 
     // placeholder 잔존 여부는 "feature 폴더 내부"만 검사 (agents/prd 등은 템플릿 성격이라 제외)
     if (!isInitialTemplateState) {
-      const featureDocs = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md'];
+      const featureDocs = ['spec.md', 'plan.md', 'tasks.md'];
       for (const file of featureDocs) {
         const p = path.join(f.path, file);
         if (!(await fs.pathExists(p))) continue;
@@ -375,6 +376,24 @@ async function checkFeatures(
           }),
           path: formatPath(cwd, p),
         });
+      }
+
+      if (decisionsPlaceholderMode !== 'off') {
+        const decisionsPath = path.join(f.path, 'decisions.md');
+        if (await fs.pathExists(decisionsPath)) {
+          const content = await fs.readFile(decisionsPath, 'utf-8');
+          const placeholders = detectPlaceholders(content);
+          if (placeholders.length > 0) {
+            issues.push({
+              level: decisionsPlaceholderMode,
+              code: 'placeholder_left_decisions',
+              message: tr(config.lang, 'cli', 'doctor.issue.placeholdersLeft', {
+                placeholders: placeholders.join(', '),
+              }),
+              path: formatPath(cwd, decisionsPath),
+            });
+          }
+        }
       }
     }
 
@@ -479,6 +498,11 @@ export function doctorCommand(program: Command): void {
     .option('--json', 'Output in JSON format for agents')
     .option('--fix', 'Automatically apply safe fixes for common docs issues')
     .option('--dry-run', 'Show potential fixes without writing files (requires --fix)')
+    .option(
+      '--decisions-placeholders <mode>',
+      'decisions.md placeholder severity: off | info | warn (default: info)',
+      'info'
+    )
     .option('-s, --strict', 'Exit with non-zero code when issues are found')
     .action(async (options: DoctorOptions) => {
       try {
@@ -499,6 +523,24 @@ export function doctorCommand(program: Command): void {
           );
         }
 
+        const rawDecisionsMode = (options.decisionsPlaceholders || 'info')
+          .trim()
+          .toLowerCase();
+        if (
+          rawDecisionsMode !== 'off' &&
+          rawDecisionsMode !== 'info' &&
+          rawDecisionsMode !== 'warn'
+        ) {
+          throw createCliError(
+            'INVALID_ARGUMENT',
+            '`--decisions-placeholders` must be one of: off, info, warn.'
+          );
+        }
+        const decisionsPlaceholderMode = rawDecisionsMode as
+          | 'off'
+          | 'info'
+          | 'warn';
+
         const { docsDir, projectType, lang } = config;
         let scan = await scanFeatures(config);
         let features = scan.features;
@@ -507,7 +549,14 @@ export function doctorCommand(program: Command): void {
 
         let issues: DoctorIssue[] = [];
         issues.push(...(await checkDocsStructure({ docsDir, projectType, lang }, cwd)));
-        issues.push(...(await checkFeatures({ docsDir, projectType, lang }, cwd, features)));
+        issues.push(
+          ...(await checkFeatures(
+            { docsDir, projectType, lang },
+            cwd,
+            features,
+            decisionsPlaceholderMode
+          ))
+        );
 
         let fixResult: DoctorFixResult | null = null;
         if (options.fix) {
@@ -534,27 +583,37 @@ export function doctorCommand(program: Command): void {
             warnings = scan.warnings;
             issues = [];
             issues.push(...(await checkDocsStructure({ docsDir, projectType, lang }, cwd)));
-            issues.push(...(await checkFeatures({ docsDir, projectType, lang }, cwd, features)));
+            issues.push(
+              ...(await checkFeatures(
+                { docsDir, projectType, lang },
+                cwd,
+                features,
+                decisionsPlaceholderMode
+              ))
+            );
           }
         }
 
-        const hasIssues = issues.length > 0;
+        const nonInfoIssues = issues.filter((i) => i.level !== 'info');
+        const hasIssues = nonInfoIssues.length > 0;
         const hasErrors = issues.some((i) => i.level === 'error');
+        const hasWarns = issues.some((i) => i.level === 'warn');
         const exitCode = options.strict && hasIssues ? 1 : 0;
 
         if (options.json) {
           console.log(
             JSON.stringify(
               {
-                status: hasErrors ? 'error' : hasIssues ? 'warn' : 'ok',
+                status: hasErrors ? 'error' : hasWarns ? 'warn' : 'ok',
                 meta: { docsDir, projectType, lang },
                 branches,
                 warnings,
                 counts: {
                   features: features.length,
-                  issues: issues.length,
+                  issues: nonInfoIssues.length,
                   errors: issues.filter((i) => i.level === 'error').length,
                   warnings: issues.filter((i) => i.level === 'warn').length,
+                  infos: issues.filter((i) => i.level === 'info').length,
                 },
                 fixes: fixResult
                   ? {
@@ -597,14 +656,20 @@ export function doctorCommand(program: Command): void {
           console.log();
         }
 
-        if (!hasIssues) {
+        const errors = issues.filter((i) => i.level === 'error');
+        const warns = issues.filter((i) => i.level === 'warn');
+        const infos = issues.filter((i) => i.level === 'info');
+
+        if (!hasIssues && infos.length === 0) {
           console.log(chalk.green(tr(lang, 'cli', 'doctor.noIssues')));
           console.log();
           process.exit(0);
         }
 
-        const errors = issues.filter((i) => i.level === 'error');
-        const warns = issues.filter((i) => i.level === 'warn');
+        if (!hasIssues && infos.length > 0) {
+          console.log(chalk.green(tr(lang, 'cli', 'doctor.noIssues')));
+          console.log();
+        }
 
         if (errors.length > 0) {
           console.log(
@@ -628,6 +693,14 @@ export function doctorCommand(program: Command): void {
             console.log(
               chalk.yellow(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`)
             )
+          );
+          console.log();
+        }
+
+        if (infos.length > 0) {
+          console.log(chalk.blue(`ℹ️  Info (${infos.length})`));
+          infos.forEach((i) =>
+            console.log(chalk.blue(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`))
           );
           console.log();
         }

@@ -150,6 +150,7 @@ npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 | `--id <id>`         | Feature ID (`F001` format)                  | auto-generate |
 | `-d, --desc <desc>` | Default purpose/description text for `spec.md` | empty string |
 | `--non-interactive` | Fail immediately instead of prompting for user input | `false` |
+| `--json`            | JSON output (`featureId`, `featurePath`, `component`) | `false` |
 
 ### Context (agent guide)
 
@@ -249,6 +250,28 @@ npx lee-spec-kit flow --json
 | `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
 | `--strict`        | Also run `status --strict` and `doctor --strict` |
 
+### GitHub helpers
+
+```bash
+# Generate issue body from selected feature
+npx lee-spec-kit github issue F001
+
+# Generate + create issue
+npx lee-spec-kit github issue F001 --create --labels enhancement,frontend
+
+# Generate PR body
+npx lee-spec-kit github pr F001
+
+# Generate + create PR + sync tasks.md metadata + merge with retry
+npx lee-spec-kit github pr F001 --create --merge --labels enhancement,frontend
+```
+
+Key points:
+- Issue/PR helpers validate required body sections and related docs paths.
+- Labels are validated (at least one required).
+- PR helper can sync `tasks.md` PR URL/PR Status automatically (`--no-sync-tasks` to skip).
+- Merge includes retry and automatic head-branch refresh (fetch/rebase/force-push) on out-of-date failures.
+
 ### Status
 
 ```bash
@@ -286,7 +309,15 @@ npx lee-spec-kit doctor --strict
 npx lee-spec-kit doctor --json
 npx lee-spec-kit doctor --fix
 npx lee-spec-kit doctor --fix --dry-run
+npx lee-spec-kit doctor --decisions-placeholders off
+npx lee-spec-kit doctor --decisions-placeholders info
+npx lee-spec-kit doctor --decisions-placeholders warn
 ```
+
+- `--decisions-placeholders <mode>`:
+  - `off`: ignore `decisions.md` placeholders
+  - `info` (default): include as informational findings (non-blocking)
+  - `warn`: treat as warnings
 
 ### Update templates
 
