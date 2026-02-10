@@ -50,7 +50,11 @@
 - [ ] Tests executed and passing (record command/result below)
 - [ ] Final user approval (OK) received (review the outcome)
 
-### Test Run Log
+### Test Run Log (Latest by Command)
 
-- Command: `{test command you ran}`
-- Result: `{PASS/FAIL summary}`
+> Keep one row per command. If you rerun the same command, update that row instead of appending.
+> Use `YYYY-MM-DD HH-MM` for `Last Run` (local time).
+
+| Command | Last Run (Local, YYYY-MM-DD HH-MM) | Result |
+| --- | --- | --- |
+| `{test command you ran}` | `-` | `{PASS/FAIL summary}` |
