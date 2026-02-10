@@ -40,14 +40,14 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 - **🔴 Custom Rules (Highest Priority)**: `/docs/agents/custom.md`
 - **Project Principles**: `/docs/agents/constitution.md`
-- **Git Workflow**: `/docs/agents/git-workflow.md`
-- **Issue Template**: `/docs/agents/issue-template.md`
-- **PR Template**: `/docs/agents/pr-template.md`
+- **Git Workflow**: CLI built-in policy (`lee-spec-kit context`, `lee-spec-kit github`)
+- **Issue Draft Policy**: CLI built-in (`lee-spec-kit github issue --json`)
+- **PR Draft Policy**: CLI built-in (`lee-spec-kit github pr --json`)
 
 ### Features
 
 - **Feature Docs**: `/docs/features/{feature-id}/`
-- **Template (SSOT)**: `/docs/features/feature-base/`
+- **Template (SSOT)**: CLI built-in feature-base template
 
 ---
 
@@ -57,21 +57,15 @@ Operating rules for AI code assistants to perform consistent code generation and
 docs/
 ├── README.md           # Documentation guide
 ├── agents/             # Agent operating rules
-│   ├── agents.md       # Main rules (this file)
-│   ├── constitution.md # Project principles
-│   ├── git-workflow.md # Git automation
-│   ├── issue-template.md
-│   ├── pr-template.md
-│   └── skills/         # Step-by-step guides
-│       ├── create-feature.md
-│       ├── create-issue.md
-│       ├── create-pr.md
-│       └── execute-task.md
+│   ├── custom.md       # Project-specific custom rules
+│   └── constitution.md # Project principles
+│
+│   # Engine-managed policy guides are CLI built-ins (not synced into docs):
+│   # - agents.md / skills/* / git-workflow / issue-template / pr-template
 ├── prd/                # Product requirements
 ├── designs/            # Design references
 ├── ideas/              # Pre-feature ideas / to-dos
 ├── features/           # Feature documentation
-│   ├── feature-base/   # Template
 │   └── F00X-{name}/
 └── scripts/            # Utilities
 ```
@@ -80,14 +74,14 @@ docs/
 
 ## Request Type Processes
 
-> 📖 Refer to `skills/` folder for detailed process guides.
+> 📖 Refer to CLI built-in skill guides for detailed processes.
 
-| Process        | Guide                      |
-| -------------- | -------------------------- |
-| New Feature    | `skills/create-feature.md` |
-| GitHub Issue   | `skills/create-issue.md`   |
-| Pull Request   | `skills/create-pr.md`      |
-| Task Execution | `skills/execute-task.md`   |
+| Process        | Guide                                 |
+| -------------- | ------------------------------------- |
+| New Feature    | CLI built-in `create-feature` guide   |
+| GitHub Issue   | CLI built-in `create-issue` guide     |
+| Pull Request   | CLI built-in `create-pr` guide        |
+| Task Execution | CLI built-in `execute-task` guide     |
 
 ---
 

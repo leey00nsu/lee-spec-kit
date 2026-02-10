@@ -70,14 +70,14 @@ main
 
 ## 자동화 워크플로우
 
-> 📖 단계별 상세 가이드는 `skills/` 폴더를 참조하세요.
+> 📖 단계별 상세 가이드는 CLI 내장 가이드를 참조하세요.
 
-| 워크플로우   | 가이드                     |
-| ------------ | -------------------------- |
-| Feature 시작 | `skills/create-feature.md` |
-| Issue 생성   | `skills/create-issue.md`   |
-| 태스크 실행  | `skills/execute-task.md`   |
-| PR 생성      | `skills/create-pr.md`      |
+| 워크플로우   | 가이드                          |
+| ------------ | ------------------------------- |
+| Feature 시작 | CLI 내장 `create-feature`       |
+| Issue 생성   | CLI 내장 `create-issue`         |
+| 태스크 실행  | CLI 내장 `execute-task`         |
+| PR 생성      | CLI 내장 `create-pr`            |
 
 ### 브랜치 생성
 

@@ -15,9 +15,16 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 ## 단계
 
-### 1. PR 내용 작성
+### 1. PR 초안 작성
 
-> 📖 **`pr-template.md`를 반드시 참조하세요.**
+> 📖 **CLI 내장 PR 템플릿 정책을 사용하세요. 먼저 초안을 생성하고 이를 기준으로 삼습니다.**
+
+```bash
+# 먼저 초안 본문 생성 (원격 작업 아님)
+npx lee-spec-kit github pr F001 --json
+```
+
+JSON 출력의 `bodyFile` 경로에 생성된 내용을 PR 초안 본문으로 사용하세요.
 
 | 항목   | 형식                               |
 | ------ | ---------------------------------- |
@@ -34,7 +41,7 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 1. 작업과 관련된 테스트 명령어 실행 (예: `npm test`, `pnpm test`), 테스트가 없는 경우 사용자에게 요청
 2. 결과 확인 (PASS/FAIL)
-3. PR 본문 "테스트" 섹션은 `pr-template.md`의 규칙을 그대로 따릅니다. (실행한 테스트만 추가/체크)
+3. PR 본문 "테스트" 섹션은 생성된 초안 기준으로, 실제 실행한 테스트만 반영합니다.
 4. 테스트를 실행하지 않았다면, PR 생성 전에 사용자에게 요청/확인합니다.
 
 ### 3. 스크린샷/다이어그램 작성 (PR 본문에 포함)
@@ -106,7 +113,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### 로직/구조 변경 (백엔드 PR)
 
-- PR 본문에 Mermaid **`sequenceDiagram`**을 작성합니다. (`pr-template.md`의 "아키텍처 다이어그램" 섹션 규칙을 그대로 따르세요)
+- PR 본문에 Mermaid **`sequenceDiagram`**을 작성하고, 생성된 초안 형식과 일치하게 유지합니다.
 
 ### 4. 사용자 확인 요청
 
@@ -115,7 +122,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하고 **명시적 승인(OK)** 대기:
 
 - 제목
-- 본문 전체 (`pr-template.md` 형식)
+- 본문 전체 초안 (`bodyFile` 기준)
 - 라벨(최소 1개, 비워둘 수 없음)
 
 ### 5. PR 생성
@@ -127,6 +134,9 @@ gh pr create \
   --label "{라벨1,라벨2}" \
   --assignee @me \
   --base main
+
+# 또는 lee-spec-kit helper 사용 (명시적 승인 필요)
+npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
 
 ---
@@ -168,5 +178,5 @@ PR 본문의 파일 링크는 **현재 브랜치명**을 사용:
 
 ## 참조 문서
 
-- **PR 템플릿**: `pr-template.md`
-- **Git 워크플로우**: `git-workflow.md`
+- **초안 생성기(CLI 내장)**: `npx lee-spec-kit github pr <feature-name>`
+- **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행

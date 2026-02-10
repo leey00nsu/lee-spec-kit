@@ -13,9 +13,16 @@ Guide for creating GitHub Issues.
 
 ## Steps
 
-### 1. Prepare Issue Content
+### 1. Prepare Issue Draft
 
-> 📖 **Always refer to `issue-template.md`**
+> 📖 **Use the CLI built-in issue template policy. Generate a draft first and treat it as the source of truth.**
+
+```bash
+# Generate draft body first (no remote action)
+npx lee-spec-kit github issue F001 --json
+```
+
+Use the generated `bodyFile` in JSON output as the draft body to review/share.
 
 | Item     | Format                                      |
 | -------- | ------------------------------------------- |
@@ -28,10 +35,10 @@ Guide for creating GitHub Issues.
 
 > 🚨 **User Approval Required**
 
-Before creating issue, share and wait for approval:
+Before creating issue, share and wait for explicit approval (OK):
 
 - Title
-- Body
+- Full body draft (from `bodyFile`)
 - Labels
 
 ### 3. Create Issue
@@ -42,11 +49,14 @@ gh issue create \
   --body-file /tmp/issue-body.md \
   --assignee @me \
   --label enhancement
+
+# Or via lee-spec-kit helper (requires explicit confirmation)
+npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
 ---
 
 ## Reference Documents
 
-- **Issue Template**: `issue-template.md`
-- **Link Format Rules**: `issue-template.md` > "Link Format" section
+- **Draft generator (CLI built-in)**: `npx lee-spec-kit github issue <feature-name>`
+- **Approval rule**: share title/body/labels first, then run `--create --confirm OK`

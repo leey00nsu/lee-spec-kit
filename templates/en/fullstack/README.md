@@ -6,7 +6,7 @@ This documentation is organized by feature to help agents quickly understand the
 
 | Path                | Purpose               | Key Documents                                                 |
 | ------------------- | --------------------- | ------------------------------------------------------------- |
-| `docs/agents/`      | Agent operating rules | `agents.md`, `constitution.md`, `git-workflow.md`             |
+| `docs/agents/`      | Agent operating rules | `custom.md`, `constitution.md` (engine-managed guides are CLI built-in) |
 | `docs/prd/`         | Product requirements  | Project-specific                                              |
 | `docs/designs/`     | Design references     | `README.md` (links/guidelines/references)                     |
 | `docs/ideas/`       | Ideas / to-dos         | `README.md` (Idea → Feature promotion rules)                  |
@@ -20,7 +20,7 @@ This documentation is organized by feature to help agents quickly understand the
 When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs root (default: `docs/`).
 
 - Used by `lee-spec-kit feature`, `status`, and `update` to detect docs location / project type / language.
-- `docsRepo`, `pushDocs`, `docsRemote` are metadata for the **Docs Push rules** in `/docs/agents/git-workflow.md` (the CLI does not auto-push).
+- `docsRepo`, `pushDocs`, `docsRemote` are metadata for the CLI built-in **Docs Push policy** (the CLI does not auto-push).
 
 ### Fields
 

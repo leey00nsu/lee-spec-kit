@@ -15,9 +15,16 @@ Guide for creating Pull Requests.
 
 ## Steps
 
-### 1. Prepare PR Content
+### 1. Prepare PR Draft
 
-> 📖 **Always refer to `pr-template.md`**
+> 📖 **Use the CLI built-in PR template policy. Generate a draft first and treat it as the source of truth.**
+
+```bash
+# Generate draft body first (no remote action)
+npx lee-spec-kit github pr F001 --json
+```
+
+Use the generated `bodyFile` in JSON output as the PR draft body.
 
 | Item     | Format                             |
 | -------- | ---------------------------------- |
@@ -34,7 +41,7 @@ Guide for creating Pull Requests.
 
 1. Run relevant test commands (e.g., `npm test`, `pnpm test`); if no tests exist, request them from the user
 2. Check results (PASS/FAIL)
-3. In the PR body "Tests" section, follow `pr-template.md` rules as-is. (add/check only what you actually ran)
+3. In the PR body "Tests" section, keep only what you actually ran in the generated draft body
 4. If you didn’t run any tests, request/confirm with the user before creating the PR
 
 ### 3. Prepare Screenshots / Diagrams (Include in PR Body)
@@ -106,7 +113,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### Logic/structure changes (Backend PR)
 
-- Write a Mermaid **`sequenceDiagram`** in the PR body (follow the "Architecture Diagram" rules in `pr-template.md` as-is).
+- Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated draft format.
 
 ### 4. Request User Approval
 
@@ -115,7 +122,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 Before creating PR, share the following **in a code block** and wait for **explicit approval (OK)**:
 
 - Title
-- Full body (`pr-template.md` format)
+- Full body draft (from `bodyFile`)
 - Labels (at least 1; cannot be empty)
 
 ### 5. Create PR
@@ -127,6 +134,9 @@ gh pr create \
   --label "{label1,label2}" \
   --assignee @me \
   --base main
+
+# Or via lee-spec-kit helper (requires explicit confirmation)
+npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
 
 ---
@@ -168,5 +178,5 @@ Use **current branch name** for file links in PR body:
 
 ## Reference Documents
 
-- **PR Template**: `pr-template.md`
-- **Git Workflow**: `git-workflow.md`
+- **Draft generator (CLI built-in)**: `npx lee-spec-kit github pr <feature-name>`
+- **Approval rule**: share title/body/labels first, then run `--create --confirm OK`

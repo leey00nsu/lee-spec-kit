@@ -13,9 +13,16 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 
 ## 단계
 
-### 1. 이슈 내용 작성
+### 1. 이슈 초안 작성
 
-> 📖 **`issue-template.md`를 반드시 참조하세요.**
+> 📖 **CLI 내장 이슈 템플릿 정책을 사용하세요. 먼저 초안을 생성하고 이를 기준으로 삼습니다.**
+
+```bash
+# 먼저 초안 본문 생성 (원격 작업 아님)
+npx lee-spec-kit github issue F001 --json
+```
+
+JSON 출력의 `bodyFile` 경로에 생성된 내용을 초안 본문으로 사용하세요.
 
 | 항목   | 형식                                     |
 | ------ | ---------------------------------------- |
@@ -28,10 +35,10 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 
 > 🚨 **사용자 확인 필수**
 
-이슈 생성 전 다음 내용을 공유하고 승인 대기:
+이슈 생성 전 다음 내용을 공유하고 명시적 승인(OK) 대기:
 
 - 제목
-- 본문
+- 본문 전체 초안 (`bodyFile` 기준)
 - 라벨
 
 ### 3. 이슈 생성
@@ -42,11 +49,14 @@ gh issue create \
   --body-file /tmp/issue-body.md \
   --assignee @me \
   --label enhancement
+
+# 또는 lee-spec-kit helper 사용 (명시적 승인 필요)
+npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
 ---
 
 ## 참조 문서
 
-- **이슈 템플릿**: `issue-template.md`
-- **링크 형식 규칙**: `issue-template.md` > "링크 형식" 섹션
+- **초안 생성기(CLI 내장)**: `npx lee-spec-kit github issue <feature-name>`
+- **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행

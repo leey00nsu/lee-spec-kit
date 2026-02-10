@@ -70,14 +70,14 @@ main
 
 ## Automation Workflow
 
-> 📖 Refer to `skills/` folder for step-by-step guides.
+> 📖 Refer to CLI built-in step guides.
 
-| Workflow       | Guide                      |
-| -------------- | -------------------------- |
-| Feature Start  | `skills/create-feature.md` |
-| Issue Creation | `skills/create-issue.md`   |
-| Task Execution | `skills/execute-task.md`   |
-| PR Creation    | `skills/create-pr.md`      |
+| Workflow       | Guide                            |
+| -------------- | -------------------------------- |
+| Feature Start  | CLI built-in `create-feature`    |
+| Issue Creation | CLI built-in `create-issue`      |
+| Task Execution | CLI built-in `execute-task`      |
+| PR Creation    | CLI built-in `create-pr`         |
 
 ### Branch Creation
 

@@ -65,7 +65,7 @@ For file links within the repo in PR body, **always use current branch name**:
 ## Screenshots (Frontend / UI changes)
 
 <!-- If there are no UI changes, or if screenshot upload is disabled (e.g. `.lee-spec-kit.json` has `pr.screenshots.upload: false`), remove this section. -->
-> If you follow the Release assets upload flow in `skills/create-pr.md`, you can include images in the PR body without committing files to your branch.
+> If you follow the Release assets upload flow in the CLI built-in `create-pr` guide, you can include images in the PR body without committing files to your branch.
 
 {Screenshot markdown (e.g. ![](URL))}
 

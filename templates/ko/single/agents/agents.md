@@ -40,9 +40,9 @@
 
 - **🔴 커스텀 규칙 (최우선)**: `/docs/agents/custom.md`
 - **프로젝트 원칙**: `/docs/agents/constitution.md`
-- **Git 워크플로우**: `/docs/agents/git-workflow.md`
-- **이슈 템플릿**: `/docs/agents/issue-template.md`
-- **PR 템플릿**: `/docs/agents/pr-template.md`
+- **Git 워크플로우**: CLI 내장 정책 (`lee-spec-kit context`, `lee-spec-kit github`)
+- **이슈 초안 정책**: CLI 내장 (`lee-spec-kit github issue --json`)
+- **PR 초안 정책**: CLI 내장 (`lee-spec-kit github pr --json`)
 
 ### PRD
 
@@ -51,7 +51,7 @@
 ### Feature (기능별 문서)
 
 - **기능 문서**: `/docs/features/{feature-id}/`
-- **템플릿 (SSOT)**: `/docs/features/feature-base/`
+- **템플릿 (SSOT)**: CLI 내장 feature-base 템플릿
 
 ---
 
@@ -61,16 +61,11 @@
 docs/
 ├── README.md           # 문서 안내
 ├── agents/             # 에이전트 운영 규칙
-│   ├── agents.md       # 메인 규칙 (이 파일)
-│   ├── constitution.md # 프로젝트 원칙
-│   ├── git-workflow.md # Git 자동화
-│   ├── issue-template.md
-│   ├── pr-template.md
-│   └── skills/         # 단계별 가이드
-│       ├── create-feature.md
-│       ├── create-issue.md
-│       ├── create-pr.md
-│       └── execute-task.md
+│   ├── custom.md       # 프로젝트별 커스텀 규칙
+│   └── constitution.md # 프로젝트 원칙
+│
+│   # 엔진 종속 가이드는 CLI 내장(프로젝트 docs 비동기화)입니다.
+│   # - agents.md / skills/* / git-workflow / issue-template / pr-template
 ├── prd/                # 제품 요구사항
 ├── designs/            # 디자인 참고 자료
 ├── ideas/              # 아이디어/To-do (Feature 승격 전)
@@ -92,14 +87,14 @@ docs/
 
 ## 요청 유형별 프로세스
 
-> 📖 각 프로세스의 상세 가이드는 `skills/` 폴더를 참조하세요.
+> 📖 각 프로세스의 상세 가이드는 CLI 내장 skill 가이드를 참조하세요.
 
-| 프로세스          | 가이드                     |
-| ----------------- | -------------------------- |
-| 새 기능 추가      | `skills/create-feature.md` |
-| GitHub Issue 생성 | `skills/create-issue.md`   |
-| Pull Request 생성 | `skills/create-pr.md`      |
-| 태스크 실행       | `skills/execute-task.md`   |
+| 프로세스          | 가이드                            |
+| ----------------- | --------------------------------- |
+| 새 기능 추가      | CLI 내장 `create-feature` 가이드  |
+| GitHub Issue 생성 | CLI 내장 `create-issue` 가이드    |
+| Pull Request 생성 | CLI 내장 `create-pr` 가이드       |
+| 태스크 실행       | CLI 내장 `execute-task` 가이드    |
 
 ---
 
