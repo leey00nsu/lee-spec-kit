@@ -9,6 +9,16 @@ export interface WorkflowPolicy {
 }
 
 export type CodeDirtyScopePolicy = 'repo' | 'component';
+export type PrePrReviewFallbackPolicy = 'builtin-checklist';
+
+export interface PrePrReviewPolicy {
+  enabled: boolean;
+  skills: string[];
+  fallback: PrePrReviewFallbackPolicy;
+  blockOnFindings: boolean;
+}
+
+const DEFAULT_PRE_PR_REVIEW_SKILLS = ['code-review-excellence'];
 
 export function resolveWorkflowPolicy(
   workflow?: ProjectConfig['workflow']
@@ -74,4 +84,43 @@ export function resolveCodeDirtyScopePolicy(
   }
   // auto
   return projectType === 'multi' ? 'component' : 'repo';
+}
+
+function normalizeSkillList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const deduped = new Set<string>();
+  for (const raw of input) {
+    const value = String(raw || '').trim();
+    if (!value) continue;
+    deduped.add(value);
+  }
+  return [...deduped];
+}
+
+export function resolvePrePrReviewPolicy(
+  workflow?: ProjectConfig['workflow']
+): PrePrReviewPolicy {
+  const workflowPolicy = resolveWorkflowPolicy(workflow);
+  const configured = workflow?.prePrReview;
+  const configuredSkills = normalizeSkillList(configured?.skills);
+  const configuredEnabled =
+    typeof configured?.enabled === 'boolean'
+      ? configured.enabled
+      : workflowPolicy.requirePr;
+
+  return {
+    enabled: workflowPolicy.requirePr ? configuredEnabled : false,
+    skills:
+      configuredSkills.length > 0
+        ? configuredSkills
+        : DEFAULT_PRE_PR_REVIEW_SKILLS,
+    fallback:
+      configured?.fallback === 'builtin-checklist'
+        ? configured.fallback
+        : 'builtin-checklist',
+    blockOnFindings:
+      typeof configured?.blockOnFindings === 'boolean'
+        ? configured.blockOnFindings
+        : true,
+  };
 }

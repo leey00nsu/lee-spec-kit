@@ -50,6 +50,29 @@ export interface ProjectConfig {
      * codeDirtyScope resolves to "component".
      */
     componentPaths?: Record<string, string[]>;
+    /**
+     * Pre-PR self review stage configuration.
+     * Enabled by default when PR is required.
+     */
+    prePrReview?: {
+      /**
+       * Whether to enforce a pre-PR review stage before PR creation.
+       */
+      enabled?: boolean;
+      /**
+       * Preferred skill names in priority order.
+       * If omitted, the runtime default list is used.
+       */
+      skills?: string[];
+      /**
+       * Fallback policy when no configured skill can run.
+       */
+      fallback?: 'builtin-checklist';
+      /**
+       * When true (default), major findings should be addressed before PR creation.
+       */
+      blockOnFindings?: boolean;
+    };
   };
   approval?: {
     /**

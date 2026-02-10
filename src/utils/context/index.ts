@@ -6,6 +6,7 @@ export type {
   FeatureState,
   NextAction,
   OperationType,
+  PrePrReviewStatus,
   StepDefinition,
   TaskRef,
 } from './types.js';

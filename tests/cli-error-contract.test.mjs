@@ -554,6 +554,8 @@ test('local workflow templates reduce issue/pr focused fields', async () => {
     assert.match(featureTasks, /## Local Tracking/);
     assert.doesNotMatch(featureTasks, /\*\*PR\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*PR Status\*\*:/);
+    assert.doesNotMatch(featureTasks, /\*\*Pre-PR Review\*\*:/);
+    assert.doesNotMatch(baseTasks, /\*\*Pre-PR Review\*\*:/);
   });
 });
 
@@ -662,6 +664,91 @@ test('context --json actionOptions include summary and approvalPrompt', async ()
       payload.approvalRequest.options[0].operationType,
       payload.actionOptions[0].action.operationType
     );
+  });
+});
+
+test('context pre-PR review step is enforced before PR creation and exposes policy', async () => {
+  await withTempDir('lsk-context-pre-pr-review-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksBefore = await fs.readFile(tasksPath, 'utf-8');
+    const tasksAfter = tasksBefore.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Pending'
+    );
+    await fs.writeFile(tasksPath, tasksAfter, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare pre-pr review step',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(payload.matchedFeature.currentStep, 12);
+    assert.equal(payload.matchedFeature.docs.prePrReviewFieldExists, true);
+    assert.equal(payload.matchedFeature.prePrReview.status, 'Pending');
+    assert.equal(payload.actionOptions[0].action.category, 'pre_pr_review');
+    assert.equal(payload.prePrReviewPolicy.enabled, true);
+    assert.deepEqual(payload.prePrReviewPolicy.skills, ['code-review-excellence']);
+    assert.equal(payload.prePrReviewPolicy.fallback, 'builtin-checklist');
+    assert.equal(payload.prePrReviewPolicy.blockOnFindings, true);
   });
 });
 

@@ -208,6 +208,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 - `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: metadata for the first atomic action
 - `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
+- `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`, `blockOnFindings`)
 - `checkPolicy`: approval validation policy (`hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
@@ -348,7 +349,11 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "lang": "en",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
-  "workflow": { "mode": "github", "codeDirtyScope": "auto" },
+  "workflow": {
+    "mode": "github",
+    "codeDirtyScope": "auto",
+    "prePrReview": { "skills": ["code-review-excellence"] }
+  },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
@@ -365,7 +370,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
 | `projectRoot` | (standalone only) project repo path (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (optional) workflow completion policy (`github`/`local`, `codeDirtyScope`) |
+| `workflow`    | (optional) workflow completion policy (`github`/`local`, `codeDirtyScope`, `prePrReview`) |
 | `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
 | `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
 
@@ -403,12 +408,25 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   - `auto`: `single => repo`, `multi => component`
   - `workflow.componentPaths` (optional): explicit per-component paths for component-scoped checks (e.g. `"web": ["apps/web", "packages/web-ui"]`)
   - backward compatibility: if omitted, runtime defaults to `repo`
+- `workflow.prePrReview`:
+  - `enabled` (optional): enforce pre-PR review stage (default: same as `requirePr`)
+  - `skills` (optional): preferred skill names in priority order (default: `["code-review-excellence"]`)
+  - `fallback` (optional): fallback policy when no skill can run (default: `"builtin-checklist"`)
+  - `blockOnFindings` (optional): require major findings to be resolved/aligned before PR creation (default: `true`)
 
 Example:
 
 ```json
 {
-  "workflow": { "mode": "local", "codeDirtyScope": "auto" }
+  "workflow": {
+    "mode": "github",
+    "codeDirtyScope": "auto",
+    "prePrReview": {
+      "skills": ["code-review-excellence"],
+      "fallback": "builtin-checklist",
+      "blockOnFindings": true
+    }
+  }
 }
 ```
 

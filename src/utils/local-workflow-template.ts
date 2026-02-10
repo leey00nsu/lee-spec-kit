@@ -29,9 +29,17 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
   const filtered: string[] = [];
 
   for (const line of lines) {
-    if (/^\s*-\s*\*\*(Issue|PR|PR Status|PR 상태)\*\*\s*:/.test(line)) continue;
+    if (
+      /^\s*-\s*\*\*(Issue|PR|PR Status|PR 상태|Pre-PR Review|PR 전 리뷰)\*\*\s*:/.test(
+        line
+      )
+    ) {
+      continue;
+    }
     if (/^\s*-\s*(Example|Values)\s*:/.test(line)) continue;
     if (/^\s*-\s*(예|값)\s*:/.test(line)) continue;
+    if (/^\s*-\s*Mark\s+`?Done`?/i.test(line)) continue;
+    if (/^\s*-\s*사전 코드리뷰 완료 후/.test(line)) continue;
     filtered.push(line);
   }
 

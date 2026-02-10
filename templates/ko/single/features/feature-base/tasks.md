@@ -20,6 +20,8 @@
   - 예: `#123` 또는 PR URL
 - **PR 상태**: -
   - 값: Review | Approved
+- **PR 전 리뷰**: Pending | Done
+  - 사전 코드리뷰 완료 후 `Done`으로 변경
 
 ---
 

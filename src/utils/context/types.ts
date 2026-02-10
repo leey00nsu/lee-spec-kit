@@ -18,6 +18,7 @@ export type ActionCategory =
   | 'task_execute'
   | 'pr_create'
   | 'pr_metadata_migrate'
+  | 'pre_pr_review'
   | 'pr_status_update'
   | 'code_review'
   | 'feature_done'
@@ -53,6 +54,8 @@ export interface CompletionChecklistSummary {
   checked: number;
 }
 
+export type PrePrReviewStatus = 'Pending' | 'Done';
+
 export interface FeatureState {
   id?: string;
   slug: string;
@@ -86,6 +89,9 @@ export interface FeatureState {
   activeTask?: TaskRef;
   nextTodoTask?: TaskRef;
   completionChecklist?: CompletionChecklistSummary;
+  prePrReview: {
+    status?: PrePrReviewStatus;
+  };
   pr: {
     link?: string;
     status?: DocStatus;
@@ -110,6 +116,7 @@ export interface FeatureState {
     tasksDocStatusFieldExists: boolean;
     prFieldExists: boolean;
     prStatusFieldExists: boolean;
+    prePrReviewFieldExists: boolean;
   };
 }
 

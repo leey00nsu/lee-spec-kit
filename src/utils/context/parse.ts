@@ -14,6 +14,7 @@ import {
   FeatureContext,
   FeatureState,
   Lang,
+  PrePrReviewStatus,
   RepoType,
   StepDefinition,
   TaskRef,
@@ -21,6 +22,7 @@ import {
 import { ProjectConfig } from '../config.js';
 import {
   resolveCodeDirtyScopePolicy,
+  resolvePrePrReviewPolicy,
   resolveWorkflowPolicy,
 } from '../workflow.js';
 
@@ -68,6 +70,17 @@ function parseDocStatus(value: string | undefined): DocStatus | undefined {
   if (normalized === 'draft') return 'Draft';
   if (normalized === 'review') return 'Review';
   return 'Approved';
+}
+
+function parsePrePrReviewStatus(
+  value: string | undefined
+): PrePrReviewStatus | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes('|')) return undefined;
+  if (/^done$/i.test(trimmed)) return 'Done';
+  if (/^pending$/i.test(trimmed)) return 'Pending';
+  return undefined;
 }
 
 function parseIssueNumber(value: string | undefined): string | undefined {
@@ -267,6 +280,7 @@ export async function parseFeature(
 ): Promise<FeatureContext> {
   const lang = options.lang;
   const workflowPolicy = resolveWorkflowPolicy(options.workflow);
+  const prePrReviewPolicy = resolvePrePrReviewPolicy(options.workflow);
   const folderName = path.basename(featurePath);
   const match = folderName.match(/^(F\d+)-(.+)$/);
   const id = match?.[1];
@@ -305,10 +319,12 @@ export async function parseFeature(
   let tasksDocStatus: DocStatus | undefined;
   let tasksDocStatusFieldExists = false;
   let completionChecklist: CompletionChecklistSummary | undefined;
+  let prePrReviewStatus: PrePrReviewStatus | undefined;
   let prLink: string | undefined;
   let prStatus: DocStatus | undefined;
   let prFieldExists = false;
   let prStatusFieldExists = false;
+  let prePrReviewFieldExists = false;
 
   if (tasksExists) {
     const content = await fs.readFile(tasksPath, 'utf-8');
@@ -337,6 +353,16 @@ export async function parseFeature(
     const prStatusValue = extractFirstSpecValue(content, ['PR 상태', 'PR Status']);
     prStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
     prStatus = parseDocStatus(prStatusValue);
+
+    const prePrReviewValue = extractFirstSpecValue(content, [
+      'PR 전 리뷰',
+      'Pre-PR Review',
+    ]);
+    prePrReviewFieldExists = hasAnySpecKey(content, [
+      'PR 전 리뷰',
+      'Pre-PR Review',
+    ]);
+    prePrReviewStatus = parsePrePrReviewStatus(prePrReviewValue);
   }
 
   const warnings: string[] = [];
@@ -401,6 +427,9 @@ export async function parseFeature(
   if (tasksExists && workflowPolicy.requirePr && (!prFieldExists || !prStatusFieldExists)) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrFields'));
   }
+  if (tasksExists && prePrReviewPolicy.enabled && !prePrReviewFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrReviewField'));
+  }
   if (tasksExists && !tasksDocStatusFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksDocStatusField'));
   }
@@ -430,7 +459,9 @@ export async function parseFeature(
     (!workflowPolicy.requirePr ||
       (isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
         !!prLink)) &&
-    (!workflowPolicy.requireReview || prStatus === 'Approved');
+    (!workflowPolicy.requireReview || prStatus === 'Approved') &&
+    (!prePrReviewPolicy.enabled ||
+      (prePrReviewFieldExists && prePrReviewStatus === 'Done'));
 
   if (implementationDone && !workflowDone) {
     if (specStatus !== 'Approved') {
@@ -457,6 +488,13 @@ export async function parseFeature(
         }
       }
     }
+    if (prePrReviewPolicy.enabled) {
+      if (!prePrReviewFieldExists) {
+        warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewMissing'));
+      } else if (prePrReviewStatus !== 'Done') {
+        warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewNotDone'));
+      }
+    }
   }
 
   const featureState: FeatureState = {
@@ -477,6 +515,9 @@ export async function parseFeature(
     activeTask,
     nextTodoTask,
     completionChecklist,
+    prePrReview: {
+      status: prePrReviewStatus,
+    },
     pr: { link: prLink, status: prStatus },
     git: {
       docsBranch: context.docsBranch,
@@ -498,6 +539,7 @@ export async function parseFeature(
       tasksDocStatusFieldExists,
       prFieldExists,
       prStatusFieldExists,
+      prePrReviewFieldExists,
     },
   };
 

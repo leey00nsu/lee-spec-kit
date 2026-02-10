@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
-import { resolveWorkflowPolicy } from '../utils/workflow.js';
+import { resolvePrePrReviewPolicy, resolveWorkflowPolicy } from '../utils/workflow.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
   createCliError,
@@ -159,7 +159,8 @@ function getListLabel(
   f: FeatureContext,
   stepsMap: Record<number, string>,
   lang: 'ko' | 'en',
-  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>
+  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
+  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
 ): string {
   // For "ready to close" features, show the closest missing workflow requirement
   // instead of generic step names like "tasks.md 작성".
@@ -175,6 +176,12 @@ function getListLabel(
     }
     if (workflowPolicy.requirePr && (!f.docs.prFieldExists || !f.docs.prStatusFieldExists)) {
       return tr(lang, 'cli', 'context.list.addPrMetadata');
+    }
+    if (prePrReviewPolicy.enabled && !f.docs.prePrReviewFieldExists) {
+      return tr(lang, 'cli', 'context.list.addPrePrReviewField');
+    }
+    if (prePrReviewPolicy.enabled && f.prePrReview.status !== 'Done') {
+      return tr(lang, 'cli', 'context.list.completePrePrReview');
     }
     if (workflowPolicy.requirePr && !f.pr.link) {
       return tr(lang, 'cli', 'context.list.recordPrLink');
@@ -219,6 +226,7 @@ async function runContext(
   const config = await getConfig(cwd);
   const lang = config?.lang ?? 'en';
   const workflowPolicy = resolveWorkflowPolicy(config?.workflow);
+  const prePrReviewPolicy = resolvePrePrReviewPolicy(config?.workflow);
 
   if (!config) {
     throw createCliError(
@@ -303,6 +311,7 @@ async function runContext(
       primaryActionCategory: primaryAction?.action.category ?? null,
       primaryActionOperationType: primaryAction?.action.operationType ?? null,
       workflowPolicy,
+      prePrReviewPolicy,
       checkPolicy: {
         docPath: '/docs/agents/agents.md',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
@@ -449,7 +458,13 @@ async function runContext(
         )
       );
       state.inProgressFeatures.forEach((f) => {
-        const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
+        const stepName = getListLabel(
+          f,
+          stepsMap,
+          lang,
+          workflowPolicy,
+          prePrReviewPolicy
+        );
         const typeStr =
           config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
@@ -464,7 +479,13 @@ async function runContext(
         )
       );
       state.readyToCloseFeatures.forEach((f) => {
-        const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
+        const stepName = getListLabel(
+          f,
+          stepsMap,
+          lang,
+          workflowPolicy,
+          prePrReviewPolicy
+        );
         const typeStr =
           config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : '';
         console.log(
@@ -481,7 +502,13 @@ async function runContext(
       console.log(chalk.blue(title));
       console.log();
       state.targetFeatures.forEach((f) => {
-        const stepName = getListLabel(f, stepsMap, lang, workflowPolicy);
+        const stepName = getListLabel(
+          f,
+          stepsMap,
+          lang,
+          workflowPolicy,
+          prePrReviewPolicy
+        );
         const typeStr =
           config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : '';
         console.log(

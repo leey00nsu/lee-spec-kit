@@ -1,7 +1,7 @@
 import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
 import { ProjectConfig } from '../config.js';
-import { resolveWorkflowPolicy } from '../workflow.js';
+import { resolvePrePrReviewPolicy, resolveWorkflowPolicy } from '../workflow.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
   return (
@@ -31,7 +31,8 @@ function isPrMetadataConfigured(feature: FeatureState): boolean {
 
 function isFeatureDone(
   feature: FeatureState,
-  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>
+  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
+  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
 ): boolean {
   return (
     feature.specStatus === 'Approved' &&
@@ -46,8 +47,21 @@ function isFeatureDone(
     (!workflowPolicy.requireIssue || !!feature.issueNumber) &&
     (!workflowPolicy.requirePr ||
       (isPrMetadataConfigured(feature) && !!feature.pr.link)) &&
-    (!workflowPolicy.requireReview || feature.pr.status === 'Approved')
+    (!workflowPolicy.requireReview || feature.pr.status === 'Approved') &&
+    (!prePrReviewPolicy.enabled ||
+      (feature.docs.prePrReviewFieldExists &&
+        feature.prePrReview.status === 'Done'))
   );
+}
+
+function formatSkillList(skills: string[]): string {
+  return skills.join(', ');
+}
+
+function getFindingsPolicyText(lang: Lang, blockOnFindings: boolean): string {
+  return blockOnFindings
+    ? tr(lang, 'messages', 'prePrReviewFindingsBlock')
+    : tr(lang, 'messages', 'prePrReviewFindingsWarn');
 }
 
 export function getStepDefinitions(
@@ -55,6 +69,7 @@ export function getStepDefinitions(
   workflow?: ProjectConfig['workflow']
 ): StepDefinition[] {
   const workflowPolicy = resolveWorkflowPolicy(workflow);
+  const prePrReviewPolicy = resolvePrePrReviewPolicy(workflow);
 
   return [
     {
@@ -300,7 +315,7 @@ export function getStepDefinitions(
           !workflowPolicy.requireBranch ||
           f.git.onExpectedBranch ||
           isImplementationDone(f) ||
-          isFeatureDone(f, workflowPolicy),
+          isFeatureDone(f, workflowPolicy, prePrReviewPolicy),
       },
       current: {
         when: (f) =>
@@ -308,7 +323,7 @@ export function getStepDefinitions(
           !!f.issueNumber &&
           f.tasks.total > 0 &&
           f.tasks.done < f.tasks.total &&
-          !isFeatureDone(f, workflowPolicy) &&
+          !isFeatureDone(f, workflowPolicy, prePrReviewPolicy) &&
           (!f.git.projectBranchAvailable || !f.git.onExpectedBranch),
         actions: (f) => {
           if (!f.git.projectBranchAvailable || !f.git.projectGitCwd) {
@@ -521,6 +536,73 @@ export function getStepDefinitions(
     },
     {
       step: 12,
+      name: tr(lang, 'steps', 'prePrReview'),
+      checklist: {
+        done: (f) =>
+          !prePrReviewPolicy.enabled ||
+          (f.docs.prePrReviewFieldExists && f.prePrReview.status === 'Done'),
+      },
+      current: {
+        when: (f) =>
+          prePrReviewPolicy.enabled &&
+          workflowPolicy.requirePr &&
+          f.docs.tasksExists &&
+          f.tasks.total > 0 &&
+          f.tasks.total === f.tasks.done &&
+          isCompletionChecklistDone(f) &&
+          !f.git.docsHasUncommittedChanges &&
+          !f.git.projectHasUncommittedChanges &&
+          (!isPrMetadataConfigured(f) || !f.pr.link) &&
+          (!f.docs.prePrReviewFieldExists || f.prePrReview.status !== 'Done'),
+        actions: (f) => {
+          if (!prePrReviewPolicy.enabled) return [];
+          if (!f.docs.prePrReviewFieldExists) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pr_metadata_migrate',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewFieldMissing'),
+              },
+            ];
+          }
+          if (!prePrReviewPolicy.skills.length) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewRun', {
+                  skills: 'code-review-excellence',
+                  fallback: prePrReviewPolicy.fallback,
+                  findingsPolicy: getFindingsPolicyText(
+                    lang,
+                    prePrReviewPolicy.blockOnFindings
+                  ),
+                }),
+              },
+            ];
+          }
+          return [
+            {
+              type: 'instruction',
+              category: 'pre_pr_review',
+              requiresUserCheck: true,
+              message: tr(lang, 'messages', 'prePrReviewRun', {
+                skills: formatSkillList(prePrReviewPolicy.skills),
+                fallback: prePrReviewPolicy.fallback,
+                findingsPolicy: getFindingsPolicyText(
+                  lang,
+                  prePrReviewPolicy.blockOnFindings
+                ),
+              }),
+            },
+          ];
+        },
+      },
+    },
+    {
+      step: 13,
       name: tr(lang, 'steps', 'prCreate'),
       checklist: {
         done: (f) =>
@@ -558,7 +640,7 @@ export function getStepDefinitions(
       },
     },
     {
-      step: 13,
+      step: 14,
       name: tr(lang, 'steps', 'codeReview'),
       checklist: {
         done: (f) =>
@@ -602,11 +684,13 @@ export function getStepDefinitions(
       },
     },
     {
-      step: 14,
+      step: 15,
       name: tr(lang, 'steps', 'featureDone'),
-      checklist: { done: (f) => isFeatureDone(f, workflowPolicy) },
+      checklist: {
+        done: (f) => isFeatureDone(f, workflowPolicy, prePrReviewPolicy),
+      },
       current: {
-        when: (f) => isFeatureDone(f, workflowPolicy),
+        when: (f) => isFeatureDone(f, workflowPolicy, prePrReviewPolicy),
         actions: () => [
           {
             type: 'instruction',

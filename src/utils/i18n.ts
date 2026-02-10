@@ -120,6 +120,8 @@ const I18N: Record<Lang, I18nData> = {
       'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
       'context.list.addPrMetadata': 'PR 메타데이터(PR/PR 상태) 추가',
       'context.list.recordPrLink': 'PR 링크 기록',
+      'context.list.addPrePrReviewField': 'Pre-PR Review 필드 추가',
+      'context.list.completePrePrReview': 'Pre-PR 리뷰 완료 처리',
       'context.list.setPrStatus': 'PR 상태 설정',
       'context.list.prStatusToApproved': 'PR 상태 {status} → Approved',
       'context.list.approveSpec': 'spec 승인 필요',
@@ -192,6 +194,7 @@ const I18N: Record<Lang, I18nData> = {
       branchCreate: '브랜치 생성',
       tasksExecute: '태스크 실행',
       docsCommitSync: '문서 커밋(동기화)',
+      prePrReview: 'Pre-PR 리뷰',
       prCreate: 'PR 생성',
       codeReview: '코드 리뷰',
       featureDone: 'Feature 완료',
@@ -241,6 +244,14 @@ const I18N: Record<Lang, I18nData> = {
         '태스크 상태를 확인하세요. ({done}/{total}) (skills/execute-task.md 참고)',
       prLegacyAsk:
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
+      prePrReviewFieldMissing:
+        'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
+      prePrReviewRun:
+        'PR 생성 전 사전 코드리뷰를 진행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용). 스킬을 쓸 수 없으면 `{fallback}` 정책으로 진행하고 `PR 전 리뷰`를 Done으로 업데이트하세요. Findings 정책: {findingsPolicy}',
+      prePrReviewFindingsBlock:
+        '중요 이슈는 수정/합의 후에만 PR 생성',
+      prePrReviewFindingsWarn:
+        '리스크를 공유하면 PR 생성 진행 가능',
       prCreate:
         'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (skills/create-pr.md 참고)',
       prFillStatus:
@@ -269,6 +280,8 @@ const I18N: Record<Lang, I18nData> = {
         '구버전 tasks.md 포맷입니다. `문서 상태` 필드(Review/Approved)를 추가해 태스크 승인 단계를 활성화하세요.',
       legacyTasksPrFields:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
+      legacyTasksPrePrReviewField:
+        '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰` 필드를 추가하세요. (`- **PR 전 리뷰**: Pending | Done`)',
       workflowSpecNotApproved:
         '완료 상태이지만 spec.md 상태가 Approved가 아닙니다. (spec.md의 상태를 Approved로 업데이트하세요.)',
       workflowPlanNotApproved:
@@ -283,6 +296,10 @@ const I18N: Record<Lang, I18nData> = {
         '완료 상태이지만 PR 상태가 비어있습니다. (tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요.)',
       workflowPrStatusNotApproved:
         '완료 상태이지만 PR 상태가 Approved가 아닙니다. (merge 후 PR 상태를 Approved로 업데이트하세요.)',
+      workflowPrePrReviewMissing:
+        '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
+      workflowPrePrReviewNotDone:
+        '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
     },
   },
   en: {
@@ -381,6 +398,8 @@ const I18N: Record<Lang, I18nData> = {
       'context.list.issueNumberNeeded': 'Fill issue number in docs',
       'context.list.addPrMetadata': 'Add PR metadata (PR/PR Status)',
       'context.list.recordPrLink': 'Record PR link',
+      'context.list.addPrePrReviewField': 'Add Pre-PR Review field',
+      'context.list.completePrePrReview': 'Complete Pre-PR review',
       'context.list.setPrStatus': 'Set PR Status',
       'context.list.prStatusToApproved': 'PR Status {status} → Approved',
       'context.list.approveSpec': 'Approve spec',
@@ -454,6 +473,7 @@ const I18N: Record<Lang, I18nData> = {
       branchCreate: 'Create branch',
       tasksExecute: 'Execute tasks',
       docsCommitSync: 'Commit docs (sync)',
+      prePrReview: 'Pre-PR review',
       prCreate: 'Create PR',
       codeReview: 'Code review',
       featureDone: 'Feature done',
@@ -503,6 +523,14 @@ const I18N: Record<Lang, I18nData> = {
         'Check task statuses. ({done}/{total}) (See skills/execute-task.md)',
       prLegacyAsk:
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
+      prePrReviewFieldMissing:
+        'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
+      prePrReviewRun:
+        'Run a pre-PR code review before creating the PR. Preferred skills: {skills} (if a better installed skill fits this change, propose it first). If no skill can run, use `{fallback}` and set `Pre-PR Review` to Done in tasks.md. Findings policy: {findingsPolicy}',
+      prePrReviewFindingsBlock:
+        'major findings must be fixed/aligned before PR creation',
+      prePrReviewFindingsWarn:
+        'you may proceed after sharing the risks',
       prCreate: 'Create a PR and record the PR link in tasks.md. (See skills/create-pr.md)',
       prFillStatus:
         'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
@@ -529,6 +557,8 @@ const I18N: Record<Lang, I18nData> = {
         'Legacy tasks.md format detected. Add a `Doc Status` field (Review/Approved) to enable tasks approval.',
       legacyTasksPrFields:
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
+      legacyTasksPrePrReviewField:
+        'Legacy tasks.md format detected. Add `Pre-PR Review` before PR steps. (`- **Pre-PR Review**: Pending | Done`)',
       workflowSpecNotApproved:
         'Implementation is done but spec.md Status is not Approved. (Update spec.md Status to Approved.)',
       workflowPlanNotApproved:
@@ -543,6 +573,10 @@ const I18N: Record<Lang, I18nData> = {
         'Implementation is done but PR Status is missing. (Set PR Status to Review/Approved in tasks.md.)',
       workflowPrStatusNotApproved:
         'Implementation is done but PR Status is not Approved. (After merge, update PR Status to Approved in tasks.md.)',
+      workflowPrePrReviewMissing:
+        'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
+      workflowPrePrReviewNotDone:
+        'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
     },
   },
 };

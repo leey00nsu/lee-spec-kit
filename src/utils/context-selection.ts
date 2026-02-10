@@ -128,6 +128,7 @@ function getActionSummary(action: ContextAction): string {
   if (action.category === 'issue_create') return 'Create and record issue';
   if (action.category === 'branch_create') return 'Create feature branch';
   if (action.category === 'pr_create') return 'Create PR and record link';
+  if (action.category === 'pre_pr_review') return 'Run pre-PR self review';
   if (action.category === 'pr_status_update') return 'Update PR status';
   if (action.category === 'code_review') return 'Process code review feedback';
   if (action.category === 'task_execute') return 'Proceed with task execution';

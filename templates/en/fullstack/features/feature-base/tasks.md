@@ -20,6 +20,8 @@
   - Example: `#123` or PR URL
 - **PR Status**: -
   - Values: Review | Approved
+- **Pre-PR Review**: Pending | Done
+  - Mark `Done` after pre-PR review is completed
 
 ---
 

@@ -229,6 +229,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 - `category`: 액션 분류 (자동화/반자동용 `approval.mode: "category"`에서 사용)
 - `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)으로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
+- `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`, `blockOnFindings`)
 
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, `config`)
 
@@ -400,7 +401,11 @@ npx lee-spec-kit update --force
   "lang": "ko",
   "createdAt": "YYYY-MM-DD",
   "docsRepo": "embedded",
-  "workflow": { "mode": "github", "codeDirtyScope": "auto" },
+  "workflow": {
+    "mode": "github",
+    "codeDirtyScope": "auto",
+    "prePrReview": { "skills": ["code-review-excellence"] }
+  },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
 }
@@ -417,7 +422,7 @@ npx lee-spec-kit update --force
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`, `codeDirtyScope`) |
+| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`, `codeDirtyScope`, `prePrReview`) |
 | `pr`          | (선택) PR 결과물 정책 (예: 스크린샷 업로드 여부) |
 | `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
 
@@ -455,12 +460,25 @@ npx lee-spec-kit update --force
   - `auto`: `single => repo`, `multi => component`
   - `workflow.componentPaths`(선택): component 판정 경로를 컴포넌트별로 명시 (예: `"web": ["apps/web", "packages/web-ui"]`)
   - 하위 호환: 값이 없으면 기존 동작인 `repo`로 처리
+- `workflow.prePrReview`:
+  - `enabled` (선택): pre-PR 리뷰 단계를 강제할지 여부 (기본: `requirePr`와 동일)
+  - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
+  - `fallback` (선택): 스킬 미사용 시 폴백 정책 (기본: `"builtin-checklist"`)
+  - `blockOnFindings` (선택): 주요 이슈 발견 시 PR 생성 전 해결/합의를 요구할지 여부 (기본: `true`)
 
 예시:
 
 ```json
 {
-  "workflow": { "mode": "local", "codeDirtyScope": "auto" }
+  "workflow": {
+    "mode": "github",
+    "codeDirtyScope": "auto",
+    "prePrReview": {
+      "skills": ["code-review-excellence"],
+      "fallback": "builtin-checklist",
+      "blockOnFindings": true
+    }
+  }
 }
 ```
 
