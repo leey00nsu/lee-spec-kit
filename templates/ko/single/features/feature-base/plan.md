@@ -8,7 +8,7 @@
 
 - **기능 ID**: F{번호}
 - **대상 레포**: {{projectName}}
-- **작성일**: YYYY-MM-DD
+- **작성일**: {YYYY-MM-DD}
 - **상태**: Review | Approved
 
 ---

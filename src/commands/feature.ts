@@ -262,7 +262,6 @@ async function runFeature(
         '{번호}': idNumber,
         '{결정 제목}': `${name} 결정`,
         '{YYYY-MM-DD}': getLocalDateString(),
-        'YYYY-MM-DD': getLocalDateString(),
         '{be|fe}': component || '',
         '{이슈번호}': '',
         '{{description}}': options.desc || '',

@@ -10,7 +10,7 @@
 - **Feature Name**: {feature-name}
 - **Target Repo**: {{projectName}}-{be|fe}
 - **Issue Number**: #{issue-number}
-- **Created**: YYYY-MM-DD
+- **Created**: {YYYY-MM-DD}
 - **Status**: Review | Approved
 
 ---

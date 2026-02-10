@@ -8,7 +8,7 @@
 
 - **Feature ID**: F{number}
 - **Target Repo**: {{projectName}}
-- **Created**: YYYY-MM-DD
+- **Created**: {YYYY-MM-DD}
 - **Status**: Review | Approved
 
 ---
