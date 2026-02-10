@@ -9,11 +9,15 @@ import { fileURLToPath } from 'node:url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cliEntrypoint = path.join(rootDir, 'dist', 'index.js');
 
-function runCli(cwd, args) {
+function runCli(cwd, args, env = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [cliEntrypoint, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        ...env,
+      },
     });
 
     let stdout = '';
@@ -73,6 +77,44 @@ async function pathExists(filePath) {
   } catch {
     return false;
   }
+}
+
+async function setupFakeGhCli(dir) {
+  const binDir = path.join(dir, 'fake-bin');
+  const logPath = path.join(dir, 'gh-invocations.log');
+  const scriptPath = path.join(binDir, 'gh');
+  await fs.mkdir(binDir, { recursive: true });
+  await fs.writeFile(
+    scriptPath,
+    `#!/usr/bin/env bash
+echo "$@" >> "${logPath}"
+if [ "$1" = "issue" ] && [ "$2" = "create" ]; then
+  echo "https://github.com/acme/repo/issues/123"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "create" ]; then
+  echo "https://github.com/acme/repo/pull/77"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "merge" ]; then
+  echo "merged"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+  echo '{"url":"https://github.com/acme/repo/pull/77","headRefName":"feature-branch","baseRefName":"main"}'
+  exit 0
+fi
+exit 0
+`,
+    'utf-8'
+  );
+  await fs.chmod(scriptPath, 0o755);
+  return {
+    logPath,
+    env: {
+      PATH: `${binDir}:${process.env.PATH || ''}`,
+    },
+  };
 }
 
 async function setFeatureAsDone(dir, featureFolderName) {
@@ -343,6 +385,245 @@ test('feature --component rejects unknown component in fullstack project', async
   });
 });
 
+test('github issue --create requires --confirm OK', async () => {
+  await withTempDir('lsk-github-issue-confirm-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const result = await runCli(dir, ['github', 'issue', 'F001-alpha', '--create', '--json']);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('github issue --create succeeds with --confirm OK', async () => {
+  await withTempDir('lsk-github-issue-confirm-ok-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      ['github', 'issue', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'ISSUE_CREATED');
+    assert.match(String(payload.issueUrl || ''), /\/issues\/123$/);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(log, /^issue create /m);
+  });
+});
+
+test('github help is localized based on docs language (ko)', async () => {
+  await withTempDir('lsk-github-help-lang-ko-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const help = await runCli(dir, ['--no-banner', 'github', 'issue', '--help']);
+    assert.equal(help.code, 0, help.stderr || help.stdout);
+    assert.match(help.stdout, /feature 문서 기반 GitHub issue 본문 생성\/생성/);
+    assert.match(help.stdout, /에이전트용 JSON 형식으로 출력/);
+    assert.doesNotMatch(help.stdout, /Output in JSON format for agents/);
+  });
+});
+
+test('github issue draft uses Korean template when config lang is ko', async () => {
+  await withTempDir('lsk-github-issue-ko-template-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const result = await runCli(dir, ['github', 'issue', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'ISSUE_TEMPLATE_GENERATED');
+
+    const body = await fs.readFile(payload.bodyFile, 'utf-8');
+    assert.match(body, /^## 개요$/m);
+    assert.match(body, /^## 목표$/m);
+    assert.match(body, /^## 완료 기준$/m);
+    assert.match(body, /^## 관련 문서$/m);
+    assert.match(body, /^## 라벨$/m);
+    assert.doesNotMatch(body, /^## Overview$/m);
+  });
+});
+
+test('github pr draft uses Korean template when config lang is ko', async () => {
+  await withTempDir('lsk-github-pr-ko-template-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const result = await runCli(dir, ['github', 'pr', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_TEMPLATE_GENERATED');
+
+    const body = await fs.readFile(payload.bodyFile, 'utf-8');
+    assert.match(body, /^## 개요$/m);
+    assert.match(body, /^## 변경 사항$/m);
+    assert.match(body, /^## 테스트$/m);
+    assert.match(body, /^### 실행한 테스트$/m);
+    assert.match(body, /^## 관련 문서$/m);
+    assert.doesNotMatch(body, /^## Overview$/m);
+  });
+});
+
+test('github pr --create requires --confirm OK', async () => {
+  await withTempDir('lsk-github-pr-confirm-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const result = await runCli(dir, ['github', 'pr', 'F001-alpha', '--create', '--json']);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('github pr --merge requires --confirm OK and does not mutate tasks.md', async () => {
+  await withTempDir('lsk-github-pr-merge-confirm-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const before = await fs.readFile(tasksPath, 'utf-8');
+
+    const result = await runCli(dir, [
+      'github',
+      'pr',
+      'F001-alpha',
+      '--pr',
+      'https://github.com/acme/repo/pull/77',
+      '--merge',
+      '--json',
+    ]);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+
+    const after = await fs.readFile(tasksPath, 'utf-8');
+    assert.equal(after, before);
+  });
+});
+
 test('doctor --json error includes reasonCode and labeled suggestions', async () => {
   await withTempDir('lsk-doctor-error-json-', async (dir) => {
     const result = await runCli(dir, ['doctor', '--json']);
@@ -553,6 +834,36 @@ test('local workflow templates reduce issue/pr focused fields', async () => {
     assert.doesNotMatch(featureTasks, /\*\*PR\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*PR Status\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*Pre-PR Review\*\*:/);
+  });
+});
+
+test('feature keeps YYYY-MM-DD HH-MM placeholder in test log format text', async () => {
+  await withTempDir('lsk-feature-testlog-date-format-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const featureTasks = await fs.readFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      'utf-8'
+    );
+    assert.match(featureTasks, /YYYY-MM-DD HH-MM/);
+    assert.doesNotMatch(featureTasks, /\b20\d{2}-\d{2}-\d{2}\s+HH-MM\b/);
   });
 });
 
@@ -801,6 +1112,149 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.deepEqual(payload.prePrReviewPolicy.skills, ['code-review-excellence']);
     assert.equal(payload.prePrReviewPolicy.fallback, 'builtin-checklist');
     assert.equal(payload.prePrReviewPolicy.blockOnFindings, true);
+  });
+});
+
+test('context issue_create action requires explicit user check and is instruction-only', async () => {
+  await withTempDir('lsk-context-issue-create-check-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare issue-create step',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 8);
+    assert.equal(payload.actionOptions[0].action.category, 'issue_create');
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
+    assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+
+    const executeAttempt = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--execute-strict',
+      '--json',
+    ]);
+    assert.equal(executeAttempt.code, 1);
+    const executePayload = JSON.parse(executeAttempt.stdout.trim());
+    assert.equal(executePayload.reasonCode, 'EXECUTION_NOT_COMMAND');
+  });
+});
+
+test('context pr_create action still requires explicit user check', async () => {
+  await withTempDir('lsk-context-pr-create-check-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: false,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare pr-create step',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 13);
+    assert.equal(payload.actionOptions[0].action.category, 'pr_create');
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
+    assert.equal(payload.actionOptions[0].action.operationType, 'remote');
   });
 });
 
@@ -2112,6 +2566,73 @@ test('config --dir targets the selected docs directory when multiple docs exist'
     );
     assert.equal(docs2Config.docsRepo, 'standalone');
     assert.equal(docs2Config.projectRoot, '/tmp/project-b');
+  });
+});
+
+test('config fallback detects Korean lang from agents/custom.md', async () => {
+  await withTempDir('lsk-config-lang-fallback-ko-', async (dir) => {
+    await fs.mkdir(path.join(dir, 'docs', 'agents'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'features'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'prd'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'designs'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'ideas'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'agents', 'custom.md'),
+      '# 커스텀 규칙\n\n한국어 규칙\n',
+      'utf-8'
+    );
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(payload.meta.lang, 'ko');
+    assert.match(String(payload.issues?.[0]?.message || ''), /설정 파일/);
+  });
+});
+
+test('config fallback detects English lang from agents/custom.md', async () => {
+  await withTempDir('lsk-config-lang-fallback-en-', async (dir) => {
+    await fs.mkdir(path.join(dir, 'docs', 'agents'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'features'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'prd'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'designs'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'ideas'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'agents', 'custom.md'),
+      '# Custom Rules\n\nEnglish rules only.\n',
+      'utf-8'
+    );
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(payload.meta.lang, 'en');
+    assert.match(String(payload.issues?.[0]?.message || ''), /Missing \.lee-spec-kit\.json/);
+  });
+});
+
+test('config file lang is respected (ko)', async () => {
+  await withTempDir('lsk-config-lang-configfile-ko-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(payload.meta.lang, 'ko');
   });
 });
 
