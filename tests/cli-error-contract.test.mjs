@@ -66,6 +66,15 @@ async function withTempDir(prefix, run) {
   }
 }
 
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function setFeatureAsDone(dir, featureFolderName) {
   const match = featureFolderName.match(/^F\d+-(.+)$/);
   const featureName = match?.[1] || featureFolderName;
@@ -529,14 +538,6 @@ test('local workflow templates reduce issue/pr focused fields', async () => {
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
-    const baseSpec = await fs.readFile(
-      path.join(dir, 'docs', 'features', 'feature-base', 'spec.md'),
-      'utf-8'
-    );
-    const baseTasks = await fs.readFile(
-      path.join(dir, 'docs', 'features', 'feature-base', 'tasks.md'),
-      'utf-8'
-    );
     const featureSpec = await fs.readFile(
       path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md'),
       'utf-8'
@@ -546,16 +547,67 @@ test('local workflow templates reduce issue/pr focused fields', async () => {
       'utf-8'
     );
 
-    assert.doesNotMatch(baseSpec, /\*\*Issue Number\*\*:/);
     assert.doesNotMatch(featureSpec, /\*\*Issue Number\*\*:/);
-    assert.doesNotMatch(baseTasks, /## GitHub Issue/);
     assert.doesNotMatch(featureTasks, /## GitHub Issue/);
-    assert.match(baseTasks, /## Local Tracking/);
     assert.match(featureTasks, /## Local Tracking/);
     assert.doesNotMatch(featureTasks, /\*\*PR\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*PR Status\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*Pre-PR Review\*\*:/);
-    assert.doesNotMatch(baseTasks, /\*\*Pre-PR Review\*\*:/);
+  });
+});
+
+test('init keeps only project-scoped policy docs in docs tree', async () => {
+  await withTempDir('lsk-init-project-scoped-agents-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const docsRoot = path.join(dir, 'docs');
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'custom.md')),
+      true
+    );
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'constitution.md')),
+      true
+    );
+
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'agents.md')),
+      false
+    );
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'git-workflow.md')),
+      false
+    );
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'issue-template.md')),
+      false
+    );
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'pr-template.md')),
+      false
+    );
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'agents', 'skills')),
+      false
+    );
+    assert.equal(
+      await pathExists(path.join(docsRoot, 'features', 'feature-base')),
+      false
+    );
   });
 });
 

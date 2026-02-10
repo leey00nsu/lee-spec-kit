@@ -313,7 +313,7 @@ async function runContext(
       workflowPolicy,
       prePrReviewPolicy,
       checkPolicy: {
-        docPath: '/docs/agents/agents.md',
+        docPath: 'builtin://agents/policy',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
         policyOnly: true,
         token: '<LABEL>',

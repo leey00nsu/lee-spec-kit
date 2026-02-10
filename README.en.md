@@ -336,6 +336,9 @@ npx lee-spec-kit update --templates
 npx lee-spec-kit update --force
 ```
 
+> `agents/skills` and `features/feature-base` are now CLI-managed (SSOT).  
+> `update --skills` and `update --templates` are used to clean up legacy copied files in existing docs trees.
+
 ## Configuration
 
 ### `.lee-spec-kit.json`
@@ -524,4 +527,4 @@ For the full code list and meanings, see `errors.en.md` (English) or `errors.md`
 
 See the Korean README for the full tree examples and workflow details: `README.md`.
 
-Note: generated docs include `agents/custom.md`, `agents/skills/`, and `scripts/` by default.
+Note: generated docs keep project-scoped policy docs (`agents/custom.md`, `agents/constitution.md`) and do not sync CLI-managed docs (`agents.md`, `agents/skills/*`, `git-workflow.md`, `issue-template.md`, `pr-template.md`, `features/feature-base/*`).

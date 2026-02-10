@@ -36,7 +36,7 @@ const I18N: Record<Lang, I18nData> = {
 
       'feature.selectRepo': '레포지토리를 선택하세요:',
       'feature.folderExists': '이미 존재하는 폴더입니다: {path}',
-      'feature.baseNotFound': 'feature-base 템플릿을 찾을 수 없습니다.',
+      'feature.baseNotFound': 'CLI 내장 feature 템플릿을 찾을 수 없습니다.',
       'feature.created': '✅ Feature 폴더 생성 완료: {path}',
       'feature.nextStepsTitle': '다음 단계:',
       'feature.nextSteps1': '  1. {path}/spec.md 작성',
@@ -61,6 +61,12 @@ const I18N: Record<Lang, I18nData> = {
       'update.agentsUpdated': 'agents/ 업데이트 완료',
       'update.skillsUpdated': 'agents/skills 업데이트 완료',
       'update.updatingFeatureBase': '📁 features/feature-base/ 폴더 업데이트 중...',
+      'update.engineManagedSkillsBuiltin':
+        'agents/skills는 CLI 내장 규칙으로 관리되어 docs로 동기화하지 않습니다.',
+      'update.engineManagedFeatureBaseBuiltin':
+        'features/feature-base는 CLI 내장 템플릿으로 관리되어 docs로 동기화하지 않습니다.',
+      'update.engineManagedPruned':
+        'docs에서 CLI 관리 문서 {count}개를 정리했습니다.',
       'update.filesUpdated': '{count}개 파일 업데이트 완료',
       'update.updatedTotal': '총 {count}개 파일 업데이트 완료!',
       'update.changeDetected': '변경 감지 (--force로 덮어쓰기)',
@@ -108,13 +114,13 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 정책 안내(현재 Next Action 아님): /docs/agents/agents.md 참고 (git push/merge/merge commit 포함). [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 정책 안내(현재 Next Action 아님): CLI 내장 에이전트 정책 참고 (git push/merge/merge commit 포함). [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
         '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.tipDocsCommitRules':
-        '커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
+        '커밋 메시지 규칙: CLI 내장 git-workflow 규칙 참고',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
       'context.list.projectCommitNeeded': '프로젝트 코드 커밋 필요',
       'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
@@ -201,17 +207,17 @@ const I18N: Record<Lang, I18nData> = {
     },
     messages: {
       specCreate:
-        'spec.md 템플릿을 복사해 작성하세요. (features/feature-base/spec.md 참고)',
+        'spec.md를 CLI 내장 템플릿 기준으로 작성하세요.',
       specImprove: 'spec.md를 보완하고 상태를 Review로 변경하세요.',
       specApproval:
         'spec.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       planCreate:
-        'plan.md 템플릿을 복사해 작성하세요. (features/feature-base/plan.md 참고)',
+        'plan.md를 CLI 내장 템플릿 기준으로 작성하세요.',
       planImprove: 'plan.md를 보완하고 상태를 Review로 변경하세요.',
       planApproval:
         'plan.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       tasksCreate:
-        'tasks.md 템플릿을 복사해 태스크를 작성하세요. (features/feature-base/tasks.md 참고)',
+        'tasks.md를 CLI 내장 템플릿 기준으로 작성하세요.',
       tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
       tasksImprove: 'tasks.md를 보완하고 문서 상태를 Review로 변경하세요.',
       tasksApproval:
@@ -219,7 +225,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
-        'GitHub Issue를 생성한 뒤, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요. (skills/create-issue.md 참고)',
+        'GitHub Issue를 생성한 뒤, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요. (CLI 내장 create-issue 가이드)',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
@@ -237,11 +243,11 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         '모든 태스크가 DONE이지만 완료 조건 체크리스트가 완전히 체크되지 않았습니다. ({checked}/{total})',
       finishDoingTask:
-        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리) (skills/execute-task.md 참고)',
+        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리) (CLI 내장 execute-task 가이드)',
       startNextTodoTask:
-        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리) (skills/execute-task.md 참고)',
+        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리) (CLI 내장 execute-task 가이드)',
       checkTaskStatuses:
-        '태스크 상태를 확인하세요. ({done}/{total}) (skills/execute-task.md 참고)',
+        '태스크 상태를 확인하세요. ({done}/{total}) (CLI 내장 execute-task 가이드)',
       prLegacyAsk:
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prePrReviewFieldMissing:
@@ -253,7 +259,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         '리스크를 공유하면 PR 생성 진행 가능',
       prCreate:
-        'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (skills/create-pr.md 참고)',
+        'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (CLI 내장 create-pr 가이드)',
       prFillStatus:
         'tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
       prResolveReview:
@@ -273,7 +279,7 @@ const I18N: Record<Lang, I18nData> = {
       docsPathIgnored:
         '현재 Feature 문서 경로가 git ignore 대상입니다: {path} (docs 커밋 감지가 제한될 수 있습니다.)',
       docsUncommittedChanges:
-        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: /docs/agents/git-workflow.md 참고',
+        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: CLI 내장 git-workflow 규칙 참고',
       projectUncommittedChanges:
         '프로젝트 코드 변경사항이 커밋되지 않았습니다. (추가 코드 커밋 필요)',
       legacyTasksDocStatusField:
@@ -316,7 +322,7 @@ const I18N: Record<Lang, I18nData> = {
 
       'feature.selectRepo': 'Select a repository:',
       'feature.folderExists': 'Folder already exists: {path}',
-      'feature.baseNotFound': 'feature-base template not found.',
+      'feature.baseNotFound': 'Built-in feature template not found.',
       'feature.created': '✅ Feature folder created: {path}',
       'feature.nextStepsTitle': 'Next steps:',
       'feature.nextSteps1': '  1. Write {path}/spec.md',
@@ -341,6 +347,12 @@ const I18N: Record<Lang, I18nData> = {
       'update.agentsUpdated': 'agents/ updated',
       'update.skillsUpdated': 'agents/skills updated',
       'update.updatingFeatureBase': '📁 Updating features/feature-base/ folder...',
+      'update.engineManagedSkillsBuiltin':
+        'agents/skills is CLI-managed and is not synced into docs.',
+      'update.engineManagedFeatureBaseBuiltin':
+        'features/feature-base is CLI-managed and is not synced into docs.',
+      'update.engineManagedPruned':
+        'Removed {count} CLI-managed docs entries from this docs tree.',
       'update.filesUpdated': '{count} files updated',
       'update.updatedTotal': 'Updated {count} files!',
       'update.changeDetected': 'changes detected (use --force to overwrite)',
@@ -386,13 +398,13 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  User check policy notice (not the current next action): see /docs/agents/agents.md (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
+        'ℹ️  User check policy notice (not the current next action): see the CLI built-in agent policy (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
         'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.tipDocsCommitRules':
-        'Commit message rules: /docs/agents/git-workflow.md',
+        'Commit message rules: CLI built-in git-workflow policy',
       'context.list.docsCommitNeeded': 'Commit docs changes',
       'context.list.projectCommitNeeded': 'Commit project code changes',
       'context.list.issueNumberNeeded': 'Fill issue number in docs',
@@ -480,17 +492,17 @@ const I18N: Record<Lang, I18nData> = {
     },
     messages: {
       specCreate:
-        'Create spec.md by copying the template. (See features/feature-base/spec.md)',
+        'Create spec.md using the CLI built-in template policy.',
       specImprove: 'Improve spec.md and change Status to Review.',
       specApproval:
         'Share spec.md with the user and get approval (`A` or `A OK` format).',
       planCreate:
-        'Create plan.md by copying the template. (See features/feature-base/plan.md)',
+        'Create plan.md using the CLI built-in template policy.',
       planImprove: 'Improve plan.md and change Status to Review.',
       planApproval:
         'Share plan.md with the user and get approval (`A` or `A OK` format).',
       tasksCreate:
-        'Create tasks.md by copying the template. (See features/feature-base/tasks.md)',
+        'Create tasks.md using the CLI built-in template policy.',
       tasksNeedAtLeastOne: 'Write at least 1 task in tasks.md.',
       tasksImprove: 'Improve tasks.md and change Doc Status to Review.',
       tasksApproval:
@@ -498,7 +510,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
-        'Create a GitHub Issue, fill the issue number in spec.md/tasks.md, then prepare a docs commit. (See skills/create-issue.md)',
+        'Create a GitHub Issue, fill the issue number in spec.md/tasks.md, then prepare a docs commit. (CLI built-in create-issue guide)',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
@@ -516,11 +528,11 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         'All tasks are DONE, but the completion checklist is not fully checked. ({checked}/{total})',
       finishDoingTask:
-        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (Share outcome/verification + get OK before marking DONE) (See skills/execute-task.md)',
+        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (Share outcome/verification + get OK before marking DONE) (CLI built-in execute-task guide)',
       startNextTodoTask:
-        'Start the next TODO task: "{title}" ({done}/{total}) (Share title + get OK before marking DOING) (See skills/execute-task.md)',
+        'Start the next TODO task: "{title}" ({done}/{total}) (Share title + get OK before marking DOING) (CLI built-in execute-task guide)',
       checkTaskStatuses:
-        'Check task statuses. ({done}/{total}) (See skills/execute-task.md)',
+        'Check task statuses. ({done}/{total}) (CLI built-in execute-task guide)',
       prLegacyAsk:
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prePrReviewFieldMissing:
@@ -531,7 +543,8 @@ const I18N: Record<Lang, I18nData> = {
         'major findings must be fixed/aligned before PR creation',
       prePrReviewFindingsWarn:
         'you may proceed after sharing the risks',
-      prCreate: 'Create a PR and record the PR link in tasks.md. (See skills/create-pr.md)',
+      prCreate:
+        'Create a PR and record the PR link in tasks.md. (CLI built-in create-pr guide)',
       prFillStatus:
         'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
       prResolveReview:
@@ -550,7 +563,7 @@ const I18N: Record<Lang, I18nData> = {
       docsPathIgnored:
         'Current feature docs path is ignored by git: {path} (docs commit detection may be limited).',
       docsUncommittedChanges:
-        'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: /docs/agents/git-workflow.md',
+        'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: CLI built-in git-workflow policy',
       projectUncommittedChanges:
         'Project code changes are not committed. (Additional code commit needed.)',
       legacyTasksDocStatusField:

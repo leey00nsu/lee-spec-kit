@@ -25,7 +25,7 @@ import {
 import { execFileSync, execSync } from 'child_process';
 import { getInitLockPath, withFileLock } from '../utils/lock.js';
 import { getLocalDateString } from '../utils/date.js';
-import { applyLocalWorkflowTemplateToFeatureBase } from '../utils/local-workflow-template.js';
+import { pruneEngineManagedDocs } from '../utils/engine-managed-docs.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -585,9 +585,8 @@ async function runInit(options: InitOptions): Promise<void> {
 
       await replaceInFiles(targetDir, replacements);
 
-      if (workflowMode === 'local') {
-        await applyLocalWorkflowTemplateToFeatureBase(targetDir, lang);
-      }
+      // CLI-managed docs/templates are not project-managed artifacts.
+      await pruneEngineManagedDocs(targetDir);
 
       // Config 파일 생성
       const config: Record<string, unknown> = {

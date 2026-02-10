@@ -11,6 +11,11 @@ import { toTemplateProjectType } from '../utils/project-type.js';
 import { applyReplacements } from '../utils/template.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
+  ENGINE_MANAGED_AGENT_DIRS,
+  ENGINE_MANAGED_AGENT_FILES,
+  pruneEngineManagedDocs,
+} from '../utils/engine-managed-docs.js';
+import {
   createCliError,
   getCliErrorSuggestions,
   printCliErrorSuggestions,
@@ -29,8 +34,8 @@ export function updateCommand(program: Command): void {
     .command('update')
     .description('Update docs templates to the latest version')
     .option('--agents', 'Update agents/ folder only')
-    .option('--skills', 'Update agents/skills folder only')
-    .option('--templates', 'Update feature-base/ folder only')
+    .option('--skills', 'Cleanup legacy agents/skills copies (CLI-managed)')
+    .option('--templates', 'Cleanup legacy feature-base copies (CLI-managed)')
     .option(
       '-f, --force',
       'Force overwrite even if docs has uncommitted changes'
@@ -73,7 +78,6 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     getDocsLockPath(docsDir),
     async () => {
       const templatesDir = getTemplatesDir();
-      const sourceDir = path.join(templatesDir, lang, toTemplateProjectType(projectType));
       const docsLockPath = getDocsLockPath(docsDir);
 
       // Default behavior: only allow update when docs working tree is clean.
@@ -104,13 +108,17 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
 
       // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
       if (updateAgents) {
-        console.log(
-          chalk.blue(
-            agentsMode === 'skills'
-              ? tr(lang, 'cli', 'update.updatingSkills')
-              : tr(lang, 'cli', 'update.updatingAgents')
-          )
-        );
+        if (agentsMode === 'skills') {
+          console.log(chalk.blue(tr(lang, 'cli', 'update.updatingSkills')));
+          console.log(
+            chalk.gray(tr(lang, 'cli', 'update.engineManagedSkillsBuiltin'))
+          );
+          console.log(chalk.green(`  ✅ ${tr(lang, 'cli', 'update.skillsUpdated')}`));
+        } else {
+          console.log(chalk.blue(tr(lang, 'cli', 'update.updatingAgents')));
+        }
+
+        if (agentsMode === 'all') {
         const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
         const typeAgentsBase = path.join(
           templatesDir,
@@ -156,7 +164,15 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
             targetAgents,
             forceOverwrite,
             commonReplacements,
-            lang
+            lang,
+            {
+              protectedFiles: new Set([
+                'custom.md',
+                'constitution.md',
+                ...ENGINE_MANAGED_AGENT_FILES,
+              ]),
+              skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
+            }
           );
           updatedCount += count;
         }
@@ -168,7 +184,15 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
             targetAgents,
             forceOverwrite,
             typeReplacements,
-            lang
+            lang,
+            {
+              protectedFiles: new Set([
+                'custom.md',
+                'constitution.md',
+                ...ENGINE_MANAGED_AGENT_FILES,
+              ]),
+              skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
+            }
           );
           updatedCount += count;
         }
@@ -181,30 +205,24 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
             }`
           )
         );
+        }
       }
 
-      // feature-base/ 폴더 업데이트
+      // feature-base is CLI-managed and no longer synced into docs.
       if (updateTemplates) {
         console.log(chalk.blue(tr(lang, 'cli', 'update.updatingFeatureBase')));
-        const sourceFeatureBase = path.join(sourceDir, 'features', 'feature-base');
-        const targetFeatureBase = path.join(docsDir, 'features', 'feature-base');
+        console.log(chalk.gray(tr(lang, 'cli', 'update.engineManagedFeatureBaseBuiltin')));
+      }
 
-        if (await fs.pathExists(sourceFeatureBase)) {
-          const replacements: Record<string, string> = {
-            '{{projectName}}': config.projectName ?? '{{projectName}}',
-          };
-          const count = await updateFolder(
-            sourceFeatureBase,
-            targetFeatureBase,
-            forceOverwrite,
-            replacements,
-            lang
-          );
-          updatedCount += count;
-          console.log(
-            chalk.green(`  ✅ ${tr(lang, 'cli', 'update.filesUpdated', { count })}`)
-          );
-        }
+      const pruned = await pruneEngineManagedDocs(docsDir);
+      if (pruned.length > 0) {
+        console.log(
+          chalk.gray(
+            `  - ${tr(lang, 'cli', 'update.engineManagedPruned', {
+              count: pruned.length,
+            })}`
+          )
+        );
       }
 
       console.log();
@@ -221,9 +239,14 @@ async function updateFolder(
   targetDir: string,
   force?: boolean,
   replacements?: Record<string, string>,
-  lang: 'ko' | 'en' = DEFAULT_LANG
+  lang: 'ko' | 'en' = DEFAULT_LANG,
+  options: {
+    protectedFiles?: Set<string>;
+    skipDirectories?: Set<string>;
+  } = {}
 ): Promise<number> {
-  const protectedFiles = new Set(['custom.md', 'constitution.md']);
+  const protectedFiles = options.protectedFiles ?? new Set(['custom.md', 'constitution.md']);
+  const skipDirectories = options.skipDirectories ?? new Set<string>();
 
   // 대상 폴더가 없으면 생성
   await fs.ensureDir(targetDir);
@@ -279,13 +302,17 @@ async function updateFolder(
         updatedCount++;
       }
     } else if (stat.isDirectory()) {
+      if (skipDirectories.has(file)) {
+        continue;
+      }
       // 하위 디렉토리 재귀 처리
       const subCount = await updateFolder(
         sourcePath,
         targetPath,
         force,
         replacements,
-        lang
+        lang,
+        options
       );
       updatedCount += subCount;
     }

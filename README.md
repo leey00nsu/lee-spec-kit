@@ -388,6 +388,9 @@ npx lee-spec-kit update --templates
 npx lee-spec-kit update --force
 ```
 
+> `agents/skills`와 `features/feature-base`는 CLI 내장(SSOT)으로 관리됩니다.  
+> `update --skills`, `update --templates`는 기존 프로젝트의 레거시 복사본을 정리하는 용도로 동작합니다.
+
 ## 설정 파일
 
 ### `.lee-spec-kit.json`
@@ -609,13 +612,8 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 docs/
 ├── README.md
 ├── agents/
-│   ├── agents.md           # 에이전트 운영 규칙
 │   ├── constitution.md     # 프로젝트 원칙
 │   ├── custom.md           # 프로젝트별 추가 규칙
-│   ├── git-workflow.md     # Git 자동화 규칙
-│   ├── issue-template.md
-│   ├── pr-template.md
-│   └── skills/             # 에이전트 실행 가이드
 ├── designs/                # 디자인 참고 자료
 ├── ideas/                  # 아이디어/To-do (Feature 승격 전)
 ├── prd/
@@ -624,7 +622,6 @@ docs/
 │   └── README.md
 └── features/
     ├── README.md
-    ├── feature-base/       # 공용 템플릿
     ├── be/                 # Backend Features
     └── fe/                 # Frontend Features
 ```
@@ -635,14 +632,13 @@ docs/
 docs/
 ├── README.md
 ├── agents/
+│   ├── constitution.md
 │   ├── custom.md
-│   └── skills/
 ├── designs/
 ├── ideas/
 ├── prd/
 ├── scripts/
 └── features/
-    ├── feature-base/
     └── F001-feature/       # 개별 기능
 ```
 

@@ -29,6 +29,8 @@ import {
 } from '../utils/cli-error.js';
 import { getLocalDateString } from '../utils/date.js';
 import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-template.js';
+import { getTemplatesDir } from '../utils/paths.js';
+import { toTemplateProjectType } from '../utils/project-type.js';
 
 interface FeatureOptions {
   repo?: string;
@@ -232,8 +234,14 @@ async function runFeature(
         );
       }
 
-      // feature-base 복사
-      const featureBasePath = path.join(docsDir, 'features', 'feature-base');
+      // Feature templates are sourced from CLI built-ins (single source of truth).
+      const featureBasePath = path.join(
+        getTemplatesDir(),
+        lang,
+        toTemplateProjectType(projectType),
+        'features',
+        'feature-base'
+      );
       if (!(await fs.pathExists(featureBasePath))) {
         throw createCliError('DOCS_NOT_FOUND', tr(lang, 'cli', 'feature.baseNotFound'));
       }
