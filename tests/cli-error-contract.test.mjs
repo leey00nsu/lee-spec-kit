@@ -1182,6 +1182,79 @@ test('step7 uses docs update commit message when implementation is already done'
   });
 });
 
+test('context requires project commit before starting next TODO task', async () => {
+  await withTempDir('lsk-context-project-dirty-gate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasks = await fs.readFile(tasksPath, 'utf-8');
+    const updatedTasks = tasks.replace(
+      '- [DONE] T-F001-alpha-01 alpha',
+      '- [DONE] T-F001-alpha-01 alpha\n- [TODO] T-F001-alpha-02 alpha follow-up'
+    );
+    await fs.writeFile(tasksPath, updatedTasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: add second todo task',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(path.join(dir, 'app.js'), "console.log('dirty');\n", 'utf-8');
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(payload.matchedFeature.currentStep, 10);
+    assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, false);
+    assert.equal(payload.matchedFeature.git.projectHasUncommittedChanges, true);
+    assert.equal(payload.actionOptions[0].action.type, 'command');
+    assert.equal(payload.actionOptions[0].action.scope, 'project');
+    assert.equal(payload.actionOptions[0].action.category, 'task_execute');
+    assert.match(payload.actionOptions[0].action.cmd, /git add -A && git commit -m "feat:/);
+  });
+});
+
 test('context treats docs-only changes as docs dirty (not project dirty) in embedded mode', async () => {
   await withTempDir('lsk-context-embedded-docs-only-dirty-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

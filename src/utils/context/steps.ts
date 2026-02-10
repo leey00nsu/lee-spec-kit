@@ -435,6 +435,36 @@ export function getStepDefinitions(
                         docsGitCwd: f.git.docsGitCwd,
                         featurePath: f.docs.featurePathFromDocs,
                         folderName: f.folderName,
+                  }),
+                },
+              ];
+            }
+            if (f.git.projectHasUncommittedChanges) {
+              if (!f.git.projectGitCwd) {
+                return [
+                  {
+                    type: 'instruction',
+                    category: 'task_execute',
+                    message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+                  },
+                ];
+              }
+              return [
+                {
+                  type: 'command',
+                  category: 'task_execute',
+                  requiresUserCheck: true,
+                  scope: 'project',
+                  cwd: f.git.projectGitCwd,
+                  cmd: f.issueNumber
+                    ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
+                        projectGitCwd: f.git.projectGitCwd,
+                        issueNumber: f.issueNumber,
+                        folderName: f.folderName,
+                      })
+                    : tr(lang, 'messages', 'projectCommitUpdate', {
+                        projectGitCwd: f.git.projectGitCwd,
+                        folderName: f.folderName,
                       }),
                 },
               ];
