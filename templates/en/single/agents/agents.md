@@ -40,14 +40,15 @@ Operating rules for AI code assistants to perform consistent code generation and
 
 - **🔴 Custom Rules (Highest Priority)**: `/docs/agents/custom.md`
 - **Project Principles**: `/docs/agents/constitution.md`
-- **Git Workflow**: CLI built-in policy (`lee-spec-kit context`, `lee-spec-kit github`)
-- **Issue Draft Policy**: CLI built-in (`lee-spec-kit github issue --json`)
-- **PR Draft Policy**: CLI built-in (`lee-spec-kit github pr --json`)
+- **Agent Root Guide**: `npx lee-spec-kit docs get agents --json`
+- **Git Workflow**: `npx lee-spec-kit docs get git-workflow --json`
+- **Issue Procedure/Template**: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-template --json`
+- **PR Procedure/Template**: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-template --json`
 
 ### Features
 
 - **Feature Docs**: `/docs/features/{feature-id}/`
-- **Template (SSOT)**: CLI built-in feature-base template
+- **Template (SSOT)**: docs generated via `npx lee-spec-kit feature <name>`
 
 ---
 
@@ -60,8 +61,9 @@ docs/
 │   ├── custom.md       # Project-specific custom rules
 │   └── constitution.md # Project principles
 │
-│   # Engine-managed policy guides are CLI built-ins (not synced into docs):
-│   # - agents.md / skills/* / git-workflow / issue-template / pr-template
+│   # Engine-managed policy guides are not synced into project docs.
+│   # - list: npx lee-spec-kit docs list --json
+│   # - example: npx lee-spec-kit docs get git-workflow --json
 ├── prd/                # Product requirements
 ├── designs/            # Design references
 ├── ideas/              # Pre-feature ideas / to-dos
@@ -74,14 +76,14 @@ docs/
 
 ## Request Type Processes
 
-> 📖 Refer to CLI built-in skill guides for detailed processes.
+> 📖 Read each process guide first with `docs get`.
 
 | Process        | Guide                                 |
 | -------------- | ------------------------------------- |
-| New Feature    | CLI built-in `create-feature` guide   |
-| GitHub Issue   | CLI built-in `create-issue` guide     |
-| Pull Request   | CLI built-in `create-pr` guide        |
-| Task Execution | CLI built-in `execute-task` guide     |
+| New Feature    | `npx lee-spec-kit docs get create-feature --json` |
+| GitHub Issue   | `npx lee-spec-kit docs get create-issue --json`   |
+| Pull Request   | `npx lee-spec-kit docs get create-pr --json`      |
+| Task Execution | `npx lee-spec-kit docs get execute-task --json`   |
 
 ---
 

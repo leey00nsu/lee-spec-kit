@@ -25,6 +25,11 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
+import {
+  BuiltinDocId,
+  getRecommendedDocIdsForCategories,
+  toBuiltinDocCommand,
+} from '../utils/builtin-docs.js';
 
 interface ContextOptions {
   json?: boolean;
@@ -39,6 +44,10 @@ interface ContextOptions {
 
 type CommandAction = Extract<ActionOption['action'], { type: 'command' }>;
 type ResolvedContextState = ContextSelectionState;
+interface RequiredDocHint {
+  id: BuiltinDocId;
+  command: string;
+}
 
 async function resolveContextState(
   config: Awaited<ReturnType<typeof getConfig>>,
@@ -70,6 +79,16 @@ function formatActionSummary(action: ActionOption['action']): string {
     return `(${action.scope}) ${action.cmd}`;
   }
   return action.message;
+}
+
+function buildRequiredDocHints(actionOptions: ActionOption[]): RequiredDocHint[] {
+  const ids = getRecommendedDocIdsForCategories(
+    actionOptions.map((option) => option.action.category)
+  );
+  return ids.map((id) => ({
+    id,
+    command: toBuiltinDocCommand(id),
+  }));
 }
 
 function executeCommandAction(
@@ -272,6 +291,7 @@ async function runContext(
     done: options.done,
   };
   const state = await resolveContextState(config, featureName, selectionOptions);
+  const requiredDocs = buildRequiredDocHints(state.actionOptions);
 
   if (options.approve) {
     await runApprovedOption(
@@ -345,6 +365,7 @@ async function runContext(
           upload: config.pr?.screenshots?.upload ?? false,
         },
       },
+      requiredDocs,
       recommendation: '',
     };
 
@@ -622,6 +643,17 @@ async function runContext(
   if (hasCheckAction) {
     console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionOptionHint')}`));
     console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionExplainHint')}`));
+  }
+  if (requiredDocs.length > 0) {
+    for (const requiredDoc of requiredDocs) {
+      console.log(
+        chalk.gray(
+          `   ↳ ${tr(lang, 'cli', 'context.readBuiltinDocFirst', {
+            command: requiredDoc.command,
+          })}`
+        )
+      );
+    }
   }
   console.log();
 }

@@ -40,9 +40,10 @@
 
 - **🔴 커스텀 규칙 (최우선)**: `/docs/agents/custom.md`
 - **프로젝트 원칙**: `/docs/agents/constitution.md`
-- **Git 워크플로우**: CLI 내장 정책 (`lee-spec-kit context`, `lee-spec-kit github`)
-- **이슈 초안 정책**: CLI 내장 (`lee-spec-kit github issue --json`)
-- **PR 초안 정책**: CLI 내장 (`lee-spec-kit github pr --json`)
+- **에이전트 루트 가이드**: `npx lee-spec-kit docs get agents --json`
+- **Git 워크플로우**: `npx lee-spec-kit docs get git-workflow --json`
+- **이슈 절차/템플릿**: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-template --json`
+- **PR 절차/템플릿**: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-template --json`
 
 ### PRD
 
@@ -52,7 +53,7 @@
 
 - **BE 기능**: `/docs/features/be/{feature-id}/`
 - **FE 기능**: `/docs/features/fe/{feature-id}/`
-- **템플릿 (SSOT)**: CLI 내장 feature-base 템플릿 (spec, plan, tasks, decisions)
+- **템플릿 (SSOT)**: `npx lee-spec-kit feature <name>`로 생성된 문서 구조 (spec, plan, tasks, decisions)
 
 ---
 
@@ -65,8 +66,9 @@ docs/
 │   ├── custom.md       # 프로젝트별 커스텀 규칙
 │   └── constitution.md # 프로젝트 원칙
 │
-│   # 엔진 종속 가이드는 CLI 내장(프로젝트 docs 비동기화)입니다.
-│   # - agents.md / skills/* / git-workflow / issue-template / pr-template
+│   # 엔진 종속 가이드는 프로젝트 docs에 동기화되지 않습니다.
+│   # - 조회: npx lee-spec-kit docs list --json
+│   # - 예시: npx lee-spec-kit docs get git-workflow --json
 ├── prd/                # 제품 요구사항
 ├── designs/            # 디자인 참고 자료
 ├── ideas/              # 아이디어/To-do (Feature 승격 전)
@@ -96,14 +98,14 @@ docs/
 
 ## 요청 유형별 프로세스
 
-> 📖 각 프로세스의 상세 가이드는 CLI 내장 skill 가이드를 참조하세요.
+> 📖 각 프로세스의 상세 가이드는 `docs get` 명령으로 먼저 조회하세요.
 
 | 프로세스          | 가이드                            |
 | ----------------- | --------------------------------- |
-| 새 기능 추가      | CLI 내장 `create-feature` 가이드  |
-| GitHub Issue 생성 | CLI 내장 `create-issue` 가이드    |
-| Pull Request 생성 | CLI 내장 `create-pr` 가이드       |
-| 태스크 실행       | CLI 내장 `execute-task` 가이드    |
+| 새 기능 추가      | `npx lee-spec-kit docs get create-feature --json` |
+| GitHub Issue 생성 | `npx lee-spec-kit docs get create-issue --json`   |
+| Pull Request 생성 | `npx lee-spec-kit docs get create-pr --json`      |
+| 태스크 실행       | `npx lee-spec-kit docs get execute-task --json`   |
 
 ### 추가 규칙 (Fullstack)
 

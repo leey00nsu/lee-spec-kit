@@ -70,14 +70,14 @@ main
 
 ## Automation Workflow
 
-> 📖 Refer to CLI built-in step guides.
+> 📖 Read each step guide first with `docs get`.
 
-| Workflow       | Guide                            |
-| -------------- | -------------------------------- |
-| Feature Start  | CLI built-in `create-feature`    |
-| Issue Creation | CLI built-in `create-issue`      |
-| Task Execution | CLI built-in `execute-task`      |
-| PR Creation    | CLI built-in `create-pr`         |
+| Workflow       | Guide                                              |
+| -------------- | -------------------------------------------------- |
+| Feature Start  | `npx lee-spec-kit docs get create-feature --json` |
+| Issue Creation | `npx lee-spec-kit docs get create-issue --json`   |
+| Task Execution | `npx lee-spec-kit docs get execute-task --json`   |
+| PR Creation    | `npx lee-spec-kit docs get create-pr --json`      |
 
 ### Branch Creation
 

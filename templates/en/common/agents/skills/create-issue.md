@@ -15,14 +15,19 @@ Guide for creating GitHub Issues.
 
 ### 1. Prepare Issue Draft
 
-> 📖 **Use the CLI built-in issue template policy. Generate a draft first and treat it as the source of truth.**
+> 📖 **Read procedure/template via `docs get` first, then generate a draft and treat it as the source of truth.**
 
 ```bash
-# Generate draft body first (no remote action)
+# 1) Read procedure + template policy
+npx lee-spec-kit docs get create-issue --json
+npx lee-spec-kit docs get issue-template --json
+
+# 2) Generate draft body (no remote action)
 npx lee-spec-kit github issue F001 --json
 ```
 
-Use `body` in JSON output as the primary draft text to review/share.
+Use `docs get issue-template --json` output as the section policy,
+and `github issue --json` output `body` as the first draft to review/share.
 If needed, use `bodyFile` as the filesystem source.
 
 | Item     | Format                                      |
@@ -61,5 +66,5 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 
 ## Reference Documents
 
-- **Draft generator (CLI built-in)**: `npx lee-spec-kit github issue <feature-name>`
+- **Draft generator**: `npx lee-spec-kit github issue <feature-name>`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`

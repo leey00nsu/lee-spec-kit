@@ -17,14 +17,19 @@ Guide for creating Pull Requests.
 
 ### 1. Prepare PR Draft
 
-> 📖 **Use the CLI built-in PR template policy. Generate a draft first and treat it as the source of truth.**
+> 📖 **Read procedure/template via `docs get` first, then generate a draft and treat it as the source of truth.**
 
 ```bash
-# Generate draft body first (no remote action)
+# 1) Read procedure + template policy
+npx lee-spec-kit docs get create-pr --json
+npx lee-spec-kit docs get pr-template --json
+
+# 2) Generate draft body (no remote action)
 npx lee-spec-kit github pr F001 --json
 ```
 
-Use `body` in JSON output as the primary PR draft body.
+Use `docs get pr-template --json` output as the section policy,
+and `github pr --json` output `body` as the first PR draft body.
 If needed, use `bodyFile` as the filesystem source.
 
 | Item     | Format                             |
@@ -181,5 +186,5 @@ Use **current branch name** for file links in PR body:
 
 ## Reference Documents
 
-- **Draft generator (CLI built-in)**: `npx lee-spec-kit github pr <feature-name>`
+- **Draft generator**: `npx lee-spec-kit github pr <feature-name>`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`

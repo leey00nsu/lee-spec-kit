@@ -977,6 +977,50 @@ test('feature keeps YYYY-MM-DD HH-MM placeholder in test log format text', async
   });
 });
 
+test('docs list/get expose CLI-managed built-in docs without restoring agents.md', async () => {
+  await withTempDir('lsk-docs-command-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const listed = await runCli(dir, ['docs', 'list', '--json']);
+    assert.equal(listed.code, 0, listed.stderr || listed.stdout);
+    const listPayload = JSON.parse(listed.stdout.trim());
+    assert.equal(listPayload.status, 'ok');
+    assert.equal(listPayload.reasonCode, 'DOCS_LISTED');
+    assert.equal(Array.isArray(listPayload.docs), true);
+    assert.equal(listPayload.docs.some((doc) => doc.id === 'agents'), true);
+    assert.equal(listPayload.docs.some((doc) => doc.id === 'create-issue'), true);
+
+    const loaded = await runCli(dir, ['docs', 'get', 'agents', '--json']);
+    assert.equal(loaded.code, 0, loaded.stderr || loaded.stdout);
+    const getPayload = JSON.parse(loaded.stdout.trim());
+    assert.equal(getPayload.status, 'ok');
+    assert.equal(getPayload.reasonCode, 'DOC_FETCHED');
+    assert.equal(getPayload.doc.id, 'agents');
+    assert.equal(typeof getPayload.doc.hash, 'string');
+    assert.equal(getPayload.doc.hash.length, 12);
+    assert.match(getPayload.doc.content, /사용자 확인 필수 규칙/);
+    assert.equal(Array.isArray(getPayload.requiredDocs), true);
+    assert.equal(
+      getPayload.requiredDocs.some((doc) => doc.id === 'create-issue'),
+      true
+    );
+  });
+});
+
 test('init keeps only project-scoped policy docs in docs tree', async () => {
   await withTempDir('lsk-init-project-scoped-agents-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1280,6 +1324,8 @@ test('context issue_create action requires explicit user check and is instructio
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+    assert.equal(Array.isArray(payload.requiredDocs), true);
+    assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-issue'), true);
 
     const executeAttempt = await runCli(dir, [
       'context',
@@ -1365,6 +1411,8 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+    assert.equal(Array.isArray(payload.requiredDocs), true);
+    assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-pr'), true);
   });
 });
 

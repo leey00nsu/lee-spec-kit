@@ -17,15 +17,20 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 ### 1. PR 초안 작성
 
-> 📖 **CLI 내장 PR 템플릿 정책을 사용하세요. 먼저 초안을 생성하고 이를 기준으로 삼습니다.**
+> 📖 **먼저 `docs get`으로 절차/템플릿을 읽고, 초안을 생성해 기준으로 사용하세요.**
 
 ```bash
-# 먼저 초안 본문 생성 (원격 작업 아님)
+# 1) 절차/템플릿 정책 확인
+npx lee-spec-kit docs get create-pr --json
+npx lee-spec-kit docs get pr-template --json
+
+# 2) 초안 본문 생성 (원격 작업 아님)
 npx lee-spec-kit github pr F001 --json
 ```
 
-JSON 출력의 `body`를 우선 PR 초안 본문으로 사용하세요.
-필요하면 `bodyFile` 경로의 파일을 함께 참고하세요.
+`docs get pr-template --json` 출력은 섹션 정책으로 보고,
+`github pr --json`의 `body`를 우선 PR 초안 본문으로 사용하세요.
+필요하면 `bodyFile` 경로 파일을 함께 참고하세요.
 
 | 항목   | 형식                               |
 | ------ | ---------------------------------- |
@@ -181,5 +186,5 @@ PR 본문의 파일 링크는 **현재 브랜치명**을 사용:
 
 ## 참조 문서
 
-- **초안 생성기(CLI 내장)**: `npx lee-spec-kit github pr <feature-name>`
+- **초안 생성기**: `npx lee-spec-kit github pr <feature-name>`
 - **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행

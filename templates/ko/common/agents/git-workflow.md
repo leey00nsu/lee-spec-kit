@@ -70,14 +70,14 @@ main
 
 ## 자동화 워크플로우
 
-> 📖 단계별 상세 가이드는 CLI 내장 가이드를 참조하세요.
+> 📖 단계별 상세 가이드는 `docs get` 명령으로 먼저 확인하세요.
 
-| 워크플로우   | 가이드                          |
-| ------------ | ------------------------------- |
-| Feature 시작 | CLI 내장 `create-feature`       |
-| Issue 생성   | CLI 내장 `create-issue`         |
-| 태스크 실행  | CLI 내장 `execute-task`         |
-| PR 생성      | CLI 내장 `create-pr`            |
+| 워크플로우   | 가이드                                             |
+| ------------ | -------------------------------------------------- |
+| Feature 시작 | `npx lee-spec-kit docs get create-feature --json` |
+| Issue 생성   | `npx lee-spec-kit docs get create-issue --json`   |
+| 태스크 실행  | `npx lee-spec-kit docs get execute-task --json`   |
+| PR 생성      | `npx lee-spec-kit docs get create-pr --json`      |
 
 ### 브랜치 생성
 

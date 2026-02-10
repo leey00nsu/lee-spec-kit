@@ -63,7 +63,7 @@ PR 본문에서 레포 내 파일 링크는 **반드시 현재 브랜치명을 �
 ## 스크린샷 (프론트엔드 / UI 변경 시)
 
 <!-- UI 변경이 아니거나, 스크린샷을 업로드하지 않았다면(예: `.lee-spec-kit.json`의 `pr.screenshots.upload: false`) 이 섹션은 제거하세요. -->
-> CLI 내장 `create-pr` 가이드의 Release assets 업로드 절차를 사용하면 브랜치에 파일을 커밋하지 않고도 이미지를 본문에 포함할 수 있습니다.
+> `npx lee-spec-kit docs get create-pr --json`의 Release assets 업로드 절차를 사용하면 브랜치에 파일을 커밋하지 않고도 이미지를 본문에 포함할 수 있습니다.
 
 {스크린샷 마크다운 (예: ![](URL))}
 

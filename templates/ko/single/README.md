@@ -6,7 +6,7 @@
 
 | 경로             | 목적               | 핵심 문서/역할                                                |
 | ---------------- | ------------------ | ------------------------------------------------------------- |
-| `docs/agents/`   | 에이전트 운영 규칙 | `custom.md`, `constitution.md` (엔진 종속 가이드는 CLI 내장) |
+| `docs/agents/`   | 에이전트 운영 규칙 | `custom.md`, `constitution.md` (엔진 종속 가이드는 `npx lee-spec-kit docs get <doc-id> --json`으로 조회) |
 | `docs/prd/`      | 제품 요구사항      | 프로젝트별 작성                                               |
 | `docs/designs/`  | 디자인 참고 자료   | `README.md` (링크/가이드/레퍼런스)                            |
 | `docs/ideas/`    | 아이디어/To-do      | `README.md` (Idea → Feature 승격 규칙)                        |
@@ -19,7 +19,7 @@
 `lee-spec-kit init`을 실행하면 문서 루트(기본: `docs/`)에 `.lee-spec-kit.json`이 생성됩니다.
 
 - `lee-spec-kit feature`, `status`, `update`에서 문서 위치/프로젝트 타입/언어를 감지하는 용도로 사용됩니다.
-- `docsRepo`, `pushDocs`, `docsRemote`는 CLI 내장 **Docs Push 정책**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)
+- `docsRepo`, `pushDocs`, `docsRemote`는 CLI 관리 **Docs Push 정책**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)
 
 ### 필드
 

@@ -301,7 +301,9 @@ export function getStepDefinitions(
               type: 'instruction',
               category: 'issue_create',
               requiresUserCheck: true,
-              message: tr(lang, 'messages', 'issueCreateAndWrite'),
+              message: tr(lang, 'messages', 'issueCreateAndWrite', {
+                featureRef: f.id || f.folderName,
+              }),
             },
           ];
         },
@@ -663,7 +665,9 @@ export function getStepDefinitions(
               type: 'instruction',
               category: 'pr_create',
               requiresUserCheck: true,
-              message: tr(lang, 'messages', 'prCreate'),
+              message: tr(lang, 'messages', 'prCreate', {
+                featureRef: f.id || f.folderName,
+              }),
             },
           ];
         },

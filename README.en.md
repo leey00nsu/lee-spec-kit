@@ -209,9 +209,28 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 - `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`, `blockOnFindings`)
+- `requiredDocs`: CLI built-in docs to read before the current action (`id`, `command`)
 - `checkPolicy`: approval validation policy (`hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
+
+### Built-in Docs
+
+If you do not restore `agents.md` into project docs, fetch CLI-managed guides directly:
+
+```bash
+# list built-in docs
+npx lee-spec-kit docs list --json
+
+# root agent guide
+npx lee-spec-kit docs get agents --json
+
+# issue/PR procedure + templates
+npx lee-spec-kit docs get create-issue --json
+npx lee-spec-kit docs get issue-template --json
+npx lee-spec-kit docs get create-pr --json
+npx lee-spec-kit docs get pr-template --json
+```
 
 ### View
 

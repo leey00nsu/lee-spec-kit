@@ -114,13 +114,15 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 정책 안내(현재 Next Action 아님): CLI 내장 에이전트 정책 참고 (git push/merge/merge commit 포함). [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 정책은 `npx lee-spec-kit docs get agents --json`으로 먼저 확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
         '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
+      'context.readBuiltinDocFirst':
+        '먼저 내장 문서를 확인하세요: {command}',
       'context.tipDocsCommitRules':
-        '커밋 메시지 규칙: CLI 내장 git-workflow 규칙 참고',
+        '커밋 메시지 규칙은 `npx lee-spec-kit docs get git-workflow --json`으로 확인하세요.',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
       'context.list.projectCommitNeeded': '프로젝트 코드 커밋 필요',
       'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
@@ -271,6 +273,15 @@ const I18N: Record<Lang, I18nData> = {
       'github.syncCommitNoIssue': 'docs: {folder} PR 메타데이터 동기화',
       'github.kindIssue': 'Issue',
       'github.kindPr': 'PR',
+      'docs.cmdDocsDescription': 'CLI 내장 에이전트 문서를 조회합니다',
+      'docs.cmdListDescription': '조회 가능한 내장 문서 목록을 출력합니다',
+      'docs.cmdGetDescription': '내장 문서 1개를 출력합니다',
+      'docs.optJson': '에이전트용 JSON 형식으로 출력',
+      'docs.invalidDocId': '알 수 없는 문서 ID입니다: {docId}. 사용 가능: {available}',
+      'docs.listHeader': '📚 내장 문서',
+      'docs.nextDocs': '다음 문서',
+      'docs.sourceLabel': 'source',
+      'docs.hashLabel': 'hash',
 
       'cliError.headerNextOptionsError': '👉 다음 옵션 (오류):',
       'cliError.promptBlocked.retryWithoutNonInteractive':
@@ -392,17 +403,17 @@ const I18N: Record<Lang, I18nData> = {
     },
     messages: {
       specCreate:
-        'spec.md를 CLI 내장 템플릿 기준으로 작성하세요.',
+        '`npx lee-spec-kit docs get agents --json`을 먼저 실행하고, 반환된 형식에 맞춰 spec.md를 작성하세요.',
       specImprove: 'spec.md를 보완하고 상태를 Review로 변경하세요.',
       specApproval:
         'spec.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       planCreate:
-        'plan.md를 CLI 내장 템플릿 기준으로 작성하세요.',
+        '`npx lee-spec-kit docs get agents --json`을 먼저 실행하고, 반환된 형식에 맞춰 plan.md를 작성하세요.',
       planImprove: 'plan.md를 보완하고 상태를 Review로 변경하세요.',
       planApproval:
         'plan.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       tasksCreate:
-        'tasks.md를 CLI 내장 템플릿 기준으로 작성하세요.',
+        '`npx lee-spec-kit docs get agents --json`을 먼저 실행하고, 반환된 형식에 맞춰 tasks.md를 작성하세요.',
       tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
       tasksImprove: 'tasks.md를 보완하고 문서 상태를 Review로 변경하세요.',
       tasksApproval:
@@ -410,7 +421,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
-        'GitHub Issue를 생성한 뒤, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요. (CLI 내장 create-issue 가이드)',
+        '`npx lee-spec-kit docs get create-issue --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github issue {featureRef} --json`으로 초안을 생성하세요. TODO를 채우고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
@@ -428,11 +439,11 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         '모든 태스크가 DONE이지만 완료 조건 체크리스트가 완전히 체크되지 않았습니다. ({checked}/{total})',
       finishDoingTask:
-        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리) (CLI 내장 execute-task 가이드)',
+        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (완료 전 `npx lee-spec-kit docs get execute-task --json`으로 절차 확인 → 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리)',
       startNextTodoTask:
-        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리) (CLI 내장 execute-task 가이드)',
+        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 `npx lee-spec-kit docs get execute-task --json`으로 절차 확인 → 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리)',
       checkTaskStatuses:
-        '태스크 상태를 확인하세요. ({done}/{total}) (CLI 내장 execute-task 가이드)',
+        '태스크 상태를 확인하세요. ({done}/{total}) (`npx lee-spec-kit docs get execute-task --json` 절차를 기준으로 점검)',
       prLegacyAsk:
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prePrReviewFieldMissing:
@@ -444,7 +455,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         '리스크를 공유하면 PR 생성 진행 가능',
       prCreate:
-        'PR을 생성하고 tasks.md에 PR 링크를 기록하세요. (CLI 내장 create-pr 가이드)',
+        '`npx lee-spec-kit docs get create-pr --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github pr {featureRef} --json`으로 초안을 생성하세요. TODO를 채우고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음 tasks.md에 PR 링크를 기록하세요.',
       prFillStatus:
         'tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
       prResolveReview:
@@ -464,7 +475,7 @@ const I18N: Record<Lang, I18nData> = {
       docsPathIgnored:
         '현재 Feature 문서 경로가 git ignore 대상입니다: {path} (docs 커밋 감지가 제한될 수 있습니다.)',
       docsUncommittedChanges:
-        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙: CLI 내장 git-workflow 규칙 참고',
+        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙은 `npx lee-spec-kit docs get git-workflow --json`으로 확인하세요.',
       projectUncommittedChanges:
         '프로젝트 코드 변경사항이 커밋되지 않았습니다. (추가 코드 커밋 필요)',
       legacyTasksDocStatusField:
@@ -583,13 +594,15 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  User check policy notice (not the current next action): see the CLI built-in agent policy (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
+        'ℹ️  Check user-approval policy first with `npx lee-spec-kit docs get agents --json` (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
         'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
+      'context.readBuiltinDocFirst':
+        'Read built-in docs first: {command}',
       'context.tipDocsCommitRules':
-        'Commit message rules: CLI built-in git-workflow policy',
+        'Check commit message rules with `npx lee-spec-kit docs get git-workflow --json`.',
       'context.list.docsCommitNeeded': 'Commit docs changes',
       'context.list.projectCommitNeeded': 'Commit project code changes',
       'context.list.issueNumberNeeded': 'Fill issue number in docs',
@@ -746,6 +759,15 @@ const I18N: Record<Lang, I18nData> = {
       'github.syncCommitNoIssue': 'docs: sync PR metadata for {folder}',
       'github.kindIssue': 'Issue',
       'github.kindPr': 'PR',
+      'docs.cmdDocsDescription': 'Read CLI-managed built-in agent docs',
+      'docs.cmdListDescription': 'List available built-in docs',
+      'docs.cmdGetDescription': 'Read one built-in doc',
+      'docs.optJson': 'Output in JSON format for agents',
+      'docs.invalidDocId': 'Unknown doc id: {docId}. Available: {available}',
+      'docs.listHeader': '📚 Built-in Docs',
+      'docs.nextDocs': 'Next docs',
+      'docs.sourceLabel': 'source',
+      'docs.hashLabel': 'hash',
 
       'cliError.headerNextOptionsError': '👉 Next Options (Error):',
       'cliError.promptBlocked.retryWithoutNonInteractive':
@@ -883,17 +905,17 @@ const I18N: Record<Lang, I18nData> = {
     },
     messages: {
       specCreate:
-        'Create spec.md using the CLI built-in template policy.',
+        'Run `npx lee-spec-kit docs get agents --json` first, then write spec.md in that format.',
       specImprove: 'Improve spec.md and change Status to Review.',
       specApproval:
         'Share spec.md with the user and get approval (`A` or `A OK` format).',
       planCreate:
-        'Create plan.md using the CLI built-in template policy.',
+        'Run `npx lee-spec-kit docs get agents --json` first, then write plan.md in that format.',
       planImprove: 'Improve plan.md and change Status to Review.',
       planApproval:
         'Share plan.md with the user and get approval (`A` or `A OK` format).',
       tasksCreate:
-        'Create tasks.md using the CLI built-in template policy.',
+        'Run `npx lee-spec-kit docs get agents --json` first, then write tasks.md in that format.',
       tasksNeedAtLeastOne: 'Write at least 1 task in tasks.md.',
       tasksImprove: 'Improve tasks.md and change Doc Status to Review.',
       tasksApproval:
@@ -901,7 +923,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
-        'Create a GitHub Issue, fill the issue number in spec.md/tasks.md, then prepare a docs commit. (CLI built-in create-issue guide)',
+        'Review procedure with `npx lee-spec-kit docs get create-issue --json`, then generate a draft via `npx lee-spec-kit github issue {featureRef} --json`. Fill TODOs, get explicit user OK, run `--create --confirm OK`, then update issue number in spec.md/tasks.md and prepare a docs commit.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
@@ -919,11 +941,11 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         'All tasks are DONE, but the completion checklist is not fully checked. ({checked}/{total})',
       finishDoingTask:
-        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (Share outcome/verification + get OK before marking DONE) (CLI built-in execute-task guide)',
+        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (Before finishing, read `npx lee-spec-kit docs get execute-task --json`, then share outcome/verification + get OK before marking DONE)',
       startNextTodoTask:
-        'Start the next TODO task: "{title}" ({done}/{total}) (Share title + get OK before marking DOING) (CLI built-in execute-task guide)',
+        'Start the next TODO task: "{title}" ({done}/{total}) (Before starting, read `npx lee-spec-kit docs get execute-task --json`, then share title + get OK before marking DOING)',
       checkTaskStatuses:
-        'Check task statuses. ({done}/{total}) (CLI built-in execute-task guide)',
+        'Check task statuses. ({done}/{total}) (Use `npx lee-spec-kit docs get execute-task --json` as the procedure baseline)',
       prLegacyAsk:
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prePrReviewFieldMissing:
@@ -935,7 +957,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         'you may proceed after sharing the risks',
       prCreate:
-        'Create a PR and record the PR link in tasks.md. (CLI built-in create-pr guide)',
+        'Review procedure with `npx lee-spec-kit docs get create-pr --json`, then generate a draft via `npx lee-spec-kit github pr {featureRef} --json`. Fill TODOs, get explicit user OK, run `--create --confirm OK`, then record the PR link in tasks.md.',
       prFillStatus:
         'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
       prResolveReview:
@@ -954,7 +976,7 @@ const I18N: Record<Lang, I18nData> = {
       docsPathIgnored:
         'Current feature docs path is ignored by git: {path} (docs commit detection may be limited).',
       docsUncommittedChanges:
-        'Docs changes are not committed. (Additional docs commit needed.) Commit message rules: CLI built-in git-workflow policy',
+        'Docs changes are not committed. (Additional docs commit needed.) Check commit message rules with `npx lee-spec-kit docs get git-workflow --json`.',
       projectUncommittedChanges:
         'Project code changes are not committed. (Additional code commit needed.)',
       legacyTasksDocStatusField:

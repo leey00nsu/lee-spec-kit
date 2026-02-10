@@ -230,10 +230,29 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 - `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)으로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`, `blockOnFindings`)
+- `requiredDocs`: 현재 액션 전에 읽어야 할 CLI 내장 문서 목록 (`id`, `command`)
 
 또한 `checkPolicy`가 포함되어, 에이전트가 사용자 확인 정책을 적용할 때 참고할 수 있습니다. (`docPath`, `hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, `config`)
 
 오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`)
+
+### CLI 내장 문서 조회
+
+`agents.md`를 프로젝트에 복구하지 않는 환경에서는 아래 명령으로 내장 가이드를 직접 조회할 수 있습니다.
+
+```bash
+# 조회 가능한 내장 문서 목록
+npx lee-spec-kit docs list --json
+
+# 루트 가이드
+npx lee-spec-kit docs get agents --json
+
+# 이슈/PR 절차 + 템플릿
+npx lee-spec-kit docs get create-issue --json
+npx lee-spec-kit docs get issue-template --json
+npx lee-spec-kit docs get create-pr --json
+npx lee-spec-kit docs get pr-template --json
+```
 
 ### View 대시보드
 

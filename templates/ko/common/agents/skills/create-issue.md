@@ -15,15 +15,20 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 
 ### 1. 이슈 초안 작성
 
-> 📖 **CLI 내장 이슈 템플릿 정책을 사용하세요. 먼저 초안을 생성하고 이를 기준으로 삼습니다.**
+> 📖 **먼저 `docs get`으로 절차/템플릿을 읽고, 초안을 생성해 기준으로 사용하세요.**
 
 ```bash
-# 먼저 초안 본문 생성 (원격 작업 아님)
+# 1) 절차/템플릿 정책 확인
+npx lee-spec-kit docs get create-issue --json
+npx lee-spec-kit docs get issue-template --json
+
+# 2) 초안 본문 생성 (원격 작업 아님)
 npx lee-spec-kit github issue F001 --json
 ```
 
-JSON 출력의 `body`를 우선 본문 초안으로 사용하세요.
-필요하면 `bodyFile` 경로의 파일을 함께 참고하세요.
+`docs get issue-template --json` 출력은 섹션 정책으로 보고,
+`github issue --json`의 `body`를 우선 본문 초안으로 사용하세요.
+필요하면 `bodyFile` 경로 파일을 함께 참고하세요.
 
 | 항목   | 형식                                     |
 | ------ | ---------------------------------------- |
@@ -61,5 +66,5 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 
 ## 참조 문서
 
-- **초안 생성기(CLI 내장)**: `npx lee-spec-kit github issue <feature-name>`
+- **초안 생성기**: `npx lee-spec-kit github issue <feature-name>`
 - **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
