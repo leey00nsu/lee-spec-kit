@@ -275,23 +275,23 @@ export function getCliErrorSuggestions(
         [
         {
             title: {
-              ko: '--approve <라벨>과 함께 다시 실행하세요.',
-              en: 'Re-run with --approve <label>.',
+              ko: 'context 승인 흐름이면 --approve <라벨>과 함께 다시 실행하세요.',
+              en: 'For context approval flow, re-run with --approve <label>.',
             },
             command: 'npx lee-spec-kit context --approve A',
         },
         {
             title: {
-              ko: '승인된 옵션이 command일 때만 --execute를 사용하세요.',
-              en: 'Add --execute only when the approved option is a command.',
+              ko: 'github 원격 생성/머지면 --confirm OK를 함께 전달하세요.',
+              en: 'For github remote create/merge, pass --confirm OK.',
             },
+            command: 'npx lee-spec-kit github pr F001 --create --confirm OK',
         },
         {
             title: {
-              ko: '먼저 옵션을 조회한 뒤 라벨 1개를 선택하세요.',
-              en: 'List options first, then choose one label.',
+              ko: '실행 전에 제목/본문/라벨(또는 머지 계획)을 사용자에게 공유하고 명시적 승인을 받으세요.',
+              en: 'Share title/body/labels (or merge plan) and get explicit user approval first.',
             },
-            command: 'npx lee-spec-kit context',
         },
       ],
         resolvedLang
