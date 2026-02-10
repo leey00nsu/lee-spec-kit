@@ -16,10 +16,10 @@ import {
 } from '../utils/project-type.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
-  validateSafeName,
-  validateProjectType,
-  validateLanguage,
-  validateWorkflowMode,
+  validateSafeNameWithLang,
+  validateProjectTypeWithLang,
+  validateLanguageWithLang,
+  validateWorkflowModeWithLang,
   assertValid,
 } from '../utils/validation.js';
 import { execFileSync, execSync } from 'child_process';
@@ -407,11 +407,27 @@ async function runInit(options: InitOptions): Promise<void> {
   }
 
   // 입력 검증
-  assertValid(validateSafeName(projectName), '프로젝트 이름');
-  assertValid(validateProjectType(projectType), '프로젝트 타입');
+  assertValid(
+    validateSafeNameWithLang(projectName, lang),
+    tr(lang, 'cli', 'validation.context.projectName'),
+    lang
+  );
+  assertValid(
+    validateProjectTypeWithLang(projectType, lang),
+    tr(lang, 'cli', 'validation.context.projectType'),
+    lang
+  );
   projectType = normalizeProjectType(projectType);
-  assertValid(validateLanguage(lang), '언어');
-  assertValid(validateWorkflowMode(workflowMode), '워크플로우 모드');
+  assertValid(
+    validateLanguageWithLang(lang, lang),
+    tr(lang, 'cli', 'validation.context.language'),
+    lang
+  );
+  assertValid(
+    validateWorkflowModeWithLang(workflowMode, lang),
+    tr(lang, 'cli', 'validation.context.workflowMode'),
+    lang
+  );
 
   if (projectType === 'single') {
     if (components.length > 0) {

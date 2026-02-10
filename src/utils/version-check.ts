@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import chalk from 'chalk';
 import { spawn } from 'child_process';
+import { DEFAULT_LANG, Lang, tr } from './i18n.js';
 
 interface VersionCache {
   lastCheck: number;
@@ -51,12 +52,16 @@ function isNewerVersion(current: string, latest: string): boolean {
   return false;
 }
 
-function printUpdateNotice(current: string, latest: string): void {
+function resolveUpdateNoticeLang(): Lang {
+  const envLang = (process.env.LANG || '').toLowerCase();
+  if (envLang.includes('ko')) return 'ko';
+  return DEFAULT_LANG;
+}
+
+function printUpdateNotice(current: string, latest: string, lang: Lang): void {
   console.log();
-  console.log(
-    chalk.yellow(`📦 lee-spec-kit v${latest} 사용 가능 (현재: v${current})`)
-  );
-  console.log(chalk.gray('   업데이트: npm update -g lee-spec-kit'));
+  console.log(chalk.yellow(tr(lang, 'cli', 'versionCheck.noticeAvailable', { latest, current })));
+  console.log(chalk.gray(tr(lang, 'cli', 'versionCheck.updateCommand')));
   console.log();
 }
 
@@ -88,6 +93,7 @@ function spawnBackgroundVersionCheck(): void {
 // 새 버전 확인 및 알림
 export function checkForUpdates(): void {
   try {
+    const lang = resolveUpdateNoticeLang();
     const cache = readCache();
     const now = Date.now();
 
@@ -96,7 +102,7 @@ export function checkForUpdates(): void {
       if (cache.latestVersion) {
         const currentVersion = getCurrentVersion();
         if (isNewerVersion(currentVersion, cache.latestVersion)) {
-          printUpdateNotice(currentVersion, cache.latestVersion);
+          printUpdateNotice(currentVersion, cache.latestVersion, lang);
         }
       }
       return;

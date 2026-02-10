@@ -2,6 +2,7 @@
  * 입력 검증 및 보안 유틸리티
  */
 import { createCliError } from './cli-error.js';
+import { DEFAULT_LANG, Lang, tr } from './i18n.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -25,25 +26,29 @@ export type WorkflowMode = (typeof VALID_WORKFLOW_MODES)[number];
  * 허용: 영문, 숫자, 하이픈, 언더스코어
  */
 export function validateSafeName(name: string): ValidationResult {
+  return validateSafeNameWithLang(name, DEFAULT_LANG);
+}
+
+export function validateSafeNameWithLang(name: string, lang: Lang): ValidationResult {
   if (!name || name.trim().length === 0) {
-    return { valid: false, error: '이름은 비어있을 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.nameEmpty') };
   }
 
   if (name.length > 100) {
-    return { valid: false, error: '이름은 100자를 초과할 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.nameTooLong') };
   }
 
   // Path Traversal 공격 패턴 차단
   if (name.includes('..') || name.includes('/') || name.includes('\\')) {
     return {
       valid: false,
-      error: "이름에 '..' 또는 경로 구분자를 사용할 수 없습니다.",
+      error: tr(lang, 'cli', 'validation.nameTraversal'),
     };
   }
 
   // null bytes 차단
   if (name.includes('\0')) {
-    return { valid: false, error: '이름에 null 문자를 사용할 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.nameNullByte') };
   }
 
   // 허용된 문자만 사용 (영문, 숫자, 하이픈, 언더스코어, 한글)
@@ -51,8 +56,7 @@ export function validateSafeName(name: string): ValidationResult {
   if (!safePattern.test(name)) {
     return {
       valid: false,
-      error:
-        '이름에는 영문, 숫자, 하이픈, 언더스코어, 한글만 사용할 수 있습니다.',
+      error: tr(lang, 'cli', 'validation.nameInvalidChars'),
     };
   }
 
@@ -74,7 +78,7 @@ export function validateSafeName(name: string): ValidationResult {
     'lpt4',
   ];
   if (reservedNames.includes(name.toLowerCase())) {
-    return { valid: false, error: '예약된 이름은 사용할 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.nameReserved') };
   }
 
   return { valid: true };
@@ -84,10 +88,16 @@ export function validateSafeName(name: string): ValidationResult {
  * 프로젝트 타입 검증
  */
 export function validateProjectType(type: string): ValidationResult {
+  return validateProjectTypeWithLang(type, DEFAULT_LANG);
+}
+
+export function validateProjectTypeWithLang(type: string, lang: Lang): ValidationResult {
   if (!VALID_PROJECT_TYPES.includes(type as ProjectType)) {
     return {
       valid: false,
-      error: `프로젝트 타입은 ${VALID_PROJECT_TYPES.join(', ')} 중 하나여야 합니다.`,
+      error: tr(lang, 'cli', 'validation.projectTypeInvalid', {
+        values: VALID_PROJECT_TYPES.join(', '),
+      }),
     };
   }
   return { valid: true };
@@ -97,10 +107,16 @@ export function validateProjectType(type: string): ValidationResult {
  * 언어 검증
  */
 export function validateLanguage(lang: string): ValidationResult {
-  if (!VALID_LANGUAGES.includes(lang as Language)) {
+  return validateLanguageWithLang(lang, DEFAULT_LANG);
+}
+
+export function validateLanguageWithLang(value: string, lang: Lang): ValidationResult {
+  if (!VALID_LANGUAGES.includes(value as Language)) {
     return {
       valid: false,
-      error: `언어는 ${VALID_LANGUAGES.join(', ')} 중 하나여야 합니다.`,
+      error: tr(lang, 'cli', 'validation.languageInvalid', {
+        values: VALID_LANGUAGES.join(', '),
+      }),
     };
   }
   return { valid: true };
@@ -110,10 +126,19 @@ export function validateLanguage(lang: string): ValidationResult {
  * 워크플로우 모드 검증
  */
 export function validateWorkflowMode(mode: string): ValidationResult {
+  return validateWorkflowModeWithLang(mode, DEFAULT_LANG);
+}
+
+export function validateWorkflowModeWithLang(
+  mode: string,
+  lang: Lang
+): ValidationResult {
   if (!VALID_WORKFLOW_MODES.includes(mode as WorkflowMode)) {
     return {
       valid: false,
-      error: `워크플로우 모드는 ${VALID_WORKFLOW_MODES.join(', ')} 중 하나여야 합니다.`,
+      error: tr(lang, 'cli', 'validation.workflowModeInvalid', {
+        values: VALID_WORKFLOW_MODES.join(', '),
+      }),
     };
   }
   return { valid: true };
@@ -123,15 +148,19 @@ export function validateWorkflowMode(mode: string): ValidationResult {
  * Feature ID 검증 (F001, F002 형식)
  */
 export function validateFeatureId(id: string): ValidationResult {
+  return validateFeatureIdWithLang(id, DEFAULT_LANG);
+}
+
+export function validateFeatureIdWithLang(id: string, lang: Lang): ValidationResult {
   if (!id || id.trim().length === 0) {
-    return { valid: false, error: 'Feature ID는 비어있을 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.featureIdEmpty') };
   }
 
   const featureIdPattern = /^F\d{3,}$/;
   if (!featureIdPattern.test(id)) {
     return {
       valid: false,
-      error: "Feature ID는 'F' + 숫자 형식이어야 합니다 (예: F001).",
+      error: tr(lang, 'cli', 'validation.featureIdFormat'),
     };
   }
 
@@ -142,13 +171,17 @@ export function validateFeatureId(id: string): ValidationResult {
  * 경로 검증 및 정규화
  */
 export function validatePath(inputPath: string): ValidationResult {
+  return validatePathWithLang(inputPath, DEFAULT_LANG);
+}
+
+export function validatePathWithLang(inputPath: string, lang: Lang): ValidationResult {
   if (!inputPath || inputPath.trim().length === 0) {
-    return { valid: false, error: '경로는 비어있을 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.pathEmpty') };
   }
 
   // null bytes 차단
   if (inputPath.includes('\0')) {
-    return { valid: false, error: '경로에 null 문자를 사용할 수 없습니다.' };
+    return { valid: false, error: tr(lang, 'cli', 'validation.pathNullByte') };
   }
 
   return { valid: true };
@@ -157,11 +190,15 @@ export function validatePath(inputPath: string): ValidationResult {
 /**
  * 검증 실패 시 에러 출력 헬퍼
  */
-export function assertValid(result: ValidationResult, context?: string): void {
+export function assertValid(
+  result: ValidationResult,
+  context?: string,
+  lang: Lang = DEFAULT_LANG
+): void {
   if (!result.valid) {
     const message = context
       ? `${context}: ${result.error}`
-      : (result.error ?? '검증 실패');
+      : (result.error ?? tr(lang, 'cli', 'validation.genericFailed'));
     throw createCliError('INVALID_ARGUMENT', message);
   }
 }

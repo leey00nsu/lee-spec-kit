@@ -1,5 +1,6 @@
 import { execFileSync, execSync } from 'child_process';
 import { ProjectConfig } from '../config.js';
+import { DEFAULT_LANG, Lang, tr } from '../i18n.js';
 
 export function getCurrentBranch(cwd: string): string {
   try {
@@ -81,7 +82,8 @@ function getGitTopLevel(cwd: string): string | null {
 
 export function resolveProjectGitCwd(
   config: ProjectConfig,
-  repo: string
+  repo: string,
+  lang: Lang = config.lang ?? DEFAULT_LANG
 ): { cwd: string | null; warning?: string } {
   const docsRepo = config.docsRepo;
   if (docsRepo !== 'standalone') {
@@ -92,8 +94,7 @@ export function resolveProjectGitCwd(
   if (!config.projectRoot) {
     return {
       cwd: null,
-      warning:
-        'standalone 모드입니다. projectRoot가 설정되지 않아 프로젝트 브랜치 확인이 불가능합니다. (npx lee-spec-kit config --project-root ...)',
+      warning: tr(lang, 'cli', 'context.git.standaloneProjectRootMissing'),
     };
   }
 
@@ -101,15 +102,16 @@ export function resolveProjectGitCwd(
     if (typeof config.projectRoot === 'string') {
       return {
         cwd: null,
-        warning:
-          'multi standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: { "fe": "...", "be": "...", "worker": "..." })',
+        warning: tr(lang, 'cli', 'context.git.multiProjectRootShapeInvalid'),
       };
     }
     const root = config.projectRoot[repo];
     if (!root) {
       return {
         cwd: null,
-        warning: `projectRoot.${repo}가 비어있습니다. (npx lee-spec-kit config --project-root ... --component ${repo})`,
+        warning: tr(lang, 'cli', 'context.git.multiProjectRootRepoMissing', {
+          repo,
+        }),
       };
     }
     return { cwd: getGitTopLevel(root) || root };
@@ -118,8 +120,7 @@ export function resolveProjectGitCwd(
   if (typeof config.projectRoot !== 'string') {
     return {
       cwd: null,
-      warning:
-        'single standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: "/path/to/project")',
+      warning: tr(lang, 'cli', 'context.git.singleProjectRootShapeInvalid'),
     };
   }
   return { cwd: getGitTopLevel(config.projectRoot) || config.projectRoot };

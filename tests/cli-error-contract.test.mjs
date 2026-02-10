@@ -504,8 +504,10 @@ test('github issue draft uses Korean template when config lang is ko', async () 
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'ISSUE_TEMPLATE_GENERATED');
+    assert.equal(typeof payload.body, 'string');
 
     const body = await fs.readFile(payload.bodyFile, 'utf-8');
+    assert.equal(payload.body, body);
     assert.match(body, /^## 개요$/m);
     assert.match(body, /^## 목표$/m);
     assert.match(body, /^## 완료 기준$/m);
@@ -541,14 +543,122 @@ test('github pr draft uses Korean template when config lang is ko', async () => 
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'PR_TEMPLATE_GENERATED');
+    assert.equal(typeof payload.body, 'string');
 
     const body = await fs.readFile(payload.bodyFile, 'utf-8');
+    assert.equal(payload.body, body);
     assert.match(body, /^## 개요$/m);
     assert.match(body, /^## 변경 사항$/m);
     assert.match(body, /^## 테스트$/m);
     assert.match(body, /^### 실행한 테스트$/m);
     assert.match(body, /^## 관련 문서$/m);
     assert.doesNotMatch(body, /^## Overview$/m);
+  });
+});
+
+test('github issue/pr drafts derive overview from spec and keep TODO sections', async () => {
+  await withTempDir('lsk-github-overview-from-spec-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--desc',
+      'Allow users to sign in with email and password.',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const issueResult = await runCli(dir, ['github', 'issue', 'F001-alpha', '--json']);
+    assert.equal(issueResult.code, 0, issueResult.stderr || issueResult.stdout);
+    const issuePayload = JSON.parse(issueResult.stdout.trim());
+    assert.equal(issuePayload.status, 'ok');
+    assert.equal(issuePayload.reasonCode, 'ISSUE_TEMPLATE_GENERATED');
+    assert.match(issuePayload.body, /Allow users to sign in with email and password\./);
+    assert.match(issuePayload.body, /- \[ \] TODO: Fill concrete goals based on spec\.md\./);
+    assert.match(issuePayload.body, /- \[ \] TODO: Define verifiable completion criteria\./);
+    assert.doesNotMatch(issuePayload.body, /Finalize feature scope and implementation outcome/);
+
+    const prResult = await runCli(dir, ['github', 'pr', 'F001-alpha', '--json']);
+    assert.equal(prResult.code, 0, prResult.stderr || prResult.stdout);
+    const prPayload = JSON.parse(prResult.stdout.trim());
+    assert.equal(prPayload.status, 'ok');
+    assert.equal(prPayload.reasonCode, 'PR_TEMPLATE_GENERATED');
+    assert.match(prPayload.body, /Allow users to sign in with email and password\./);
+    assert.match(prPayload.body, /- \[ \] TODO: Summarize key code changes in this PR\./);
+    assert.match(prPayload.body, /- \[ \] TODO: `<test command>` — PASS\/FAIL/);
+    assert.doesNotMatch(prPayload.body, /Deliver implementation for the feature scope/);
+  });
+});
+
+test('github draft body files are project-scoped and overwritten by default', async () => {
+  await withTempDir('lsk-github-body-file-default-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureA = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureA.code, 0, featureA.stderr || featureA.stdout);
+
+    const featureB = await runCli(dir, ['feature', 'beta', '--id', 'F002']);
+    assert.equal(featureB.code, 0, featureB.stderr || featureB.stdout);
+
+    const issueAResult = await runCli(dir, ['github', 'issue', 'F001-alpha', '--json']);
+    assert.equal(issueAResult.code, 0, issueAResult.stderr || issueAResult.stdout);
+    const issueA = JSON.parse(issueAResult.stdout.trim());
+
+    const issueBResult = await runCli(dir, ['github', 'issue', 'F002-beta', '--json']);
+    assert.equal(issueBResult.code, 0, issueBResult.stderr || issueBResult.stdout);
+    const issueB = JSON.parse(issueBResult.stdout.trim());
+
+    assert.equal(issueA.bodyFile, issueB.bodyFile);
+    assert.match(path.basename(issueA.bodyFile), /^lee-spec-kit\.[0-9a-f]{12}\.issue\.md$/);
+
+    const issueBody = await fs.readFile(issueB.bodyFile, 'utf-8');
+    assert.match(issueBody, /F002-beta/);
+    assert.doesNotMatch(issueBody, /F001-alpha/);
+
+    const prAResult = await runCli(dir, ['github', 'pr', 'F001-alpha', '--json']);
+    assert.equal(prAResult.code, 0, prAResult.stderr || prAResult.stdout);
+    const prA = JSON.parse(prAResult.stdout.trim());
+
+    const prBResult = await runCli(dir, ['github', 'pr', 'F002-beta', '--json']);
+    assert.equal(prBResult.code, 0, prBResult.stderr || prBResult.stdout);
+    const prB = JSON.parse(prBResult.stdout.trim());
+
+    assert.equal(prA.bodyFile, prB.bodyFile);
+    assert.match(path.basename(prA.bodyFile), /^lee-spec-kit\.[0-9a-f]{12}\.pr\.md$/);
+
+    const prBody = await fs.readFile(prB.bodyFile, 'utf-8');
+    assert.match(prBody, /F002-beta/);
+    assert.doesNotMatch(prBody, /F001-alpha/);
   });
 });
 

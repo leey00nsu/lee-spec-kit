@@ -1,10 +1,11 @@
 import { spawnSync } from 'child_process';
+import { createHash } from 'crypto';
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { DEFAULT_LANG, formatTemplate, Lang, tr } from '../utils/i18n.js';
+import { DEFAULT_LANG, Lang, tr } from '../utils/i18n.js';
 import { getConfig } from '../utils/config.js';
 import {
   ContextSelectionOptions,
@@ -60,181 +61,90 @@ interface PrViewMeta {
   baseRefName: string;
 }
 
-const GITHUB_TEXT: Record<Lang, Record<string, string>> = {
-  ko: {
-    cmdGithubDescription: 'GitHub 워크플로우 도우미 (issue/pr 초안, 검증, merge 재시도)',
-    cmdIssueDescription: 'feature 문서 기반 GitHub issue 본문 생성/생성',
-    cmdPrDescription: 'GitHub PR 본문 생성/생성 + tasks 동기화 + merge 재시도',
-    optJson: '에이전트용 JSON 형식으로 출력',
-    optRepo: '멀티 프로젝트 컴포넌트 이름',
-    optComponent: '멀티 프로젝트 컴포넌트 이름',
-    optIssueTitle: 'Issue 제목',
-    optLabels: '쉼표 구분 라벨 목록 (기본: enhancement)',
-    optIssueBodyFile: 'Issue 본문 파일 출력 경로',
-    optIssueAssignee: 'Issue 담당자 (기본: @me)',
-    optIssueCreate: 'gh CLI로 issue 생성',
-    optIssueConfirm: '원격 작업(--create)용 명시적 승인 토큰. 사용값: OK',
-    optPrTitle: 'PR 제목',
-    optPrBodyFile: 'PR 본문 파일 출력 경로',
-    optPrAssignee: 'PR 담당자 (기본: @me)',
-    optPrBase: 'PR base 브랜치 (기본: main)',
-    optPrCreate: 'gh CLI로 PR 생성',
-    optPrRef: '--merge 시 사용할 기존 PR URL/번호',
-    optPrMerge: '재시도/헤드 갱신과 함께 PR merge 수행',
-    optPrConfirm: '원격 작업(--create/--merge)용 명시적 승인 토큰. 사용값: OK',
-    optPrRetry: 'merge 재시도 횟수 (기본: 3)',
-    optPrNoSyncTasks: 'tasks.md PR URL/PR 상태 동기화를 건너뜀',
-    optPrCommitSync: 'tasks.md 동기화 변경을 자동 commit/push',
-    invalidRepoComponentMismatch:
-      '`--repo`와 `--component`를 함께 쓸 때는 같은 값을 지정해야 합니다.',
-    labelsRequired: '최소 1개 라벨이 필요합니다. `--labels enhancement`를 사용하세요.',
-    approvalRequired:
-      '{operation}은(는) 사용자 명시 승인 후에만 실행할 수 있습니다. 계획 공유 후 `--confirm OK`로 다시 실행하세요.',
-    ghCommandFailed: 'GitHub CLI 명령 실행에 실패했습니다',
-    ghEmptyJson: 'GitHub CLI JSON 출력이 비어 있습니다.',
-    ghInvalidJson: 'GitHub CLI JSON 파싱에 실패했습니다: {snippet}',
-    sectionsMissing: '{kind} 본문에 필수 섹션이 없습니다: {sections}',
-    docsMissing: '관련 문서 경로가 존재하지 않습니다: {paths}',
-    noFeatures: 'Feature를 찾을 수 없습니다.',
-    multipleFeaturesMatched:
-      '여러 Feature가 매칭되었습니다. feature 이름(slug | F001 | F001-slug)을 명시하세요.',
-    featureSelectFailed:
-      'Feature 자동 선택에 실패했습니다. feature 이름을 명시해서 다시 실행하세요.',
-    tasksNotFound: 'tasks.md를 찾을 수 없습니다: {path}',
-    detectBranchFailed: '현재 git 브랜치 확인에 실패했습니다',
-    inspectWorktreeFailed: 'git 워크트리 상태 확인에 실패했습니다',
-    worktreeNotClean: 'git 워크트리가 깨끗하지 않습니다. merge 재시도 동기화 전에 커밋/스태시하세요.',
-    inspectFileStatusFailed: '파일 git 상태 확인에 실패했습니다',
-    stageFileFailed: '동기화 파일 stage에 실패했습니다',
-    commitSyncFailed: '동기화 메타데이터 commit에 실패했습니다',
-    pushSyncFailed: '동기화 메타데이터 push에 실패했습니다',
-    fetchPrBranchesFailed: 'PR 브랜치 fetch에 실패했습니다',
-    checkoutHeadFailed: 'PR 헤드 브랜치 checkout에 실패했습니다',
-    createLocalHeadFailed: '로컬 PR 헤드 브랜치 생성에 실패했습니다',
-    rebaseHeadFailed: 'PR 헤드 브랜치 rebase에 실패했습니다',
-    pushRebasedHeadFailed: 'rebase된 PR 헤드 브랜치 push에 실패했습니다',
-    restoreBranchFailed: 'PR 헤드 갱신 후 이전 브랜치 복원에 실패했습니다',
-    mergeRetryFailed: '재시도 후에도 PR merge에 실패했습니다.{lastError}',
-    retryInvalid: '`--retry`는 1 이상의 정수여야 합니다.',
-    operationIssueCreate: 'GitHub issue 생성',
-    operationPrCreate: 'GitHub PR 생성',
-    operationPrMerge: 'GitHub PR merge',
-    createIssueFailed: 'GitHub issue 생성에 실패했습니다',
-    createPrFailed: 'GitHub PR 생성에 실패했습니다',
-    mergeRequiresPr: '`--merge`를 사용하려면 `--create` 또는 `--pr <url|number>`가 필요합니다.',
-    checkoutBaseAfterMergeFailed: 'merge 후 {base} 브랜치 checkout에 실패했습니다',
-    pullBaseAfterMergeFailed: 'merge 후 {base} 브랜치 최신화에 실패했습니다',
-    issueDefaultTitle: '{slug} ({folder} 문서 업데이트)',
-    prDefaultTitleWithIssue: 'feat(#{issue}): {slug} (구현 업데이트)',
-    prDefaultTitleNoIssue: 'feat: {slug} (구현 업데이트)',
-    issueHeader: '🧾 GitHub Issue 도우미',
-    prHeader: '🔀 GitHub PR 도우미',
-    labelFeature: 'Feature',
-    labelBodyFile: '본문 파일',
-    labelLabels: '라벨',
-    labelPr: 'PR',
-    issueCreated: '✅ 생성 완료: {url}',
-    issueTemplateGenerated: '초안을 생성했습니다. 자동 생성하려면 `--create`를 사용하세요.',
-    prTasksSynced: '✅ tasks.md PR 메타데이터를 동기화했습니다.',
-    prMerged: '✅ PR merge 완료 (시도 횟수: {attempts})',
-    prTemplateGenerated: '초안을 생성했습니다. 자동 생성하려면 `--create`를 사용하세요.',
-    syncCommitWithIssue: 'docs(#{issue}): {folder} PR 메타데이터 동기화',
-    syncCommitNoIssue: 'docs: {folder} PR 메타데이터 동기화',
-    kindIssue: 'Issue',
-    kindPr: 'PR',
-  },
-  en: {
-    cmdGithubDescription: 'GitHub workflow helpers (issue/pr templates, validation, merge retry)',
-    cmdIssueDescription: 'Generate/create GitHub issue body from feature docs with validation',
-    cmdPrDescription:
-      'Generate/create GitHub PR body with validation, tasks PR sync, and merge retry',
-    optJson: 'Output in JSON format for agents',
-    optRepo: 'Component name for multi projects',
-    optComponent: 'Component name for multi projects',
-    optIssueTitle: 'Issue title',
-    optLabels: 'Comma-separated labels (default: enhancement)',
-    optIssueBodyFile: 'Issue body file output path',
-    optIssueAssignee: 'Issue assignee (default: @me)',
-    optIssueCreate: 'Create issue via gh CLI',
-    optIssueConfirm: 'Explicit user approval token for remote operations (--create). Use: OK',
-    optPrTitle: 'PR title',
-    optPrBodyFile: 'PR body file output path',
-    optPrAssignee: 'PR assignee (default: @me)',
-    optPrBase: 'PR base branch (default: main)',
-    optPrCreate: 'Create PR via gh CLI',
-    optPrRef: 'Existing PR URL/number (used by --merge)',
-    optPrMerge: 'Merge PR with retry and head-branch refresh',
-    optPrConfirm:
-      'Explicit user approval token for remote operations (--create/--merge). Use: OK',
-    optPrRetry: 'Retry count for merge (default: 3)',
-    optPrNoSyncTasks: 'Do not sync PR URL/PR status into tasks.md',
-    optPrCommitSync: 'Commit and push tasks.md metadata sync automatically',
-    invalidRepoComponentMismatch:
-      '`--repo` and `--component` must reference the same value when both are provided.',
-    labelsRequired: 'At least one label is required. Use `--labels enhancement`.',
-    approvalRequired:
-      '{operation} requires explicit user approval. Re-run with `--confirm OK` after sharing the plan with the user.',
-    ghCommandFailed: 'GitHub CLI command failed',
-    ghEmptyJson: 'GitHub CLI returned empty JSON output.',
-    ghInvalidJson: 'GitHub CLI returned invalid JSON: {snippet}',
-    sectionsMissing: '{kind} body is missing required sections: {sections}',
-    docsMissing: 'Related document paths do not exist: {paths}',
-    noFeatures: 'No features found.',
-    multipleFeaturesMatched:
-      'Multiple features matched. Specify feature name (slug | F001 | F001-slug).',
-    featureSelectFailed: 'Failed to auto-select a feature. Specify feature name explicitly.',
-    tasksNotFound: 'tasks.md not found: {path}',
-    detectBranchFailed: 'Failed to detect current git branch',
-    inspectWorktreeFailed: 'Failed to inspect git worktree',
-    worktreeNotClean: 'Git worktree is not clean. Commit or stash changes before merge retry sync.',
-    inspectFileStatusFailed: 'Failed to inspect git file status',
-    stageFileFailed: 'Failed to stage file',
-    commitSyncFailed: 'Failed to commit synced metadata',
-    pushSyncFailed: 'Failed to push synced metadata commit',
-    fetchPrBranchesFailed: 'Failed to fetch PR branches',
-    checkoutHeadFailed: 'Failed to checkout PR head branch',
-    createLocalHeadFailed: 'Failed to create local PR head branch',
-    rebaseHeadFailed: 'Failed to rebase PR head branch',
-    pushRebasedHeadFailed: 'Failed to push rebased PR head branch',
-    restoreBranchFailed: 'Failed to restore previous branch after PR refresh',
-    mergeRetryFailed: 'Failed to merge PR after retry attempts.{lastError}',
-    retryInvalid: '`--retry` must be a positive integer.',
-    operationIssueCreate: 'GitHub issue creation',
-    operationPrCreate: 'GitHub PR creation',
-    operationPrMerge: 'GitHub PR merge',
-    createIssueFailed: 'Failed to create GitHub issue',
-    createPrFailed: 'Failed to create GitHub PR',
-    mergeRequiresPr: '`--merge` requires `--create` or `--pr <url|number>`.',
-    checkoutBaseAfterMergeFailed: 'Failed to checkout {base} after merge',
-    pullBaseAfterMergeFailed: 'Failed to update {base} after merge',
-    issueDefaultTitle: '{slug} ({folder} documentation update)',
-    prDefaultTitleWithIssue: 'feat(#{issue}): {slug} (implementation update)',
-    prDefaultTitleNoIssue: 'feat: {slug} (implementation update)',
-    issueHeader: '🧾 GitHub Issue Helper',
-    prHeader: '🔀 GitHub PR Helper',
-    labelFeature: 'Feature',
-    labelBodyFile: 'Body file',
-    labelLabels: 'Labels',
-    labelPr: 'PR',
-    issueCreated: '✅ Created: {url}',
-    issueTemplateGenerated: 'Template generated. Add --create to open the issue automatically.',
-    prTasksSynced: '✅ tasks.md PR metadata synced.',
-    prMerged: '✅ PR merged (attempts: {attempts}).',
-    prTemplateGenerated: 'Template generated. Add --create to open the PR automatically.',
-    syncCommitWithIssue: 'docs(#{issue}): sync PR metadata for {folder}',
-    syncCommitNoIssue: 'docs: sync PR metadata for {folder}',
-    kindIssue: 'Issue',
-    kindPr: 'PR',
-  },
-};
+type GithubTextKey =
+  | 'approvalRequired'
+  | 'checkoutBaseAfterMergeFailed'
+  | 'checkoutHeadFailed'
+  | 'cmdGithubDescription'
+  | 'cmdIssueDescription'
+  | 'cmdPrDescription'
+  | 'commitSyncFailed'
+  | 'createIssueFailed'
+  | 'createLocalHeadFailed'
+  | 'createPrFailed'
+  | 'detectBranchFailed'
+  | 'docsMissing'
+  | 'featureSelectFailed'
+  | 'fetchPrBranchesFailed'
+  | 'ghCommandFailed'
+  | 'ghEmptyJson'
+  | 'ghInvalidJson'
+  | 'inspectFileStatusFailed'
+  | 'inspectWorktreeFailed'
+  | 'invalidRepoComponentMismatch'
+  | 'issueCreated'
+  | 'issueDefaultTitle'
+  | 'issueHeader'
+  | 'issueTemplateGenerated'
+  | 'kindIssue'
+  | 'kindPr'
+  | 'labelBodyFile'
+  | 'labelFeature'
+  | 'labelLabels'
+  | 'labelPr'
+  | 'labelsRequired'
+  | 'mergeRequiresPr'
+  | 'mergeRetryFailed'
+  | 'multipleFeaturesMatched'
+  | 'noFeatures'
+  | 'operationIssueCreate'
+  | 'operationPrCreate'
+  | 'operationPrMerge'
+  | 'optComponent'
+  | 'optIssueAssignee'
+  | 'optIssueBodyFile'
+  | 'optIssueConfirm'
+  | 'optIssueCreate'
+  | 'optIssueTitle'
+  | 'optJson'
+  | 'optLabels'
+  | 'optPrAssignee'
+  | 'optPrBase'
+  | 'optPrBodyFile'
+  | 'optPrCommitSync'
+  | 'optPrConfirm'
+  | 'optPrCreate'
+  | 'optPrMerge'
+  | 'optPrNoSyncTasks'
+  | 'optPrRef'
+  | 'optPrRetry'
+  | 'optPrTitle'
+  | 'optRepo'
+  | 'prDefaultTitleNoIssue'
+  | 'prDefaultTitleWithIssue'
+  | 'prHeader'
+  | 'prMerged'
+  | 'prTasksSynced'
+  | 'prTemplateGenerated'
+  | 'pullBaseAfterMergeFailed'
+  | 'pushRebasedHeadFailed'
+  | 'pushSyncFailed'
+  | 'rebaseHeadFailed'
+  | 'restoreBranchFailed'
+  | 'retryInvalid'
+  | 'sectionsMissing'
+  | 'stageFileFailed'
+  | 'syncCommitNoIssue'
+  | 'syncCommitWithIssue'
+  | 'tasksNotFound'
+  | 'worktreeNotClean';
 
 function tg(
   lang: Lang,
-  key: keyof (typeof GITHUB_TEXT)['en'],
+  key: GithubTextKey,
   vars: Record<string, string | number | undefined> = {}
 ): string {
-  const template = GITHUB_TEXT[lang]?.[key] ?? GITHUB_TEXT.en[key];
-  return formatTemplate(template, vars);
+  return tr(lang, 'cli', `github.${key}`, vars);
 }
 
 function detectGithubCliLangSync(cwd: string): Lang {
@@ -424,8 +334,25 @@ function ensureDocsExist(docsDir: string, relativePaths: string[], lang: Lang): 
   }
 }
 
-function toBodyFilePath(raw: string | undefined, fallbackName: string): string {
-  const selected = raw?.trim() || path.join(os.tmpdir(), fallbackName);
+function buildDefaultBodyFileName(
+  kind: 'issue' | 'pr',
+  docsDir: string,
+  component: string
+): string {
+  const key = `${path.resolve(docsDir)}::${component.trim().toLowerCase()}`;
+  const digest = createHash('sha1').update(key).digest('hex').slice(0, 12);
+  return `lee-spec-kit.${digest}.${kind}.md`;
+}
+
+function toBodyFilePath(
+  raw: string | undefined,
+  kind: 'issue' | 'pr',
+  docsDir: string,
+  component: string
+): string {
+  const selected =
+    raw?.trim() ||
+    path.join(os.tmpdir(), buildDefaultBodyFileName(kind, docsDir, component));
   return path.resolve(selected);
 }
 
@@ -477,8 +404,78 @@ function getFeatureDocPaths(feature: FeatureContext): {
   };
 }
 
-function buildIssueBody(
+function normalizeHeading(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function extractMarkdownSection(content: string, headings: string[]): string | undefined {
+  const targets = new Set(headings.map((heading) => normalizeHeading(heading)));
+  const lines = content.split('\n');
+  let start = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/^\s*##\s+(.+?)\s*$/);
+    if (!match) continue;
+    if (!targets.has(normalizeHeading(match[1]))) continue;
+    start = i + 1;
+    break;
+  }
+
+  if (start < 0) return undefined;
+
+  let end = lines.length;
+  for (let i = start; i < lines.length; i++) {
+    if (/^\s*##\s+/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+
+  return lines.slice(start, end).join('\n');
+}
+
+function isTemplateLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return true;
+  if (/^---+$/.test(trimmed)) return true;
+  if (/^\(.+\)$/.test(trimmed)) return true;
+  if (/\{\{[^}]+\}\}/.test(trimmed)) return true;
+  if (/^\{[^}]+\}$/.test(trimmed)) return true;
+  return false;
+}
+
+function sanitizeOverviewSection(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const lines = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => !isTemplateLine(line));
+  if (lines.length === 0) return undefined;
+  return lines.slice(0, 5).join('\n');
+}
+
+function resolveOverviewFromSpec(
+  specContent: string,
   feature: FeatureContext,
+  lang: Lang
+): string {
+  const fromPurpose = sanitizeOverviewSection(
+    extractMarkdownSection(specContent, ['목적', 'Purpose'])
+  );
+  if (fromPurpose) return fromPurpose;
+
+  const fromOverview = sanitizeOverviewSection(
+    extractMarkdownSection(specContent, ['개요', 'Overview'])
+  );
+  if (fromOverview) return fromOverview;
+
+  return lang === 'ko'
+    ? `\`${feature.folderName}\` 기능 개요를 spec.md 기준으로 작성하세요.`
+    : `Summarize feature \`${feature.folderName}\` from spec.md.`;
+}
+
+function buildIssueBody(
+  overview: string,
   labels: string[],
   paths: ReturnType<typeof getFeatureDocPaths>,
   lang: Lang
@@ -486,18 +483,17 @@ function buildIssueBody(
   if (lang === 'ko') {
     return `## 개요
 
-\`${feature.folderName}\` 기능을 구현합니다.
+${overview}
 
 ## 목표
 
-- 기능 범위와 구현 결과를 명확히 정리합니다
-- spec/plan/tasks를 결과와 동기화합니다
+- [ ] TODO: spec.md 목적/범위를 바탕으로 목표를 작성하세요.
+- [ ] TODO: 구현 범위(포함/제외)를 구체적으로 작성하세요.
 
 ## 완료 기준
 
-- [ ] 범위와 접근 방식이 문서화되어 있습니다
-- [ ] 태스크가 완료되고 검증 가능합니다
-- [ ] 관련 문서가 동기화되어 있습니다
+- [ ] TODO: 검증 가능한 완료 기준을 작성하세요.
+- [ ] TODO: 완료 확인 방법(테스트/시나리오)을 작성하세요.
 
 ## 관련 문서
 
@@ -513,18 +509,17 @@ ${labels.map((label) => `- \`${label}\``).join('\n')}
 
   return `## Overview
 
-Implement feature \`${feature.folderName}\`.
+${overview}
 
 ## Goals
 
-- Finalize feature scope and implementation outcome
-- Keep spec/plan/tasks aligned with delivery
+- [ ] TODO: Fill concrete goals based on spec.md.
+- [ ] TODO: Clarify in-scope and out-of-scope boundaries.
 
 ## Completion Criteria
 
-- [ ] Scope and approach are documented clearly
-- [ ] Tasks are complete and verifiable
-- [ ] Related docs are synchronized
+- [ ] TODO: Define verifiable completion criteria.
+- [ ] TODO: Add validation/test conditions for completion.
 
 ## Related Documents
 
@@ -540,6 +535,7 @@ ${labels.map((label) => `- \`${label}\``).join('\n')}
 
 function buildPrBody(
   feature: FeatureContext,
+  overview: string,
   paths: ReturnType<typeof getFeatureDocPaths>,
   lang: Lang
 ): string {
@@ -547,19 +543,19 @@ function buildPrBody(
   if (lang === 'ko') {
     return `## 개요
 
-\`${feature.folderName}\` 기능 구현과 문서 동기화 내용을 정리합니다.
+${overview}
 
 ## 변경 사항
 
-- 기능 범위 구현을 완료했습니다
-- 구현 결과에 맞춰 문서를 동기화했습니다
-- tasks.md의 PR 메타데이터를 동기화했습니다
+- [ ] TODO: 핵심 코드 변경 사항을 요약하세요.
+- [ ] TODO: 영향 범위/호환성(마이그레이션 포함)을 작성하세요.
 
 ## 테스트
 
 ### 실행한 테스트
 
-- [x] \`<테스트 명령어>\` — PASS
+- [ ] TODO: \`<실행한 테스트 명령어>\` — PASS/FAIL
+- [ ] TODO: 미실행 테스트가 있다면 사유를 작성하세요.
 
 ## 관련 문서
 
@@ -569,19 +565,19 @@ function buildPrBody(
 
   return `## Overview
 
-Implement and document feature \`${feature.folderName}\`.
+${overview}
 
 ## Changes
 
-- Deliver implementation for the feature scope
-- Update docs to match implementation and workflow state
-- Keep PR metadata synchronized in tasks.md
+- [ ] TODO: Summarize key code changes in this PR.
+- [ ] TODO: Describe impact/scope (including migration if any).
 
 ## Tests
 
 ### Tests Run
 
-- [x] \`<test command>\` — PASS
+- [ ] TODO: \`<test command>\` — PASS/FAIL
+- [ ] TODO: If tests were not run, explain why.
 
 ## Related Documents
 
@@ -881,6 +877,8 @@ export function githubCommand(program: Command): void {
           [paths.specPath, paths.planPath, paths.tasksPath],
           config.lang
         );
+        const specContent = await fs.readFile(path.join(config.docsDir, paths.specPath), 'utf-8');
+        const overview = resolveOverviewFromSpec(specContent, feature, config.lang);
 
         const title =
           options.title?.trim() ||
@@ -888,7 +886,7 @@ export function githubCommand(program: Command): void {
             slug: feature.slug,
             folder: feature.folderName,
           });
-        const body = buildIssueBody(feature, labels, paths, config.lang);
+        const body = buildIssueBody(overview, labels, paths, config.lang);
         ensureSections(
           body,
           getRequiredIssueSections(config.lang),
@@ -898,7 +896,9 @@ export function githubCommand(program: Command): void {
 
         const bodyFile = toBodyFilePath(
           options.bodyFile,
-          `lee-spec-kit.issue.${feature.folderName}.md`
+          'issue',
+          config.docsDir,
+          feature.type
         );
         await fs.ensureDir(path.dirname(bodyFile));
         await fs.writeFile(bodyFile, body, 'utf-8');
@@ -942,6 +942,7 @@ export function githubCommand(program: Command): void {
                 component: feature.type,
                 title,
                 labels,
+                body,
                 bodyFile,
                 issueUrl,
               },
@@ -1018,6 +1019,8 @@ export function githubCommand(program: Command): void {
         const labels = parseLabels(options.labels, config.lang);
         const paths = getFeatureDocPaths(feature);
         ensureDocsExist(config.docsDir, [paths.specPath, paths.tasksPath], config.lang);
+        const specContent = await fs.readFile(path.join(config.docsDir, paths.specPath), 'utf-8');
+        const overview = resolveOverviewFromSpec(specContent, feature, config.lang);
 
         const defaultTitle = feature.issueNumber
           ? tg(config.lang, 'prDefaultTitleWithIssue', {
@@ -1028,7 +1031,7 @@ export function githubCommand(program: Command): void {
               slug: feature.slug,
             });
         const title = options.title?.trim() || defaultTitle;
-        const body = buildPrBody(feature, paths, config.lang);
+        const body = buildPrBody(feature, overview, paths, config.lang);
         ensureSections(
           body,
           getRequiredPrSections(config.lang),
@@ -1038,7 +1041,9 @@ export function githubCommand(program: Command): void {
 
         const bodyFile = toBodyFilePath(
           options.bodyFile,
-          `lee-spec-kit.pr.${feature.folderName}.md`
+          'pr',
+          config.docsDir,
+          feature.type
         );
         await fs.ensureDir(path.dirname(bodyFile));
         await fs.writeFile(bodyFile, body, 'utf-8');
@@ -1153,6 +1158,7 @@ export function githubCommand(program: Command): void {
                 component: feature.type,
                 title,
                 labels,
+                body,
                 bodyFile,
                 prUrl: prUrl || undefined,
                 syncChanged,

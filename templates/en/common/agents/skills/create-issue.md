@@ -22,7 +22,8 @@ Guide for creating GitHub Issues.
 npx lee-spec-kit github issue F001 --json
 ```
 
-Use the generated `bodyFile` in JSON output as the draft body to review/share.
+Use `body` in JSON output as the primary draft text to review/share.
+If needed, use `bodyFile` as the filesystem source.
 
 | Item     | Format                                      |
 | -------- | ------------------------------------------- |
@@ -38,8 +39,10 @@ Use the generated `bodyFile` in JSON output as the draft body to review/share.
 Before creating issue, share and wait for explicit approval (OK):
 
 - Title
-- Full body draft (from `bodyFile`)
+- Full body draft (from `body`)
 - Labels
+
+Also fill all `TODO` items in Goals/Completion Criteria before creating.
 
 ### 3. Create Issue
 

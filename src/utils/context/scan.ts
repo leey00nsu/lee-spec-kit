@@ -25,13 +25,13 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
   let singleProject: { cwd: string | null; warning?: string } | undefined;
 
   if (config.projectType === 'single') {
-    singleProject = resolveProjectGitCwd(config, 'single');
+    singleProject = resolveProjectGitCwd(config, 'single', config.lang);
     if (singleProject.warning) warnings.push(singleProject.warning);
     projectBranches.single = singleProject.cwd ? getCurrentBranch(singleProject.cwd) : '';
   } else {
     const components = resolveProjectComponents(config.projectType, config.components);
     for (const component of components) {
-      const project = resolveProjectGitCwd(config, component);
+      const project = resolveProjectGitCwd(config, component, config.lang);
       if (project.warning) warnings.push(project.warning);
       projectBranches[component] = project.cwd ? getCurrentBranch(project.cwd) : '';
     }
@@ -72,7 +72,7 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
   } else {
     const components = resolveProjectComponents(config.projectType, config.components);
     for (const component of components) {
-      const project = resolveProjectGitCwd(config, component);
+      const project = resolveProjectGitCwd(config, component, config.lang);
       const componentDirs = await glob(`features/${component}/*/`, {
         cwd: config.docsDir,
         absolute: true,

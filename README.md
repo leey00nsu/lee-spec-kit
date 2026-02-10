@@ -294,6 +294,7 @@ npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhanceme
 
 핵심 동작:
 - Issue/PR helper는 필수 섹션과 관련 문서 경로를 검증합니다.
+- `--json` 출력에는 `body`(본문 문자열)와 `bodyFile`(파일 경로)가 함께 제공됩니다.
 - 라벨은 최소 1개 이상 필수입니다.
 - `--create`/`--merge`는 원격 작업이므로 `--confirm OK`가 필요합니다.
 - PR helper는 기본적으로 `tasks.md`의 `PR`/`PR Status`를 동기화합니다. (`--no-sync-tasks`로 비활성화)

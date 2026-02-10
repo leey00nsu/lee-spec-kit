@@ -186,6 +186,191 @@ const I18N: Record<Lang, I18nData> = {
       'init.log.gitInitialCommitDone': '✅ Git 초기 커밋 완료!',
       'init.warn.skipGitInit': '⚠️  Git 초기화를 건너뜁니다 (수동으로 커밋해주세요)',
       'init.error.templateNotFound': '템플릿을 찾을 수 없습니다: {path}',
+
+      'github.cmdGithubDescription': 'GitHub 워크플로우 도우미 (issue/pr 초안, 검증, merge 재시도)',
+      'github.cmdIssueDescription': 'feature 문서 기반 GitHub issue 본문 생성/생성',
+      'github.cmdPrDescription': 'GitHub PR 본문 생성/생성 + tasks 동기화 + merge 재시도',
+      'github.optJson': '에이전트용 JSON 형식으로 출력',
+      'github.optRepo': '멀티 프로젝트 컴포넌트 이름',
+      'github.optComponent': '멀티 프로젝트 컴포넌트 이름',
+      'github.optIssueTitle': 'Issue 제목',
+      'github.optLabels': '쉼표 구분 라벨 목록 (기본: enhancement)',
+      'github.optIssueBodyFile':
+        'Issue 본문 파일 출력 경로 (기본: OS 임시 디렉터리의 프로젝트/컴포넌트 고정 파일)',
+      'github.optIssueAssignee': 'Issue 담당자 (기본: @me)',
+      'github.optIssueCreate': 'gh CLI로 issue 생성',
+      'github.optIssueConfirm': '원격 작업(--create)용 명시적 승인 토큰. 사용값: OK',
+      'github.optPrTitle': 'PR 제목',
+      'github.optPrBodyFile':
+        'PR 본문 파일 출력 경로 (기본: OS 임시 디렉터리의 프로젝트/컴포넌트 고정 파일)',
+      'github.optPrAssignee': 'PR 담당자 (기본: @me)',
+      'github.optPrBase': 'PR base 브랜치 (기본: main)',
+      'github.optPrCreate': 'gh CLI로 PR 생성',
+      'github.optPrRef': '--merge 시 사용할 기존 PR URL/번호',
+      'github.optPrMerge': '재시도/헤드 갱신과 함께 PR merge 수행',
+      'github.optPrConfirm': '원격 작업(--create/--merge)용 명시적 승인 토큰. 사용값: OK',
+      'github.optPrRetry': 'merge 재시도 횟수 (기본: 3)',
+      'github.optPrNoSyncTasks': 'tasks.md PR URL/PR 상태 동기화를 건너뜀',
+      'github.optPrCommitSync': 'tasks.md 동기화 변경을 자동 commit/push',
+      'github.invalidRepoComponentMismatch':
+        '`--repo`와 `--component`를 함께 쓸 때는 같은 값을 지정해야 합니다.',
+      'github.labelsRequired': '최소 1개 라벨이 필요합니다. `--labels enhancement`를 사용하세요.',
+      'github.approvalRequired':
+        '{operation}은(는) 사용자 명시 승인 후에만 실행할 수 있습니다. 계획 공유 후 `--confirm OK`로 다시 실행하세요.',
+      'github.ghCommandFailed': 'GitHub CLI 명령 실행에 실패했습니다',
+      'github.ghEmptyJson': 'GitHub CLI JSON 출력이 비어 있습니다.',
+      'github.ghInvalidJson': 'GitHub CLI JSON 파싱에 실패했습니다: {snippet}',
+      'github.sectionsMissing': '{kind} 본문에 필수 섹션이 없습니다: {sections}',
+      'github.docsMissing': '관련 문서 경로가 존재하지 않습니다: {paths}',
+      'github.noFeatures': 'Feature를 찾을 수 없습니다.',
+      'github.multipleFeaturesMatched':
+        '여러 Feature가 매칭되었습니다. feature 이름(slug | F001 | F001-slug)을 명시하세요.',
+      'github.featureSelectFailed':
+        'Feature 자동 선택에 실패했습니다. feature 이름을 명시해서 다시 실행하세요.',
+      'github.tasksNotFound': 'tasks.md를 찾을 수 없습니다: {path}',
+      'github.detectBranchFailed': '현재 git 브랜치 확인에 실패했습니다',
+      'github.inspectWorktreeFailed': 'git 워크트리 상태 확인에 실패했습니다',
+      'github.worktreeNotClean':
+        'git 워크트리가 깨끗하지 않습니다. merge 재시도 동기화 전에 커밋/스태시하세요.',
+      'github.inspectFileStatusFailed': '파일 git 상태 확인에 실패했습니다',
+      'github.stageFileFailed': '동기화 파일 stage에 실패했습니다',
+      'github.commitSyncFailed': '동기화 메타데이터 commit에 실패했습니다',
+      'github.pushSyncFailed': '동기화 메타데이터 push에 실패했습니다',
+      'github.fetchPrBranchesFailed': 'PR 브랜치 fetch에 실패했습니다',
+      'github.checkoutHeadFailed': 'PR 헤드 브랜치 checkout에 실패했습니다',
+      'github.createLocalHeadFailed': '로컬 PR 헤드 브랜치 생성에 실패했습니다',
+      'github.rebaseHeadFailed': 'PR 헤드 브랜치 rebase에 실패했습니다',
+      'github.pushRebasedHeadFailed': 'rebase된 PR 헤드 브랜치 push에 실패했습니다',
+      'github.restoreBranchFailed': 'PR 헤드 갱신 후 이전 브랜치 복원에 실패했습니다',
+      'github.mergeRetryFailed': '재시도 후에도 PR merge에 실패했습니다.{lastError}',
+      'github.retryInvalid': '`--retry`는 1 이상의 정수여야 합니다.',
+      'github.operationIssueCreate': 'GitHub issue 생성',
+      'github.operationPrCreate': 'GitHub PR 생성',
+      'github.operationPrMerge': 'GitHub PR merge',
+      'github.createIssueFailed': 'GitHub issue 생성에 실패했습니다',
+      'github.createPrFailed': 'GitHub PR 생성에 실패했습니다',
+      'github.mergeRequiresPr':
+        '`--merge`를 사용하려면 `--create` 또는 `--pr <url|number>`가 필요합니다.',
+      'github.checkoutBaseAfterMergeFailed': 'merge 후 {base} 브랜치 checkout에 실패했습니다',
+      'github.pullBaseAfterMergeFailed': 'merge 후 {base} 브랜치 최신화에 실패했습니다',
+      'github.issueDefaultTitle': '{slug} ({folder} 문서 업데이트)',
+      'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} (구현 업데이트)',
+      'github.prDefaultTitleNoIssue': 'feat: {slug} (구현 업데이트)',
+      'github.issueHeader': '🧾 GitHub Issue 도우미',
+      'github.prHeader': '🔀 GitHub PR 도우미',
+      'github.labelFeature': 'Feature',
+      'github.labelBodyFile': '본문 파일',
+      'github.labelLabels': '라벨',
+      'github.labelPr': 'PR',
+      'github.issueCreated': '✅ 생성 완료: {url}',
+      'github.issueTemplateGenerated': '초안을 생성했습니다. 자동 생성하려면 `--create`를 사용하세요.',
+      'github.prTasksSynced': '✅ tasks.md PR 메타데이터를 동기화했습니다.',
+      'github.prMerged': '✅ PR merge 완료 (시도 횟수: {attempts})',
+      'github.prTemplateGenerated': '초안을 생성했습니다. 자동 생성하려면 `--create`를 사용하세요.',
+      'github.syncCommitWithIssue': 'docs(#{issue}): {folder} PR 메타데이터 동기화',
+      'github.syncCommitNoIssue': 'docs: {folder} PR 메타데이터 동기화',
+      'github.kindIssue': 'Issue',
+      'github.kindPr': 'PR',
+
+      'cliError.headerNextOptionsError': '👉 다음 옵션 (오류):',
+      'cliError.promptBlocked.retryWithoutNonInteractive':
+        '--non-interactive 없이 같은 명령을 다시 실행하세요.',
+      'cliError.promptBlocked.passRequiredFlags':
+        '필수 플래그를 모두 명시하거나(`--force` 포함) 다시 실행하세요.',
+      'cliError.promptBlocked.checkRequiredOptions': '필수 옵션을 먼저 확인하세요.',
+      'cliError.configOrDocs.initializeDocs': '현재 워크스페이스에서 docs를 초기화하세요.',
+      'cliError.configOrDocs.verifyDocsLocation': 'docs 위치와 설정을 점검하세요.',
+      'cliError.configOrDocs.runFromDocsDir': 'docs/가 있는 디렉터리에서 명령을 실행하세요.',
+      'cliError.lock.retryLater': '잠시 기다린 뒤 같은 명령을 다시 실행하세요.',
+      'cliError.lock.checkOtherProcess': '다른 lee-spec-kit 프로세스가 실행 중인지 확인하세요.',
+      'cliError.lock.inspectLockFiles':
+        '락 파일(`docs/.lee-spec-kit.lock` 또는 상위 경로 `.lee-spec-kit.<docsDir>.lock`)을 확인하세요.',
+      'cliError.invalidArg.reviewUsage': '명령 사용법과 유효한 플래그를 확인하세요.',
+      'cliError.invalidArg.fixValues': '잘못된 값을 수정한 뒤 다시 실행하세요.',
+      'cliError.invalidArg.validateBeforeAutomation':
+        '자동화 환경이라면 CLI 호출 전에 인자를 검증하세요.',
+      'cliError.precondition.satisfyPreconditions':
+        '실행 전제조건을 만족하도록 환경/작업트리를 먼저 정리하세요.',
+      'cliError.precondition.runDoctor': '워크스페이스 진단으로 현재 상태를 확인하세요.',
+      'cliError.precondition.considerForce': '의도한 덮어쓰기라면 강제 옵션 사용을 검토하세요.',
+      'cliError.duplicateId.resolveDuplicates': '중복된 Feature ID를 정리한 뒤 다시 실행하세요.',
+      'cliError.duplicateId.ensureUniqueFormat':
+        '각 Feature 폴더명이 고유한 `F###-slug` 형식인지 확인하세요.',
+      'cliError.duplicateId.inspectJson': '중복 여부를 JSON 진단으로 확인하세요.',
+      'cliError.missingId.renameFolders':
+        'ID가 없는 Feature 폴더를 `F###-slug` 형식으로 변경하세요.',
+      'cliError.missingId.alignDocs': 'spec/tasks 문서의 Feature ID도 함께 정리하세요.',
+      'cliError.missingId.inspectJson': '누락 항목을 JSON 진단으로 확인하세요.',
+      'cliError.invalidApproval.fetchLatestOptions': '먼저 최신 옵션을 다시 조회하세요.',
+      'cliError.invalidApproval.replyWithValidLabel':
+        '유효한 라벨(또는 `<라벨> OK`)만 응답하세요. 예: A',
+      'cliError.invalidApproval.oneLabelOnly': '한 번에 라벨 1개만 선택하세요.',
+      'cliError.approvalRequired.reRunWithApprove':
+        'context 승인 흐름이면 --approve <라벨>과 함께 다시 실행하세요.',
+      'cliError.approvalRequired.githubConfirmOk':
+        'github 원격 생성/머지면 --confirm OK를 함께 전달하세요.',
+      'cliError.approvalRequired.shareAndGetApproval':
+        '실행 전에 제목/본문/라벨(또는 머지 계획)을 사용자에게 공유하고 명시적 승인을 받으세요.',
+      'cliError.contextSelection.specifySelector': '단일 Feature selector를 명시하세요.',
+      'cliError.contextSelection.narrowByComponent':
+        'multi 모드에서는 --repo(또는 --component)로 범위를 좁히세요.',
+      'cliError.contextSelection.inspectAllCandidates': '먼저 전체 후보를 확인하세요.',
+      'cliError.noActionOptions.refreshContext':
+        '현재 상태를 보기 위해 context를 새로 조회하세요.',
+      'cliError.noActionOptions.completeChecklist':
+        'Feature 문서를 열어 누락된 체크 항목을 완료하세요.',
+      'cliError.noActionOptions.listAllFeatures':
+        '실행 가능한 옵션이 있는 Feature를 찾기 위해 전체를 조회하세요.',
+      'cliError.contextStale.refreshBeforeApprove': '승인 전에 최신 context를 다시 조회하세요.',
+      'cliError.contextStale.reapproveWithFreshLabel':
+        '최신 출력의 라벨로 다시 승인하세요.',
+      'cliError.contextStale.executeAfterFreshApproval':
+        '최신 라벨 재승인 후에만 실행하세요.',
+      'cliError.execution.notCommand': '승인 라벨이 command인지 먼저 확인하세요.',
+      'cliError.execution.failed': '실패한 명령의 출력과 선행 조건을 확인하세요.',
+      'cliError.execution.rerunContextAndExecute':
+        'context를 다시 조회하고 최신 라벨 1개를 실행하세요.',
+      'cliError.execution.runManually': '환경 문제 분리를 위해 명령을 수동 실행해보세요.',
+      'cliError.unknown.rerunAndCaptureLogs':
+        '같은 입력으로 재실행하고 전체 오류 로그를 수집하세요.',
+      'cliError.unknown.runDoctor': '워크스페이스 상태를 진단하세요.',
+      'cliError.unknown.reportReasonCode': 'reasonCode와 로그를 유지보수자에게 전달하세요.',
+
+      'context.git.standaloneProjectRootMissing':
+        'standalone 모드입니다. projectRoot가 설정되지 않아 프로젝트 브랜치 확인이 불가능합니다. (npx lee-spec-kit config --project-root ...)',
+      'context.git.multiProjectRootShapeInvalid':
+        'multi standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: { "fe": "...", "be": "...", "worker": "..." })',
+      'context.git.multiProjectRootRepoMissing':
+        'projectRoot.{repo}가 비어있습니다. (npx lee-spec-kit config --project-root ... --component {repo})',
+      'context.git.singleProjectRootShapeInvalid':
+        'single standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: "/path/to/project")',
+
+      'validation.nameEmpty': '이름은 비어있을 수 없습니다.',
+      'validation.nameTooLong': '이름은 100자를 초과할 수 없습니다.',
+      'validation.nameTraversal': "이름에 '..' 또는 경로 구분자를 사용할 수 없습니다.",
+      'validation.nameNullByte': '이름에 null 문자를 사용할 수 없습니다.',
+      'validation.nameInvalidChars':
+        '이름에는 영문, 숫자, 하이픈, 언더스코어, 한글만 사용할 수 있습니다.',
+      'validation.nameReserved': '예약된 이름은 사용할 수 없습니다.',
+      'validation.projectTypeInvalid':
+        '프로젝트 타입은 {values} 중 하나여야 합니다.',
+      'validation.languageInvalid': '언어는 {values} 중 하나여야 합니다.',
+      'validation.workflowModeInvalid':
+        '워크플로우 모드는 {values} 중 하나여야 합니다.',
+      'validation.featureIdEmpty': 'Feature ID는 비어있을 수 없습니다.',
+      'validation.featureIdFormat': "Feature ID는 'F' + 숫자 형식이어야 합니다 (예: F001).",
+      'validation.pathEmpty': '경로는 비어있을 수 없습니다.',
+      'validation.pathNullByte': '경로에 null 문자를 사용할 수 없습니다.',
+      'validation.genericFailed': '검증 실패',
+      'validation.context.featureName': '기능 이름',
+      'validation.context.featureId': 'Feature ID',
+      'validation.context.projectName': '프로젝트 이름',
+      'validation.context.projectType': '프로젝트 타입',
+      'validation.context.language': '언어',
+      'validation.context.workflowMode': '워크플로우 모드',
+
+      'versionCheck.noticeAvailable': '📦 lee-spec-kit v{latest} 사용 가능 (현재: v{current})',
+      'versionCheck.updateCommand': '   업데이트: npm update -g lee-spec-kit',
     },
     steps: {
       featureFolder: 'Feature 폴더 생성',
@@ -471,6 +656,212 @@ const I18N: Record<Lang, I18nData> = {
       'init.log.gitInitialCommitDone': '✅ Initial Git commit created!',
       'init.warn.skipGitInit': '⚠️  Skipping Git initialization (please commit manually)',
       'init.error.templateNotFound': 'Template not found: {path}',
+
+      'github.cmdGithubDescription':
+        'GitHub workflow helpers (issue/pr templates, validation, merge retry)',
+      'github.cmdIssueDescription':
+        'Generate/create GitHub issue body from feature docs with validation',
+      'github.cmdPrDescription':
+        'Generate/create GitHub PR body with validation, tasks PR sync, and merge retry',
+      'github.optJson': 'Output in JSON format for agents',
+      'github.optRepo': 'Component name for multi projects',
+      'github.optComponent': 'Component name for multi projects',
+      'github.optIssueTitle': 'Issue title',
+      'github.optLabels': 'Comma-separated labels (default: enhancement)',
+      'github.optIssueBodyFile':
+        'Issue body file output path (default: project/component-scoped file in OS temp dir)',
+      'github.optIssueAssignee': 'Issue assignee (default: @me)',
+      'github.optIssueCreate': 'Create issue via gh CLI',
+      'github.optIssueConfirm':
+        'Explicit user approval token for remote operations (--create). Use: OK',
+      'github.optPrTitle': 'PR title',
+      'github.optPrBodyFile':
+        'PR body file output path (default: project/component-scoped file in OS temp dir)',
+      'github.optPrAssignee': 'PR assignee (default: @me)',
+      'github.optPrBase': 'PR base branch (default: main)',
+      'github.optPrCreate': 'Create PR via gh CLI',
+      'github.optPrRef': 'Existing PR URL/number (used by --merge)',
+      'github.optPrMerge': 'Merge PR with retry and head-branch refresh',
+      'github.optPrConfirm':
+        'Explicit user approval token for remote operations (--create/--merge). Use: OK',
+      'github.optPrRetry': 'Retry count for merge (default: 3)',
+      'github.optPrNoSyncTasks': 'Do not sync PR URL/PR status into tasks.md',
+      'github.optPrCommitSync': 'Commit and push tasks.md metadata sync automatically',
+      'github.invalidRepoComponentMismatch':
+        '`--repo` and `--component` must reference the same value when both are provided.',
+      'github.labelsRequired': 'At least one label is required. Use `--labels enhancement`.',
+      'github.approvalRequired':
+        '{operation} requires explicit user approval. Re-run with `--confirm OK` after sharing the plan with the user.',
+      'github.ghCommandFailed': 'GitHub CLI command failed',
+      'github.ghEmptyJson': 'GitHub CLI returned empty JSON output.',
+      'github.ghInvalidJson': 'GitHub CLI returned invalid JSON: {snippet}',
+      'github.sectionsMissing': '{kind} body is missing required sections: {sections}',
+      'github.docsMissing': 'Related document paths do not exist: {paths}',
+      'github.noFeatures': 'No features found.',
+      'github.multipleFeaturesMatched':
+        'Multiple features matched. Specify feature name (slug | F001 | F001-slug).',
+      'github.featureSelectFailed':
+        'Failed to auto-select a feature. Specify feature name explicitly.',
+      'github.tasksNotFound': 'tasks.md not found: {path}',
+      'github.detectBranchFailed': 'Failed to detect current git branch',
+      'github.inspectWorktreeFailed': 'Failed to inspect git worktree',
+      'github.worktreeNotClean':
+        'Git worktree is not clean. Commit or stash changes before merge retry sync.',
+      'github.inspectFileStatusFailed': 'Failed to inspect git file status',
+      'github.stageFileFailed': 'Failed to stage file',
+      'github.commitSyncFailed': 'Failed to commit synced metadata',
+      'github.pushSyncFailed': 'Failed to push synced metadata commit',
+      'github.fetchPrBranchesFailed': 'Failed to fetch PR branches',
+      'github.checkoutHeadFailed': 'Failed to checkout PR head branch',
+      'github.createLocalHeadFailed': 'Failed to create local PR head branch',
+      'github.rebaseHeadFailed': 'Failed to rebase PR head branch',
+      'github.pushRebasedHeadFailed': 'Failed to push rebased PR head branch',
+      'github.restoreBranchFailed': 'Failed to restore previous branch after PR refresh',
+      'github.mergeRetryFailed': 'Failed to merge PR after retry attempts.{lastError}',
+      'github.retryInvalid': '`--retry` must be a positive integer.',
+      'github.operationIssueCreate': 'GitHub issue creation',
+      'github.operationPrCreate': 'GitHub PR creation',
+      'github.operationPrMerge': 'GitHub PR merge',
+      'github.createIssueFailed': 'Failed to create GitHub issue',
+      'github.createPrFailed': 'Failed to create GitHub PR',
+      'github.mergeRequiresPr': '`--merge` requires `--create` or `--pr <url|number>`.',
+      'github.checkoutBaseAfterMergeFailed': 'Failed to checkout {base} after merge',
+      'github.pullBaseAfterMergeFailed': 'Failed to update {base} after merge',
+      'github.issueDefaultTitle': '{slug} ({folder} documentation update)',
+      'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} (implementation update)',
+      'github.prDefaultTitleNoIssue': 'feat: {slug} (implementation update)',
+      'github.issueHeader': '🧾 GitHub Issue Helper',
+      'github.prHeader': '🔀 GitHub PR Helper',
+      'github.labelFeature': 'Feature',
+      'github.labelBodyFile': 'Body file',
+      'github.labelLabels': 'Labels',
+      'github.labelPr': 'PR',
+      'github.issueCreated': '✅ Created: {url}',
+      'github.issueTemplateGenerated':
+        'Template generated. Add --create to open the issue automatically.',
+      'github.prTasksSynced': '✅ tasks.md PR metadata synced.',
+      'github.prMerged': '✅ PR merged (attempts: {attempts}).',
+      'github.prTemplateGenerated': 'Template generated. Add --create to open the PR automatically.',
+      'github.syncCommitWithIssue': 'docs(#{issue}): sync PR metadata for {folder}',
+      'github.syncCommitNoIssue': 'docs: sync PR metadata for {folder}',
+      'github.kindIssue': 'Issue',
+      'github.kindPr': 'PR',
+
+      'cliError.headerNextOptionsError': '👉 Next Options (Error):',
+      'cliError.promptBlocked.retryWithoutNonInteractive':
+        'Run the same command without --non-interactive.',
+      'cliError.promptBlocked.passRequiredFlags':
+        'Pass all required flags (including `--force` when needed), then run again.',
+      'cliError.promptBlocked.checkRequiredOptions': 'Check required options first.',
+      'cliError.configOrDocs.initializeDocs':
+        'Initialize docs in the current workspace.',
+      'cliError.configOrDocs.verifyDocsLocation':
+        'Verify docs location and configuration.',
+      'cliError.configOrDocs.runFromDocsDir':
+        'Run command from the directory that contains docs/.',
+      'cliError.lock.retryLater': 'Wait briefly, then retry the same command.',
+      'cliError.lock.checkOtherProcess':
+        'Check whether another lee-spec-kit process is still running.',
+      'cliError.lock.inspectLockFiles':
+        'Inspect lock files (`docs/.lee-spec-kit.lock` or parent `.lee-spec-kit.<docsDir>.lock`).',
+      'cliError.invalidArg.reviewUsage': 'Review command usage and valid flags.',
+      'cliError.invalidArg.fixValues': 'Fix invalid value(s) and retry.',
+      'cliError.invalidArg.validateBeforeAutomation':
+        'If using automation, validate arguments before invoking CLI.',
+      'cliError.precondition.satisfyPreconditions':
+        'Satisfy the command preconditions first (environment/worktree).',
+      'cliError.precondition.runDoctor':
+        'Run workspace diagnostics to inspect current state.',
+      'cliError.precondition.considerForce':
+        'If overwrite is intentional, consider the force flag.',
+      'cliError.duplicateId.resolveDuplicates':
+        'Resolve duplicate Feature IDs, then run again.',
+      'cliError.duplicateId.ensureUniqueFormat':
+        'Ensure each feature folder has a unique `F###-slug` name.',
+      'cliError.duplicateId.inspectJson':
+        'Inspect duplicates via JSON diagnostics.',
+      'cliError.missingId.renameFolders':
+        'Rename feature folders without IDs to `F###-slug` format.',
+      'cliError.missingId.alignDocs':
+        'Align Feature IDs in spec/tasks docs after renaming.',
+      'cliError.missingId.inspectJson':
+        'Inspect missing IDs via JSON diagnostics.',
+      'cliError.invalidApproval.fetchLatestOptions': 'Fetch latest options first.',
+      'cliError.invalidApproval.replyWithValidLabel':
+        'Reply with a valid label only (or "<label> OK"), e.g. A.',
+      'cliError.invalidApproval.oneLabelOnly': 'Use one label at a time.',
+      'cliError.approvalRequired.reRunWithApprove':
+        'For context approval flow, re-run with --approve <label>.',
+      'cliError.approvalRequired.githubConfirmOk':
+        'For github remote create/merge, pass --confirm OK.',
+      'cliError.approvalRequired.shareAndGetApproval':
+        'Share title/body/labels (or merge plan) and get explicit user approval first.',
+      'cliError.contextSelection.specifySelector':
+        'Specify one feature selector explicitly.',
+      'cliError.contextSelection.narrowByComponent':
+        'Narrow by component in multi mode.',
+      'cliError.contextSelection.inspectAllCandidates':
+        'Inspect all candidates first.',
+      'cliError.noActionOptions.refreshContext':
+        'Refresh context to see current state.',
+      'cliError.noActionOptions.completeChecklist':
+        'Open feature docs and complete the missing checklist item.',
+      'cliError.noActionOptions.listAllFeatures':
+        'List all features to find one with actionable options.',
+      'cliError.contextStale.refreshBeforeApprove':
+        'Get fresh context before approving.',
+      'cliError.contextStale.reapproveWithFreshLabel':
+        'Approve again using a label from the latest output.',
+      'cliError.contextStale.executeAfterFreshApproval':
+        'Execute only after re-approval of the fresh label.',
+      'cliError.execution.notCommand':
+        'Check whether the approved label points to a command action.',
+      'cliError.execution.failed':
+        'Review the failed command output and fix prerequisites.',
+      'cliError.execution.rerunContextAndExecute':
+        'Re-run context and execute one fresh label.',
+      'cliError.execution.runManually':
+        'Run the command manually to isolate environment issues.',
+      'cliError.unknown.rerunAndCaptureLogs':
+        'Re-run with the same input and capture full error logs.',
+      'cliError.unknown.runDoctor': 'Run diagnostics for workspace state.',
+      'cliError.unknown.reportReasonCode':
+        'Report the reasonCode and logs to maintainers.',
+
+      'context.git.standaloneProjectRootMissing':
+        'Standalone mode is enabled, but projectRoot is missing. Cannot resolve project branch. (npx lee-spec-kit config --project-root ...)',
+      'context.git.multiProjectRootShapeInvalid':
+        'Multi standalone mode requires projectRoot as an object. (Example: { "fe": "...", "be": "...", "worker": "..." })',
+      'context.git.multiProjectRootRepoMissing':
+        'projectRoot.{repo} is empty. (npx lee-spec-kit config --project-root ... --component {repo})',
+      'context.git.singleProjectRootShapeInvalid':
+        'Single standalone mode requires projectRoot as a string path. (Example: "/path/to/project")',
+
+      'validation.nameEmpty': 'Name cannot be empty.',
+      'validation.nameTooLong': 'Name cannot exceed 100 characters.',
+      'validation.nameTraversal': "Name cannot contain '..' or path separators.",
+      'validation.nameNullByte': 'Name cannot contain null bytes.',
+      'validation.nameInvalidChars':
+        'Name can only include letters, numbers, hyphens, underscores, and Korean characters.',
+      'validation.nameReserved': 'Reserved name is not allowed.',
+      'validation.projectTypeInvalid': 'Project type must be one of: {values}.',
+      'validation.languageInvalid': 'Language must be one of: {values}.',
+      'validation.workflowModeInvalid': 'Workflow mode must be one of: {values}.',
+      'validation.featureIdEmpty': 'Feature ID cannot be empty.',
+      'validation.featureIdFormat': "Feature ID must be 'F' + digits (e.g., F001).",
+      'validation.pathEmpty': 'Path cannot be empty.',
+      'validation.pathNullByte': 'Path cannot contain null bytes.',
+      'validation.genericFailed': 'Validation failed',
+      'validation.context.featureName': 'Feature name',
+      'validation.context.featureId': 'Feature ID',
+      'validation.context.projectName': 'Project name',
+      'validation.context.projectType': 'Project type',
+      'validation.context.language': 'Language',
+      'validation.context.workflowMode': 'Workflow mode',
+
+      'versionCheck.noticeAvailable':
+        '📦 lee-spec-kit v{latest} is available (current: v{current})',
+      'versionCheck.updateCommand': '   Update: npm update -g lee-spec-kit',
     },
     steps: {
       featureFolder: 'Create feature folder',

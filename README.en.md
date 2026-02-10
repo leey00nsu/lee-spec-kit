@@ -272,6 +272,7 @@ npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhanceme
 
 Key points:
 - Issue/PR helpers validate required body sections and related docs paths.
+- `--json` output includes both `body` (inline markdown) and `bodyFile` (file path).
 - Labels are validated (at least one required).
 - `--create`/`--merge` are remote operations and require `--confirm OK`.
 - PR helper can sync `tasks.md` PR URL/PR Status automatically (`--no-sync-tasks` to skip).

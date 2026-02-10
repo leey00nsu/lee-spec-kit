@@ -24,7 +24,8 @@ Guide for creating Pull Requests.
 npx lee-spec-kit github pr F001 --json
 ```
 
-Use the generated `bodyFile` in JSON output as the PR draft body.
+Use `body` in JSON output as the primary PR draft body.
+If needed, use `bodyFile` as the filesystem source.
 
 | Item     | Format                             |
 | -------- | ---------------------------------- |
@@ -122,8 +123,10 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 Before creating PR, share the following **in a code block** and wait for **explicit approval (OK)**:
 
 - Title
-- Full body draft (from `bodyFile`)
+- Full body draft (from `body`)
 - Labels (at least 1; cannot be empty)
+
+Before approval/create, fill all `TODO` items in the generated draft.
 
 ### 5. Create PR
 

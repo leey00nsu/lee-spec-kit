@@ -17,8 +17,8 @@ import {
   withFileLock,
 } from '../utils/lock.js';
 import {
-  validateSafeName,
-  validateFeatureId,
+  validateSafeNameWithLang,
+  validateFeatureIdWithLang,
   assertValid,
 } from '../utils/validation.js';
 import {
@@ -146,7 +146,11 @@ async function runFeature(
   );
 
   // 기능 이름 검증 (Path Traversal 방지)
-  assertValid(validateSafeName(name), '기능 이름');
+  assertValid(
+    validateSafeNameWithLang(name, lang),
+    tr(lang, 'cli', 'validation.context.featureName'),
+    lang
+  );
 
   if (
     options.repo &&
@@ -209,7 +213,11 @@ async function runFeature(
       // Feature ID 생성
       let featureId: string;
       if (options.id) {
-        assertValid(validateFeatureId(options.id), 'Feature ID');
+        assertValid(
+          validateFeatureIdWithLang(options.id, lang),
+          tr(lang, 'cli', 'validation.context.featureId'),
+          lang
+        );
         featureId = options.id;
       } else {
         featureId = await getNextFeatureId(docsDir, projectType, configuredComponents);
