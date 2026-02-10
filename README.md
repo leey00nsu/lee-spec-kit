@@ -283,18 +283,19 @@ npx lee-spec-kit flow --json
 npx lee-spec-kit github issue F001
 
 # Issue 본문 생성 + 실제 Issue 생성
-npx lee-spec-kit github issue F001 --create --labels enhancement,frontend
+npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement,frontend
 
 # PR 본문 생성
 npx lee-spec-kit github pr F001
 
 # PR 본문 생성 + PR 생성 + tasks.md 메타데이터 동기화 + merge 재시도
-npx lee-spec-kit github pr F001 --create --merge --labels enhancement,frontend
+npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhancement,frontend
 ```
 
 핵심 동작:
 - Issue/PR helper는 필수 섹션과 관련 문서 경로를 검증합니다.
 - 라벨은 최소 1개 이상 필수입니다.
+- `--create`/`--merge`는 원격 작업이므로 `--confirm OK`가 필요합니다.
 - PR helper는 기본적으로 `tasks.md`의 `PR`/`PR Status`를 동기화합니다. (`--no-sync-tasks`로 비활성화)
 - merge 시 head 브랜치가 뒤쳐진 경우 fetch/rebase/force-push 후 재시도합니다.
 

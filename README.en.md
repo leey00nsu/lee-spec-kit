@@ -261,18 +261,19 @@ npx lee-spec-kit flow --json
 npx lee-spec-kit github issue F001
 
 # Generate + create issue
-npx lee-spec-kit github issue F001 --create --labels enhancement,frontend
+npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement,frontend
 
 # Generate PR body
 npx lee-spec-kit github pr F001
 
 # Generate + create PR + sync tasks.md metadata + merge with retry
-npx lee-spec-kit github pr F001 --create --merge --labels enhancement,frontend
+npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhancement,frontend
 ```
 
 Key points:
 - Issue/PR helpers validate required body sections and related docs paths.
 - Labels are validated (at least one required).
+- `--create`/`--merge` are remote operations and require `--confirm OK`.
 - PR helper can sync `tasks.md` PR URL/PR Status automatically (`--no-sync-tasks` to skip).
 - Merge includes retry and automatic head-branch refresh (fetch/rebase/force-push) on out-of-date failures.
 
