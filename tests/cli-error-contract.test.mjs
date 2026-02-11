@@ -221,6 +221,59 @@ async function setMultiFeatureAsDone(dir, component, featureFolderName) {
   await fs.writeFile(path.join(featureDir, 'tasks.md'), tasks, 'utf-8');
 }
 
+async function writeIssueBodyWithoutTodo(bodyFile) {
+  const body = `## Overview
+
+Implemented issue body for remote creation.
+
+## Goals
+
+- [ ] Define explicit user impact.
+- [ ] Define in-scope/out-of-scope.
+
+## Completion Criteria
+
+- [ ] Criteria are testable.
+- [ ] Verification steps are documented.
+
+## Related Documents
+
+- **Spec**: \`docs/features/F001-alpha/spec.md\`
+- **Plan**: \`docs/features/F001-alpha/plan.md\`
+- **Tasks**: \`docs/features/F001-alpha/tasks.md\`
+
+## Labels
+
+- \`enhancement\`
+`;
+  await fs.writeFile(bodyFile, body, 'utf-8');
+}
+
+async function writePrBodyWithoutTodo(bodyFile) {
+  const body = `## Overview
+
+Implemented PR body for remote creation.
+
+## Changes
+
+- [ ] Summarize main implementation changes.
+- [ ] Summarize migration/impact.
+
+## Tests
+
+### Tests Run
+
+- [ ] \`pnpm test\` — PASS
+- [ ] Manual verification completed.
+
+## Related Documents
+
+- **Spec**: \`docs/features/F001-alpha/spec.md\`
+- **Tasks**: \`docs/features/F001-alpha/tasks.md\`
+`;
+  await fs.writeFile(bodyFile, body, 'utf-8');
+}
+
 test('init --non-interactive works with explicit flags without --yes', async () => {
   await withTempDir('lsk-init-noninteractive-', async (dir) => {
     const result = await runCli(dir, [
@@ -406,7 +459,18 @@ test('github issue --create requires --confirm OK', async () => {
     const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
-    const result = await runCli(dir, ['github', 'issue', 'F001-alpha', '--create', '--json']);
+    const bodyFile = path.join(dir, 'tmp-issue-body.md');
+    await writeIssueBodyWithoutTodo(bodyFile);
+
+    const result = await runCli(dir, [
+      'github',
+      'issue',
+      'F001-alpha',
+      '--create',
+      '--body-file',
+      bodyFile,
+      '--json',
+    ]);
     assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
@@ -435,10 +499,23 @@ test('github issue --create succeeds with --confirm OK', async () => {
     const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
+    const bodyFile = path.join(dir, 'tmp-issue-body.md');
+    await writeIssueBodyWithoutTodo(bodyFile);
+
     const fakeGh = await setupFakeGhCli(dir);
     const result = await runCli(
       dir,
-      ['github', 'issue', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      [
+        'github',
+        'issue',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
       fakeGh.env
     );
     assert.equal(result.code, 0, result.stderr || result.stdout);
@@ -449,6 +526,44 @@ test('github issue --create succeeds with --confirm OK', async () => {
 
     const log = await fs.readFile(fakeGh.logPath, 'utf-8');
     assert.match(log, /^issue create /m);
+  });
+});
+
+test('github issue --create blocks TODO placeholders even with approval', async () => {
+  await withTempDir('lsk-github-issue-todo-block-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      ['github', 'issue', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(payload.error, /TODO placeholders/i);
+
+    const logExists = await pathExists(fakeGh.logPath);
+    assert.equal(logExists, false);
   });
 });
 
@@ -592,6 +707,9 @@ test('github issue/pr drafts derive overview from spec and keep TODO sections', 
     assert.match(issuePayload.body, /Allow users to sign in with email and password\./);
     assert.match(issuePayload.body, /- \[ \] TODO: Fill concrete goals based on spec\.md\./);
     assert.match(issuePayload.body, /- \[ \] TODO: Define verifiable completion criteria\./);
+    assert.match(issuePayload.body, /`docs\/features\/F001-alpha\/spec\.md`/);
+    assert.match(issuePayload.body, /`docs\/features\/F001-alpha\/plan\.md`/);
+    assert.match(issuePayload.body, /`docs\/features\/F001-alpha\/tasks\.md`/);
     assert.doesNotMatch(issuePayload.body, /Finalize feature scope and implementation outcome/);
 
     const prResult = await runCli(dir, ['github', 'pr', 'F001-alpha', '--json']);
@@ -602,6 +720,8 @@ test('github issue/pr drafts derive overview from spec and keep TODO sections', 
     assert.match(prPayload.body, /Allow users to sign in with email and password\./);
     assert.match(prPayload.body, /- \[ \] TODO: Summarize key code changes in this PR\./);
     assert.match(prPayload.body, /- \[ \] TODO: `<test command>` — PASS\/FAIL/);
+    assert.match(prPayload.body, /`docs\/features\/F001-alpha\/spec\.md`/);
+    assert.match(prPayload.body, /`docs\/features\/F001-alpha\/tasks\.md`/);
     assert.doesNotMatch(prPayload.body, /Deliver implementation for the feature scope/);
   });
 });
@@ -683,11 +803,60 @@ test('github pr --create requires --confirm OK', async () => {
     const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
-    const result = await runCli(dir, ['github', 'pr', 'F001-alpha', '--create', '--json']);
+    const bodyFile = path.join(dir, 'tmp-pr-body.md');
+    await writePrBodyWithoutTodo(bodyFile);
+
+    const result = await runCli(dir, [
+      'github',
+      'pr',
+      'F001-alpha',
+      '--create',
+      '--body-file',
+      bodyFile,
+      '--json',
+    ]);
     assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('github pr --create blocks TODO placeholders even with approval', async () => {
+  await withTempDir('lsk-github-pr-todo-block-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(payload.error, /TODO placeholders/i);
+
+    const logExists = await pathExists(fakeGh.logPath);
+    assert.equal(logExists, false);
   });
 });
 

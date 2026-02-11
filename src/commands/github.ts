@@ -137,6 +137,7 @@ type GithubTextKey =
   | 'syncCommitNoIssue'
   | 'syncCommitWithIssue'
   | 'tasksNotFound'
+  | 'todoPlaceholdersRemain'
   | 'worktreeNotClean';
 
 function tg(
@@ -356,6 +357,36 @@ function toBodyFilePath(
   return path.resolve(selected);
 }
 
+function toProjectRootDocsPath(relativePathFromDocs: string): string {
+  const normalized = relativePathFromDocs
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '')
+    .replace(/^\/+/, '');
+  if (normalized.startsWith('docs/')) return normalized;
+  return `docs/${normalized}`;
+}
+
+function toBodyDocPaths(
+  paths: ReturnType<typeof getFeatureDocPaths>
+): ReturnType<typeof getFeatureDocPaths> {
+  return {
+    ...paths,
+    specPath: toProjectRootDocsPath(paths.specPath),
+    planPath: toProjectRootDocsPath(paths.planPath),
+    tasksPath: toProjectRootDocsPath(paths.tasksPath),
+  };
+}
+
+const TODO_PLACEHOLDER_PATTERN = /(^|\n)\s*-\s*\[[ xX]\]\s*TODO:/m;
+
+function ensureNoTodoPlaceholders(body: string, kind: string, lang: Lang): void {
+  if (!TODO_PLACEHOLDER_PATTERN.test(body)) return;
+  throw createCliError(
+    'PRECONDITION_FAILED',
+    tg(lang, 'todoPlaceholdersRemain', { kind })
+  );
+}
+
 async function resolveFeatureOrThrow(
   featureName: string | undefined,
   options: ContextSelectionOptions,
@@ -480,6 +511,7 @@ function buildIssueBody(
   paths: ReturnType<typeof getFeatureDocPaths>,
   lang: Lang
 ): string {
+  const bodyPaths = toBodyDocPaths(paths);
   if (lang === 'ko') {
     return `## 개요
 
@@ -497,9 +529,9 @@ ${overview}
 
 ## 관련 문서
 
-- **Spec**: \`${paths.specPath}\`
-- **Plan**: \`${paths.planPath}\`
-- **Tasks**: \`${paths.tasksPath}\`
+- **Spec**: \`${bodyPaths.specPath}\`
+- **Plan**: \`${bodyPaths.planPath}\`
+- **Tasks**: \`${bodyPaths.tasksPath}\`
 
 ## 라벨
 
@@ -523,9 +555,9 @@ ${overview}
 
 ## Related Documents
 
-- **Spec**: \`${paths.specPath}\`
-- **Plan**: \`${paths.planPath}\`
-- **Tasks**: \`${paths.tasksPath}\`
+- **Spec**: \`${bodyPaths.specPath}\`
+- **Plan**: \`${bodyPaths.planPath}\`
+- **Tasks**: \`${bodyPaths.tasksPath}\`
 
 ## Labels
 
@@ -539,6 +571,7 @@ function buildPrBody(
   paths: ReturnType<typeof getFeatureDocPaths>,
   lang: Lang
 ): string {
+  const bodyPaths = toBodyDocPaths(paths);
   const closes = feature.issueNumber ? `\nCloses #${feature.issueNumber}\n` : '\n';
   if (lang === 'ko') {
     return `## 개요
@@ -559,8 +592,8 @@ ${overview}
 
 ## 관련 문서
 
-- **Spec**: \`${paths.specPath}\`
-- **Tasks**: \`${paths.tasksPath}\`${closes}`;
+- **Spec**: \`${bodyPaths.specPath}\`
+- **Tasks**: \`${bodyPaths.tasksPath}\`${closes}`;
   }
 
   return `## Overview
@@ -581,8 +614,8 @@ ${overview}
 
 ## Related Documents
 
-- **Spec**: \`${paths.specPath}\`
-- **Tasks**: \`${paths.tasksPath}\`${closes}`;
+- **Spec**: \`${bodyPaths.specPath}\`
+- **Tasks**: \`${bodyPaths.tasksPath}\`${closes}`;
 }
 
 function getRequiredIssueSections(lang: Lang): string[] {
@@ -886,9 +919,9 @@ export function githubCommand(program: Command): void {
             slug: feature.slug,
             folder: feature.folderName,
           });
-        const body = buildIssueBody(overview, labels, paths, config.lang);
+        const generatedBody = buildIssueBody(overview, labels, paths, config.lang);
         ensureSections(
-          body,
+          generatedBody,
           getRequiredIssueSections(config.lang),
           tg(config.lang, 'kindIssue'),
           config.lang
@@ -900,11 +933,24 @@ export function githubCommand(program: Command): void {
           config.docsDir,
           feature.type
         );
-        await fs.ensureDir(path.dirname(bodyFile));
-        await fs.writeFile(bodyFile, body, 'utf-8');
+        const explicitBodyFile = (options.bodyFile || '').trim();
+        let body = generatedBody;
+        if (options.create && explicitBodyFile && (await fs.pathExists(bodyFile))) {
+          body = await fs.readFile(bodyFile, 'utf-8');
+          ensureSections(
+            body,
+            getRequiredIssueSections(config.lang),
+            tg(config.lang, 'kindIssue'),
+            config.lang
+          );
+        } else {
+          await fs.ensureDir(path.dirname(bodyFile));
+          await fs.writeFile(bodyFile, generatedBody, 'utf-8');
+        }
 
         let issueUrl: string | undefined;
         if (options.create) {
+          ensureNoTodoPlaceholders(body, tg(config.lang, 'kindIssue'), config.lang);
           assertRemoteApproval(
             options.confirm,
             tg(config.lang, 'operationIssueCreate'),
@@ -1031,9 +1077,9 @@ export function githubCommand(program: Command): void {
               slug: feature.slug,
             });
         const title = options.title?.trim() || defaultTitle;
-        const body = buildPrBody(feature, overview, paths, config.lang);
+        const generatedBody = buildPrBody(feature, overview, paths, config.lang);
         ensureSections(
-          body,
+          generatedBody,
           getRequiredPrSections(config.lang),
           tg(config.lang, 'kindPr'),
           config.lang
@@ -1045,8 +1091,20 @@ export function githubCommand(program: Command): void {
           config.docsDir,
           feature.type
         );
-        await fs.ensureDir(path.dirname(bodyFile));
-        await fs.writeFile(bodyFile, body, 'utf-8');
+        const explicitBodyFile = (options.bodyFile || '').trim();
+        let body = generatedBody;
+        if (options.create && explicitBodyFile && (await fs.pathExists(bodyFile))) {
+          body = await fs.readFile(bodyFile, 'utf-8');
+          ensureSections(
+            body,
+            getRequiredPrSections(config.lang),
+            tg(config.lang, 'kindPr'),
+            config.lang
+          );
+        } else {
+          await fs.ensureDir(path.dirname(bodyFile));
+          await fs.writeFile(bodyFile, generatedBody, 'utf-8');
+        }
 
         const retryCount = toRetryCount(options.retry, config.lang);
         let prUrl = options.pr?.trim() || '';
@@ -1054,6 +1112,7 @@ export function githubCommand(program: Command): void {
         let syncChanged = false;
 
         if (options.create) {
+          ensureNoTodoPlaceholders(body, tg(config.lang, 'kindPr'), config.lang);
           assertRemoteApproval(
             options.confirm,
             tg(config.lang, 'operationPrCreate'),

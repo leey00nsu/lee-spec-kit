@@ -223,6 +223,8 @@ const I18N: Record<Lang, I18nData> = {
       'github.ghEmptyJson': 'GitHub CLI JSON 출력이 비어 있습니다.',
       'github.ghInvalidJson': 'GitHub CLI JSON 파싱에 실패했습니다: {snippet}',
       'github.sectionsMissing': '{kind} 본문에 필수 섹션이 없습니다: {sections}',
+      'github.todoPlaceholdersRemain':
+        '{kind} 본문에 TODO 항목이 남아 있습니다. 목표/완료 기준 등을 채운 뒤 다시 실행하세요.',
       'github.docsMissing': '관련 문서 경로가 존재하지 않습니다: {paths}',
       'github.noFeatures': 'Feature를 찾을 수 없습니다.',
       'github.multipleFeaturesMatched':
@@ -709,6 +711,8 @@ const I18N: Record<Lang, I18nData> = {
       'github.ghEmptyJson': 'GitHub CLI returned empty JSON output.',
       'github.ghInvalidJson': 'GitHub CLI returned invalid JSON: {snippet}',
       'github.sectionsMissing': '{kind} body is missing required sections: {sections}',
+      'github.todoPlaceholdersRemain':
+        '{kind} body still contains TODO placeholders. Fill goals/completion criteria before creating remotely.',
       'github.docsMissing': 'Related document paths do not exist: {paths}',
       'github.noFeatures': 'No features found.',
       'github.multipleFeaturesMatched':
