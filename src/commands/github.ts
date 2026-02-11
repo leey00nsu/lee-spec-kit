@@ -490,6 +490,30 @@ async function resolveFeatureOrThrow(
   return { config, feature: state.matchedFeature };
 }
 
+function resolveGithubProjectCwd(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  feature: FeatureContext
+): string {
+  const projectGitCwd = (feature.git.projectGitCwd || '').trim();
+  if (projectGitCwd) return projectGitCwd;
+  if (config.docsRepo === 'standalone') {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      tr(config.lang, 'messages', 'standaloneNeedsProjectRoot')
+    );
+  }
+  return process.cwd();
+}
+
+function resolveGithubDocsCwd(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  feature: FeatureContext
+): string {
+  const docsGitCwd = (feature.git.docsGitCwd || '').trim();
+  if (docsGitCwd) return docsGitCwd;
+  return config.docsDir;
+}
+
 function getFeatureDocPaths(feature: FeatureContext): {
   featurePathFromDocs: string;
   specPath: string;
@@ -602,7 +626,7 @@ function uniqItems(items: string[]): string[] {
 function normalizeSemanticKey(value: string): string {
   return value
     .toLowerCase()
-    .replace(/[`'"(){}\[\].,:;!?/\\\-_|]/g, ' ')
+    .replace(/[`\]\u005B'"(){}.,:;!?/\\_|-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\s/g, '');
@@ -1661,6 +1685,7 @@ export function githubCommand(program: Command): void {
 
         let issueUrl: string | undefined;
         if (options.create) {
+          const projectGitCwd = resolveGithubProjectCwd(config, feature);
           ensureNoTodoPlaceholders(body, tg(config.lang, 'kindIssue'), config.lang);
           assertRemoteApproval(
             options.confirm,
@@ -1683,7 +1708,7 @@ export function githubCommand(program: Command): void {
           const created = runProcessOrThrow(
             'gh',
             args,
-            process.cwd(),
+            projectGitCwd,
             tg(config.lang, 'createIssueFailed')
           );
           issueUrl = created.stdout.trim() || undefined;
@@ -1840,6 +1865,7 @@ export function githubCommand(program: Command): void {
         let syncChanged = false;
 
         if (options.create) {
+          const projectGitCwd = resolveGithubProjectCwd(config, feature);
           ensureNoTodoPlaceholders(body, tg(config.lang, 'kindPr'), config.lang);
           ensurePrArtifacts(body, artifactPolicy, config.lang);
           assertRemoteApproval(
@@ -1865,7 +1891,7 @@ export function githubCommand(program: Command): void {
           const created = runProcessOrThrow(
             'gh',
             args,
-            process.cwd(),
+            projectGitCwd,
             tg(config.lang, 'createPrFailed')
           );
           prUrl = created.stdout.trim();
@@ -1896,6 +1922,7 @@ export function githubCommand(program: Command): void {
           syncChanged = synced.changed;
           const shouldCommitSync = !!options.commitSync || !!options.merge;
           if (syncChanged && shouldCommitSync) {
+            const docsGitCwd = resolveGithubDocsCwd(config, feature);
             const message = feature.issueNumber
               ? tg(config.lang, 'syncCommitWithIssue', {
                   issue: feature.issueNumber,
@@ -1905,7 +1932,7 @@ export function githubCommand(program: Command): void {
                   folder: feature.folderName,
                 });
             commitAndPushPath(
-              process.cwd(),
+              docsGitCwd,
               synced.path,
               message,
               config.lang
@@ -1914,20 +1941,26 @@ export function githubCommand(program: Command): void {
         }
 
         if (options.merge) {
-          const merged = mergePrWithRetry(prUrl, process.cwd(), retryCount, config.lang);
+          const projectGitCwd = resolveGithubProjectCwd(config, feature);
+          const merged = mergePrWithRetry(
+            prUrl,
+            projectGitCwd,
+            retryCount,
+            config.lang
+          );
           mergedAttempts = merged.attempts;
 
           const baseBranch = options.base || 'main';
           runProcessOrThrow(
             'git',
             ['checkout', baseBranch],
-            process.cwd(),
+            projectGitCwd,
             tg(config.lang, 'checkoutBaseAfterMergeFailed', { base: baseBranch })
           );
           runProcessOrThrow(
             'git',
             ['pull', '--rebase', 'origin', baseBranch],
-            process.cwd(),
+            projectGitCwd,
             tg(config.lang, 'pullBaseAfterMergeFailed', { base: baseBranch })
           );
         }

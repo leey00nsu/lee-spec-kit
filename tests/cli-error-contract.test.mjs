@@ -79,14 +79,24 @@ async function pathExists(filePath) {
   }
 }
 
+async function normalizePathForCompare(filePath) {
+  try {
+    return await fs.realpath(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
+}
+
 async function setupFakeGhCli(dir) {
   const binDir = path.join(dir, 'fake-bin');
   const logPath = path.join(dir, 'gh-invocations.log');
+  const cwdLogPath = path.join(dir, 'gh-cwd.log');
   const scriptPath = path.join(binDir, 'gh');
   await fs.mkdir(binDir, { recursive: true });
   await fs.writeFile(
     scriptPath,
     `#!/usr/bin/env bash
+echo "$PWD" >> "${cwdLogPath}"
 echo "$@" >> "${logPath}"
 if [ "$1" = "issue" ] && [ "$2" = "create" ]; then
   echo "https://github.com/acme/repo/issues/123"
@@ -111,6 +121,7 @@ exit 0
   await fs.chmod(scriptPath, 0o755);
   return {
     logPath,
+    cwdLogPath,
     env: {
       PATH: `${binDir}:${process.env.PATH || ''}`,
     },
@@ -529,6 +540,73 @@ test('github issue --create succeeds with --confirm OK', async () => {
   });
 });
 
+test('github issue --create runs gh from standalone project root', async () => {
+  await withTempDir('lsk-github-issue-standalone-cwd-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs-repo');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRoot, { recursive: true });
+
+    const initResult = await runCli(docsRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      projectRoot,
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(docsRoot, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(docsRoot, 'tmp-issue-body.md');
+    await writeIssueBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      docsRoot,
+      [
+        'github',
+        'issue',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'ISSUE_CREATED');
+
+    const cwdLog = await fs.readFile(fakeGh.cwdLogPath, 'utf-8');
+    const invocations = cwdLog
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const normalizedInvocations = await Promise.all(
+      invocations.map((invocation) => normalizePathForCompare(invocation))
+    );
+    const expectedCwd = await normalizePathForCompare(projectRoot);
+    assert.deepEqual([...new Set(normalizedInvocations)], [expectedCwd]);
+  });
+});
+
 test('github issue --create blocks TODO placeholders even with approval', async () => {
   await withTempDir('lsk-github-issue-todo-block-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -908,6 +986,73 @@ test('github pr --create requires --confirm OK', async () => {
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('github pr --create runs gh from standalone project root', async () => {
+  await withTempDir('lsk-github-pr-standalone-cwd-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs-repo');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRoot, { recursive: true });
+
+    const initResult = await runCli(docsRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      projectRoot,
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(docsRoot, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(docsRoot, 'tmp-pr-body.md');
+    await writePrBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      docsRoot,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
+
+    const cwdLog = await fs.readFile(fakeGh.cwdLogPath, 'utf-8');
+    const invocations = cwdLog
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const normalizedInvocations = await Promise.all(
+      invocations.map((invocation) => normalizePathForCompare(invocation))
+    );
+    const expectedCwd = await normalizePathForCompare(projectRoot);
+    assert.deepEqual([...new Set(normalizedInvocations)], [expectedCwd]);
   });
 });
 
