@@ -87,6 +87,7 @@ export interface FeatureState {
     done: number;
   };
   activeTask?: TaskRef;
+  lastDoneTask?: TaskRef;
   nextTodoTask?: TaskRef;
   completionChecklist?: CompletionChecklistSummary;
   prePrReview: {

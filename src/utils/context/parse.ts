@@ -198,10 +198,12 @@ async function resolveComponentStatusPaths(
 function parseTasks(content: string): {
   summary: FeatureState['tasks'];
   activeTask?: TaskRef;
+  lastDoneTask?: TaskRef;
   nextTodoTask?: TaskRef;
 } {
   const summary = { total: 0, todo: 0, doing: 0, done: 0 };
   let activeTask: TaskRef | undefined;
+  let lastDoneTask: TaskRef | undefined;
   let nextTodoTask: TaskRef | undefined;
 
   const lines = content.split('\n');
@@ -228,12 +230,15 @@ function parseTasks(content: string): {
     if (!activeTask && (status === 'DOING' || status === 'REVIEW')) {
       activeTask = { status: status as TaskRef['status'], title };
     }
+    if (status === 'DONE') {
+      lastDoneTask = { status: 'DONE', title };
+    }
     if (!nextTodoTask && status === 'TODO') {
       nextTodoTask = { status: 'TODO', title };
     }
   }
 
-  return { summary, activeTask, nextTodoTask };
+  return { summary, activeTask, lastDoneTask, nextTodoTask };
 }
 
 function parseCompletionChecklist(content: string): CompletionChecklistSummary | undefined {
@@ -337,6 +342,7 @@ export async function parseFeature(
   const tasksExists = await fs.pathExists(tasksPath);
   const tasksSummary = { total: 0, todo: 0, doing: 0, done: 0 };
   let activeTask: TaskRef | undefined;
+  let lastDoneTask: TaskRef | undefined;
   let nextTodoTask: TaskRef | undefined;
   let tasksDocStatus: DocStatus | undefined;
   let tasksDocStatusFieldExists = false;
@@ -350,12 +356,18 @@ export async function parseFeature(
 
   if (tasksExists) {
     const content = await fs.readFile(tasksPath, 'utf-8');
-    const { summary, activeTask: active, nextTodoTask: nextTodo } = parseTasks(content);
+    const {
+      summary,
+      activeTask: active,
+      lastDoneTask: lastDone,
+      nextTodoTask: nextTodo,
+    } = parseTasks(content);
     tasksSummary.total = summary.total;
     tasksSummary.todo = summary.todo;
     tasksSummary.doing = summary.doing;
     tasksSummary.done = summary.done;
     activeTask = active;
+    lastDoneTask = lastDone;
     nextTodoTask = nextTodo;
     completionChecklist = parseCompletionChecklist(content);
 
@@ -587,6 +599,7 @@ export async function parseFeature(
     tasksDocStatus,
     tasks: tasksSummary,
     activeTask,
+    lastDoneTask,
     nextTodoTask,
     completionChecklist,
     prePrReview: {

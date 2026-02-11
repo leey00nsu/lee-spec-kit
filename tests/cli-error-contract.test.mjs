@@ -2341,7 +2341,10 @@ test('context requires project commit before starting next TODO task', async () 
     assert.equal(payload.actionOptions[0].action.type, 'command');
     assert.equal(payload.actionOptions[0].action.scope, 'project');
     assert.equal(payload.actionOptions[0].action.category, 'task_execute');
-    assert.match(payload.actionOptions[0].action.cmd, /git add -A && git commit -m "feat:/);
+    assert.doesNotMatch(payload.actionOptions[0].action.cmd, /git add -A/);
+    assert.match(payload.actionOptions[0].action.cmd, /git diff --cached --quiet/);
+    assert.match(payload.actionOptions[0].action.cmd, /git commit -m "feat\([^"]+\): /);
+    assert.match(payload.actionOptions[0].action.cmd, /feat\(F001-alpha\): alpha/);
   });
 });
 
@@ -2575,6 +2578,100 @@ test('parallel context execution is serialized and both commands succeed', async
     const p2 = JSON.parse(r2.stdout.trim());
     assert.equal(p1.status, 'approved_executed');
     assert.equal(p2.status, 'approved_executed');
+  });
+});
+
+test('context --execute uses staged-only project commit and never stages internal lock', async () => {
+  await withTempDir('lsk-context-project-lock-not-staged-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(dir, 'git', ['commit', '-m', 'docs: setup F001']);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(path.join(dir, 'app.txt'), 'dirty project change\n', 'utf-8');
+
+    const contextResult = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(contextResult.code, 0, contextResult.stderr || contextResult.stdout);
+    const contextPayload = JSON.parse(contextResult.stdout.trim());
+    assert.equal(
+      contextPayload.actionOptions.some(
+        (option) =>
+          option?.action?.type === 'command' &&
+          /git diff --cached --quiet/.test(String(option?.action?.cmd || ''))
+      ),
+      true
+    );
+    assert.equal(
+      contextPayload.actionOptions.some((option) =>
+        /git add -A/.test(String(option?.action?.cmd || ''))
+      ),
+      false
+    );
+
+    const stageProjectFile = await runCommand(dir, 'git', ['add', 'app.txt']);
+    assert.equal(
+      stageProjectFile.code,
+      0,
+      stageProjectFile.stderr || stageProjectFile.stdout
+    );
+
+    const execute = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--json',
+    ]);
+    assert.equal(execute.code, 0, execute.stderr || execute.stdout);
+    const execPayload = JSON.parse(execute.stdout.trim());
+    assert.equal(execPayload.status, 'approved_executed');
+
+    const status = await runCommand(dir, 'git', ['status', '--porcelain']);
+    assert.equal(status.code, 0, status.stderr || status.stdout);
+    assert.doesNotMatch(status.stdout, /\.lee-spec-kit\.project\.lock/);
+
+    const headFiles = await runCommand(dir, 'git', [
+      'show',
+      '--name-only',
+      '--pretty=format:',
+      'HEAD',
+    ]);
+    assert.equal(headFiles.code, 0, headFiles.stderr || headFiles.stdout);
+    assert.doesNotMatch(headFiles.stdout, /\.lee-spec-kit\.project\.lock/);
   });
 });
 

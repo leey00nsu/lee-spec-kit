@@ -445,9 +445,9 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs: {folderName} 문서 업데이트"',
       projectCommitIssueUpdate:
-        'cd "{projectGitCwd}" && git add -A && git commit -m "feat(#{issueNumber}): {folderName} 구현 업데이트"',
+        'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 이번 태스크에서 수정한 파일만 선택해 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "feat(#{issueNumber}): {commitTopic}")',
       projectCommitUpdate:
-        'cd "{projectGitCwd}" && git add -A && git commit -m "feat: {folderName} 구현 업데이트"',
+        'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 이번 태스크에서 수정한 파일만 선택해 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "feat({folderName}): {commitTopic}")',
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -965,9 +965,9 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs: {folderName} docs update"',
       projectCommitIssueUpdate:
-        'cd "{projectGitCwd}" && git add -A && git commit -m "feat(#{issueNumber}): {folderName} implementation update"',
+        'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files changed in this task with git add [files], then run again." && exit 1 || git commit -m "feat(#{issueNumber}): {commitTopic}")',
       projectCommitUpdate:
-        'cd "{projectGitCwd}" && git add -A && git commit -m "feat: {folderName} implementation update"',
+        'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files changed in this task with git add [files], then run again." && exit 1 || git commit -m "feat({folderName}): {commitTopic}")',
       standaloneNeedsProjectRoot:
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:

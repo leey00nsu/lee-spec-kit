@@ -64,6 +64,32 @@ function getFindingsPolicyText(lang: Lang, blockOnFindings: boolean): string {
     : tr(lang, 'messages', 'prePrReviewFindingsWarn');
 }
 
+function normalizeCommitTopicText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function toShellSafeCommitTopic(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, '\\$')
+    .replace(/`/g, '\\`');
+}
+
+function resolveProjectCommitTopic(feature: FeatureState): string {
+  const raw =
+    feature.activeTask?.title ||
+    feature.lastDoneTask?.title ||
+    feature.nextTodoTask?.title ||
+    feature.folderName;
+  const withoutTaskId = normalizeCommitTopicText(raw).replace(
+    /^T-[A-Za-z0-9-]+\s+/,
+    ''
+  );
+  const topic = withoutTaskId || normalizeCommitTopicText(feature.folderName);
+  return toShellSafeCommitTopic(topic);
+}
+
 export function getStepDefinitions(
   lang: Lang,
   workflow?: ProjectConfig['workflow']
@@ -463,10 +489,12 @@ export function getStepDefinitions(
                         projectGitCwd: f.git.projectGitCwd,
                         issueNumber: f.issueNumber,
                         folderName: f.folderName,
+                        commitTopic: resolveProjectCommitTopic(f),
                       })
                     : tr(lang, 'messages', 'projectCommitUpdate', {
                         projectGitCwd: f.git.projectGitCwd,
                         folderName: f.folderName,
+                        commitTopic: resolveProjectCommitTopic(f),
                       }),
                 },
               ];
@@ -556,10 +584,12 @@ export function getStepDefinitions(
                     projectGitCwd: f.git.projectGitCwd,
                     issueNumber: f.issueNumber,
                     folderName: f.folderName,
+                    commitTopic: resolveProjectCommitTopic(f),
                   })
                 : tr(lang, 'messages', 'projectCommitUpdate', {
                     projectGitCwd: f.git.projectGitCwd,
                     folderName: f.folderName,
+                    commitTopic: resolveProjectCommitTopic(f),
                   }),
             },
           ];
