@@ -136,6 +136,13 @@ function uniqueNormalizedPaths(values: string[]): string[] {
   return out;
 }
 
+const PROJECT_DIRTY_STATUS_CACHE = new Map<
+  string,
+  { hasUncommittedChanges: boolean; statusUnavailable: boolean }
+>();
+
+const COMPONENT_STATUS_PATH_CACHE = new Map<string, string[]>();
+
 async function resolveComponentStatusPaths(
   projectGitCwd: string,
   component: string,
@@ -170,12 +177,21 @@ async function resolveComponentStatusPaths(
       .filter(Boolean)
   );
 
+  const cacheKey = JSON.stringify({
+    projectGitCwd,
+    component,
+    normalizedCandidates,
+  });
+  const cached = COMPONENT_STATUS_PATH_CACHE.get(cacheKey);
+  if (cached) return [...cached];
+
   const existing: string[] = [];
   for (const candidate of normalizedCandidates) {
     if (await fs.pathExists(path.join(projectGitCwd, candidate))) {
       existing.push(candidate);
     }
   }
+  COMPONENT_STATUS_PATH_CACHE.set(cacheKey, [...existing]);
   return existing;
 }
 
@@ -269,6 +285,12 @@ export async function parseFeature(
     projectGitCwd?: string;
     docsDir: string;
     projectBranchAvailable: boolean;
+    docsPathIgnored?: boolean;
+    docsHasUncommittedChanges?: boolean;
+    docsEverCommitted?: boolean;
+    docsGitUnavailable?: boolean;
+    projectHasUncommittedChanges?: boolean;
+    projectStatusUnavailable?: boolean;
   },
   options: {
     lang: Lang;
@@ -378,49 +400,101 @@ export async function parseFeature(
   );
 
   const relativeFeaturePathFromDocs = path.relative(context.docsDir, featurePath);
-  const docsPathIgnored = isGitPathIgnored(
-    context.docsGitCwd,
-    relativeFeaturePathFromDocs
-  );
-  const docsStatus = getGitStatusPorcelain(context.docsGitCwd, [relativeFeaturePathFromDocs]);
-  const docsHasUncommittedChanges = docsStatus === undefined ? true : docsStatus.trim().length > 0;
-  const dirtyScopePolicy = resolveCodeDirtyScopePolicy(options.workflow, options.projectType);
-  let projectStatusPaths: string[] = [];
-  if (context.projectGitCwd) {
-    if (dirtyScopePolicy === 'component' && type !== 'single') {
-      const componentStatusPaths = await resolveComponentStatusPaths(
-        context.projectGitCwd,
-        type,
-        options.workflow
-      );
-      projectStatusPaths =
-        componentStatusPaths.length > 0
-          ? componentStatusPaths
-          : resolveProjectStatusPaths(context.projectGitCwd, context.docsDir);
+  const normalizedFeaturePathFromDocs = normalizeGitPath(relativeFeaturePathFromDocs);
+  const docsPathIgnored =
+    typeof context.docsPathIgnored === 'boolean'
+      ? context.docsPathIgnored
+      : isGitPathIgnored(context.docsGitCwd, normalizedFeaturePathFromDocs);
+
+  let docsHasUncommittedChanges =
+    typeof context.docsHasUncommittedChanges === 'boolean'
+      ? context.docsHasUncommittedChanges
+      : false;
+  let docsEverCommitted =
+    typeof context.docsEverCommitted === 'boolean'
+      ? context.docsEverCommitted
+      : false;
+  let docsGitUnavailable = !!context.docsGitUnavailable;
+
+  if (typeof context.docsHasUncommittedChanges !== 'boolean') {
+    const docsStatus = getGitStatusPorcelain(context.docsGitCwd, [normalizedFeaturePathFromDocs]);
+    if (docsStatus === undefined) {
+      docsGitUnavailable = true;
+      docsHasUncommittedChanges = true;
     } else {
-      projectStatusPaths = resolveProjectStatusPaths(
-        context.projectGitCwd,
-        context.docsDir
-      );
+      docsHasUncommittedChanges = docsStatus.trim().length > 0;
     }
   }
-  const projectStatus = context.projectGitCwd
-    ? getGitStatusPorcelain(context.projectGitCwd, projectStatusPaths)
-    : undefined;
-  const projectHasUncommittedChanges =
-    projectStatus === undefined ? false : projectStatus.trim().length > 0;
-  const docsLastCommit = getLastCommitForPath(
-    context.docsGitCwd,
-    relativeFeaturePathFromDocs
-  );
-  const docsEverCommitted = !!docsLastCommit;
-  if (docsStatus === undefined) {
+
+  if (typeof context.docsEverCommitted !== 'boolean') {
+    const docsLastCommit = getLastCommitForPath(
+      context.docsGitCwd,
+      normalizedFeaturePathFromDocs
+    );
+    docsEverCommitted = !!docsLastCommit;
+  }
+
+  let projectHasUncommittedChanges =
+    typeof context.projectHasUncommittedChanges === 'boolean'
+      ? context.projectHasUncommittedChanges
+      : false;
+  let projectStatusUnavailable = !!context.projectStatusUnavailable;
+
+  if (
+    typeof context.projectHasUncommittedChanges !== 'boolean' &&
+    context.projectGitCwd
+  ) {
+    const dirtyScopePolicy = resolveCodeDirtyScopePolicy(options.workflow, options.projectType);
+    const projectCacheKey = JSON.stringify({
+      projectGitCwd: context.projectGitCwd,
+      docsDir: context.docsDir,
+      type,
+      dirtyScopePolicy,
+      componentPaths: options.workflow?.componentPaths?.[type] || [],
+    });
+    const cachedStatus = PROJECT_DIRTY_STATUS_CACHE.get(projectCacheKey);
+    if (cachedStatus) {
+      projectHasUncommittedChanges = cachedStatus.hasUncommittedChanges;
+      projectStatusUnavailable = cachedStatus.statusUnavailable;
+    } else {
+      let projectStatusPaths: string[] = [];
+      if (dirtyScopePolicy === 'component' && type !== 'single') {
+        const componentStatusPaths = await resolveComponentStatusPaths(
+          context.projectGitCwd,
+          type,
+          options.workflow
+        );
+        projectStatusPaths =
+          componentStatusPaths.length > 0
+            ? componentStatusPaths
+            : resolveProjectStatusPaths(context.projectGitCwd, context.docsDir);
+      } else {
+        projectStatusPaths = resolveProjectStatusPaths(
+          context.projectGitCwd,
+          context.docsDir
+        );
+      }
+      const projectStatus = getGitStatusPorcelain(
+        context.projectGitCwd,
+        projectStatusPaths
+      );
+      projectStatusUnavailable = projectStatus === undefined;
+      projectHasUncommittedChanges =
+        projectStatus === undefined ? false : projectStatus.trim().length > 0;
+      PROJECT_DIRTY_STATUS_CACHE.set(projectCacheKey, {
+        hasUncommittedChanges: projectHasUncommittedChanges,
+        statusUnavailable: projectStatusUnavailable,
+      });
+    }
+  }
+
+  if (docsGitUnavailable) {
     warnings.push(tr(lang, 'warnings', 'docsGitUnavailable'));
   }
   if (docsPathIgnored === true) {
     warnings.push(
       tr(lang, 'warnings', 'docsPathIgnored', {
-        path: relativeFeaturePathFromDocs,
+        path: normalizedFeaturePathFromDocs,
       })
     );
   }

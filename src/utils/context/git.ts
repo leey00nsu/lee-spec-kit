@@ -33,6 +33,78 @@ export function getGitStatusPorcelain(
   }
 }
 
+function normalizeInputPath(value: string): string {
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function toUniqueNormalizedPaths(relativePaths: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of relativePaths) {
+    const normalized = normalizeInputPath(value);
+    if (!normalized) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+export function getTrackedGitPaths(
+  cwd: string,
+  relativePaths: string[]
+): Set<string> | undefined {
+  const inputs = toUniqueNormalizedPaths(relativePaths);
+  if (inputs.length === 0) return new Set<string>();
+  try {
+    const out = execFileSync('git', ['ls-files', '--', ...inputs], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return new Set(
+      out
+        .split('\n')
+        .map((line) => normalizeInputPath(line))
+        .filter(Boolean)
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+export function getIgnoredGitPaths(
+  cwd: string,
+  relativePaths: string[]
+): Set<string> | undefined {
+  const inputs = toUniqueNormalizedPaths(relativePaths);
+  if (inputs.length === 0) return new Set<string>();
+
+  try {
+    const out = execFileSync('git', ['check-ignore', '--stdin'], {
+      cwd,
+      encoding: 'utf-8',
+      input: `${inputs.join('\n')}\n`,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return new Set(
+      out
+        .split('\n')
+        .map((line) => normalizeInputPath(line))
+        .filter(Boolean)
+    );
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const status = (error as { status?: number }).status;
+      if (status === 1) return new Set<string>();
+    }
+    return undefined;
+  }
+}
+
 export function getLastCommitForPath(
   cwd: string,
   relativePath: string
