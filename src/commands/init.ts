@@ -57,11 +57,96 @@ interface InitOptions {
   projectRoot?: string;
   feProjectRoot?: string;
   beProjectRoot?: string;
+  componentProjectRoots?: string;
   pushDocs?: boolean;
   docsRemote?: string;
   yes?: boolean;
   force?: boolean;
   nonInteractive?: boolean;
+}
+
+function parseStandaloneMultiProjectRootJson(
+  raw: string
+): Record<string, string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--project-root` for standalone multi must be a JSON object. Example: {"fe":"/path/fe","be":"/path/be"}'
+    );
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--project-root` for standalone multi must be a JSON object.'
+    );
+  }
+
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const component = key.trim().toLowerCase();
+    const root = typeof value === 'string' ? value.trim() : '';
+    if (!component || !root) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        '`--project-root` JSON entries must be non-empty component/path pairs.'
+      );
+    }
+    assertValidComponentId(component);
+    out[component] = root;
+  }
+
+  if (Object.keys(out).length === 0) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--project-root` JSON object must include at least one component path.'
+    );
+  }
+
+  return out;
+}
+
+function parseComponentProjectRootsOption(
+  raw: string | undefined
+): Record<string, string> {
+  if (!raw) return {};
+  const out: Record<string, string> = {};
+  const entries = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (entries.length === 0) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--component-project-roots` must include at least one `component=/path` pair.'
+    );
+  }
+
+  for (const entry of entries) {
+    const index = entry.indexOf('=');
+    if (index <= 0 || index === entry.length - 1) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `Invalid --component-project-roots entry "${entry}". Use \`component=/path\`.`
+      );
+    }
+    const component = entry.slice(0, index).trim().toLowerCase();
+    const root = entry.slice(index + 1).trim();
+    assertValidComponentId(component);
+    if (!root) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `Invalid --component-project-roots entry "${entry}". Path must not be empty.`
+      );
+    }
+    out[component] = root;
+  }
+
+  return out;
 }
 
 export function initCommand(program: Command): void {
@@ -78,7 +163,10 @@ export function initCommand(program: Command): void {
     .option('--workflow <mode>', 'Workflow mode: github | local')
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('--docs-repo <mode>', 'Docs repository mode: embedded | standalone')
-    .option('--project-root <path>', 'Project repository path (standalone single)')
+    .option(
+      '--project-root <path>',
+      'Project root path (standalone single) or JSON map for standalone multi'
+    )
     .option(
       '--fe-project-root <path>',
       'Frontend repository path (standalone multi)'
@@ -86,6 +174,10 @@ export function initCommand(program: Command): void {
     .option(
       '--be-project-root <path>',
       'Backend repository path (standalone multi)'
+    )
+    .option(
+      '--component-project-roots <pairs>',
+      'Component roots for standalone multi (comma-separated, e.g. fe=/path/fe,be=/path/be,worker=/path/worker)'
     )
     .option('--push-docs', 'Push standalone docs to remote')
     .option('--docs-remote <url>', 'Remote URL for standalone docs repository')
@@ -130,6 +222,9 @@ async function runInit(options: InitOptions): Promise<void> {
     typeof options.pushDocs === 'boolean' ? options.pushDocs : undefined;
   let docsRemote: string | undefined = options.docsRemote;
   let projectRoot: string | Record<string, string> | undefined;
+  const componentProjectRoots = parseComponentProjectRootsOption(
+    options.componentProjectRoots
+  );
   const targetDir = path.resolve(cwd, options.dir || './docs');
   const skipPrompts = !!options.yes || !!options.nonInteractive;
 
@@ -145,12 +240,7 @@ async function runInit(options: InitOptions): Promise<void> {
     pushDocs = true;
   }
 
-  if (options.feProjectRoot || options.beProjectRoot) {
-    projectRoot = {
-      fe: options.feProjectRoot || '',
-      be: options.beProjectRoot || '',
-    };
-  } else if (options.projectRoot) {
+  if (options.projectRoot) {
     projectRoot = options.projectRoot;
   }
 
@@ -285,40 +375,59 @@ async function runInit(options: InitOptions): Promise<void> {
       );
 
       if (resolvedType === 'multi') {
-        const projectRootResponse = await prompts(
-          [
-            {
-              type: options.feProjectRoot ? null : 'text',
-              name: 'feRoot',
-              message: tr(lang, 'cli', 'init.prompt.feRepoPath'),
-              validate: (value: string) =>
-                value.trim()
-                  ? true
-                  : tr(lang, 'cli', 'init.validation.enterPath'),
-            },
-            {
-              type: options.beProjectRoot ? null : 'text',
-              name: 'beRoot',
-              message: tr(lang, 'cli', 'init.prompt.beRepoPath'),
-              validate: (value: string) =>
-                value.trim()
-                  ? true
-                  : tr(lang, 'cli', 'init.validation.enterPath'),
-            },
-          ],
-          {
-            onCancel: () => {
-              throw new Error('canceled');
-            },
-          }
-        );
+        const promptComponents = components.length > 0 ? components : ['fe', 'be'];
+        const rootMap: Record<string, string> = {};
 
-        const currentRoot =
-          typeof projectRoot === 'string' ? { fe: '', be: '' } : projectRoot;
-        projectRoot = {
-          fe: projectRootResponse.feRoot || currentRoot?.fe || '',
-          be: projectRootResponse.beRoot || currentRoot?.be || '',
-        };
+        if (typeof projectRoot === 'string' && projectRoot.trim()) {
+          Object.assign(rootMap, parseStandaloneMultiProjectRootJson(projectRoot));
+        } else if (projectRoot && typeof projectRoot === 'object') {
+          for (const [component, root] of Object.entries(projectRoot)) {
+            const normalized = component.trim().toLowerCase();
+            const normalizedRoot = String(root || '').trim();
+            if (!normalized || !normalizedRoot) continue;
+            rootMap[normalized] = normalizedRoot;
+          }
+        }
+
+        if (options.feProjectRoot?.trim()) rootMap.fe = options.feProjectRoot.trim();
+        if (options.beProjectRoot?.trim()) rootMap.be = options.beProjectRoot.trim();
+        Object.assign(rootMap, componentProjectRoots);
+
+        for (const component of promptComponents) {
+          const seeded = (rootMap[component] || '').trim();
+          if (seeded) {
+            rootMap[component] = seeded;
+            continue;
+          }
+          const message =
+            component === 'fe'
+              ? tr(lang, 'cli', 'init.prompt.feRepoPath')
+              : component === 'be'
+                ? tr(lang, 'cli', 'init.prompt.beRepoPath')
+                : tr(lang, 'cli', 'init.prompt.componentRepoPath', { component });
+
+          const response = await prompts(
+            [
+              {
+                type: 'text',
+                name: 'componentRoot',
+                message,
+                validate: (value: string) =>
+                  value.trim()
+                    ? true
+                    : tr(lang, 'cli', 'init.validation.enterPath'),
+              },
+            ],
+            {
+              onCancel: () => {
+                throw new Error('canceled');
+              },
+            }
+          );
+          rootMap[component] = (response.componentRoot || '').trim();
+        }
+
+        projectRoot = rootMap;
       } else {
         const projectRootResponse = await prompts(
           [
@@ -448,6 +557,7 @@ async function runInit(options: InitOptions): Promise<void> {
       options.projectRoot ||
       options.feProjectRoot ||
       options.beProjectRoot ||
+      options.componentProjectRoots ||
       typeof options.pushDocs === 'boolean' ||
       options.docsRemote
     ) {
@@ -461,24 +571,59 @@ async function runInit(options: InitOptions): Promise<void> {
     docsRemote = undefined;
   } else {
     if (projectType === 'multi') {
-      if (!isDefaultFullstackComponents(components)) {
+      const multiRoot: Record<string, string> = {};
+
+      if (typeof projectRoot === 'string' && projectRoot.trim()) {
+        Object.assign(multiRoot, parseStandaloneMultiProjectRootJson(projectRoot));
+      } else if (projectRoot && typeof projectRoot === 'object') {
+        for (const [component, root] of Object.entries(projectRoot)) {
+          const normalized = component.trim().toLowerCase();
+          const normalizedRoot = String(root || '').trim();
+          if (!normalized || !normalizedRoot) continue;
+          multiRoot[normalized] = normalizedRoot;
+        }
+      }
+
+      if (options.feProjectRoot?.trim()) multiRoot.fe = options.feProjectRoot.trim();
+      if (options.beProjectRoot?.trim()) multiRoot.be = options.beProjectRoot.trim();
+      Object.assign(multiRoot, componentProjectRoots);
+
+      const unknownComponents = Object.keys(multiRoot).filter(
+        (component) => !components.includes(component)
+      );
+      if (unknownComponents.length > 0) {
         throw createCliError(
           'INVALID_ARGUMENT',
-          'Standalone multi init currently supports default components only: fe,be.'
+          `Standalone multi project roots contain unknown components: ${unknownComponents.join(', ')}. Allowed: ${components.join(', ')}`
         );
       }
-      const fullstackRoot =
-        typeof projectRoot === 'object'
-          ? projectRoot
-          : { fe: '', be: '' };
-      if (!fullstackRoot.fe.trim() || !fullstackRoot.be.trim()) {
+
+      const missingComponents = components.filter(
+        (component) => !(multiRoot[component] || '').trim()
+      );
+      if (missingComponents.length > 0) {
         throw createCliError(
           'PROMPT_BLOCKED',
-          'Standalone multi mode requires both `--fe-project-root` and `--be-project-root`.'
+          `Standalone multi mode requires project roots for all components: ${missingComponents.join(', ')}. Use \`--component-project-roots <component=/path,...>\` or \`--project-root '{"component":"/path"}'\`.`
         );
       }
-      projectRoot = fullstackRoot;
+
+      projectRoot = Object.fromEntries(
+        components.map((component) => [component, multiRoot[component].trim()])
+      );
     } else {
+      if (options.componentProjectRoots) {
+        throw createCliError(
+          'INVALID_ARGUMENT',
+          '`--component-project-roots` can only be used when `--type multi`.'
+        );
+      }
+      if (options.feProjectRoot || options.beProjectRoot) {
+        throw createCliError(
+          'INVALID_ARGUMENT',
+          '`--fe-project-root` and `--be-project-root` can only be used when `--type multi`.'
+        );
+      }
       const singleRoot = typeof projectRoot === 'string' ? projectRoot.trim() : '';
       if (!singleRoot) {
         throw createCliError(

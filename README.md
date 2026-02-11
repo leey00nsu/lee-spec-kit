@@ -131,9 +131,10 @@ npx lee-spec-kit init --name my-project --type fullstack  # alias
 | `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
 | `--docs-repo <mode>` | docs 레포 모드 (`embedded` 또는 `standalone`)                        | `embedded`                |
-| `--project-root <path>` | standalone(single) 프로젝트 레포 경로                              | -                         |
+| `--project-root <path>` | standalone(single) 프로젝트 레포 경로 또는 standalone(multi) JSON 매핑 (`{"fe":"/path/fe"}`) | -                         |
 | `--fe-project-root <path>` | standalone(multi) FE 레포 경로                                  | -                         |
 | `--be-project-root <path>` | standalone(multi) BE 레포 경로                                  | -                         |
+| `--component-project-roots <pairs>` | standalone(multi) 컴포넌트별 레포 경로 (`fe=/path/fe,be=/path/be,worker=/path/worker`) | - |
 | `--push-docs` | standalone docs 원격 push 사용 (`--docs-remote`와 함께 사용)     | `false`                   |
 | `--docs-remote <url>` | standalone docs 원격 URL (`--push-docs`와 함께 사용)              | -                         |
 | `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |

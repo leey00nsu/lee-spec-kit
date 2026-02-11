@@ -115,9 +115,10 @@ npx lee-spec-kit init --name my-project --type fullstack  # alias
 | `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
 | `--docs-repo <mode>` | docs repo mode (`embedded` or `standalone`)                                               | `embedded`                      |
-| `--project-root <path>` | standalone(single) project repo path                                                   | -                               |
+| `--project-root <path>` | standalone(single) project repo path or standalone(multi) JSON map (`{"fe":"/path/fe"}`) | -                               |
 | `--fe-project-root <path>` | standalone(multi) frontend repo path                                                | -                               |
 | `--be-project-root <path>` | standalone(multi) backend repo path                                                 | -                               |
+| `--component-project-roots <pairs>` | standalone(multi) component roots (`fe=/path/fe,be=/path/be,worker=/path/worker`) | - |
 | `--push-docs` | enable standalone docs push (use with `--docs-remote`)                                   | `false`                         |
 | `--docs-remote <url>` | standalone docs remote URL (used with `--push-docs`)                                    | -                               |
 | `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |

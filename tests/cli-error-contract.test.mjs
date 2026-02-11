@@ -346,6 +346,73 @@ test('init standalone non-interactive supports explicit standalone options', asy
   });
 });
 
+test('init standalone multi supports custom components with component project roots', async () => {
+  await withTempDir('lsk-init-standalone-multi-custom-', async (dir) => {
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'fe,be,worker',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--component-project-roots',
+      'fe=/tmp/fe,be=/tmp/be,worker=/tmp/worker',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.docsRepo, 'standalone');
+    assert.equal(config.projectType, 'multi');
+    assert.deepEqual(config.components, ['fe', 'be', 'worker']);
+    assert.deepEqual(config.projectRoot, {
+      fe: '/tmp/fe',
+      be: '/tmp/be',
+      worker: '/tmp/worker',
+    });
+  });
+});
+
+test('init standalone multi requires project roots for every component', async () => {
+  await withTempDir('lsk-init-standalone-multi-roots-required-', async (dir) => {
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'fe,be,worker',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--component-project-roots',
+      'fe=/tmp/fe,be=/tmp/be',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /\[PROMPT_BLOCKED\]/);
+    assert.match(result.stderr, /worker/);
+  });
+});
+
 test('init non-interactive can overwrite non-empty directory with --force', async () => {
   await withTempDir('lsk-init-force-', async (dir) => {
     const docsDir = path.join(dir, 'docs');
