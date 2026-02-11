@@ -1,0 +1,3 @@
+# lee-spec-kit internal lock files
+.lee-spec-kit.lock
+.lee-spec-kit.*.lock

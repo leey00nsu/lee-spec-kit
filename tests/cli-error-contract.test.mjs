@@ -1421,6 +1421,7 @@ test('init keeps only project-scoped policy docs in docs tree', async () => {
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const docsRoot = path.join(dir, 'docs');
+    const docsGitignorePath = path.join(docsRoot, '.gitignore');
     assert.equal(
       await pathExists(path.join(docsRoot, 'agents', 'custom.md')),
       true
@@ -1454,6 +1455,11 @@ test('init keeps only project-scoped policy docs in docs tree', async () => {
       await pathExists(path.join(docsRoot, 'features', 'feature-base')),
       false
     );
+
+    assert.equal(await pathExists(docsGitignorePath), true);
+    const docsGitignore = await fs.readFile(docsGitignorePath, 'utf-8');
+    assert.match(docsGitignore, /^\.lee-spec-kit\.lock$/m);
+    assert.match(docsGitignore, /^\.lee-spec-kit\.\*\.lock$/m);
   });
 });
 
