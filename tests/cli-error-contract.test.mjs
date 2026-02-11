@@ -2712,6 +2712,34 @@ test('context --execute-strict fails for instruction-only approved option', asyn
   });
 });
 
+test('context non-json output works for single matched feature', async () => {
+  await withTempDir('lsk-context-nonjson-single-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /Feature:\s+F001-alpha/);
+    assert.match(result.stdout, /Path:\s+/);
+  });
+});
+
 test('view --json returns NO_FEATURES on initialized empty docs', async () => {
   await withTempDir('lsk-view-json-', async (dir) => {
     const initResult = await runCli(dir, [

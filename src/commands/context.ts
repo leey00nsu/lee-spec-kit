@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import path from 'path';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
