@@ -394,9 +394,13 @@ async function runContext(
         tokenPattern: '^([A-Z]+)(?:\\s+OK)?$',
         validLabels: state.actionOptions.map((o) => o.label),
         requireExplanationBeforeApproval: true,
-        requiredExplanationFields: ['actionOptions[].summary', 'actionOptions[].approvalPrompt'],
+        requiredExplanationFields: [
+          'actionOptions[].label',
+          'actionOptions[].detail',
+          'actionOptions[].approvalPrompt',
+        ],
         recommendation:
-          'Before asking for approval, explain each label with summary and then ask for `<LABEL>` or `<LABEL> OK`.',
+          'Before asking for approval, present each label with exact CLI detail first (`A: <detail>`). Do not paraphrase command options. Then ask for `<LABEL>` or `<LABEL> OK`.',
         oneApprovalPerAction: true,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
@@ -404,7 +408,7 @@ async function runContext(
       },
       approvalRequest: {
         guidance:
-          'Present each label with summary (e.g. `A: <summary>`) before asking for approval.',
+          'Present each label with exact CLI detail (e.g. `A: <detail>`). For command options, include the raw `cmd` unchanged, then ask for `<LABEL>` or `<LABEL> OK`.',
         finalPrompt: finalApprovalPrompt,
         labels: state.actionOptions.map((o) => o.label),
         approveCommand,
@@ -412,7 +416,13 @@ async function runContext(
         options: state.actionOptions.map((o) => ({
           label: o.label,
           summary: o.summary,
+          detail: o.detail,
           approvalPrompt: o.approvalPrompt,
+          actionType: o.action.type,
+          scope: o.action.type === 'command' ? o.action.scope : undefined,
+          cwd: o.action.type === 'command' ? o.action.cwd : undefined,
+          cmd: o.action.type === 'command' ? o.action.cmd : undefined,
+          message: o.action.type === 'instruction' ? o.action.message : undefined,
           requiresUserCheck: !!o.action.requiresUserCheck,
           operationType: o.action.operationType,
         })),

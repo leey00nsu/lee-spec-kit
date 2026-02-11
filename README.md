@@ -224,7 +224,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 - `type: "command"`: `scope`(project|docs), `cwd`, `cmd` 제공 (복사하여 붙여넣기 가능한 형태로 `cd ... && git ...` 형태로 출력)
 - `type: "instruction"`: 사람이 수행해야 하는 안내 메시지
 - `operationType`: 액션 성격 (`local` | `remote` | `manual`)
-- `actionOptions`: `label`(`A`, `B`, `C`...)과 해당 `action` 매핑 + `summary`/`approvalPrompt`(라벨 설명 템플릿)
+- `actionOptions`: `label`(`A`, `B`, `C`...)과 해당 `action` 매핑 + `summary`/`detail`/`approvalPrompt`(라벨 설명 템플릿)
 - `primaryActionLabel`/`primaryActionType`/`primaryActionCategory`/`primaryActionOperationType`: 첫 번째 원자 액션의 요약 메타데이터
 - `selectionFallback`: 자동 감지 실패 시 사용된 폴백 (`none` | `open_features` | `all_features` | `done_features`)
 - `category`: 액션 분류 (자동화/반자동용 `approval.mode: "category"`에서 사용)
@@ -472,7 +472,7 @@ npx lee-spec-kit update --force
 - `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
 - `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
 - `checkPolicy.requireExplanationBeforeApproval`: 승인 요청 전에 라벨별 설명을 포함해야 함
-- `checkPolicy.requiredExplanationFields`: 라벨 설명에 사용할 필드 목록 (예: `actionOptions[].summary`)
+- `checkPolicy.requiredExplanationFields`: 라벨 설명에 사용할 필드 목록 (예: `actionOptions[].detail`)
 - `checkPolicy.contextVersion`: stale context 검증용 스냅샷 해시
 
 > 실제 명령 실행을 강제/차단하는 기능은 아닙니다. (에이전트가 참고하도록 신호를 제공)

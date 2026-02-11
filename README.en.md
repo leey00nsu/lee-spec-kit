@@ -205,7 +205,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 
 - `reasonCode`: status reason code (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES`, etc.)
 - `operationType`: action nature (`local` | `remote` | `manual`)
-- `actionOptions`: maps labels to atomic actions plus `summary`/`approvalPrompt` for user-facing label explanation
+- `actionOptions`: maps labels to atomic actions plus `summary`/`detail`/`approvalPrompt` for user-facing label explanation
 - `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: metadata for the first atomic action
 - `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
@@ -418,7 +418,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
 - `checkPolicy.requireExplanationBeforeApproval`: require label-by-label explanation before asking approval
-- `checkPolicy.requiredExplanationFields`: fields to use for explanation (e.g. `actionOptions[].summary`)
+- `checkPolicy.requiredExplanationFields`: fields to use for explanation (e.g. `actionOptions[].detail`)
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
 - `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)

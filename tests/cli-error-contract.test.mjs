@@ -1727,13 +1727,14 @@ test('context --json exposes generic label token policy', async () => {
     assert.equal(payload.checkPolicy.tokenPattern, '^([A-Z]+)(?:\\s+OK)?$');
     assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, true);
     assert.deepEqual(payload.checkPolicy.requiredExplanationFields, [
-      'actionOptions[].summary',
+      'actionOptions[].label',
+      'actionOptions[].detail',
       'actionOptions[].approvalPrompt',
     ]);
   });
 });
 
-test('context --json actionOptions include summary and approvalPrompt', async () => {
+test('context --json actionOptions and approvalRequest expose raw detail fields', async () => {
   await withTempDir('lsk-context-action-summary-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -1764,8 +1765,14 @@ test('context --json actionOptions include summary and approvalPrompt', async ()
     assert.equal(payload.checkPolicy.policyOnly, true);
     assert.equal(typeof payload.actionOptions[0].summary, 'string');
     assert.equal(payload.actionOptions[0].summary.length > 0, true);
+    assert.equal(typeof payload.actionOptions[0].detail, 'string');
+    assert.equal(payload.actionOptions[0].detail.length > 0, true);
     assert.equal(typeof payload.actionOptions[0].approvalPrompt, 'string');
     assert.match(payload.actionOptions[0].approvalPrompt, /^[A-Z]+:\s+/);
+    assert.equal(
+      payload.actionOptions[0].approvalPrompt,
+      `${payload.actionOptions[0].label}: ${payload.actionOptions[0].detail}`
+    );
     assert.equal(typeof payload.primaryActionLabel, 'string');
     assert.equal(payload.primaryActionType, payload.actionOptions[0].action.type);
     assert.equal(payload.primaryActionCategory, payload.actionOptions[0].action.category);
@@ -1784,10 +1791,29 @@ test('context --json actionOptions include summary and approvalPrompt', async ()
     assert.match(payload.approvalRequest.approveCommand, /--approve <LABEL>$/);
     assert.equal(typeof payload.approvalRequest?.executeCommand, 'string');
     assert.match(payload.approvalRequest.executeCommand, /--approve <LABEL> --execute$/);
+    assert.equal(payload.approvalRequest.options[0].detail, payload.actionOptions[0].detail);
+    assert.equal(
+      payload.approvalRequest.options[0].actionType,
+      payload.actionOptions[0].action.type
+    );
     assert.equal(
       payload.approvalRequest.options[0].operationType,
       payload.actionOptions[0].action.operationType
     );
+    if (payload.actionOptions[0].action.type === 'command') {
+      assert.equal(
+        payload.approvalRequest.options[0].cmd,
+        payload.actionOptions[0].action.cmd
+      );
+      assert.equal(
+        payload.approvalRequest.options[0].cwd,
+        payload.actionOptions[0].action.cwd
+      );
+      assert.equal(
+        payload.approvalRequest.options[0].scope,
+        payload.actionOptions[0].action.scope
+      );
+    }
   });
 });
 

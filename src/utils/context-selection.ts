@@ -162,7 +162,7 @@ function toActionOptions(actions: ContextAction[]): ActionOption[] {
       label,
       summary,
       detail,
-      approvalPrompt: `${label}: ${summary}`,
+      approvalPrompt: `${label}: ${detail}`,
       action,
     };
   });
