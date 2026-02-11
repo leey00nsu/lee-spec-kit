@@ -18,6 +18,10 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import {
+  getGithubDraftArtifactHeading,
+  getGithubDraftRequiredSections,
+} from '../utils/github-draft-contract.js';
 
 interface GithubBaseOptions {
   json?: boolean;
@@ -47,6 +51,15 @@ interface GithubPrOptions extends GithubBaseOptions {
   retry?: string;
   syncTasks?: boolean;
   commitSync?: boolean;
+  screenshots?: string;
+  mermaid?: string;
+}
+
+type PrArtifactMode = 'auto' | 'on' | 'off';
+
+interface PrArtifactPolicy {
+  includeScreenshots: boolean;
+  includeMermaid: boolean;
 }
 
 interface ProcessResult {
@@ -118,6 +131,8 @@ type GithubTextKey =
   | 'optPrNoSyncTasks'
   | 'optPrRef'
   | 'optPrRetry'
+  | 'optPrScreenshots'
+  | 'optPrMermaid'
   | 'optPrTitle'
   | 'optRepo'
   | 'prDefaultTitleNoIssue'
@@ -136,6 +151,11 @@ type GithubTextKey =
   | 'stageFileFailed'
   | 'syncCommitNoIssue'
   | 'syncCommitWithIssue'
+  | 'artifactModeInvalid'
+  | 'prScreenshotsSectionMissing'
+  | 'prScreenshotImageMissing'
+  | 'prMermaidSectionMissing'
+  | 'prMermaidBlockMissing'
   | 'tasksNotFound'
   | 'todoPlaceholdersRemain'
   | 'worktreeNotClean';
@@ -387,6 +407,56 @@ function ensureNoTodoPlaceholders(body: string, kind: string, lang: Lang): void 
   );
 }
 
+function parsePrArtifactMode(
+  raw: string | undefined,
+  kind: 'screenshots' | 'mermaid',
+  lang: Lang
+): PrArtifactMode {
+  const value = (raw || 'auto').trim().toLowerCase();
+  if (value === 'auto' || value === 'on' || value === 'off') {
+    return value;
+  }
+  throw createCliError(
+    'INVALID_ARGUMENT',
+    tg(lang, 'artifactModeInvalid', { kind, value })
+  );
+}
+
+function resolvePrArtifactPolicy(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  feature: FeatureContext,
+  options: GithubPrOptions
+): PrArtifactPolicy {
+  const screenshotsMode = parsePrArtifactMode(
+    options.screenshots,
+    'screenshots',
+    config.lang
+  );
+  const mermaidMode = parsePrArtifactMode(
+    options.mermaid,
+    'mermaid',
+    config.lang
+  );
+
+  const includeScreenshots =
+    screenshotsMode === 'on'
+      ? true
+      : screenshotsMode === 'off'
+        ? false
+        : (config.pr?.screenshots?.upload ?? false);
+  const includeMermaid =
+    mermaidMode === 'on'
+      ? true
+      : mermaidMode === 'off'
+        ? false
+        : feature.type === 'be';
+
+  return {
+    includeScreenshots,
+    includeMermaid,
+  };
+}
+
 async function resolveFeatureOrThrow(
   featureName: string | undefined,
   options: ContextSelectionOptions,
@@ -439,16 +509,25 @@ function normalizeHeading(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-function extractMarkdownSection(content: string, headings: string[]): string | undefined {
+function extractMarkdownByHeadings(
+  content: string,
+  headings: string[],
+  levels: number[]
+): string | undefined {
   const targets = new Set(headings.map((heading) => normalizeHeading(heading)));
   const lines = content.split('\n');
   let start = -1;
+  let startLevel = 0;
+  const levelSet = new Set(levels);
 
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/^\s*##\s+(.+?)\s*$/);
+    const match = lines[i].match(/^\s*(#{2,6})\s+(.+?)\s*$/);
     if (!match) continue;
-    if (!targets.has(normalizeHeading(match[1]))) continue;
+    const level = match[1].length;
+    if (!levelSet.has(level)) continue;
+    if (!targets.has(normalizeHeading(match[2]))) continue;
     start = i + 1;
+    startLevel = level;
     break;
   }
 
@@ -456,13 +535,20 @@ function extractMarkdownSection(content: string, headings: string[]): string | u
 
   let end = lines.length;
   for (let i = start; i < lines.length; i++) {
-    if (/^\s*##\s+/.test(lines[i])) {
+    const heading = lines[i].match(/^\s*(#{2,6})\s+(.+?)\s*$/);
+    if (!heading) continue;
+    const level = heading[1].length;
+    if (level <= startLevel) {
       end = i;
       break;
     }
   }
 
   return lines.slice(start, end).join('\n');
+}
+
+function extractMarkdownSection(content: string, headings: string[]): string | undefined {
+  return extractMarkdownByHeadings(content, headings, [2]);
 }
 
 function isTemplateLine(line: string): boolean {
@@ -485,6 +571,482 @@ function sanitizeOverviewSection(raw: string | undefined): string | undefined {
   return lines.slice(0, 5).join('\n');
 }
 
+function sanitizeDraftItem(raw: string): string | undefined {
+  const trimmed = raw
+    .replace(/^\s*-\s*\[[ xX]\]\s*/, '')
+    .replace(/^\s*-\s+/, '')
+    .replace(/^\s*###\s+/, '')
+    .trim();
+  const plain = trimmed.replace(/\*\*/g, '').trim();
+  if (!plain) return undefined;
+  if (isTemplateLine(plain)) return undefined;
+  if (/^todo:/i.test(plain)) return undefined;
+  if (/\{[^}]*\}/.test(plain)) return undefined;
+  if (/^(as a|i want|so that)\b/i.test(plain)) return undefined;
+  if (/^acceptance criteria:?$/i.test(plain)) return undefined;
+  return plain.replace(/\s+/g, ' ');
+}
+
+function uniqItems(items: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const item of items) {
+    const normalized = item.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    ordered.push(item.trim());
+  }
+  return ordered;
+}
+
+function normalizeSemanticKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[`'"(){}\[\].,:;!?/\\\-_|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s/g, '');
+}
+
+function uniqItemsByContainment(items: string[]): string[] {
+  const kept: string[] = [];
+  const keys: string[] = [];
+
+  for (const item of items) {
+    const clean = item.trim();
+    if (!clean) continue;
+    const key = normalizeSemanticKey(clean);
+    if (!key) continue;
+
+    let replaced = false;
+    for (let i = 0; i < keys.length; i++) {
+      const current = keys[i];
+      if (!current.includes(key) && !key.includes(current)) continue;
+      if (key.length > current.length) {
+        keys[i] = key;
+        kept[i] = clean;
+      }
+      replaced = true;
+      break;
+    }
+
+    if (!replaced) {
+      keys.push(key);
+      kept.push(clean);
+    }
+  }
+
+  return kept;
+}
+
+function extractSectionLines(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return uniqItems(
+    raw
+      .split('\n')
+      .map((line) => sanitizeDraftItem(line))
+      .filter((line): line is string => !!line)
+  );
+}
+
+function extractSectionHeadings(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return uniqItems(
+    raw
+      .split('\n')
+      .map((line) => line.match(/^\s*###\s+(.+?)\s*$/)?.[1] || '')
+      .map((line) => sanitizeDraftItem(line))
+      .filter((line): line is string => !!line)
+      .map((line) => line.replace(/^FR-\d+:\s*/i, '').trim())
+  );
+}
+
+function toChecklistLines(items: string[]): string {
+  return items.map((item) => `- [ ] ${item}`).join('\n');
+}
+
+function extractChecklistItems(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return uniqItems(
+    raw
+      .split('\n')
+      .map((line) => {
+        const match = line.match(/^\s*-\s*\[[ xX]\]\s+(.+?)\s*$/);
+        if (!match) return undefined;
+        return sanitizeDraftItem(match[1]);
+      })
+      .filter((line): line is string => !!line)
+  );
+}
+
+function extractTaskTitles(tasksContent: string): string[] {
+  return uniqItems(
+    tasksContent
+      .split('\n')
+      .map((line) => {
+        const match = line.match(
+          /^\s*-\s*\[(?:TODO|DOING|DONE)\][^\n]*?\s+(?:T-[A-Z0-9-]+\s+)?(.+?)\s*$/
+        );
+        if (!match) return undefined;
+        return sanitizeDraftItem(match[1]);
+      })
+      .filter((line): line is string => !!line)
+  );
+}
+
+function extractTasksAcceptanceItems(tasksContent: string): string[] {
+  const lines = tasksContent.split('\n');
+  const accepted: string[] = [];
+  let inAcceptance = false;
+
+  for (const line of lines) {
+    if (/^\s*-\s*Acceptance\s*:\s*$/i.test(line)) {
+      inAcceptance = true;
+      continue;
+    }
+    if (inAcceptance && /^\s*-\s*Checklist\s*:\s*$/i.test(line)) {
+      inAcceptance = false;
+      continue;
+    }
+    if (!inAcceptance) continue;
+    const match =
+      line.match(/^\s*-\s*\[[ xX]\]\s+(.+?)\s*$/) ||
+      line.match(/^\s*-\s+(.+?)\s*$/);
+    if (!match) continue;
+    const item = sanitizeDraftItem(match[1]);
+    if (!item) continue;
+    accepted.push(item);
+  }
+
+  return uniqItems(accepted);
+}
+
+function extractScopeItemsFromPlan(
+  planContent: string,
+  lang: Lang
+): { include: string[]; exclude: string[] } {
+  const section = extractMarkdownSection(
+    planContent,
+    ['범위(명확화)', '범위', 'Scope', 'Scope Clarification']
+  );
+  if (!section) return { include: [], exclude: [] };
+
+  const lines = section.split('\n');
+  const include: string[] = [];
+  const exclude: string[] = [];
+  let mode: 'include' | 'exclude' | null = null;
+
+  const includePatterns =
+    lang === 'ko' ? [/포함/] : [/in\s*scope/i, /^include$/i, /included/i];
+  const excludePatterns =
+    lang === 'ko' ? [/비포함/, /제외/] : [/out\s*of\s*scope/i, /^exclude$/i, /excluded/i];
+
+  for (const line of lines) {
+    const plain = line.replace(/\*\*/g, '').trim();
+    if (!plain) continue;
+
+    if (excludePatterns.some((re) => re.test(plain))) {
+      mode = 'exclude';
+      continue;
+    }
+    if (includePatterns.some((re) => re.test(plain))) {
+      mode = 'include';
+      continue;
+    }
+
+    const bullet = line.match(/^\s*-\s+(.+?)\s*$/)?.[1];
+    if (!bullet) continue;
+    const item = sanitizeDraftItem(bullet);
+    if (!item) continue;
+    if (mode === 'include') {
+      include.push(item);
+    } else if (mode === 'exclude') {
+      exclude.push(item);
+    }
+  }
+
+  return {
+    include: uniqItems(include),
+    exclude: uniqItems(exclude),
+  };
+}
+
+function getIssueGoalsAndCriteria(
+  specContent: string,
+  planContent: string,
+  tasksContent: string,
+  overview: string,
+  lang: Lang
+): { goals: string[]; criteria: string[]; scope: string[] } {
+  const purposeLines = extractSectionLines(
+    extractMarkdownSection(specContent, ['목적', 'Purpose'])
+  );
+  const requirementHeadings = extractSectionHeadings(
+    extractMarkdownSection(specContent, ['기능 요구사항', 'Functional Requirements'])
+  );
+  const userStoryChecklist = extractChecklistItems(
+    extractMarkdownSection(specContent, ['사용자 스토리', 'User Stories'])
+  );
+  const tasksAcceptance = extractTasksAcceptanceItems(tasksContent);
+  const scopeFromPlan = extractScopeItemsFromPlan(planContent, lang);
+  const taskTitles = extractTaskTitles(tasksContent);
+
+  const goals = uniqItemsByContainment(uniqItems([
+    ...requirementHeadings,
+    ...scopeFromPlan.include,
+    ...purposeLines.slice(0, 1),
+    sanitizeDraftItem(overview) || '',
+  ])).slice(0, 5);
+
+  while (goals.length < 3) {
+    goals.push(
+      lang === 'ko'
+        ? goals.length === 0
+          ? 'spec.md 목적에 맞춰 구현 범위를 확정한다.'
+          : goals.length === 1
+            ? '포함/제외 범위를 명확히 정의하고 문서와 구현을 일치시킨다.'
+            : '관련 테스트 및 검증 경로를 포함해 기능 완성도를 확보한다.'
+        : goals.length === 0
+          ? 'Define implementation scope aligned with spec.md purpose.'
+          : goals.length === 1
+            ? 'Clarify in-scope and out-of-scope boundaries and keep docs/code aligned.'
+            : 'Ensure feature completeness with concrete validation paths.'
+    );
+  }
+
+  const criteria = uniqItemsByContainment(
+    uniqItems([...userStoryChecklist, ...tasksAcceptance])
+  ).slice(0, 6);
+  while (criteria.length < 4) {
+    criteria.push(
+      lang === 'ko'
+        ? criteria.length === 0
+          ? '핵심 사용자 시나리오에서 목표 동작이 재현된다.'
+          : criteria.length === 1
+            ? '요구사항별 수용 기준이 모두 충족된다.'
+            : criteria.length === 2
+              ? '검증 방법(테스트/수동 시나리오)을 기록해 완료를 확인할 수 있다.'
+              : '회귀 없이 기존 동작과의 호환성을 유지한다.'
+        : criteria.length === 0
+          ? 'Core user scenarios reproduce expected behavior.'
+          : criteria.length === 1
+            ? 'All requirement-level acceptance criteria are satisfied.'
+            : criteria.length === 2
+              ? 'Validation method (tests/manual scenarios) is documented for completion checks.'
+              : 'Compatibility is preserved without regressions.'
+    );
+  }
+
+  const scope = uniqItemsByContainment(
+    uniqItems([...scopeFromPlan.include, ...taskTitles])
+  ).slice(0, 6);
+
+  return {
+    goals: goals.slice(0, 5),
+    criteria: criteria.slice(0, 6),
+    scope,
+  };
+}
+
+function extractPlanChangeTargets(planContent: string, lang: Lang): string[] {
+  const section = extractMarkdownSection(
+    planContent,
+    [
+      '변경 대상(예상)',
+      '변경 대상',
+      'Changed Files',
+      'Change Targets',
+      'Expected Changes',
+    ]
+  );
+  if (!section) return [];
+
+  const lines = section.split('\n');
+  const out: string[] = [];
+  let inCode = false;
+
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      inCode = !inCode;
+      continue;
+    }
+
+    if (inCode) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (!/[\\/]/.test(trimmed)) continue;
+      out.push(
+        lang === 'ko' ? `\`${trimmed}\` 변경` : `Update \`${trimmed}\``
+      );
+      continue;
+    }
+
+    const bullet = line.match(/^\s*-\s+(.+?)\s*$/)?.[1];
+    if (!bullet) continue;
+    const item = sanitizeDraftItem(bullet);
+    if (!item) continue;
+    out.push(item);
+  }
+
+  return uniqItemsByContainment(uniqItems(out));
+}
+
+function extractCommandsFromSection(raw: string | undefined): string[] {
+  if (!raw) return [];
+  const commands: string[] = [];
+
+  for (const match of raw.matchAll(/`([^`]+)`/g)) {
+    const candidate = match[1].trim();
+    if (!candidate) continue;
+    if (/\{[^}]*\}/.test(candidate)) continue;
+    if (!/\b(pnpm|npm|yarn|bun|vitest|jest|tsx?|node)\b/.test(candidate)) continue;
+    commands.push(candidate);
+  }
+
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim().replace(/^-+\s*/, '');
+    if (!trimmed) continue;
+    if (!/\b(pnpm|npm|yarn|bun|vitest|jest|tsx?|node)\b/.test(trimmed)) continue;
+    if (/\{[^}]*\}/.test(trimmed)) continue;
+    commands.push(trimmed);
+  }
+
+  return uniqItems(commands);
+}
+
+function extractRecordedTestLines(
+  tasksContent: string,
+  planContent: string,
+  lang: Lang
+): string[] {
+  const section = extractMarkdownByHeadings(
+    tasksContent,
+    ['테스트 실행 기록', 'Tests Run', 'Test Run Log', 'Test Execution Log'],
+    [3, 2]
+  );
+
+  const records: string[] = [];
+  if (section) {
+    for (const line of section.split('\n')) {
+      if (!line.trim().startsWith('|')) continue;
+      const cells = line
+        .split('|')
+        .slice(1, -1)
+        .map((cell) => cell.trim().replace(/`/g, ''));
+      if (cells.length < 3) continue;
+      const [cmd, time, result] = cells;
+      if (!cmd || /^명령어$/i.test(cmd) || /^command$/i.test(cmd) || /^-+$/.test(cmd)) continue;
+      if (/\{[^}]*\}/.test(cmd) || /\{[^}]*\}/.test(result || '')) continue;
+      const renderedResult = result || (lang === 'ko' ? '미기록' : 'not recorded');
+      const renderedTime = time && time !== '-' ? ` (${time})` : '';
+      records.push(`\`${cmd}\` — ${renderedResult}${renderedTime}`);
+    }
+
+    const lines = section.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const commandMatch =
+        lines[i].match(/^\s*-\s*(?:명령어|Command)\s*:\s*`?([^`]+?)`?\s*$/i);
+      if (!commandMatch) continue;
+      const command = commandMatch[1].trim();
+      if (!command || /\{[^}]*\}/.test(command)) continue;
+      let result = '';
+      for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {
+        const resultMatch =
+          lines[j].match(/^\s*-\s*(?:결과|Result)\s*:\s*(.+?)\s*$/i);
+        if (!resultMatch) continue;
+        result = resultMatch[1].replace(/`/g, '').trim();
+        break;
+      }
+      if (!result || /\{[^}]*\}/.test(result)) continue;
+      records.push(`\`${command}\` — ${result}`);
+    }
+  }
+
+  if (records.length > 0) {
+    return uniqItemsByContainment(uniqItems(records));
+  }
+
+  const plannedCommands = extractCommandsFromSection(
+    extractMarkdownByHeadings(
+      planContent,
+      ['검증 명령(예정)', 'Validation Commands', 'Verification Commands'],
+      [3, 2]
+    )
+  );
+
+  if (plannedCommands.length > 0) {
+    return plannedCommands.map((command) =>
+      lang === 'ko'
+        ? `\`${command}\` — 실행 결과를 기록하세요.`
+        : `\`${command}\` — record execution result.`
+    );
+  }
+
+  return [];
+}
+
+function getPrChangesAndTests(
+  specContent: string,
+  planContent: string,
+  tasksContent: string,
+  overview: string,
+  lang: Lang
+): { changes: string[]; tests: string[] } {
+  const requirementHeadings = extractSectionHeadings(
+    extractMarkdownSection(specContent, ['기능 요구사항', 'Functional Requirements'])
+  );
+  const scopeFromPlan = extractScopeItemsFromPlan(planContent, lang).include;
+  const planTargets = extractPlanChangeTargets(planContent, lang);
+  const taskTitles = extractTaskTitles(tasksContent);
+
+  const changes = uniqItemsByContainment(
+    uniqItems([
+      ...taskTitles,
+      ...scopeFromPlan,
+      ...requirementHeadings,
+      ...planTargets,
+      sanitizeDraftItem(overview) || '',
+    ])
+  ).slice(0, 6);
+
+  while (changes.length < 3) {
+    changes.push(
+      lang === 'ko'
+        ? changes.length === 0
+          ? '핵심 구현 변경 사항을 요약해 반영한다.'
+          : changes.length === 1
+            ? '영향 범위(호환성/마이그레이션 포함)를 명시한다.'
+            : '문서와 구현 간 불일치가 없도록 정합성을 점검한다.'
+        : changes.length === 0
+          ? 'Summarize key implementation changes.'
+          : changes.length === 1
+            ? 'Document impact scope (including compatibility/migration).'
+            : 'Verify document and implementation consistency.'
+    );
+  }
+
+  const tests = uniqItemsByContainment(
+    uniqItems(extractRecordedTestLines(tasksContent, planContent, lang))
+  ).slice(0, 4);
+
+  while (tests.length < 2) {
+    tests.push(
+      lang === 'ko'
+        ? tests.length === 0
+          ? '관련 테스트를 실행하고 결과를 기록한다.'
+          : '미실행 테스트가 있으면 사유와 리스크를 기록한다.'
+        : tests.length === 0
+          ? 'Run relevant tests and record results.'
+          : 'If tests were not run, record rationale and risk.'
+    );
+  }
+
+  return {
+    changes: changes.slice(0, 6),
+    tests: tests.slice(0, 4),
+  };
+}
+
 function resolveOverviewFromSpec(
   specContent: string,
   feature: FeatureContext,
@@ -505,13 +1067,139 @@ function resolveOverviewFromSpec(
     : `Summarize feature \`${feature.folderName}\` from spec.md.`;
 }
 
+function getPrScreenshotsHeading(lang: Lang): string {
+  return getGithubDraftArtifactHeading('pr', 'screenshots', lang) || (
+    lang === 'ko' ? '스크린샷' : 'Screenshots'
+  );
+}
+
+function getPrMermaidHeading(lang: Lang): string {
+  return getGithubDraftArtifactHeading('pr', 'mermaid', lang) || (
+    lang === 'ko' ? '아키텍처 다이어그램' : 'Architecture Diagram'
+  );
+}
+
+function buildPrScreenshotsSection(lang: Lang): string {
+  if (lang === 'ko') {
+    return `
+## 스크린샷
+
+- [ ] 업로드한 스크린샷 URL을 포함하세요. (예: \`![](https://...)\`)
+`;
+  }
+  return `
+## Screenshots
+
+- [ ] Include uploaded screenshot URL(s). (e.g. \`![](https://...)\`)
+`;
+}
+
+function buildPrMermaidSection(lang: Lang): string {
+  if (lang === 'ko') {
+    return `
+## 아키텍처 다이어그램
+
+\`\`\`mermaid
+sequenceDiagram
+  participant Client
+  participant API
+  participant Service
+  participant DB
+  Client->>API: Request
+  API->>Service: Execute
+  Service->>DB: Query/Command
+  DB-->>Service: Result
+  Service-->>API: Response DTO
+  API-->>Client: Response
+\`\`\`
+`;
+  }
+  return `
+## Architecture Diagram
+
+\`\`\`mermaid
+sequenceDiagram
+  participant Client
+  participant API
+  participant Service
+  participant DB
+  Client->>API: Request
+  API->>Service: Execute
+  Service->>DB: Query/Command
+  DB-->>Service: Result
+  Service-->>API: Response DTO
+  API-->>Client: Response
+\`\`\`
+`;
+}
+
+function ensurePrArtifacts(
+  body: string,
+  policy: PrArtifactPolicy,
+  lang: Lang
+): void {
+  if (policy.includeScreenshots) {
+    const heading = getPrScreenshotsHeading(lang);
+    const section = extractMarkdownByHeadings(body, [heading], [2]);
+    if (!section) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        tg(lang, 'prScreenshotsSectionMissing', { section: heading })
+      );
+    }
+    if (!/!\[[^\]]*]\((?!\s*\))[^)]+\)/m.test(section)) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        tg(lang, 'prScreenshotImageMissing', { section: heading })
+      );
+    }
+  }
+
+  if (policy.includeMermaid) {
+    const heading = getPrMermaidHeading(lang);
+    const section = extractMarkdownByHeadings(body, [heading], [2]);
+    if (!section) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        tg(lang, 'prMermaidSectionMissing', { section: heading })
+      );
+    }
+    if (!/```mermaid[\s\S]*?```/m.test(section)) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        tg(lang, 'prMermaidBlockMissing', { section: heading })
+      );
+    }
+  }
+}
+
 function buildIssueBody(
+  specContent: string,
+  planContent: string,
+  tasksContent: string,
   overview: string,
   labels: string[],
   paths: ReturnType<typeof getFeatureDocPaths>,
   lang: Lang
 ): string {
   const bodyPaths = toBodyDocPaths(paths);
+  const draft = getIssueGoalsAndCriteria(specContent, planContent, tasksContent, overview, lang);
+  const goals = toChecklistLines(draft.goals);
+  const criteria = toChecklistLines(draft.criteria);
+  const scopeSection =
+    draft.scope.length > 0
+      ? lang === 'ko'
+        ? `
+## 작업 범위(예정)
+
+${draft.scope.map((item) => `- ${item}`).join('\n')}
+`
+        : `
+## Planned Scope
+
+${draft.scope.map((item) => `- ${item}`).join('\n')}
+`
+      : '';
   if (lang === 'ko') {
     return `## 개요
 
@@ -519,13 +1207,12 @@ ${overview}
 
 ## 목표
 
-- [ ] TODO: spec.md 목적/범위를 바탕으로 목표를 작성하세요.
-- [ ] TODO: 구현 범위(포함/제외)를 구체적으로 작성하세요.
+${goals}
 
 ## 완료 기준
 
-- [ ] TODO: 검증 가능한 완료 기준을 작성하세요.
-- [ ] TODO: 완료 확인 방법(테스트/시나리오)을 작성하세요.
+${criteria}
+${scopeSection}
 
 ## 관련 문서
 
@@ -545,13 +1232,12 @@ ${overview}
 
 ## Goals
 
-- [ ] TODO: Fill concrete goals based on spec.md.
-- [ ] TODO: Clarify in-scope and out-of-scope boundaries.
+${goals}
 
 ## Completion Criteria
 
-- [ ] TODO: Define verifiable completion criteria.
-- [ ] TODO: Add validation/test conditions for completion.
+${criteria}
+${scopeSection}
 
 ## Related Documents
 
@@ -567,12 +1253,31 @@ ${labels.map((label) => `- \`${label}\``).join('\n')}
 
 function buildPrBody(
   feature: FeatureContext,
+  specContent: string,
+  planContent: string,
+  tasksContent: string,
   overview: string,
   paths: ReturnType<typeof getFeatureDocPaths>,
+  artifactPolicy: PrArtifactPolicy,
   lang: Lang
 ): string {
   const bodyPaths = toBodyDocPaths(paths);
   const closes = feature.issueNumber ? `\nCloses #${feature.issueNumber}\n` : '\n';
+  const draft = getPrChangesAndTests(
+    specContent,
+    planContent,
+    tasksContent,
+    overview,
+    lang
+  );
+  const changes = toChecklistLines(draft.changes);
+  const tests = toChecklistLines(draft.tests);
+  const screenshotsSection = artifactPolicy.includeScreenshots
+    ? buildPrScreenshotsSection(lang)
+    : '';
+  const mermaidSection = artifactPolicy.includeMermaid
+    ? buildPrMermaidSection(lang)
+    : '';
   if (lang === 'ko') {
     return `## 개요
 
@@ -580,15 +1285,15 @@ ${overview}
 
 ## 변경 사항
 
-- [ ] TODO: 핵심 코드 변경 사항을 요약하세요.
-- [ ] TODO: 영향 범위/호환성(마이그레이션 포함)을 작성하세요.
+${changes}
 
 ## 테스트
 
 ### 실행한 테스트
 
-- [ ] TODO: \`<실행한 테스트 명령어>\` — PASS/FAIL
-- [ ] TODO: 미실행 테스트가 있다면 사유를 작성하세요.
+${tests}
+${screenshotsSection}
+${mermaidSection}
 
 ## 관련 문서
 
@@ -602,15 +1307,15 @@ ${overview}
 
 ## Changes
 
-- [ ] TODO: Summarize key code changes in this PR.
-- [ ] TODO: Describe impact/scope (including migration if any).
+${changes}
 
 ## Tests
 
 ### Tests Run
 
-- [ ] TODO: \`<test command>\` — PASS/FAIL
-- [ ] TODO: If tests were not run, explain why.
+${tests}
+${screenshotsSection}
+${mermaidSection}
 
 ## Related Documents
 
@@ -619,15 +1324,11 @@ ${overview}
 }
 
 function getRequiredIssueSections(lang: Lang): string[] {
-  return lang === 'ko'
-    ? ['개요', '목표', '완료 기준', '관련 문서', '라벨']
-    : ['Overview', 'Goals', 'Completion Criteria', 'Related Documents', 'Labels'];
+  return getGithubDraftRequiredSections('issue', lang);
 }
 
 function getRequiredPrSections(lang: Lang): string[] {
-  return lang === 'ko'
-    ? ['개요', '변경 사항', '테스트', '관련 문서']
-    : ['Overview', 'Changes', 'Tests', 'Related Documents'];
+  return getGithubDraftRequiredSections('pr', lang);
 }
 
 function replaceListField(
@@ -911,6 +1612,8 @@ export function githubCommand(program: Command): void {
           config.lang
         );
         const specContent = await fs.readFile(path.join(config.docsDir, paths.specPath), 'utf-8');
+        const planContent = await fs.readFile(path.join(config.docsDir, paths.planPath), 'utf-8');
+        const tasksContent = await fs.readFile(path.join(config.docsDir, paths.tasksPath), 'utf-8');
         const overview = resolveOverviewFromSpec(specContent, feature, config.lang);
 
         const title =
@@ -919,7 +1622,15 @@ export function githubCommand(program: Command): void {
             slug: feature.slug,
             folder: feature.folderName,
           });
-        const generatedBody = buildIssueBody(overview, labels, paths, config.lang);
+        const generatedBody = buildIssueBody(
+          specContent,
+          planContent,
+          tasksContent,
+          overview,
+          labels,
+          paths,
+          config.lang
+        );
         ensureSections(
           generatedBody,
           getRequiredIssueSections(config.lang),
@@ -1053,6 +1764,8 @@ export function githubCommand(program: Command): void {
       tg(commandLang, 'optPrConfirm')
     )
     .option('--retry <count>', tg(commandLang, 'optPrRetry'))
+    .option('--screenshots <mode>', tg(commandLang, 'optPrScreenshots'), 'auto')
+    .option('--mermaid <mode>', tg(commandLang, 'optPrMermaid'), 'auto')
     .option('--no-sync-tasks', tg(commandLang, 'optPrNoSyncTasks'))
     .option('--commit-sync', tg(commandLang, 'optPrCommitSync'))
     .action(async (featureName: string | undefined, options: GithubPrOptions) => {
@@ -1066,6 +1779,11 @@ export function githubCommand(program: Command): void {
         const paths = getFeatureDocPaths(feature);
         ensureDocsExist(config.docsDir, [paths.specPath, paths.tasksPath], config.lang);
         const specContent = await fs.readFile(path.join(config.docsDir, paths.specPath), 'utf-8');
+        const planPath = path.join(config.docsDir, paths.planPath);
+        const planContent = (await fs.pathExists(planPath))
+          ? await fs.readFile(planPath, 'utf-8')
+          : '';
+        const tasksContent = await fs.readFile(path.join(config.docsDir, paths.tasksPath), 'utf-8');
         const overview = resolveOverviewFromSpec(specContent, feature, config.lang);
 
         const defaultTitle = feature.issueNumber
@@ -1077,7 +1795,17 @@ export function githubCommand(program: Command): void {
               slug: feature.slug,
             });
         const title = options.title?.trim() || defaultTitle;
-        const generatedBody = buildPrBody(feature, overview, paths, config.lang);
+        const artifactPolicy = resolvePrArtifactPolicy(config, feature, options);
+        const generatedBody = buildPrBody(
+          feature,
+          specContent,
+          planContent,
+          tasksContent,
+          overview,
+          paths,
+          artifactPolicy,
+          config.lang
+        );
         ensureSections(
           generatedBody,
           getRequiredPrSections(config.lang),
@@ -1113,6 +1841,7 @@ export function githubCommand(program: Command): void {
 
         if (options.create) {
           ensureNoTodoPlaceholders(body, tg(config.lang, 'kindPr'), config.lang);
+          ensurePrArtifacts(body, artifactPolicy, config.lang);
           assertRemoteApproval(
             options.confirm,
             tg(config.lang, 'operationPrCreate'),
@@ -1219,6 +1948,10 @@ export function githubCommand(program: Command): void {
                 labels,
                 body,
                 bodyFile,
+                artifactPolicy: {
+                  screenshots: artifactPolicy.includeScreenshots,
+                  mermaid: artifactPolicy.includeMermaid,
+                },
                 prUrl: prUrl || undefined,
                 syncChanged,
                 merged: !!options.merge,

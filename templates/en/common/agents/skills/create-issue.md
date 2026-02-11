@@ -47,7 +47,7 @@ Before creating issue, share and wait for explicit approval (OK):
 - Full body draft (from `body`)
 - Labels
 
-Also fill all `TODO` items in Goals/Completion Criteria before creating.
+Also refine Goals/Completion Criteria based on spec before creating.
 
 ### 3. Create Issue
 

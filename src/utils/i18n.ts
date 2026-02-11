@@ -212,6 +212,8 @@ const I18N: Record<Lang, I18nData> = {
       'github.optPrMerge': '재시도/헤드 갱신과 함께 PR merge 수행',
       'github.optPrConfirm': '원격 작업(--create/--merge)용 명시적 승인 토큰. 사용값: OK',
       'github.optPrRetry': 'merge 재시도 횟수 (기본: 3)',
+      'github.optPrScreenshots': 'PR 스크린샷 섹션 모드 (auto|on|off, 기본: auto)',
+      'github.optPrMermaid': 'PR Mermaid 섹션 모드 (auto|on|off, 기본: auto)',
       'github.optPrNoSyncTasks': 'tasks.md PR URL/PR 상태 동기화를 건너뜀',
       'github.optPrCommitSync': 'tasks.md 동기화 변경을 자동 commit/push',
       'github.invalidRepoComponentMismatch':
@@ -225,6 +227,16 @@ const I18N: Record<Lang, I18nData> = {
       'github.sectionsMissing': '{kind} 본문에 필수 섹션이 없습니다: {sections}',
       'github.todoPlaceholdersRemain':
         '{kind} 본문에 TODO 항목이 남아 있습니다. 목표/완료 기준 등을 채운 뒤 다시 실행하세요.',
+      'github.artifactModeInvalid':
+        '`--{kind}` 값이 올바르지 않습니다: {value}. 허용값: auto,on,off',
+      'github.prScreenshotsSectionMissing':
+        'PR 본문에 필수 섹션이 없습니다: {section}',
+      'github.prScreenshotImageMissing':
+        'PR 본문의 `{section}` 섹션에 이미지 마크다운(`![](...)`)을 추가하세요.',
+      'github.prMermaidSectionMissing':
+        'PR 본문에 필수 섹션이 없습니다: {section}',
+      'github.prMermaidBlockMissing':
+        'PR 본문의 `{section}` 섹션에 ```mermaid 코드 블록을 추가하세요.',
       'github.docsMissing': '관련 문서 경로가 존재하지 않습니다: {paths}',
       'github.noFeatures': 'Feature를 찾을 수 없습니다.',
       'github.multipleFeaturesMatched':
@@ -423,7 +435,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
-        '`npx lee-spec-kit docs get create-issue --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github issue {featureRef} --json`으로 초안을 생성하세요. TODO를 채우고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
+        '`npx lee-spec-kit docs get create-issue --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github issue {featureRef} --json`으로 초안을 생성하세요. 목표/완료 기준을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
@@ -457,7 +469,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         '리스크를 공유하면 PR 생성 진행 가능',
       prCreate:
-        '`npx lee-spec-kit docs get create-pr --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github pr {featureRef} --json`으로 초안을 생성하세요. TODO를 채우고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음 tasks.md에 PR 링크를 기록하세요.',
+        '`npx lee-spec-kit docs get create-pr --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github pr {featureRef} --json`으로 초안을 생성하세요. 변경 사항/테스트 섹션을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음 tasks.md에 PR 링크를 기록하세요.',
       prFillStatus:
         'tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
       prResolveReview:
@@ -700,6 +712,8 @@ const I18N: Record<Lang, I18nData> = {
       'github.optPrConfirm':
         'Explicit user approval token for remote operations (--create/--merge). Use: OK',
       'github.optPrRetry': 'Retry count for merge (default: 3)',
+      'github.optPrScreenshots': 'PR screenshots section mode (auto|on|off, default: auto)',
+      'github.optPrMermaid': 'PR Mermaid section mode (auto|on|off, default: auto)',
       'github.optPrNoSyncTasks': 'Do not sync PR URL/PR status into tasks.md',
       'github.optPrCommitSync': 'Commit and push tasks.md metadata sync automatically',
       'github.invalidRepoComponentMismatch':
@@ -713,6 +727,16 @@ const I18N: Record<Lang, I18nData> = {
       'github.sectionsMissing': '{kind} body is missing required sections: {sections}',
       'github.todoPlaceholdersRemain':
         '{kind} body still contains TODO placeholders. Fill goals/completion criteria before creating remotely.',
+      'github.artifactModeInvalid':
+        'Invalid value for `--{kind}`: {value}. Allowed: auto,on,off',
+      'github.prScreenshotsSectionMissing':
+        'PR body is missing required section: {section}',
+      'github.prScreenshotImageMissing':
+        'Add image markdown (`![](...)`) to the `{section}` section in PR body.',
+      'github.prMermaidSectionMissing':
+        'PR body is missing required section: {section}',
+      'github.prMermaidBlockMissing':
+        'Add a ```mermaid code block to the `{section}` section in PR body.',
       'github.docsMissing': 'Related document paths do not exist: {paths}',
       'github.noFeatures': 'No features found.',
       'github.multipleFeaturesMatched':
@@ -927,7 +951,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
-        'Review procedure with `npx lee-spec-kit docs get create-issue --json`, then generate a draft via `npx lee-spec-kit github issue {featureRef} --json`. Fill TODOs, get explicit user OK, run `--create --confirm OK`, then update issue number in spec.md/tasks.md and prepare a docs commit.',
+        'Review procedure with `npx lee-spec-kit docs get create-issue --json`, then generate a draft via `npx lee-spec-kit github issue {featureRef} --json`. Refine goals/completion criteria, get explicit user OK, run `--create --confirm OK`, then update issue number in spec.md/tasks.md and prepare a docs commit.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
@@ -961,7 +985,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         'you may proceed after sharing the risks',
       prCreate:
-        'Review procedure with `npx lee-spec-kit docs get create-pr --json`, then generate a draft via `npx lee-spec-kit github pr {featureRef} --json`. Fill TODOs, get explicit user OK, run `--create --confirm OK`, then record the PR link in tasks.md.',
+        'Review procedure with `npx lee-spec-kit docs get create-pr --json`, then generate a draft via `npx lee-spec-kit github pr {featureRef} --json`. Refine changes/tests sections, get explicit user OK, run `--create --confirm OK`, then record the PR link in tasks.md.',
       prFillStatus:
         'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
       prResolveReview:

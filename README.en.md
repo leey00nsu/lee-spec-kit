@@ -217,6 +217,7 @@ Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions
 ### Built-in Docs
 
 If you do not restore `agents.md` into project docs, fetch CLI-managed guides directly:
+`docs get create-issue|issue-template|create-pr|pr-template --json` also returns `contract` (required sections / artifact rules).
 
 ```bash
 # list built-in docs
@@ -285,6 +286,9 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement,fr
 # Generate PR body
 npx lee-spec-kit github pr F001
 
+# Generate PR body (force screenshots/Mermaid sections)
+npx lee-spec-kit github pr F001 --screenshots on --mermaid on
+
 # Generate + create PR + sync tasks.md metadata + merge with retry
 npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhancement,frontend
 ```
@@ -295,6 +299,7 @@ Key points:
 - Labels are validated (at least one required).
 - `--create`/`--merge` are remote operations and require `--confirm OK`.
 - PR helper can sync `tasks.md` PR URL/PR Status automatically (`--no-sync-tasks` to skip).
+- PR artifact sections are controlled by `--screenshots (auto|on|off)` and `--mermaid (auto|on|off)`.
 - Merge includes retry and automatic head-branch refresh (fetch/rebase/force-push) on out-of-date failures.
 
 ### Status

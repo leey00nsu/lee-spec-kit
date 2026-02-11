@@ -11,6 +11,7 @@ import {
   normalizeBuiltinDocId,
   toBuiltinDocCommand,
 } from '../utils/builtin-docs.js';
+import { getGithubDraftContractForBuiltinDoc } from '../utils/github-draft-contract.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -129,6 +130,7 @@ export function docsCommand(program: Command): void {
           id,
           command: toBuiltinDocCommand(id),
         }));
+        const contract = getGithubDraftContractForBuiltinDoc(docId, config.lang);
 
         if (options.json) {
           console.log(
@@ -146,6 +148,7 @@ export function docsCommand(program: Command): void {
                   content: loaded.content,
                 },
                 requiredDocs: followups,
+                contract: contract || undefined,
               },
               null,
               2

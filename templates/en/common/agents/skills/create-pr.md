@@ -26,6 +26,9 @@ npx lee-spec-kit docs get pr-template --json
 
 # 2) Generate draft body (no remote action)
 npx lee-spec-kit github pr F001 --json
+# - Force screenshots section: --screenshots on
+# - Force Mermaid section: --mermaid on
+# - Auto policy (default): --screenshots auto --mermaid auto
 ```
 
 Use `docs get pr-template --json` output as the section policy,
@@ -131,7 +134,7 @@ Before creating PR, share the following **in a code block** and wait for **expli
 - Full body draft (from `body`)
 - Labels (at least 1; cannot be empty)
 
-Before approval/create, fill all `TODO` items in the generated draft.
+Before approval/create, refine the generated draft's Changes/Tests sections based on actual work.
 
 ### 5. Create PR
 

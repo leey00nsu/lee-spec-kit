@@ -550,10 +550,28 @@ test('github issue --create blocks TODO placeholders even with approval', async 
     const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
+    const bodyFile = path.join(dir, 'tmp-issue-body-todo.md');
+    await writeIssueBodyWithoutTodo(bodyFile);
+    const bodyWithTodo = (await fs.readFile(bodyFile, 'utf-8')).replace(
+      '- [ ] Define explicit user impact.',
+      '- [ ] TODO: Define explicit user impact.'
+    );
+    await fs.writeFile(bodyFile, bodyWithTodo, 'utf-8');
+
     const fakeGh = await setupFakeGhCli(dir);
     const result = await runCli(
       dir,
-      ['github', 'issue', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      [
+        'github',
+        'issue',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
       fakeGh.env
     );
     assert.equal(result.code, 1, result.stderr || result.stdout);
@@ -671,7 +689,50 @@ test('github pr draft uses Korean template when config lang is ko', async () => 
   });
 });
 
-test('github issue/pr drafts derive overview from spec and keep TODO sections', async () => {
+test('github pr draft includes artifact sections when modes are on', async () => {
+  await withTempDir('lsk-github-pr-artifact-modes-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const result = await runCli(dir, [
+      'github',
+      'pr',
+      'F001-alpha',
+      '--json',
+      '--screenshots',
+      'on',
+      '--mermaid',
+      'on',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_TEMPLATE_GENERATED');
+    assert.equal(payload.artifactPolicy?.screenshots, true);
+    assert.equal(payload.artifactPolicy?.mermaid, true);
+    assert.match(payload.body, /^## Screenshots$/m);
+    assert.match(payload.body, /^## Architecture Diagram$/m);
+    assert.match(payload.body, /```mermaid/);
+  });
+});
+
+test('github issue/pr drafts derive overview from spec with docs-root paths', async () => {
   await withTempDir('lsk-github-overview-from-spec-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -705,8 +766,22 @@ test('github issue/pr drafts derive overview from spec and keep TODO sections', 
     assert.equal(issuePayload.status, 'ok');
     assert.equal(issuePayload.reasonCode, 'ISSUE_TEMPLATE_GENERATED');
     assert.match(issuePayload.body, /Allow users to sign in with email and password\./);
-    assert.match(issuePayload.body, /- \[ \] TODO: Fill concrete goals based on spec\.md\./);
-    assert.match(issuePayload.body, /- \[ \] TODO: Define verifiable completion criteria\./);
+    assert.doesNotMatch(issuePayload.body, /TODO:/);
+    assert.match(issuePayload.body, /^## Goals$/m);
+    assert.match(issuePayload.body, /^## Completion Criteria$/m);
+    const goalsSection = issuePayload.body.match(
+      /^## Goals\s*\n\n([\s\S]*?)\n\n## Completion Criteria$/m
+    );
+    assert.ok(goalsSection);
+    const goalCount = (goalsSection[1].match(/^- \[ \] /gm) || []).length;
+    assert.ok(goalCount >= 3);
+
+    const criteriaSection = issuePayload.body.match(
+      /^## Completion Criteria\s*\n\n([\s\S]*?)\n\n## Related Documents$/m
+    );
+    assert.ok(criteriaSection);
+    const criteriaCount = (criteriaSection[1].match(/^- \[ \] /gm) || []).length;
+    assert.ok(criteriaCount >= 4);
     assert.match(issuePayload.body, /`docs\/features\/F001-alpha\/spec\.md`/);
     assert.match(issuePayload.body, /`docs\/features\/F001-alpha\/plan\.md`/);
     assert.match(issuePayload.body, /`docs\/features\/F001-alpha\/tasks\.md`/);
@@ -718,8 +793,22 @@ test('github issue/pr drafts derive overview from spec and keep TODO sections', 
     assert.equal(prPayload.status, 'ok');
     assert.equal(prPayload.reasonCode, 'PR_TEMPLATE_GENERATED');
     assert.match(prPayload.body, /Allow users to sign in with email and password\./);
-    assert.match(prPayload.body, /- \[ \] TODO: Summarize key code changes in this PR\./);
-    assert.match(prPayload.body, /- \[ \] TODO: `<test command>` — PASS\/FAIL/);
+    assert.doesNotMatch(prPayload.body, /TODO:/);
+    assert.match(prPayload.body, /^## Changes$/m);
+    assert.match(prPayload.body, /^## Tests$/m);
+    const changesSection = prPayload.body.match(
+      /^## Changes\s*\n\n([\s\S]*?)\n\n## Tests$/m
+    );
+    assert.ok(changesSection);
+    const changesCount = (changesSection[1].match(/^- \[ \] /gm) || []).length;
+    assert.ok(changesCount >= 3);
+
+    const testsSection = prPayload.body.match(
+      /^### Tests Run\s*\n\n([\s\S]*?)\n\n## Related Documents$/m
+    );
+    assert.ok(testsSection);
+    const testsCount = (testsSection[1].match(/^- \[ \] /gm) || []).length;
+    assert.ok(testsCount >= 2);
     assert.match(prPayload.body, /`docs\/features\/F001-alpha\/spec\.md`/);
     assert.match(prPayload.body, /`docs\/features\/F001-alpha\/tasks\.md`/);
     assert.doesNotMatch(prPayload.body, /Deliver implementation for the feature scope/);
@@ -843,10 +932,28 @@ test('github pr --create blocks TODO placeholders even with approval', async () 
     const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
+    const bodyFile = path.join(dir, 'tmp-pr-body-todo.md');
+    await writePrBodyWithoutTodo(bodyFile);
+    const bodyWithTodo = (await fs.readFile(bodyFile, 'utf-8')).replace(
+      '- [ ] Summarize main implementation changes.',
+      '- [ ] TODO: Summarize main implementation changes.'
+    );
+    await fs.writeFile(bodyFile, bodyWithTodo, 'utf-8');
+
     const fakeGh = await setupFakeGhCli(dir);
     const result = await runCli(
       dir,
-      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
       fakeGh.env
     );
     assert.equal(result.code, 1, result.stderr || result.stdout);
@@ -854,6 +961,90 @@ test('github pr --create blocks TODO placeholders even with approval', async () 
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
     assert.match(payload.error, /TODO placeholders/i);
+
+    const logExists = await pathExists(fakeGh.logPath);
+    assert.equal(logExists, false);
+  });
+});
+
+test('github pr --create enforces screenshot/mermaid sections when mode is on', async () => {
+  await withTempDir('lsk-github-pr-artifacts-enforced-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(dir, 'tmp-pr-body-missing-artifacts.md');
+    await writePrBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const screenshotMissing = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--screenshots',
+        'on',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(
+      screenshotMissing.code,
+      1,
+      screenshotMissing.stderr || screenshotMissing.stdout
+    );
+    const screenshotPayload = JSON.parse(screenshotMissing.stdout.trim());
+    assert.equal(screenshotPayload.status, 'error');
+    assert.equal(screenshotPayload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(screenshotPayload.error, /Screenshots/i);
+
+    const mermaidMissing = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--mermaid',
+        'on',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(
+      mermaidMissing.code,
+      1,
+      mermaidMissing.stderr || mermaidMissing.stdout
+    );
+    const mermaidPayload = JSON.parse(mermaidMissing.stdout.trim());
+    assert.equal(mermaidPayload.status, 'error');
+    assert.equal(mermaidPayload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(mermaidPayload.error, /Architecture Diagram/i);
 
     const logExists = await pathExists(fakeGh.logPath);
     assert.equal(logExists, false);
@@ -1185,6 +1376,27 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     assert.equal(Array.isArray(getPayload.requiredDocs), true);
     assert.equal(
       getPayload.requiredDocs.some((doc) => doc.id === 'create-issue'),
+      true
+    );
+
+    const createPrLoaded = await runCli(dir, ['docs', 'get', 'create-pr', '--json']);
+    assert.equal(
+      createPrLoaded.code,
+      0,
+      createPrLoaded.stderr || createPrLoaded.stdout
+    );
+    const createPrPayload = JSON.parse(createPrLoaded.stdout.trim());
+    assert.equal(createPrPayload.status, 'ok');
+    assert.equal(createPrPayload.doc.id, 'create-pr');
+    assert.equal(createPrPayload.contract?.kind, 'pr');
+    assert.equal(Array.isArray(createPrPayload.contract?.requiredSections), true);
+    assert.equal(
+      createPrPayload.contract.requiredSections.includes('개요'),
+      true
+    );
+    assert.equal(Array.isArray(createPrPayload.contract?.artifacts), true);
+    assert.equal(
+      createPrPayload.contract.artifacts.some((artifact) => artifact.id === 'screenshots'),
       true
     );
   });

@@ -26,6 +26,9 @@ npx lee-spec-kit docs get pr-template --json
 
 # 2) 초안 본문 생성 (원격 작업 아님)
 npx lee-spec-kit github pr F001 --json
+# - 스크린샷 강제 포함: --screenshots on
+# - Mermaid 강제 포함: --mermaid on
+# - 자동 정책(기본): --screenshots auto --mermaid auto
 ```
 
 `docs get pr-template --json` 출력은 섹션 정책으로 보고,
@@ -131,7 +134,7 @@ PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하�
 - 본문 전체 초안 (`body` 기준)
 - 라벨(최소 1개, 비워둘 수 없음)
 
-승인/생성 전에 생성된 초안의 `TODO` 항목을 모두 채우세요.
+승인/생성 전에 생성된 초안의 변경 사항/테스트 섹션을 실제 작업 기준으로 보완하세요.
 
 ### 5. PR 생성
 

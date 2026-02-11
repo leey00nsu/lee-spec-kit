@@ -239,6 +239,7 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 ### CLI 내장 문서 조회
 
 `agents.md`를 프로젝트에 복구하지 않는 환경에서는 아래 명령으로 내장 가이드를 직접 조회할 수 있습니다.
+`docs get create-issue|issue-template|create-pr|pr-template --json` 응답에는 `contract`(필수 섹션/아티팩트 규칙)도 포함됩니다.
 
 ```bash
 # 조회 가능한 내장 문서 목록
@@ -307,6 +308,9 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement,fr
 # PR 본문 생성
 npx lee-spec-kit github pr F001
 
+# PR 본문 생성 (스크린샷/Mermaid 섹션 강제 포함)
+npx lee-spec-kit github pr F001 --screenshots on --mermaid on
+
 # PR 본문 생성 + PR 생성 + tasks.md 메타데이터 동기화 + merge 재시도
 npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhancement,frontend
 ```
@@ -317,6 +321,7 @@ npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhanceme
 - 라벨은 최소 1개 이상 필수입니다.
 - `--create`/`--merge`는 원격 작업이므로 `--confirm OK`가 필요합니다.
 - PR helper는 기본적으로 `tasks.md`의 `PR`/`PR Status`를 동기화합니다. (`--no-sync-tasks`로 비활성화)
+- PR helper의 아티팩트 섹션은 `--screenshots (auto|on|off)`, `--mermaid (auto|on|off)`로 제어할 수 있습니다.
 - merge 시 head 브랜치가 뒤쳐진 경우 fetch/rebase/force-push 후 재시도합니다.
 
 ### 상태 확인
