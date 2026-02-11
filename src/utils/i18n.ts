@@ -194,7 +194,8 @@ const I18N: Record<Lang, I18nData> = {
       'init.warn.skipGitInit': '⚠️  Git 초기화를 건너뜁니다 (수동으로 커밋해주세요)',
       'init.error.templateNotFound': '템플릿을 찾을 수 없습니다: {path}',
 
-      'github.cmdGithubDescription': 'GitHub 워크플로우 도우미 (issue/pr 초안, 검증, merge 재시도)',
+      'github.cmdGithubDescription':
+        'GitHub 워크플로우 도우미 (issue/pr 본문 템플릿 생성, 검증, merge 재시도)',
       'github.cmdIssueDescription': 'feature 문서 기반 GitHub issue 본문 생성/생성',
       'github.cmdPrDescription': 'GitHub PR 본문 생성/생성 + tasks 동기화 + merge 재시도',
       'github.optJson': '에이전트용 JSON 형식으로 출력',
@@ -284,10 +285,12 @@ const I18N: Record<Lang, I18nData> = {
       'github.labelLabels': '라벨',
       'github.labelPr': 'PR',
       'github.issueCreated': '✅ 생성 완료: {url}',
-      'github.issueTemplateGenerated': '초안을 생성했습니다. 자동 생성하려면 `--create`를 사용하세요.',
+      'github.issueTemplateGenerated':
+        '본문 템플릿을 생성했습니다. 원격으로 이슈를 생성하려면 `--create`를 사용하세요.',
       'github.prTasksSynced': '✅ tasks.md PR 메타데이터를 동기화했습니다.',
       'github.prMerged': '✅ PR merge 완료 (시도 횟수: {attempts})',
-      'github.prTemplateGenerated': '초안을 생성했습니다. 자동 생성하려면 `--create`를 사용하세요.',
+      'github.prTemplateGenerated':
+        '본문 템플릿을 생성했습니다. 원격으로 PR을 생성하려면 `--create`를 사용하세요.',
       'github.syncCommitWithIssue': 'docs(#{issue}): {folder} PR 메타데이터 동기화',
       'github.syncCommitNoIssue': 'docs: {folder} PR 메타데이터 동기화',
       'github.kindIssue': 'Issue',
@@ -440,7 +443,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
-        '`npx lee-spec-kit docs get create-issue --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github issue {featureRef} --json`으로 초안을 생성하세요. 목표/완료 기준을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
+        '`npx lee-spec-kit docs get create-issue --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github issue {featureRef} --json`으로 본문 템플릿을 생성하세요. 목표/완료 기준을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
@@ -474,7 +477,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         '리스크를 공유하면 PR 생성 진행 가능',
       prCreate:
-        '`npx lee-spec-kit docs get create-pr --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github pr {featureRef} --json`으로 초안을 생성하세요. 변경 사항/테스트 섹션을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음 tasks.md에 PR 링크를 기록하세요.',
+        '`npx lee-spec-kit docs get create-pr --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github pr {featureRef} --json`으로 본문 템플릿을 생성하세요. 변경 사항/테스트 섹션을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음 tasks.md에 PR 링크를 기록하세요.',
       prFillStatus:
         'tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
       prResolveReview:
@@ -961,7 +964,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
-        'Review procedure with `npx lee-spec-kit docs get create-issue --json`, then generate a draft via `npx lee-spec-kit github issue {featureRef} --json`. Refine goals/completion criteria, get explicit user OK, run `--create --confirm OK`, then update issue number in spec.md/tasks.md and prepare a docs commit.',
+        'Review procedure with `npx lee-spec-kit docs get create-issue --json`, then generate a body template via `npx lee-spec-kit github issue {featureRef} --json`. Refine goals/completion criteria, get explicit user OK, run `--create --confirm OK`, then update issue number in spec.md/tasks.md and prepare a docs commit.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
@@ -995,7 +998,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         'you may proceed after sharing the risks',
       prCreate:
-        'Review procedure with `npx lee-spec-kit docs get create-pr --json`, then generate a draft via `npx lee-spec-kit github pr {featureRef} --json`. Refine changes/tests sections, get explicit user OK, run `--create --confirm OK`, then record the PR link in tasks.md.',
+        'Review procedure with `npx lee-spec-kit docs get create-pr --json`, then generate a body template via `npx lee-spec-kit github pr {featureRef} --json`. Refine changes/tests sections, get explicit user OK, run `--create --confirm OK`, then record the PR link in tasks.md.',
       prFillStatus:
         'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
       prResolveReview:

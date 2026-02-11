@@ -15,16 +15,16 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 ## 단계
 
-### 1. PR 초안 작성
+### 1. PR 본문 템플릿 준비
 
-> 📖 **먼저 `docs get`으로 절차/템플릿을 읽고, 초안을 생성해 기준으로 사용하세요.**
+> 📖 **먼저 `docs get`으로 절차/템플릿을 읽고, 본문 템플릿을 생성해 기준으로 사용하세요.**
 
 ```bash
 # 1) 절차/템플릿 정책 확인
 npx lee-spec-kit docs get create-pr --json
 npx lee-spec-kit docs get pr-template --json
 
-# 2) 초안 본문 생성 (원격 작업 아님)
+# 2) 본문 템플릿 생성 (원격 작업 아님)
 npx lee-spec-kit github pr F001 --json
 # - 스크린샷 강제 포함: --screenshots on
 # - Mermaid 강제 포함: --mermaid on
@@ -32,7 +32,7 @@ npx lee-spec-kit github pr F001 --json
 ```
 
 `docs get pr-template --json` 출력은 섹션 정책으로 보고,
-`github pr --json`의 `body`를 우선 PR 초안 본문으로 사용하세요.
+`github pr --json`의 `body`를 우선 PR 본문 템플릿으로 사용하세요.
 필요하면 `bodyFile` 경로 파일을 함께 참고하세요.
 
 | 항목   | 형식                               |
@@ -50,7 +50,7 @@ npx lee-spec-kit github pr F001 --json
 
 1. 작업과 관련된 테스트 명령어 실행 (예: `npm test`, `pnpm test`), 테스트가 없는 경우 사용자에게 요청
 2. 결과 확인 (PASS/FAIL)
-3. PR 본문 "테스트" 섹션은 생성된 초안 기준으로, 실제 실행한 테스트만 반영합니다.
+3. PR 본문 "테스트" 섹션은 생성된 본문 템플릿 기준으로, 실제 실행한 테스트만 반영합니다.
 4. 테스트를 실행하지 않았다면, PR 생성 전에 사용자에게 요청/확인합니다.
 
 ### 3. 스크린샷/다이어그램 작성 (PR 본문에 포함)
@@ -122,7 +122,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### 로직/구조 변경 (백엔드 PR)
 
-- PR 본문에 Mermaid **`sequenceDiagram`**을 작성하고, 생성된 초안 형식과 일치하게 유지합니다.
+- PR 본문에 Mermaid **`sequenceDiagram`**을 작성하고, 생성된 본문 템플릿 형식과 일치하게 유지합니다.
 
 ### 4. 사용자 확인 요청
 
@@ -131,10 +131,10 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하고 **명시적 승인(OK)** 대기:
 
 - 제목
-- 본문 전체 초안 (`body` 기준)
+- 본문 전체 템플릿 (`body` 기준)
 - 라벨(최소 1개, 비워둘 수 없음)
 
-승인/생성 전에 생성된 초안의 변경 사항/테스트 섹션을 실제 작업 기준으로 보완하세요.
+승인/생성 전에 생성된 본문 템플릿의 변경 사항/테스트 섹션을 실제 작업 기준으로 보완하세요.
 
 ### 5. PR 생성
 
@@ -189,5 +189,5 @@ PR 본문의 파일 링크는 **현재 브랜치명**을 사용:
 
 ## 참조 문서
 
-- **초안 생성기**: `npx lee-spec-kit github pr <feature-name>`
+- **본문 템플릿 생성기**: `npx lee-spec-kit github pr <feature-name>`
 - **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행

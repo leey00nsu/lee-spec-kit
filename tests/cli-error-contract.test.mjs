@@ -756,7 +756,7 @@ test('github help is localized based on docs language (ko)', async () => {
   });
 });
 
-test('github issue draft uses Korean template when config lang is ko', async () => {
+test('github issue body template uses Korean template when config lang is ko', async () => {
   await withTempDir('lsk-github-issue-ko-template-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -795,7 +795,7 @@ test('github issue draft uses Korean template when config lang is ko', async () 
   });
 });
 
-test('github pr draft uses Korean template when config lang is ko', async () => {
+test('github pr body template uses Korean template when config lang is ko', async () => {
   await withTempDir('lsk-github-pr-ko-template-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -834,7 +834,7 @@ test('github pr draft uses Korean template when config lang is ko', async () => 
   });
 });
 
-test('github pr draft includes artifact sections when modes are on', async () => {
+test('github pr body template includes artifact sections when modes are on', async () => {
   await withTempDir('lsk-github-pr-artifact-modes-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -877,7 +877,7 @@ test('github pr draft includes artifact sections when modes are on', async () =>
   });
 });
 
-test('github issue/pr drafts derive overview from spec with docs-root paths', async () => {
+test('github issue/pr body templates derive overview from spec with docs-root paths', async () => {
   await withTempDir('lsk-github-overview-from-spec-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -960,7 +960,7 @@ test('github issue/pr drafts derive overview from spec with docs-root paths', as
   });
 });
 
-test('github draft body files are project-scoped and overwritten by default', async () => {
+test('github body template files are project-scoped and overwritten by default', async () => {
   await withTempDir('lsk-github-body-file-default-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',

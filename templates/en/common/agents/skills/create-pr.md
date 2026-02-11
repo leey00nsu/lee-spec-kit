@@ -15,16 +15,16 @@ Guide for creating Pull Requests.
 
 ## Steps
 
-### 1. Prepare PR Draft
+### 1. Prepare PR Body Template
 
-> 📖 **Read procedure/template via `docs get` first, then generate a draft and treat it as the source of truth.**
+> 📖 **Read procedure/template via `docs get` first, then generate a body template and treat it as the source of truth.**
 
 ```bash
 # 1) Read procedure + template policy
 npx lee-spec-kit docs get create-pr --json
 npx lee-spec-kit docs get pr-template --json
 
-# 2) Generate draft body (no remote action)
+# 2) Generate body template (no remote action)
 npx lee-spec-kit github pr F001 --json
 # - Force screenshots section: --screenshots on
 # - Force Mermaid section: --mermaid on
@@ -32,7 +32,7 @@ npx lee-spec-kit github pr F001 --json
 ```
 
 Use `docs get pr-template --json` output as the section policy,
-and `github pr --json` output `body` as the first PR draft body.
+and `github pr --json` output `body` as the first PR body template.
 If needed, use `bodyFile` as the filesystem source.
 
 | Item     | Format                             |
@@ -50,7 +50,7 @@ If needed, use `bodyFile` as the filesystem source.
 
 1. Run relevant test commands (e.g., `npm test`, `pnpm test`); if no tests exist, request them from the user
 2. Check results (PASS/FAIL)
-3. In the PR body "Tests" section, keep only what you actually ran in the generated draft body
+3. In the PR body "Tests" section, keep only what you actually ran in the generated body template
 4. If you didn’t run any tests, request/confirm with the user before creating the PR
 
 ### 3. Prepare Screenshots / Diagrams (Include in PR Body)
@@ -122,7 +122,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 #### Logic/structure changes (Backend PR)
 
-- Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated draft format.
+- Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated body template format.
 
 ### 4. Request User Approval
 
@@ -131,10 +131,10 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 Before creating PR, share the following **in a code block** and wait for **explicit approval (OK)**:
 
 - Title
-- Full body draft (from `body`)
+- Full body template (from `body`)
 - Labels (at least 1; cannot be empty)
 
-Before approval/create, refine the generated draft's Changes/Tests sections based on actual work.
+Before approval/create, refine the generated body template's Changes/Tests sections based on actual work.
 
 ### 5. Create PR
 
@@ -189,5 +189,5 @@ Use **current branch name** for file links in PR body:
 
 ## Reference Documents
 
-- **Draft generator**: `npx lee-spec-kit github pr <feature-name>`
+- **Body template generator**: `npx lee-spec-kit github pr <feature-name>`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
