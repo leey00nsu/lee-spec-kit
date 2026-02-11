@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
+import fs from 'fs-extra';
+import { createHash, randomUUID } from 'crypto';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
@@ -42,6 +44,7 @@ interface ContextOptions {
   all?: boolean;
   done?: boolean;
   approve?: string;
+  ticket?: string;
   execute?: boolean;
   executeStrict?: boolean;
 }
@@ -52,6 +55,25 @@ interface RequiredDocHint {
   id: BuiltinDocId;
   command: string;
 }
+
+interface ApprovalTicketRecord {
+  token: string;
+  sessionId: string;
+  contextVersion: string;
+  actionHash: string;
+  label: string;
+  featureRef: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string;
+}
+
+interface ApprovalTicketStore {
+  tickets: ApprovalTicketRecord[];
+}
+
+const APPROVAL_TICKET_FILENAME = '.lee-spec-kit.approval-tickets.json';
+const APPROVAL_TICKET_TTL_MS = 5 * 60 * 1000;
 
 async function resolveContextState(
   config: Awaited<ReturnType<typeof getConfig>>,
@@ -67,10 +89,212 @@ async function resolveContextState(
   return resolveContextSelection(config, featureName, options);
 }
 
-function parseApprovalLabel(input: string): string | null {
-  const match = input.trim().match(/^([A-Z]+)(?:\s+OK)?$/i);
-  if (!match) return null;
-  return match[1].toUpperCase();
+function parseApprovalLabel(input: string, validLabels: string[]): string | null {
+  const normalized = input.trim().toUpperCase();
+  if (!normalized) return null;
+
+  const validSet = new Set(
+    validLabels.map((label) => label.trim().toUpperCase()).filter(Boolean)
+  );
+  if (validSet.size === 0) return null;
+
+  // Prefer label-first replies: "A", "A OK", "A proceed", "A 진행해"
+  const leading = normalized.match(/^[`"'([{<\s]*([A-Z]+)\b/);
+  if (leading && validSet.has(leading[1])) return leading[1];
+
+  // Fallback: allow natural sentences that include a valid label token.
+  const tokens = normalized.match(/[A-Z]+/g) || [];
+  for (const token of tokens) {
+    if (validSet.has(token)) return token;
+  }
+  return null;
+}
+
+function getApprovalTicketPath(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>
+): string {
+  return path.join(config.docsDir, APPROVAL_TICKET_FILENAME);
+}
+
+function getApprovalSessionId(): string {
+  const explicit = (process.env.LEE_SPEC_KIT_SESSION_ID || '').trim();
+  if (explicit) return explicit;
+  const terminalSession = (
+    process.env.TERM_SESSION_ID ||
+    process.env.WT_SESSION ||
+    process.env.TMUX_PANE ||
+    ''
+  ).trim();
+  if (terminalSession) return terminalSession;
+  return `ppid:${process.ppid}`;
+}
+
+function toActionHash(option: ActionOption): string {
+  const payload = JSON.stringify({
+    label: option.label,
+    action: option.action,
+  });
+  return createHash('sha256').update(payload).digest('hex').slice(0, 24);
+}
+
+async function loadApprovalTicketStore(storePath: string): Promise<ApprovalTicketStore> {
+  if (!(await fs.pathExists(storePath))) return { tickets: [] };
+  try {
+    const parsed = await fs.readJson(storePath);
+    if (!parsed || !Array.isArray(parsed.tickets)) return { tickets: [] };
+    return { tickets: parsed.tickets as ApprovalTicketRecord[] };
+  } catch {
+    return { tickets: [] };
+  }
+}
+
+function pruneApprovalTickets(
+  tickets: ApprovalTicketRecord[],
+  nowMs: number
+): ApprovalTicketRecord[] {
+  return tickets.filter((ticket) => {
+    if (ticket.usedAt) return false;
+    const expiresAtMs = Date.parse(ticket.expiresAt || '');
+    if (!Number.isFinite(expiresAtMs)) return false;
+    return expiresAtMs > nowMs;
+  });
+}
+
+async function issueApprovalTicket(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  payload: Pick<ApprovalTicketRecord, 'contextVersion' | 'actionHash' | 'label' | 'featureRef'>
+): Promise<ApprovalTicketRecord> {
+  const sessionId = getApprovalSessionId();
+  const nowMs = Date.now();
+  const record: ApprovalTicketRecord = {
+    token: randomUUID().replace(/-/g, ''),
+    sessionId,
+    contextVersion: payload.contextVersion,
+    actionHash: payload.actionHash,
+    label: payload.label,
+    featureRef: payload.featureRef,
+    createdAt: new Date(nowMs).toISOString(),
+    expiresAt: new Date(nowMs + APPROVAL_TICKET_TTL_MS).toISOString(),
+  };
+  const storePath = getApprovalTicketPath(config);
+  const lockPath = getDocsLockPath(config.docsDir);
+  return withFileLock(
+    lockPath,
+    async () => {
+      const store = await loadApprovalTicketStore(storePath);
+      const nextTickets = pruneApprovalTickets(store.tickets, nowMs);
+      nextTickets.push(record);
+      await fs.writeJson(
+        storePath,
+        {
+          tickets: nextTickets,
+          updatedAt: new Date(nowMs).toISOString(),
+        },
+        { spaces: 2 }
+      );
+      return record;
+    },
+    { owner: 'context-approval-ticket:issue' }
+  );
+}
+
+async function consumeApprovalTicket(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  token: string,
+  expected: Pick<
+    ApprovalTicketRecord,
+    'contextVersion' | 'actionHash' | 'label' | 'featureRef'
+  >
+): Promise<ApprovalTicketRecord> {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) {
+    throw createCliError(
+      'APPROVAL_REQUIRED',
+      'Execution requires an approval ticket. Run `context --approve <reply> --json` first and pass `--ticket <token>`.'
+    );
+  }
+  const storePath = getApprovalTicketPath(config);
+  const lockPath = getDocsLockPath(config.docsDir);
+  const sessionId = getApprovalSessionId();
+  const nowMs = Date.now();
+
+  return withFileLock(
+    lockPath,
+    async () => {
+      const store = await loadApprovalTicketStore(storePath);
+      const cleaned = pruneApprovalTickets(store.tickets, nowMs);
+      const index = cleaned.findIndex((entry) => entry.token === normalizedToken);
+      if (index < 0) {
+        await fs.writeJson(
+          storePath,
+          { tickets: cleaned, updatedAt: new Date(nowMs).toISOString() },
+          { spaces: 2 }
+        );
+        throw createCliError(
+          'INVALID_APPROVAL',
+          'Unknown or expired approval ticket. Re-run `context` and approve again.'
+        );
+      }
+
+      const record = cleaned[index];
+      const expiresAtMs = Date.parse(record.expiresAt || '');
+      if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) {
+        cleaned.splice(index, 1);
+        await fs.writeJson(
+          storePath,
+          { tickets: cleaned, updatedAt: new Date(nowMs).toISOString() },
+          { spaces: 2 }
+        );
+        throw createCliError(
+          'CONTEXT_STALE',
+          'Approval ticket expired. Run `context` again and re-approve.'
+        );
+      }
+
+      if (record.sessionId !== sessionId) {
+        throw createCliError(
+          'INVALID_APPROVAL',
+          'Approval ticket session mismatch. Re-run `context` in the current session and approve again.'
+        );
+      }
+      if (record.label !== expected.label) {
+        throw createCliError(
+          'INVALID_APPROVAL',
+          `Approval ticket label mismatch. Ticket=${record.label}, expected=${expected.label}.`
+        );
+      }
+      if (record.contextVersion !== expected.contextVersion) {
+        throw createCliError(
+          'CONTEXT_STALE',
+          'Context changed after approval. Run `context` again and re-approve.'
+        );
+      }
+      if (record.actionHash !== expected.actionHash) {
+        throw createCliError(
+          'CONTEXT_STALE',
+          'Selected action changed after approval. Run `context` again and re-approve.'
+        );
+      }
+      if (record.featureRef !== expected.featureRef) {
+        throw createCliError(
+          'INVALID_APPROVAL',
+          'Approval ticket feature mismatch. Re-run `context` for this feature and approve again.'
+        );
+      }
+
+      cleaned.splice(index, 1);
+      await fs.writeJson(
+        storePath,
+        {
+          tickets: cleaned,
+          updatedAt: new Date(nowMs).toISOString(),
+        },
+        { spaces: 2 }
+      );
+      return record;
+    },
+    { owner: 'context-approval-ticket:consume' }
+  );
 }
 
 function listLabels(actionOptions: ActionOption[]): string {
@@ -97,8 +321,10 @@ function buildApprovalCommand(
 ): string {
   const featureRef = resolveFeatureRefForApproval(state, featureName);
   const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
-  const executeArg = execute ? ' --execute' : '';
-  return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL>${executeArg}`;
+  if (execute) {
+    return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL> --execute --ticket <TICKET>`;
+  }
+  return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL>`;
 }
 
 function buildFinalApprovalPrompt(
@@ -177,8 +403,15 @@ export function contextCommand(program: Command): void {
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
-    .option('--approve <reply>', 'Approve one labeled option: A or A OK')
-    .option('--execute', 'Execute approved option when it is a command')
+    .option(
+      '--approve <reply>',
+      'Approve one labeled option (examples: A, A OK, A proceed, A 진행해)'
+    )
+    .option('--ticket <token>', 'Approval ticket issued by `--approve`')
+    .option(
+      '--execute',
+      'Execute approved option when it is a command (requires --ticket)'
+    )
     .option(
       '--execute-strict',
       'Fail when approved option is instruction-only (use with --execute)'
@@ -294,10 +527,17 @@ async function runContext(
     );
   }
 
-  if (options.execute && !options.approve) {
+  if (options.execute && (!options.ticket || !options.approve)) {
     throw createCliError(
       'APPROVAL_REQUIRED',
-      '`--execute` requires `--approve <label>`.'
+      '`--execute` requires both `--approve <reply>` and `--ticket <token>`. Run `context --approve <reply>` first.'
+    );
+  }
+
+  if (!options.execute && options.ticket) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--ticket` is only valid with `--execute`.'
     );
   }
 
@@ -333,7 +573,7 @@ async function runContext(
   const state = await resolveContextState(config, featureName, selectionOptions);
   const requiredDocs = buildRequiredDocHints(state.actionOptions);
 
-  if (options.approve) {
+  if (options.approve || options.execute) {
     await runApprovedOption(
       state,
       config,
@@ -390,8 +630,8 @@ async function runContext(
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
         policyOnly: true,
         token: '<LABEL>',
-        acceptedTokens: ['<LABEL>', '<LABEL> OK'],
-        tokenPattern: '^([A-Z]+)(?:\\s+OK)?$',
+        acceptedTokens: ['<LABEL>', '<LABEL> OK', '<LABEL> ...', '... <LABEL> ...'],
+        tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
         validLabels: state.actionOptions.map((o) => o.label),
         requireExplanationBeforeApproval: true,
         requiredExplanationFields: [
@@ -400,7 +640,7 @@ async function runContext(
           'actionOptions[].approvalPrompt',
         ],
         recommendation:
-          'Before asking for approval, present each label with exact CLI detail first (`A: <detail>`). Do not paraphrase command options. Then ask for `<LABEL>` or `<LABEL> OK`.',
+          'Before asking for approval, present each label with exact CLI detail first (`A: <detail>`). Do not paraphrase command options. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, require one-time `approvalTicket` from the approval result.',
         oneApprovalPerAction: true,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
@@ -413,6 +653,7 @@ async function runContext(
         labels: state.actionOptions.map((o) => o.label),
         approveCommand,
         executeCommand,
+        executeRequiresTicket: true,
         options: state.actionOptions.map((o) => ({
           label: o.label,
           summary: o.summary,
@@ -724,6 +965,12 @@ async function runContext(
   }
   if (actionOptions.length > 0) {
     const finalApprovalPrompt = buildFinalApprovalPrompt(lang, actionOptions);
+    const approveCommand = buildApprovalCommand(
+      state,
+      featureName,
+      selectedComponent,
+      false
+    );
     const executeCommand = buildApprovalCommand(
       state,
       featureName,
@@ -734,6 +981,13 @@ async function runContext(
     console.log(
       chalk.gray(
         `   ↳ ${tr(lang, 'cli', 'context.finalLabelCommandHint', {
+          command: approveCommand,
+        })}`
+      )
+    );
+    console.log(
+      chalk.gray(
+        `   ↳ ${tr(lang, 'cli', 'context.finalTicketCommandHint', {
           command: executeCommand,
         })}`
       )
@@ -751,13 +1005,8 @@ async function runApprovedOption(
   options: ContextOptions
 ): Promise<void> {
   const approval = options.approve || '';
-  const parsedLabel = parseApprovalLabel(approval);
-  if (!parsedLabel) {
-    throw createCliError(
-      'INVALID_APPROVAL',
-      'Invalid approval reply. Use `<label>` or `<label> OK` (e.g. `A`, `A OK`).'
-    );
-  }
+  const ticketToken = (options.ticket || '').trim();
+  let parsedLabel: string | null = null;
 
   if (state.status !== 'single_matched' || !state.matchedFeature) {
     throw createCliError(
@@ -768,6 +1017,17 @@ async function runApprovedOption(
 
   if (state.actionOptions.length === 0) {
     throw createCliError('NO_ACTION_OPTIONS', 'No action options to approve.');
+  }
+
+  parsedLabel = parseApprovalLabel(
+    approval,
+    state.actionOptions.map((o) => o.label)
+  );
+  if (!parsedLabel) {
+    throw createCliError(
+      'INVALID_APPROVAL',
+      'Invalid approval reply. Include a valid label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`).'
+    );
   }
 
   const selected = state.actionOptions.find((o) => o.label === parsedLabel);
@@ -797,8 +1057,24 @@ async function runApprovedOption(
     );
   }
 
+  if (!freshState.matchedFeature || !freshState.contextVersion) {
+    throw createCliError(
+      'CONTEXT_STALE',
+      'Context changed since approval was requested. Run `context` again and re-approve.'
+    );
+  }
+
   const selectedAction = freshSelected.action;
+  const actionHash = toActionHash(freshSelected);
+  const featureRef = freshState.matchedFeature.folderName;
+
   if (!options.execute) {
+    const ticket = await issueApprovalTicket(config, {
+      contextVersion: freshState.contextVersion,
+      actionHash,
+      label: parsedLabel,
+      featureRef,
+    });
     if (options.json) {
       console.log(
         JSON.stringify(
@@ -811,6 +1087,15 @@ async function runApprovedOption(
             contextVersion: freshState.contextVersion,
             executable: selectedAction.type === 'command',
             oneApprovalPerAction: true,
+            approvalTicket: {
+              token: ticket.token,
+              sessionId: ticket.sessionId,
+              label: ticket.label,
+              contextVersion: ticket.contextVersion,
+              actionHash: ticket.actionHash,
+              expiresAt: ticket.expiresAt,
+              oneTime: true,
+            },
           },
           null,
           2
@@ -823,13 +1108,37 @@ async function runApprovedOption(
     console.log(chalk.green(`✅ Approved option: ${parsedLabel}`));
     console.log(chalk.gray(`   - Action: ${formatActionSummary(selectedAction)}`));
     if (selectedAction.type === 'command') {
-      console.log(chalk.gray('   - Run with: --execute'));
+      const selectedComponent = selectionOptions.component || '';
+      const executeCommand = buildApprovalCommand(
+        freshState,
+        featureName,
+        selectedComponent,
+        true
+      )
+        .replace('<LABEL>', parsedLabel)
+        .replace('<TICKET>', ticket.token);
+      console.log(chalk.gray(`   - Ticket: ${ticket.token} (expires: ${ticket.expiresAt})`));
+      console.log(chalk.gray(`   - Run with: ${executeCommand}`));
     } else {
       console.log(chalk.gray('   - Instruction-only action (no command execution).'));
     }
     console.log();
     return;
   }
+
+  if (!ticketToken) {
+    throw createCliError(
+      'APPROVAL_REQUIRED',
+      '`--execute` requires `--ticket <token>`. Run `context --approve <reply>` first.'
+    );
+  }
+
+  await consumeApprovalTicket(config, ticketToken, {
+    contextVersion: freshState.contextVersion,
+    actionHash,
+    label: parsedLabel,
+    featureRef,
+  });
 
   if (selectedAction.type !== 'command') {
     if (options.executeStrict) {

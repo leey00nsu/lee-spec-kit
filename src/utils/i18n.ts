@@ -116,13 +116,15 @@ const I18N: Record<Lang, I18nData> = {
       'context.checkPolicyHint':
         'ℹ️  사용자 확인 정책은 `npx lee-spec-kit docs get agents --json`으로 먼저 확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
-        '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
+        '승인 응답 형식: 라벨 토큰 포함 (예: `A`, `A OK`, `A 진행해`)',
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.finalLabelPrompt':
         '현재 선택 가능한 라벨: {labels}. 마지막 응답은 `<라벨>` 또는 `<라벨> OK` 형식으로 받으세요. (예: {example})',
       'context.finalLabelCommandHint':
-        '라벨을 받으면 바로 실행: {command}',
+        '라벨을 받으면 승인 선택 실행: {command}',
+      'context.finalTicketCommandHint':
+        '명령 실행은 승인 결과의 티켓으로 실행: {command}',
       'context.readBuiltinDocFirst':
         '먼저 내장 문서를 확인하세요: {command}',
       'context.tipDocsCommitRules':
@@ -618,13 +620,15 @@ const I18N: Record<Lang, I18nData> = {
       'context.checkPolicyHint':
         'ℹ️  Check user-approval policy first with `npx lee-spec-kit docs get agents --json` (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
-        'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
+        'Approval reply format: include a label token (e.g. `A`, `A OK`, `A proceed`)',
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.finalLabelPrompt':
         'Available labels now: {labels}. End with a label request in `<label>` or `<label> OK` format. (e.g. {example})',
       'context.finalLabelCommandHint':
-        'When a label is provided, run immediately: {command}',
+        'When a label is provided, run approval selection: {command}',
+      'context.finalTicketCommandHint':
+        'Execute commands using the ticket from approval result: {command}',
       'context.readBuiltinDocFirst':
         'Read built-in docs first: {command}',
       'context.tipDocsCommitRules':

@@ -105,7 +105,10 @@ export function flowCommand(program: Command): void {
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
-    .option('--approve <reply>', 'Approve one labeled context option')
+    .option(
+      '--approve <reply>',
+      'Approve one labeled context option (examples: A, A OK, A proceed, A 진행해)'
+    )
     .option('--execute', 'Execute approved option when it is a command')
     .option(
       '--execute-strict',
@@ -160,6 +163,13 @@ async function runFlow(
     );
   }
 
+  if (options.execute && !options.approve) {
+    throw createCliError(
+      'APPROVAL_REQUIRED',
+      '`--execute` requires `--approve <reply>`.'
+    );
+  }
+
   const selectedComponent = resolveComponentOption(options);
   const selectionOptions: ContextSelectionOptions = {
     component: selectedComponent,
@@ -176,9 +186,33 @@ async function runFlow(
   let approvalResult: unknown = null;
   if (options.approve) {
     const approveArgs = [...contextArgs, '--approve', options.approve];
-    if (options.execute) approveArgs.push('--execute');
-    if (options.executeStrict) approveArgs.push('--execute-strict');
-    approvalResult = runSelfCliJson(approveArgs, true);
+    const selected = runSelfCliJson(approveArgs, true);
+
+    if (options.execute) {
+      const selectedPayload = selected as
+        | {
+            status?: string;
+            approvalTicket?: { token?: string };
+          }
+        | undefined;
+      const ticket = selectedPayload?.approvalTicket?.token;
+      if (selectedPayload?.status === 'approved_selected' && ticket) {
+        const executeArgs = [
+          ...contextArgs,
+          '--approve',
+          options.approve,
+          '--execute',
+          '--ticket',
+          ticket,
+        ];
+        if (options.executeStrict) executeArgs.push('--execute-strict');
+        approvalResult = runSelfCliJson(executeArgs, true);
+      } else {
+        approvalResult = selected;
+      }
+    } else {
+      approvalResult = selected;
+    }
   }
 
   const after = await resolveContextSelection(config, featureName, selectionOptions);

@@ -37,6 +37,20 @@ function runCli(cwd, args, env = {}) {
   });
 }
 
+async function issueApprovalTicket(cwd, featureRef, reply = 'A', env = {}) {
+  const approve = await runCli(
+    cwd,
+    ['context', featureRef, '--approve', reply, '--json'],
+    env
+  );
+  assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+  const payload = JSON.parse(approve.stdout.trim());
+  assert.equal(payload.status, 'approved_selected');
+  assert.equal(typeof payload?.approvalTicket?.token, 'string');
+  assert.equal(payload.approvalTicket.token.length > 0, true);
+  return payload.approvalTicket.token;
+}
+
 function runCommand(cwd, command, args) {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
@@ -1723,8 +1737,10 @@ test('context --json exposes generic label token policy', async () => {
     assert.deepEqual(payload.checkPolicy.acceptedTokens, [
       '<LABEL>',
       '<LABEL> OK',
+      '<LABEL> ...',
+      '... <LABEL> ...',
     ]);
-    assert.equal(payload.checkPolicy.tokenPattern, '^([A-Z]+)(?:\\s+OK)?$');
+    assert.equal(payload.checkPolicy.tokenPattern, '^.*\\b([A-Z]+)\\b.*$');
     assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, true);
     assert.deepEqual(payload.checkPolicy.requiredExplanationFields, [
       'actionOptions[].label',
@@ -1790,7 +1806,10 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     assert.equal(typeof payload.approvalRequest?.approveCommand, 'string');
     assert.match(payload.approvalRequest.approveCommand, /--approve <LABEL>$/);
     assert.equal(typeof payload.approvalRequest?.executeCommand, 'string');
-    assert.match(payload.approvalRequest.executeCommand, /--approve <LABEL> --execute$/);
+    assert.match(
+      payload.approvalRequest.executeCommand,
+      /--approve <LABEL> --execute --ticket <TICKET>$/
+    );
     assert.equal(payload.approvalRequest.options[0].detail, payload.actionOptions[0].detail);
     assert.equal(
       payload.approvalRequest.options[0].actionType,
@@ -1814,6 +1833,43 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
         payload.actionOptions[0].action.scope
       );
     }
+  });
+});
+
+test('context --approve accepts natural language replies that include a label token', async () => {
+  await withTempDir('lsk-context-approve-natural-language-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A 진행해',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'approved_selected');
+    assert.equal(payload.label, 'A');
+    assert.equal(typeof payload?.approvalTicket?.token, 'string');
+    assert.equal(payload.approvalTicket.token.length > 0, true);
   });
 });
 
@@ -1843,7 +1899,7 @@ test('context text output ends with current label reminder and execution hint', 
     assert.match(result.stdout, /Available labels now: A\./);
     assert.match(
       result.stdout,
-      /When a label is provided, run immediately: npx lee-spec-kit context F001-alpha --approve <LABEL> --execute/
+      /When a label is provided, run approval selection: npx lee-spec-kit context F001-alpha --approve <LABEL>/
     );
   });
 });
@@ -1991,12 +2047,15 @@ test('context issue_create action requires explicit user check and is instructio
     assert.equal(Array.isArray(payload.requiredDocs), true);
     assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-issue'), true);
 
+    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
     const executeAttempt = await runCli(dir, [
       'context',
       'F001-alpha',
       '--approve',
       'A',
       '--execute',
+      '--ticket',
+      ticket,
       '--execute-strict',
       '--json',
     ]);
@@ -2790,6 +2849,11 @@ test('parallel context execution is serialized and both commands succeed', async
     await setFeatureAsDone(dir, 'F001-alpha');
     await setFeatureAsDone(dir, 'F002-beta');
 
+    const [ticket1, ticket2] = await Promise.all([
+      issueApprovalTicket(dir, 'F001-alpha', 'A'),
+      issueApprovalTicket(dir, 'F002-beta', 'A'),
+    ]);
+
     const [r1, r2] = await Promise.all([
       runCli(dir, [
         'context',
@@ -2797,6 +2861,8 @@ test('parallel context execution is serialized and both commands succeed', async
         '--approve',
         'A',
         '--execute',
+        '--ticket',
+        ticket1,
         '--json',
       ]),
       runCli(dir, [
@@ -2805,6 +2871,8 @@ test('parallel context execution is serialized and both commands succeed', async
         '--approve',
         'A',
         '--execute',
+        '--ticket',
+        ticket2,
         '--json',
       ]),
     ]);
@@ -2886,12 +2954,15 @@ test('context --execute uses staged-only project commit and never stages interna
       stageProjectFile.stderr || stageProjectFile.stdout
     );
 
+    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
     const execute = await runCli(dir, [
       'context',
       'F001-alpha',
       '--approve',
       'A',
       '--execute',
+      '--ticket',
+      ticket,
       '--json',
     ]);
     assert.equal(execute.code, 0, execute.stderr || execute.stdout);
@@ -2934,12 +3005,15 @@ test('context --execute-strict fails for instruction-only approved option', asyn
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
+    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
     const result = await runCli(dir, [
       'context',
       'F001-alpha',
       '--approve',
       'A',
       '--execute',
+      '--ticket',
+      ticket,
       '--execute-strict',
       '--json',
     ]);
@@ -2947,6 +3021,96 @@ test('context --execute-strict fails for instruction-only approved option', asyn
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'EXECUTION_NOT_COMMAND');
+  });
+});
+
+test('context --execute requires a ticket from prior approval', async () => {
+  await withTempDir('lsk-context-execute-ticket-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('context tickets are one-time use for execute', async () => {
+  await withTempDir('lsk-context-ticket-one-time-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
+    const first = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--ticket',
+      ticket,
+      '--json',
+    ]);
+    assert.equal(first.code, 0, first.stderr || first.stdout);
+    const firstPayload = JSON.parse(first.stdout.trim());
+    assert.equal(firstPayload.status, 'approved_instruction');
+    assert.equal(firstPayload.reasonCode, 'INSTRUCTION_ONLY');
+
+    const second = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--ticket',
+      ticket,
+      '--json',
+    ]);
+    assert.equal(second.code, 1);
+    const secondPayload = JSON.parse(second.stdout.trim());
+    assert.equal(secondPayload.status, 'error');
+    assert.equal(secondPayload.reasonCode, 'INVALID_APPROVAL');
   });
 });
 
@@ -3059,6 +3223,80 @@ test('flow --json includes approval result when approve is provided', async () =
     assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.approval.status, 'approved_selected');
     assert.equal(payload.approval.reasonCode, 'APPROVED_SELECTED');
+  });
+});
+
+test('flow --json accepts natural language approval replies with label token', async () => {
+  await withTempDir('lsk-flow-approve-natural-language-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001',
+      '--approve',
+      'A 진행해',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.approval.status, 'approved_selected');
+    assert.equal(payload.approval.label, 'A');
+  });
+});
+
+test('flow --json uses internal ticket handshake for --execute', async () => {
+  await withTempDir('lsk-flow-approve-execute-ticket-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001',
+      '--approve',
+      'A proceed',
+      '--execute',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.approval.status, 'approved_instruction');
+    assert.equal(payload.approval.reasonCode, 'INSTRUCTION_ONLY');
+    assert.equal(payload.approval.label, 'A');
   });
 });
 
