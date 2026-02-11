@@ -1,5 +1,8 @@
 import path from 'path';
 import fs from 'fs-extra';
+import os from 'os';
+import { createHash } from 'crypto';
+import { execFileSync } from 'child_process';
 import { createCliError } from './cli-error.js';
 
 interface FileLockOptions {
@@ -30,6 +33,29 @@ export function getInitLockPath(targetDir: string): string {
     path.dirname(targetDir),
     `.lee-spec-kit.${path.basename(targetDir)}.lock`
   );
+}
+
+function getTempProjectLockPath(cwd: string): string {
+  const key = createHash('sha1').update(path.resolve(cwd)).digest('hex');
+  return path.join(os.tmpdir(), 'lee-spec-kit-locks', `${key}.project.lock`);
+}
+
+export function getProjectExecutionLockPath(cwd: string): string {
+  try {
+    const out = execFileSync(
+      'git',
+      ['rev-parse', '--git-path', 'lee-spec-kit.project.lock'],
+      {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }
+    ).trim();
+    if (!out) return getTempProjectLockPath(cwd);
+    return path.isAbsolute(out) ? out : path.resolve(cwd, out);
+  } catch {
+    return getTempProjectLockPath(cwd);
+  }
 }
 
 async function isStaleLock(lockPath: string, staleMs: number): Promise<boolean> {

@@ -1,11 +1,14 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import path from 'path';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { resolvePrePrReviewPolicy, resolveWorkflowPolicy } from '../utils/workflow.js';
-import { getDocsLockPath, withFileLock } from '../utils/lock.js';
+import {
+  getDocsLockPath,
+  getProjectExecutionLockPath,
+  withFileLock,
+} from '../utils/lock.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -161,7 +164,7 @@ function getCommandExecutionLockPath(
   if (action.scope === 'docs') {
     return getDocsLockPath(config.docsDir);
   }
-  return path.join(action.cwd, '.lee-spec-kit.project.lock');
+  return getProjectExecutionLockPath(action.cwd);
 }
 
 export function contextCommand(program: Command): void {
