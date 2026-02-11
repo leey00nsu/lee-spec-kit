@@ -182,11 +182,14 @@ npx lee-spec-kit context --json
 # approve a labeled option (validation only)
 npx lee-spec-kit context F001 --approve A
 
-# approve + execute exactly one command option
-npx lee-spec-kit context F001 --approve "A OK" --execute
+# issue an execution ticket from approval result
+npx lee-spec-kit context F001 --approve "A proceed" --json
+
+# execute exactly one command option with ticket
+npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
 
 # fail when the approved label is instruction-only
-npx lee-spec-kit context F001 --approve A --execute --execute-strict
+npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-strict
 ```
 
 **Options:**
@@ -197,8 +200,9 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 | `--repo <repo>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
-| `--approve <reply>` | Approve one labeled option (`A` or `A OK`) |
-| `--execute`    | Execute only the approved option when it is a command |
+| `--approve <reply>` | Approve one labeled option using any reply that includes a label token (e.g. `A`, `A OK`, `A proceed`) |
+| `--ticket <token>` | One-time execution ticket from the `--approve` result |
+| `--execute`    | Execute only the approved option when it is a command (`--approve` + `--ticket` required) |
 | `--execute-strict` | With `--execute`, fail if the approved option is instruction-only |
 
 `--json` output includes:
@@ -270,8 +274,8 @@ npx lee-spec-kit flow --json
 | `--repo <repo>`   | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
-| `--approve <reply>` | Pass through context label approval (`A` or `A OK`) |
-| `--execute`       | Execute approved option when it is a command |
+| `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
+| `--execute`       | Execute approved option when it is a command (validated by internal approval ticket) |
 | `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
 | `--strict`        | Also run `status --strict` and `doctor --strict` |
 
@@ -414,7 +418,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - the `[CHECK required]` tag in text output
 - `actions[].requiresUserCheck` in `context --json`
 - `checkPolicy.token` (`context --json`): approval token format (`<LABEL>`)
-- `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK"]`)
+- `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
 - `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
 - `checkPolicy.requireExplanationBeforeApproval`: require label-by-label explanation before asking approval

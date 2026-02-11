@@ -199,11 +199,14 @@ npx lee-spec-kit context --json
 # 라벨 승인 선택 (검증만)
 npx lee-spec-kit context F001 --approve A
 
-# 라벨 승인 + 단일 명령 실행
-npx lee-spec-kit context F001 --approve "A OK" --execute
+# 라벨 승인 결과에서 티켓 발급
+npx lee-spec-kit context F001 --approve "A 진행해" --json
+
+# 티켓으로 단일 명령 실행
+npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
 
 # 승인 라벨이 instruction-only면 실패 처리
-npx lee-spec-kit context F001 --approve A --execute --execute-strict
+npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-strict
 ```
 
 **옵션:**
@@ -214,8 +217,9 @@ npx lee-spec-kit context F001 --approve A --execute --execute-strict
 | `--repo <repo>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
-| `--approve <reply>` | 라벨 승인 응답 (`A` 또는 `A OK`)으로 단일 옵션 선택 |
-| `--execute`     | `--approve`로 선택한 옵션이 command일 때 1개만 실행 |
+| `--approve <reply>` | 라벨 포함 승인 응답으로 단일 옵션 선택 (예: `A`, `A OK`, `A 진행해`) |
+| `--ticket <token>` | `--approve` 결과에서 받은 1회용 실행 티켓 |
+| `--execute`     | `--approve` + `--ticket`으로 승인된 command 옵션 1개만 실행 |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
@@ -292,8 +296,8 @@ npx lee-spec-kit flow --json
 | `--repo <repo>`    | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
-| `--approve <reply>`| context 라벨 승인 응답 전달 (`A` 또는 `A OK`) |
-| `--execute`        | 승인한 옵션이 command일 때 실행 |
+| `--approve <reply>`| context 라벨 승인 응답 전달 (예: `A`, `A OK`, `A 진행해`) |
+| `--execute`        | 승인한 옵션이 command일 때 실행 (내부적으로 승인 티켓 검증) |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 | `--strict`         | `status --strict`, `doctor --strict`까지 함께 검사 |
 
@@ -468,7 +472,7 @@ npx lee-spec-kit update --force
 - 텍스트 출력의 `[확인 필요]` 표시
 - `context --json`의 `actions[].requiresUserCheck`
 - `checkPolicy.token` (`context --json`): 승인 토큰 형식 (`<LABEL>`)
-- `checkPolicy.acceptedTokens`: 허용되는 승인 응답 템플릿 (예: `["<LABEL>", "<LABEL> OK"]`)
+- `checkPolicy.acceptedTokens`: 허용되는 승인 응답 템플릿 (예: `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
 - `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
 - `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
 - `checkPolicy.requireExplanationBeforeApproval`: 승인 요청 전에 라벨별 설명을 포함해야 함
