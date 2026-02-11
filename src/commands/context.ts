@@ -74,6 +74,42 @@ function listLabels(actionOptions: ActionOption[]): string {
   return actionOptions.map((o) => o.label).join(', ');
 }
 
+function resolveFeatureRefForApproval(
+  state: ResolvedContextState,
+  featureName: string | undefined
+): string {
+  const raw =
+    featureName?.trim() ||
+    state.matchedFeature?.folderName ||
+    '<slug|F001|F001-slug>';
+  return raw;
+}
+
+function buildApprovalCommand(
+  state: ResolvedContextState,
+  featureName: string | undefined,
+  selectedComponent: string,
+  execute: boolean
+): string {
+  const featureRef = resolveFeatureRefForApproval(state, featureName);
+  const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
+  const executeArg = execute ? ' --execute' : '';
+  return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL>${executeArg}`;
+}
+
+function buildFinalApprovalPrompt(
+  lang: 'ko' | 'en',
+  actionOptions: ActionOption[]
+): string {
+  if (actionOptions.length === 0) return '';
+  const labels = listLabels(actionOptions);
+  const example = actionOptions[0]?.label || 'A';
+  return tr(lang, 'cli', 'context.finalLabelPrompt', {
+    labels,
+    example,
+  });
+}
+
 function formatActionSummary(action: ActionOption['action']): string {
   if (action.type === 'command') {
     return `(${action.scope}) ${action.cmd}`;
@@ -308,6 +344,19 @@ async function runContext(
   // 2. 결과 출력 (JSON)
   if (options.json) {
     const primaryAction = state.actionOptions[0] ?? null;
+    const finalApprovalPrompt = buildFinalApprovalPrompt(lang, state.actionOptions);
+    const approveCommand = buildApprovalCommand(
+      state,
+      featureName,
+      selectedComponent,
+      false
+    );
+    const executeCommand = buildApprovalCommand(
+      state,
+      featureName,
+      selectedComponent,
+      true
+    );
     const result = {
       status: state.status,
       reasonCode: toReasonCode(state.status),
@@ -352,6 +401,10 @@ async function runContext(
       approvalRequest: {
         guidance:
           'Present each label with summary (e.g. `A: <summary>`) before asking for approval.',
+        finalPrompt: finalApprovalPrompt,
+        labels: state.actionOptions.map((o) => o.label),
+        approveCommand,
+        executeCommand,
         options: state.actionOptions.map((o) => ({
           label: o.label,
           summary: o.summary,
@@ -654,6 +707,23 @@ async function runContext(
         )
       );
     }
+  }
+  if (actionOptions.length > 0) {
+    const finalApprovalPrompt = buildFinalApprovalPrompt(lang, actionOptions);
+    const executeCommand = buildApprovalCommand(
+      state,
+      featureName,
+      selectedComponent,
+      true
+    );
+    console.log(chalk.cyan(`   ↳ ${finalApprovalPrompt}`));
+    console.log(
+      chalk.gray(
+        `   ↳ ${tr(lang, 'cli', 'context.finalLabelCommandHint', {
+          command: executeCommand,
+        })}`
+      )
+    );
   }
   console.log();
 }

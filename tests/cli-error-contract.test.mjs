@@ -1558,9 +1558,48 @@ test('context --json actionOptions include summary and approvalPrompt', async ()
     assert.equal(payload.actionOptions[0].action.operationType, 'manual');
     assert.equal(Array.isArray(payload.approvalRequest?.options), true);
     assert.equal(payload.approvalRequest.options.length, payload.actionOptions.length);
+    assert.equal(Array.isArray(payload.approvalRequest?.labels), true);
+    assert.equal(payload.approvalRequest.labels.length, payload.actionOptions.length);
+    assert.equal(typeof payload.approvalRequest?.finalPrompt, 'string');
+    assert.match(payload.approvalRequest.finalPrompt, /Available labels now:/);
+    assert.equal(typeof payload.approvalRequest?.approveCommand, 'string');
+    assert.match(payload.approvalRequest.approveCommand, /--approve <LABEL>$/);
+    assert.equal(typeof payload.approvalRequest?.executeCommand, 'string');
+    assert.match(payload.approvalRequest.executeCommand, /--approve <LABEL> --execute$/);
     assert.equal(
       payload.approvalRequest.options[0].operationType,
       payload.actionOptions[0].action.operationType
+    );
+  });
+});
+
+test('context text output ends with current label reminder and execution hint', async () => {
+  await withTempDir('lsk-context-final-label-reminder-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /Available labels now: A\./);
+    assert.match(
+      result.stdout,
+      /When a label is provided, run immediately: npx lee-spec-kit context F001-alpha --approve <LABEL> --execute/
     );
   });
 });

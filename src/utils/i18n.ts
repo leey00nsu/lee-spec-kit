@@ -119,6 +119,10 @@ const I18N: Record<Lang, I18nData> = {
         '승인 응답 형식: `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`)',
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
+      'context.finalLabelPrompt':
+        '현재 선택 가능한 라벨: {labels}. 마지막 응답은 `<라벨>` 또는 `<라벨> OK` 형식으로 받으세요. (예: {example})',
+      'context.finalLabelCommandHint':
+        '라벨을 받으면 바로 실행: {command}',
       'context.readBuiltinDocFirst':
         '먼저 내장 문서를 확인하세요: {command}',
       'context.tipDocsCommitRules':
@@ -613,6 +617,10 @@ const I18N: Record<Lang, I18nData> = {
         'Approval reply format: `<label>` or `<label> OK` (e.g. `A`, `A OK`)',
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
+      'context.finalLabelPrompt':
+        'Available labels now: {labels}. End with a label request in `<label>` or `<label> OK` format. (e.g. {example})',
+      'context.finalLabelCommandHint':
+        'When a label is provided, run immediately: {command}',
       'context.readBuiltinDocFirst':
         'Read built-in docs first: {command}',
       'context.tipDocsCommitRules':
