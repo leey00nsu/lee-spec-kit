@@ -3397,6 +3397,12 @@ test('context --execute uses staged-only project commit and never stages interna
     );
 
     const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
+    const docsTicketPath = path.join(
+      dir,
+      'docs',
+      '.lee-spec-kit.approval-tickets.json'
+    );
+    assert.equal(await pathExists(docsTicketPath), false);
     const execute = await runCli(dir, [
       'context',
       'F001-alpha',
@@ -3414,6 +3420,7 @@ test('context --execute uses staged-only project commit and never stages interna
     const status = await runCommand(dir, 'git', ['status', '--porcelain']);
     assert.equal(status.code, 0, status.stderr || status.stdout);
     assert.doesNotMatch(status.stdout, /\.lee-spec-kit\.project\.lock/);
+    assert.doesNotMatch(status.stdout, /\.lee-spec-kit\.approval-tickets\.json/);
 
     const headFiles = await runCommand(dir, 'git', [
       'show',
@@ -3423,6 +3430,7 @@ test('context --execute uses staged-only project commit and never stages interna
     ]);
     assert.equal(headFiles.code, 0, headFiles.stderr || headFiles.stdout);
     assert.doesNotMatch(headFiles.stdout, /\.lee-spec-kit\.project\.lock/);
+    assert.doesNotMatch(headFiles.stdout, /\.lee-spec-kit\.approval-tickets\.json/);
   });
 });
 

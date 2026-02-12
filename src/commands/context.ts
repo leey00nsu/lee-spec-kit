@@ -12,6 +12,7 @@ import {
   resolveWorkflowPolicy,
 } from '../utils/workflow.js';
 import {
+  getApprovalTicketStorePath,
   getDocsLockPath,
   getProjectExecutionLockPath,
   withFileLock,
@@ -75,7 +76,7 @@ interface ApprovalTicketStore {
   tickets: ApprovalTicketRecord[];
 }
 
-const APPROVAL_TICKET_FILENAME = '.lee-spec-kit.approval-tickets.json';
+const LEGACY_APPROVAL_TICKET_FILENAME = '.lee-spec-kit.approval-tickets.json';
 const APPROVAL_TICKET_TTL_MS = 5 * 60 * 1000;
 
 async function resolveContextState(
@@ -113,10 +114,13 @@ function parseApprovalLabel(input: string, validLabels: string[]): string | null
   return null;
 }
 
-function getApprovalTicketPath(
+function getApprovalTicketPaths(
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>
-): string {
-  return path.join(config.docsDir, APPROVAL_TICKET_FILENAME);
+): { runtimePath: string; legacyPath: string } {
+  return {
+    runtimePath: getApprovalTicketStorePath(config.docsDir),
+    legacyPath: path.join(config.docsDir, LEGACY_APPROVAL_TICKET_FILENAME),
+  };
 }
 
 function getApprovalSessionId(): string {
@@ -151,6 +155,53 @@ async function loadApprovalTicketStore(storePath: string): Promise<ApprovalTicke
   }
 }
 
+async function saveApprovalTicketStore(
+  storePath: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  await fs.ensureDir(path.dirname(storePath));
+  await fs.writeJson(storePath, payload, { spaces: 2 });
+}
+
+async function resolveApprovalTicketStoreAndPath(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  nowMs: number
+): Promise<{ storePath: string; store: ApprovalTicketStore }> {
+  const { runtimePath, legacyPath } = getApprovalTicketPaths(config);
+  if (await fs.pathExists(runtimePath)) {
+    return {
+      storePath: runtimePath,
+      store: await loadApprovalTicketStore(runtimePath),
+    };
+  }
+
+  if (!(await fs.pathExists(legacyPath))) {
+    return {
+      storePath: runtimePath,
+      store: { tickets: [] },
+    };
+  }
+
+  const legacyStore = await loadApprovalTicketStore(legacyPath);
+  const migrated = pruneApprovalTickets(legacyStore.tickets, nowMs);
+  await saveApprovalTicketStore(
+    runtimePath,
+    {
+      tickets: migrated,
+      updatedAt: new Date(nowMs).toISOString(),
+      migratedFrom: legacyPath,
+    },
+  );
+  await fs.remove(legacyPath).catch(() => {
+    // Best-effort cleanup of legacy docs-scoped ticket file.
+  });
+
+  return {
+    storePath: runtimePath,
+    store: { tickets: migrated },
+  };
+}
+
 function pruneApprovalTickets(
   tickets: ApprovalTicketRecord[],
   nowMs: number
@@ -179,21 +230,22 @@ async function issueApprovalTicket(
     createdAt: new Date(nowMs).toISOString(),
     expiresAt: new Date(nowMs + APPROVAL_TICKET_TTL_MS).toISOString(),
   };
-  const storePath = getApprovalTicketPath(config);
   const lockPath = getDocsLockPath(config.docsDir);
   return withFileLock(
     lockPath,
     async () => {
-      const store = await loadApprovalTicketStore(storePath);
+      const { storePath, store } = await resolveApprovalTicketStoreAndPath(
+        config,
+        nowMs
+      );
       const nextTickets = pruneApprovalTickets(store.tickets, nowMs);
       nextTickets.push(record);
-      await fs.writeJson(
+      await saveApprovalTicketStore(
         storePath,
         {
           tickets: nextTickets,
           updatedAt: new Date(nowMs).toISOString(),
         },
-        { spaces: 2 }
       );
       return record;
     },
@@ -216,7 +268,6 @@ async function consumeApprovalTicket(
       'Execution requires an approval ticket. Run `context --approve <reply> --json` first and pass `--ticket <token>`.'
     );
   }
-  const storePath = getApprovalTicketPath(config);
   const lockPath = getDocsLockPath(config.docsDir);
   const sessionId = getApprovalSessionId();
   const nowMs = Date.now();
@@ -224,14 +275,16 @@ async function consumeApprovalTicket(
   return withFileLock(
     lockPath,
     async () => {
-      const store = await loadApprovalTicketStore(storePath);
+      const { storePath, store } = await resolveApprovalTicketStoreAndPath(
+        config,
+        nowMs
+      );
       const cleaned = pruneApprovalTickets(store.tickets, nowMs);
       const index = cleaned.findIndex((entry) => entry.token === normalizedToken);
       if (index < 0) {
-        await fs.writeJson(
+        await saveApprovalTicketStore(
           storePath,
           { tickets: cleaned, updatedAt: new Date(nowMs).toISOString() },
-          { spaces: 2 }
         );
         throw createCliError(
           'INVALID_APPROVAL',
@@ -243,10 +296,9 @@ async function consumeApprovalTicket(
       const expiresAtMs = Date.parse(record.expiresAt || '');
       if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) {
         cleaned.splice(index, 1);
-        await fs.writeJson(
+        await saveApprovalTicketStore(
           storePath,
           { tickets: cleaned, updatedAt: new Date(nowMs).toISOString() },
-          { spaces: 2 }
         );
         throw createCliError(
           'CONTEXT_STALE',
@@ -286,13 +338,12 @@ async function consumeApprovalTicket(
       }
 
       cleaned.splice(index, 1);
-      await fs.writeJson(
+      await saveApprovalTicketStore(
         storePath,
         {
           tickets: cleaned,
           updatedAt: new Date(nowMs).toISOString(),
         },
-        { spaces: 2 }
       );
       return record;
     },

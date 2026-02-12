@@ -332,7 +332,7 @@ const I18N: Record<Lang, I18nData> = {
       'cliError.lock.retryLater': '잠시 기다린 뒤 같은 명령을 다시 실행하세요.',
       'cliError.lock.checkOtherProcess': '다른 lee-spec-kit 프로세스가 실행 중인지 확인하세요.',
       'cliError.lock.inspectLockFiles':
-        '락 파일(`docs/.lee-spec-kit.lock` 또는 상위 경로 `.lee-spec-kit.<docsDir>.lock`)을 확인하세요.',
+        '런타임 lock 파일(프로젝트 `.git/lee-spec-kit.runtime/locks` 또는 OS temp)을 확인하세요.',
       'cliError.invalidArg.reviewUsage': '명령 사용법과 유효한 플래그를 확인하세요.',
       'cliError.invalidArg.fixValues': '잘못된 값을 수정한 뒤 다시 실행하세요.',
       'cliError.invalidArg.validateBeforeAutomation':
@@ -867,7 +867,7 @@ const I18N: Record<Lang, I18nData> = {
       'cliError.lock.checkOtherProcess':
         'Check whether another lee-spec-kit process is still running.',
       'cliError.lock.inspectLockFiles':
-        'Inspect lock files (`docs/.lee-spec-kit.lock` or parent `.lee-spec-kit.<docsDir>.lock`).',
+        'Inspect runtime lock files (project `.git/lee-spec-kit.runtime/locks` or OS temp).',
       'cliError.invalidArg.reviewUsage': 'Review command usage and valid flags.',
       'cliError.invalidArg.fixValues': 'Fix invalid value(s) and retry.',
       'cliError.invalidArg.validateBeforeAutomation':

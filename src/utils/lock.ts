@@ -19,43 +19,70 @@ interface LockPayload {
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_MS = 150;
 const DEFAULT_STALE_MS = 2 * 60_000;
+const RUNTIME_GIT_DIRNAME = 'lee-spec-kit.runtime';
+const RUNTIME_TEMP_DIRNAME = 'lee-spec-kit-runtime';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
-export function getDocsLockPath(docsDir: string): string {
-  return path.join(docsDir, '.lee-spec-kit.lock');
+function toScopeKey(value: string): string {
+  return createHash('sha1').update(path.resolve(value)).digest('hex').slice(0, 16);
 }
 
-export function getInitLockPath(targetDir: string): string {
-  return path.join(
-    path.dirname(targetDir),
-    `.lee-spec-kit.${path.basename(targetDir)}.lock`
-  );
+function getTempRuntimeDir(scopePath: string): string {
+  return path.join(os.tmpdir(), RUNTIME_TEMP_DIRNAME, toScopeKey(scopePath));
 }
 
-function getTempProjectLockPath(cwd: string): string {
-  const key = createHash('sha1').update(path.resolve(cwd)).digest('hex');
-  return path.join(os.tmpdir(), 'lee-spec-kit-locks', `${key}.project.lock`);
-}
-
-export function getProjectExecutionLockPath(cwd: string): string {
+function resolveGitRuntimeDir(cwd: string): string | null {
   try {
     const out = execFileSync(
       'git',
-      ['rev-parse', '--git-path', 'lee-spec-kit.project.lock'],
+      ['rev-parse', '--git-path', RUNTIME_GIT_DIRNAME],
       {
         cwd,
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore'],
       }
     ).trim();
-    if (!out) return getTempProjectLockPath(cwd);
+    if (!out) return null;
     return path.isAbsolute(out) ? out : path.resolve(cwd, out);
   } catch {
-    return getTempProjectLockPath(cwd);
+    return null;
   }
+}
+
+export function getRuntimeStateDir(cwd: string): string {
+  const resolved = path.resolve(cwd);
+  return resolveGitRuntimeDir(resolved) ?? getTempRuntimeDir(resolved);
+}
+
+export function getDocsLockPath(docsDir: string): string {
+  return path.join(
+    getRuntimeStateDir(docsDir),
+    'locks',
+    `docs-${toScopeKey(docsDir)}.lock`
+  );
+}
+
+export function getInitLockPath(targetDir: string): string {
+  return path.join(
+    getRuntimeStateDir(path.dirname(path.resolve(targetDir))),
+    'locks',
+    `init-${toScopeKey(targetDir)}.lock`
+  );
+}
+
+export function getApprovalTicketStorePath(docsDir: string): string {
+  return path.join(
+    getRuntimeStateDir(docsDir),
+    'tickets',
+    `approval-${toScopeKey(docsDir)}.json`
+  );
+}
+
+export function getProjectExecutionLockPath(cwd: string): string {
+  return path.join(getRuntimeStateDir(cwd), 'locks', 'project.lock');
 }
 
 async function isStaleLock(lockPath: string, staleMs: number): Promise<boolean> {
