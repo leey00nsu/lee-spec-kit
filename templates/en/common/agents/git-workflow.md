@@ -70,7 +70,7 @@ main
 
 ## Automation Workflow
 
-> 📖 Read each step guide first with `docs get`.
+> 📖 Read step guides via `docs get`, but do not re-read the same doc in the same session. (Re-read only after session/compression reset, policy/config changes, or explicit user refresh request.)
 
 | Workflow       | Guide                                              |
 | -------------- | -------------------------------------------------- |

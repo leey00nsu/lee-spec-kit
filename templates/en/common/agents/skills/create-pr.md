@@ -17,10 +17,10 @@ Guide for creating Pull Requests.
 
 ### 1. Prepare PR Body Template
 
-> 📖 **Read procedure/template via `docs get` first, then generate a body template and treat it as the source of truth.**
+> 📖 **If not read in this session, read procedure/template via `docs get`; do not re-read the same doc in the same session, then generate a body template and treat it as the source of truth.**
 
 ```bash
-# 1) Read procedure + template policy
+# 1) Read procedure + template policy (only docs not read in this session)
 npx lee-spec-kit docs get create-pr --json
 npx lee-spec-kit docs get pr-template --json
 

@@ -51,6 +51,18 @@ Reply format: "<LABEL>" or "<LABEL> OK"
 
 ---
 
+## 📚 Built-in Docs Read Policy (MUST)
+
+- Use `docs get` once per session start (or right after context compression/reset).
+- Do not re-read the same doc again in the same session.
+- From `requiredDocs[*].command`, fetch only docs not yet read in this session.
+- You may re-read only when:
+  - user explicitly asks for policy refresh
+  - policy/config changed (for example after `update`)
+  - session restarted or context was compressed/reset
+
+---
+
 ## Required References
 
 - Highest-priority custom rules: `/docs/agents/custom.md`

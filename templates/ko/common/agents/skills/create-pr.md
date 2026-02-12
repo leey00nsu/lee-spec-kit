@@ -17,10 +17,10 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 ### 1. PR 본문 템플릿 준비
 
-> 📖 **먼저 `docs get`으로 절차/템플릿을 읽고, 본문 템플릿을 생성해 기준으로 사용하세요.**
+> 📖 **이번 세션에 아직 읽지 않았다면 `docs get`으로 절차/템플릿을 읽고, 이미 읽은 동일 문서는 재호출하지 않은 채 본문 템플릿을 생성해 기준으로 사용하세요.**
 
 ```bash
-# 1) 절차/템플릿 정책 확인
+# 1) 절차/템플릿 정책 확인 (이번 세션 미확인 문서만)
 npx lee-spec-kit docs get create-pr --json
 npx lee-spec-kit docs get pr-template --json
 
