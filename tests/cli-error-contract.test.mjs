@@ -3311,7 +3311,7 @@ test('context parses task IDs and blocks next TODO when strict task commit gate 
   });
 });
 
-test('context strict task commit gate warns when latest commit has zero DONE transitions', async () => {
+test('context strict task commit gate ignores latest commit when DONE transitions are zero', async () => {
   await withTempDir('lsk-context-task-commit-gate-strict-zero-done-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -3408,8 +3408,8 @@ test('context strict task commit gate warns when latest commit has zero DONE tra
     assert.equal(payload.taskCommitGatePolicy, 'strict');
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.match(payload.actionOptions[0].action.message, /Start the next TODO task/);
-    assert.match(payload.actionOptions[0].action.message, /Task commit boundary warning/);
-    assert.match(payload.actionOptions[0].action.message, /DONE transitions.*0/);
+    assert.doesNotMatch(payload.actionOptions[0].action.message, /Task commit boundary warning/);
+    assert.doesNotMatch(payload.actionOptions[0].action.message, /DONE transitions.*0/);
     assert.doesNotMatch(
       payload.actionOptions[0].action.message,
       /Before moving to the next TODO task, you must satisfy/

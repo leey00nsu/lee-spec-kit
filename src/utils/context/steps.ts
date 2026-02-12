@@ -202,7 +202,7 @@ function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
     }
   }
 
-  if (newDoneCount !== 1) {
+  if (newDoneCount > 1) {
     return {
       pass: false,
       reason: 'MULTIPLE_DONE_TRANSITIONS',
@@ -210,12 +210,14 @@ function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
     };
   }
 
-  const lastDoneTopic = normalizeTaskTopic(feature.lastDoneTask?.title || '');
-  if (lastDoneTopic) {
-    const previousCount = previousDone.get(lastDoneTopic) || 0;
-    const currentCount = currentDone.get(lastDoneTopic) || 0;
-    if (currentCount <= previousCount) {
-      return { pass: false, reason: 'MISMATCH_LAST_DONE', newDoneCount };
+  if (newDoneCount === 1) {
+    const lastDoneTopic = normalizeTaskTopic(feature.lastDoneTask?.title || '');
+    if (lastDoneTopic) {
+      const previousCount = previousDone.get(lastDoneTopic) || 0;
+      const currentCount = currentDone.get(lastDoneTopic) || 0;
+      if (currentCount <= previousCount) {
+        return { pass: false, reason: 'MISMATCH_LAST_DONE', newDoneCount };
+      }
     }
   }
 
