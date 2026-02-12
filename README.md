@@ -402,6 +402,7 @@ npx lee-spec-kit doctor --decisions-placeholders warn
 
 기본 동작은 `docs/` 작업트리에 변경사항이 없을 때만 업데이트를 진행하며, 이 경우 변경된 파일은 확인 없이 덮어씁니다.  
 변경사항이 있는 상태에서 업데이트하려면 `--force`를 사용하세요.
+또한 `update`는 `.lee-spec-kit.json`의 누락 필드를 현재 기본 정책으로 보강합니다. (예: `workflow.taskCommitGate: "strict"`)
 
 ```bash
 # 전체 업데이트
