@@ -143,6 +143,21 @@ npx lee-spec-kit init --name my-project --type fullstack  # alias
 
 > `init`은 docs 생성 후 Git 초기화/커밋(`git init`, `git add`, `git commit`)을 자동 시도합니다. 환경에 따라 자동 커밋이 생략될 수 있습니다.
 
+### 프로젝트 감지 (에이전트 시작점)
+
+```bash
+# 현재 경로 기준 감지
+npx lee-spec-kit detect
+
+# 에이전트/자동화용 JSON
+npx lee-spec-kit detect --json
+
+# 특정 경로 기준 감지
+npx lee-spec-kit detect --dir /path/to/workspace
+```
+
+`--json` 출력은 `isLeeSpecKitProject`, `reasonCode`(`PROJECT_DETECTED` | `PROJECT_NOT_DETECTED`), `docsDir`, `configPath`, `detectionSource`(`config` | `heuristic`)를 포함합니다.
+
 ### 새 기능 생성
 
 ```bash

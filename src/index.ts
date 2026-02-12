@@ -12,6 +12,7 @@ import { viewCommand } from './commands/view.js';
 import { flowCommand } from './commands/flow.js';
 import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
+import { detectCommand } from './commands/detect.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -84,5 +85,6 @@ viewCommand(program);
 flowCommand(program);
 githubCommand(program);
 docsCommand(program);
+detectCommand(program);
 
 await program.parseAsync();

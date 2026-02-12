@@ -1334,6 +1334,93 @@ test('doctor --json error includes reasonCode and labeled suggestions', async ()
   });
 });
 
+test('detect --json reports PROJECT_NOT_DETECTED on empty workspace', async () => {
+  await withTempDir('lsk-detect-empty-', async (dir) => {
+    const result = await runCli(dir, ['detect', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PROJECT_NOT_DETECTED');
+    assert.equal(payload.isLeeSpecKitProject, false);
+    assert.equal(payload.docsDir, null);
+    assert.equal(payload.configPath, null);
+    assert.equal(payload.configFilePresent, false);
+    assert.equal(payload.detectionSource, null);
+    assert.equal(payload.projectType, null);
+    assert.equal(payload.lang, null);
+  });
+});
+
+test('detect --json reports PROJECT_DETECTED via config file', async () => {
+  await withTempDir('lsk-detect-config-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['detect', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    const detectedDocsDir = await normalizePathForCompare(payload.docsDir);
+    const expectedDocsDir = await normalizePathForCompare(path.join(dir, 'docs'));
+    const detectedConfigPath = await normalizePathForCompare(payload.configPath);
+    const expectedConfigPath = await normalizePathForCompare(
+      path.join(dir, 'docs', '.lee-spec-kit.json')
+    );
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PROJECT_DETECTED');
+    assert.equal(payload.isLeeSpecKitProject, true);
+    assert.equal(detectedDocsDir, expectedDocsDir);
+    assert.equal(detectedConfigPath, expectedConfigPath);
+    assert.equal(payload.configFilePresent, true);
+    assert.equal(payload.detectionSource, 'config');
+    assert.equal(payload.projectType, 'single');
+    assert.equal(payload.lang, 'en');
+    assert.equal(payload.projectName, 'demo');
+  });
+});
+
+test('detect --json reports PROJECT_DETECTED via folder heuristics', async () => {
+  await withTempDir('lsk-detect-heuristic-', async (dir) => {
+    await fs.mkdir(path.join(dir, 'docs', 'agents'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'docs', 'features'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'agents', 'custom.md'),
+      '한국어 힌트 문서\n',
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['detect', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    const detectedDocsDir = await normalizePathForCompare(payload.docsDir);
+    const expectedDocsDir = await normalizePathForCompare(path.join(dir, 'docs'));
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PROJECT_DETECTED');
+    assert.equal(payload.isLeeSpecKitProject, true);
+    assert.equal(detectedDocsDir, expectedDocsDir);
+    assert.equal(payload.configPath, null);
+    assert.equal(payload.configFilePresent, false);
+    assert.equal(payload.detectionSource, 'heuristic');
+    assert.equal(payload.projectType, 'single');
+    assert.equal(payload.lang, 'ko');
+  });
+});
+
 test('doctor --dry-run without --fix returns INVALID_ARGUMENT', async () => {
   await withTempDir('lsk-doctor-dryrun-invalid-', async (dir) => {
     const initResult = await runCli(dir, [

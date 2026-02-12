@@ -127,6 +127,21 @@ npx lee-spec-kit init --name my-project --type fullstack  # alias
 
 > After generating docs, `init` automatically attempts Git setup/commit (`git init`, `git add`, `git commit`). Auto-commit may be skipped depending on environment/state.
 
+### Project detection (agent entrypoint)
+
+```bash
+# detect from current directory
+npx lee-spec-kit detect
+
+# JSON output for agents/automation
+npx lee-spec-kit detect --json
+
+# detect against a specific path
+npx lee-spec-kit detect --dir /path/to/workspace
+```
+
+The `--json` payload includes `isLeeSpecKitProject`, `reasonCode` (`PROJECT_DETECTED` | `PROJECT_NOT_DETECTED`), `docsDir`, `configPath`, and `detectionSource` (`config` | `heuristic`).
+
 ### Create a feature
 
 ```bash

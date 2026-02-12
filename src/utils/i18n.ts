@@ -306,6 +306,24 @@ const I18N: Record<Lang, I18nData> = {
       'docs.nextDocs': '다음 문서',
       'docs.sourceLabel': 'source',
       'docs.hashLabel': 'hash',
+      'detect.cmdDescription':
+        '현재 워크스페이스가 lee-spec-kit 프로젝트인지 감지합니다',
+      'detect.optDir': '감지 기준 경로 (기본: 현재 경로)',
+      'detect.optJson': '에이전트용 JSON 형식으로 출력',
+      'detect.header': '🔎 Project Detection',
+      'detect.labelTarget': 'Target',
+      'detect.resultDetected': 'lee-spec-kit 프로젝트를 감지했습니다',
+      'detect.resultNotDetected': 'lee-spec-kit 프로젝트를 찾지 못했습니다',
+      'detect.notDetectedHint':
+        '`npx lee-spec-kit init`으로 초기화하거나 `--dir`로 올바른 경로를 지정하세요.',
+      'detect.labelDocsDir': 'Docs',
+      'detect.labelConfigPath': 'Config',
+      'detect.labelSource': 'Source',
+      'detect.labelProjectType': 'Project Type',
+      'detect.labelLang': 'Lang',
+      'detect.labelProjectName': 'Project',
+      'detect.sourceConfig': 'config (.lee-spec-kit.json)',
+      'detect.sourceHeuristic': 'heuristic (agents/features folder)',
 
       'cliError.headerNextOptionsError': '👉 다음 옵션 (오류):',
       'cliError.promptBlocked.retryWithoutNonInteractive':
@@ -825,6 +843,23 @@ const I18N: Record<Lang, I18nData> = {
       'docs.nextDocs': 'Next docs',
       'docs.sourceLabel': 'source',
       'docs.hashLabel': 'hash',
+      'detect.cmdDescription': 'Detect whether the current workspace is a lee-spec-kit project',
+      'detect.optDir': 'Target directory to probe (default: current directory)',
+      'detect.optJson': 'Output in JSON format for agents',
+      'detect.header': '🔎 Project Detection',
+      'detect.labelTarget': 'Target',
+      'detect.resultDetected': 'Detected a lee-spec-kit project',
+      'detect.resultNotDetected': 'No lee-spec-kit project detected',
+      'detect.notDetectedHint':
+        'Run `npx lee-spec-kit init` or pass `--dir` to the correct path.',
+      'detect.labelDocsDir': 'Docs',
+      'detect.labelConfigPath': 'Config',
+      'detect.labelSource': 'Source',
+      'detect.labelProjectType': 'Project Type',
+      'detect.labelLang': 'Lang',
+      'detect.labelProjectName': 'Project',
+      'detect.sourceConfig': 'config (.lee-spec-kit.json)',
+      'detect.sourceHeuristic': 'heuristic (agents/features folder)',
 
       'cliError.headerNextOptionsError': '👉 Next Options (Error):',
       'cliError.promptBlocked.retryWithoutNonInteractive':
