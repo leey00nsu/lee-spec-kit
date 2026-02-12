@@ -22,7 +22,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - If the CLI points to an active task, focus on that task only.
 - Treat the task state/approval rules in `tasks.md` **"Task Rules"** as SSOT (e.g. when OK is required for `[TODO]→[DOING]`, `[DOING]→[DONE]`).
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
-- Before asking for approval, present labels as `A: ...` with the exact CLI detail/cmd text. Do not paraphrase command options.
+- Follow user-facing response format (including the final status/label block in every reply) from `agents.md` **"Label Response Contract (SSOT)"**.
 
 ### Step 3: Update tasks.md (only what you did)
 

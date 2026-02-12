@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import path from 'path';
 import fs from 'fs-extra';
 import { Lang } from './i18n.js';
-import { ProjectType, toTemplateProjectType } from './project-type.js';
+import { ProjectType } from './project-type.js';
 import { getTemplatesDir } from './paths.js';
 
 export type BuiltinDocId =
@@ -32,8 +32,7 @@ const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
   {
     id: 'agents',
     title: { ko: '에이전트 운영 규칙', en: 'Agent Operating Rules' },
-    relativePath: (projectType, lang) =>
-      path.join(lang, toTemplateProjectType(projectType), 'agents', 'agents.md'),
+    relativePath: (_, lang) => path.join(lang, 'common', 'agents', 'agents.md'),
   },
   {
     id: 'git-workflow',

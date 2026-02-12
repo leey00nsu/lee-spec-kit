@@ -1,0 +1,68 @@
+# Features 가이드
+
+기능별 스펙, 계획, 태스크를 관리하는 폴더입니다.
+
+---
+
+## 폴더 구조
+
+```text
+features/
+├── README.md           # 이 파일
+├── feature-base/       # 공용 템플릿 (수정 시 한 곳만 수정)
+│   ├── spec.md
+│   ├── plan.md
+│   ├── tasks.md
+│   └── decisions.md
+├── (single) F00X-{name}/
+└── (multi)  {component}/F00X-{name}/
+```
+
+---
+
+## 새 기능 생성
+
+```bash
+# Single 프로젝트
+npx lee-spec-kit feature user-auth
+
+# Multi 프로젝트
+npx lee-spec-kit feature --component fe user-profile
+```
+
+> 💡 CLI는 `feature-base/`에서 템플릿을 복사하고 ID를 자동 채번합니다.
+
+---
+
+## 기능 ID 규칙
+
+- `F{번호}-{기능명}` (예: F001-user-auth)
+- 번호는 **최소 3자리 패딩** (001, 002, ...)
+- 999를 초과하면 **4자리 이상으로 확장** (F1000, F1001, ...)
+- 기능명은 kebab-case
+- **Feature = Issue**: 각 Feature는 하나의 GitHub Issue에 대응됩니다.
+
+---
+
+## 상태 확인
+
+```bash
+npx lee-spec-kit status
+```
+
+파일로 저장:
+
+```bash
+npx lee-spec-kit status --write
+```
+
+---
+
+## 각 파일 역할
+
+| 파일           | 역할                       | 작성 시점      |
+| -------------- | -------------------------- | -------------- |
+| `spec.md`      | **무엇을, 왜** 만드는지    | 기능 정의 시   |
+| `plan.md`      | **어떻게** 만드는지 (기술) | 스펙 승인 후   |
+| `tasks.md`     | 구체적인 작업 목록         | 계획 승인 후   |
+| `decisions.md` | 기술 결정 기록 (ADR)       | 개발 중 수시로 |

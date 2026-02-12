@@ -30,7 +30,6 @@ import {
 import { getLocalDateString } from '../utils/date.js';
 import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-template.js';
 import { getTemplatesDir } from '../utils/paths.js';
-import { toTemplateProjectType } from '../utils/project-type.js';
 
 interface FeatureOptions {
   component?: string;
@@ -231,7 +230,7 @@ async function runFeature(
       const featureBasePath = path.join(
         getTemplatesDir(),
         lang,
-        toTemplateProjectType(projectType),
+        'common',
         'features',
         'feature-base'
       );

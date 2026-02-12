@@ -6,7 +6,3 @@ export function normalizeProjectType(input: string): ProjectType {
   if (input === 'multi') return 'multi';
   return 'single';
 }
-
-export function toTemplateProjectType(projectType: ProjectType): 'single' | 'fullstack' {
-  return projectType === 'multi' ? 'fullstack' : 'single';
-}

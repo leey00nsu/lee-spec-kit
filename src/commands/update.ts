@@ -7,7 +7,6 @@ import { getConfig } from '../utils/config.js';
 import { isDefaultFullstackComponents } from '../utils/components.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
-import { toTemplateProjectType } from '../utils/project-type.js';
 import { applyReplacements } from '../utils/template.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
@@ -127,92 +126,58 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
         }
 
         if (agentsMode === 'all') {
-        const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
-        const typeAgentsBase = path.join(
-          templatesDir,
-          lang,
-          toTemplateProjectType(projectType),
-          'agents'
-        );
-        const targetAgentsBase = path.join(docsDir, 'agents');
+          const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
+          const targetAgentsBase = path.join(docsDir, 'agents');
 
-        const commonAgents =
-          agentsMode === 'skills'
-            ? path.join(commonAgentsBase, 'skills')
-            : commonAgentsBase;
-        const typeAgents =
-          agentsMode === 'skills'
-            ? path.join(typeAgentsBase, 'skills')
-            : typeAgentsBase;
-        const targetAgents =
-          agentsMode === 'skills'
-            ? path.join(targetAgentsBase, 'skills')
-            : targetAgentsBase;
+          const commonAgents =
+            agentsMode === 'skills'
+              ? path.join(commonAgentsBase, 'skills')
+              : commonAgentsBase;
+          const targetAgents =
+            agentsMode === 'skills'
+              ? path.join(targetAgentsBase, 'skills')
+              : targetAgentsBase;
 
-        // featurePath 치환
-        const featurePath =
-          projectType === 'multi'
-            ? isDefaultFullstackComponents(config.components || [])
-              ? 'docs/features/{be|fe}'
-              : 'docs/features/{component}'
-            : 'docs/features';
-        const projectName = config.projectName ?? '{{projectName}}';
-        const commonReplacements: Record<string, string> = {
-          '{{projectName}}': projectName,
-          '{{featurePath}}': featurePath,
-        };
-        const typeReplacements: Record<string, string> = {
-          '{{projectName}}': projectName,
-        };
+          // featurePath 치환
+          const featurePath =
+            projectType === 'multi'
+              ? isDefaultFullstackComponents(config.components || [])
+                ? 'docs/features/{be|fe}'
+                : 'docs/features/{component}'
+              : 'docs/features';
+          const projectName = config.projectName ?? '{{projectName}}';
+          const commonReplacements: Record<string, string> = {
+            '{{projectName}}': projectName,
+            '{{featurePath}}': featurePath,
+          };
 
-        // common 먼저 업데이트
-        if (await fs.pathExists(commonAgents)) {
-          const count = await updateFolder(
-            commonAgents,
-            targetAgents,
-            forceOverwrite,
-            commonReplacements,
-            lang,
-            {
-              protectedFiles: new Set([
-                'custom.md',
-                'constitution.md',
-                ...ENGINE_MANAGED_AGENT_FILES,
-              ]),
-              skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
-            }
+          if (await fs.pathExists(commonAgents)) {
+            const count = await updateFolder(
+              commonAgents,
+              targetAgents,
+              forceOverwrite,
+              commonReplacements,
+              lang,
+              {
+                protectedFiles: new Set([
+                  'custom.md',
+                  'constitution.md',
+                  ...ENGINE_MANAGED_AGENT_FILES,
+                ]),
+                skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
+              }
+            );
+            updatedCount += count;
+          }
+          console.log(
+            chalk.green(
+              `  ✅ ${
+                agentsMode === 'skills'
+                  ? tr(lang, 'cli', 'update.skillsUpdated')
+                  : tr(lang, 'cli', 'update.agentsUpdated')
+              }`
+            )
           );
-          updatedCount += count;
-        }
-
-        // 타입별 오버라이드
-        if (await fs.pathExists(typeAgents)) {
-          const count = await updateFolder(
-            typeAgents,
-            targetAgents,
-            forceOverwrite,
-            typeReplacements,
-            lang,
-            {
-              protectedFiles: new Set([
-                'custom.md',
-                'constitution.md',
-                ...ENGINE_MANAGED_AGENT_FILES,
-              ]),
-              skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
-            }
-          );
-          updatedCount += count;
-        }
-        console.log(
-          chalk.green(
-            `  ✅ ${
-              agentsMode === 'skills'
-                ? tr(lang, 'cli', 'update.skillsUpdated')
-                : tr(lang, 'cli', 'update.agentsUpdated')
-            }`
-          )
-        );
         }
       }
 

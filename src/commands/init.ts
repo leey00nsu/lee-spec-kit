@@ -10,10 +10,7 @@ import {
   isDefaultFullstackComponents,
   parseComponentsOption,
 } from '../utils/components.js';
-import {
-  normalizeProjectType,
-  toTemplateProjectType,
-} from '../utils/project-type.js';
+import { normalizeProjectType } from '../utils/project-type.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   validateSafeNameWithLang,
@@ -147,6 +144,30 @@ function parseComponentProjectRootsOption(
   }
 
   return out;
+}
+
+function getComponentFeaturesReadme(
+  lang: 'ko' | 'en',
+  component: string
+): string {
+  if (lang === 'ko') {
+    return [
+      `# ${component.toUpperCase()} Features`,
+      '',
+      `이 폴더에 ${component} Feature들이 생성됩니다.`,
+      '',
+      `\`npx lee-spec-kit feature --component ${component} <name>\` 명령어로 새 Feature를 생성하세요.`,
+      '',
+    ].join('\n');
+  }
+  return [
+    `# ${component.toUpperCase()} Features`,
+    '',
+    `Features for component \`${component}\` are created in this folder.`,
+    '',
+    `Use \`npx lee-spec-kit feature --component ${component} <name>\` to create a new Feature.`,
+    '',
+  ].join('\n');
 }
 
 export function initCommand(program: Command): void {
@@ -694,29 +715,18 @@ async function runInit(options: InitOptions): Promise<void> {
       );
       console.log();
 
-      // 템플릿 복사 (common 먼저, 타입별 오버라이드)
+      // 템플릿 복사 (common only)
       const templatesDir = getTemplatesDir();
       const commonPath = path.join(templatesDir, lang, 'common');
-      const templateProjectType = toTemplateProjectType(projectType);
-      const typePath = path.join(templatesDir, lang, templateProjectType);
-
-      // common 템플릿 먼저 복사
-      if (await fs.pathExists(commonPath)) {
-        await copyTemplates(commonPath, targetDir);
-      }
-
-      // 타입별 템플릿으로 오버라이드
-      if (!(await fs.pathExists(typePath))) {
+      if (!(await fs.pathExists(commonPath))) {
         throw new Error(
-          tr(lang, 'cli', 'init.error.templateNotFound', { path: typePath })
+          tr(lang, 'cli', 'init.error.templateNotFound', { path: commonPath })
         );
       }
-      await copyTemplates(typePath, targetDir);
+      await copyTemplates(commonPath, targetDir);
 
-      if (projectType === 'multi' && !isDefaultFullstackComponents(components)) {
+      if (projectType === 'multi') {
         const featuresRoot = path.join(targetDir, 'features');
-        await fs.remove(path.join(featuresRoot, 'fe'));
-        await fs.remove(path.join(featuresRoot, 'be'));
         for (const component of components) {
           const componentDir = path.join(featuresRoot, component);
           await fs.ensureDir(componentDir);
@@ -724,7 +734,7 @@ async function runInit(options: InitOptions): Promise<void> {
           if (!(await fs.pathExists(readmePath))) {
             await fs.writeFile(
               readmePath,
-              `# ${component.toUpperCase()} Features\n\nStore ${component} feature specs here.\n`,
+              getComponentFeaturesReadme(lang, component),
               'utf-8'
             );
           }
@@ -740,6 +750,7 @@ async function runInit(options: InitOptions): Promise<void> {
           : 'docs/features';
       const replacements: Record<string, string> = {
         '{{projectName}}': projectName,
+        '{{projectType}}': projectType,
         '{{date}}': getLocalDateString(),
         '{{featurePath}}': featurePath,
       };
