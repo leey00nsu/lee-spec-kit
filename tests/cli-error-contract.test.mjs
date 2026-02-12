@@ -3194,6 +3194,49 @@ test('context checklist-pending action uses actionable user-facing wording', asy
   });
 });
 
+test('context prioritizes docs commit over checklist guidance when checklist is pending and docs are dirty', async () => {
+  await withTempDir('lsk-context-checklist-pending-docs-dirty-priority-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasks = await fs.readFile(tasksPath, 'utf-8');
+    const checklistPending = tasks.replace('- [x] done', '- [ ] done');
+    await fs.writeFile(tasksPath, checklistPending, 'utf-8');
+
+    await fs.writeFile(path.join(dir, 'app.js'), "console.log('dirty');\n", 'utf-8');
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, true);
+    assert.equal(payload.matchedFeature.git.projectHasUncommittedChanges, true);
+    assert.equal(payload.actionOptions[0].action.type, 'command');
+    assert.equal(payload.actionOptions[0].action.scope, 'docs');
+    assert.equal(payload.actionOptions[0].action.category, 'docs_commit');
+    assert.match(payload.actionOptions[0].action.cmd, /git commit -m "docs/);
+  });
+});
+
 test('context parses task IDs and blocks next TODO when strict task commit gate fails', async () => {
   await withTempDir('lsk-context-task-commit-gate-strict-', async (dir) => {
     const initResult = await runCli(dir, [
