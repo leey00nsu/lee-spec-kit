@@ -210,18 +210,26 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 - `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
 - It is short-lived (5 minutes by default) and cannot be reused after one execution.
 
-`--json` output includes:
+`context --json` is organized into `actions` (atomic actions), `actionOptions` (label mapping), and top-level metadata.
 
-- `reasonCode`: status reason code (`SINGLE_MATCHED`, `MULTIPLE_ACTIVE_FEATURES`, etc.)
-- `operationType`: action nature (`local` | `remote` | `manual`)
-- `actionOptions`: maps labels to atomic actions plus `summary`/`detail`/`approvalPrompt` for user-facing label explanation
-- `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: metadata for the first atomic action
+**Core fields (recommended for normal agent flows)**
+
+- `status` / `reasonCode`: current state and reason code
+- `actions[]`: atomic action list
+  - `type: "command"`: `scope` (project|docs), `cwd`, `cmd`, `category`, `operationType`, `requiresUserCheck`
+  - `type: "instruction"`: `message`, `category`, `operationType`, `requiresUserCheck`
+- `actionOptions[]`: `label` (`A`, `B`, `C`...) + target `action` + user-facing `summary` / `detail` / `approvalPrompt`
+- `approvalRequest`: ready-to-use approval/execute guidance (`labels`, `approveCommand`, `executeCommand`, `options[]`)
+- `requiredDocs`: built-in docs to read before the current action (`id`, `command`)
+- `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
+
+**Advanced/reference fields (automation edge cases or debugging)**
+
 - `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
+- `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: summary metadata for the first atomic action
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
 - `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`, `blockOnFindings`)
-- `requiredDocs`: CLI built-in docs to read before the current action (`id`, `command`)
-- `checkPolicy`: approval validation policy (`hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
 
