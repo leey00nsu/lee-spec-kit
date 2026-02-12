@@ -6,7 +6,11 @@ import { createHash, randomUUID } from 'crypto';
 import { execSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
-import { resolvePrePrReviewPolicy, resolveWorkflowPolicy } from '../utils/workflow.js';
+import {
+  resolvePrePrReviewPolicy,
+  resolveTaskCommitGatePolicy,
+  resolveWorkflowPolicy,
+} from '../utils/workflow.js';
 import {
   getDocsLockPath,
   getProjectExecutionLockPath,
@@ -519,6 +523,7 @@ async function runContext(
   const lang = config?.lang ?? 'en';
   const workflowPolicy = resolveWorkflowPolicy(config?.workflow);
   const prePrReviewPolicy = resolvePrePrReviewPolicy(config?.workflow);
+  const taskCommitGatePolicy = resolveTaskCommitGatePolicy(config?.workflow);
 
   if (!config) {
     throw createCliError(
@@ -624,6 +629,7 @@ async function runContext(
       primaryActionCategory: primaryAction?.action.category ?? null,
       primaryActionOperationType: primaryAction?.action.operationType ?? null,
       workflowPolicy,
+      taskCommitGatePolicy,
       prePrReviewPolicy,
       checkPolicy: {
         docPath: 'builtin://agents/policy',

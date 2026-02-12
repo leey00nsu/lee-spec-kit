@@ -45,6 +45,7 @@ export type NextAction =
     };
 
 export interface TaskRef {
+  id?: string;
   status: 'TODO' | 'DOING' | 'DONE' | 'REVIEW';
   title: string;
 }

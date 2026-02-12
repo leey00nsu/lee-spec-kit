@@ -221,6 +221,8 @@ function parseTasks(content: string): {
 
     const status = match[1].toUpperCase();
     const title = match[3].trim();
+    const taskIdMatch = title.match(/\b(T-[A-Za-z0-9-]+)\b/);
+    const taskId = taskIdMatch ? taskIdMatch[1] : undefined;
 
     summary.total++;
     if (status === 'DONE') summary.done++;
@@ -228,13 +230,13 @@ function parseTasks(content: string): {
     else if (status === 'TODO') summary.todo++;
 
     if (!activeTask && (status === 'DOING' || status === 'REVIEW')) {
-      activeTask = { status: status as TaskRef['status'], title };
+      activeTask = { id: taskId, status: status as TaskRef['status'], title };
     }
     if (status === 'DONE') {
-      lastDoneTask = { status: 'DONE', title };
+      lastDoneTask = { id: taskId, status: 'DONE', title };
     }
     if (!nextTodoTask && status === 'TODO') {
-      nextTodoTask = { status: 'TODO', title };
+      nextTodoTask = { id: taskId, status: 'TODO', title };
     }
   }
 

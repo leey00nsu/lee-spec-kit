@@ -468,6 +468,18 @@ const I18N: Record<Lang, I18nData> = {
         '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (시작 전 `npx lee-spec-kit docs get execute-task --json`으로 절차 확인 → 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리)',
       checkTaskStatuses:
         '태스크 상태를 확인하세요. ({done}/{total}) (`npx lee-spec-kit docs get execute-task --json` 절차를 기준으로 점검)',
+      taskCommitGateStrictBlock:
+        '다음 TODO 태스크로 넘어가기 전에 `1 태스크 = 1 커밋` 규칙을 충족해야 합니다. 점검 결과: {reason}. `npx lee-spec-kit docs get execute-task --json` 절차를 기준으로 태스크 커밋 단위를 정리한 뒤 다시 진행하세요.',
+      taskCommitGateWarnProceed:
+        '⚠️ 태스크 커밋 단위 점검 경고: {reason}. 현재는 진행 가능하지만 `1 태스크 = 1 커밋`을 권장합니다.',
+      taskCommitGateReasonNoTasksCommit:
+        '최근 tasks.md 커밋을 찾을 수 없습니다',
+      taskCommitGateReasonTasksFileUnavailable:
+        '최근 커밋에서 tasks.md 이력을 판독할 수 없습니다',
+      taskCommitGateReasonDoneCount:
+        '최근 tasks.md 커밋의 DONE 전환 수가 {count}개입니다 (정상: 1개)',
+      taskCommitGateReasonMismatchLastDone:
+        '최근 tasks.md 커밋이 직전 완료 태스크와 일치하지 않습니다',
       prLegacyAsk:
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prePrReviewFieldMissing:
@@ -991,6 +1003,18 @@ const I18N: Record<Lang, I18nData> = {
         'Start the next TODO task: "{title}" ({done}/{total}) (Before starting, read `npx lee-spec-kit docs get execute-task --json`, then share title + get OK before marking DOING)',
       checkTaskStatuses:
         'Check task statuses. ({done}/{total}) (Use `npx lee-spec-kit docs get execute-task --json` as the procedure baseline)',
+      taskCommitGateStrictBlock:
+        'Before moving to the next TODO task, you must satisfy the `1 task = 1 commit` rule. Check result: {reason}. Re-align task commit boundaries using `npx lee-spec-kit docs get execute-task --json`, then continue.',
+      taskCommitGateWarnProceed:
+        '⚠️ Task commit boundary warning: {reason}. You may continue, but `1 task = 1 commit` is recommended.',
+      taskCommitGateReasonNoTasksCommit:
+        'No recent tasks.md commit was found',
+      taskCommitGateReasonTasksFileUnavailable:
+        'Cannot read tasks.md history from the latest commit',
+      taskCommitGateReasonDoneCount:
+        'DONE transitions in the latest tasks.md commit: {count} (expected: 1)',
+      taskCommitGateReasonMismatchLastDone:
+        'The latest tasks.md commit does not match the last completed task',
       prLegacyAsk:
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prePrReviewFieldMissing:

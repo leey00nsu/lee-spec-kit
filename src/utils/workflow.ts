@@ -9,6 +9,7 @@ export interface WorkflowPolicy {
 }
 
 export type CodeDirtyScopePolicy = 'repo' | 'component';
+export type TaskCommitGatePolicy = 'off' | 'warn' | 'strict';
 export type PrePrReviewFallbackPolicy = 'builtin-checklist';
 
 export interface PrePrReviewPolicy {
@@ -84,6 +85,15 @@ export function resolveCodeDirtyScopePolicy(
   }
   // auto
   return projectType === 'multi' ? 'component' : 'repo';
+}
+
+export function resolveTaskCommitGatePolicy(
+  workflow?: ProjectConfig['workflow']
+): TaskCommitGatePolicy {
+  const raw = workflow?.taskCommitGate;
+  if (raw === 'off' || raw === 'warn' || raw === 'strict') return raw;
+  // Backward compatibility for existing configs that do not define this policy.
+  return 'warn';
 }
 
 function normalizeSkillList(input: unknown): string[] {

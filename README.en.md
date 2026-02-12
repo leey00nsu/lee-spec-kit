@@ -213,6 +213,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: metadata for the first atomic action
 - `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
+- `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
 - `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`, `blockOnFindings`)
 - `requiredDocs`: CLI built-in docs to read before the current action (`id`, `command`)
 - `checkPolicy`: approval validation policy (`hint`, `policyOnly`, `token: "<LABEL>"`, `acceptedTokens`, `tokenPattern`, `validLabels`, `requireExplanationBeforeApproval`, `requiredExplanationFields`, `contextVersion`, ...)
@@ -386,6 +387,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
+    "taskCommitGate": "strict",
     "prePrReview": { "skills": ["code-review-excellence"] }
   },
   "pr": { "screenshots": { "upload": false } },
@@ -404,7 +406,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
 | `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
 | `projectRoot` | (standalone only) project repo path (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (optional) workflow completion policy (`github`/`local`, `codeDirtyScope`, `prePrReview`) |
+| `workflow`    | (optional) workflow completion policy (`github`/`local`, `codeDirtyScope`, `taskCommitGate`, `prePrReview`) |
 | `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
 | `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
 
@@ -426,6 +428,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
 - `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
+- `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
 
 > This does not enforce/deny execution by itself; it’s a signal for agents.
 > If `approval` is omitted, it behaves as `builtin`. (No migration required)
@@ -442,6 +445,11 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   - `auto`: `single => repo`, `multi => component`
   - `workflow.componentPaths` (optional): explicit per-component paths for component-scoped checks (e.g. `"web": ["apps/web", "packages/web-ui"]`)
   - backward compatibility: if omitted, runtime defaults to `repo`
+- `workflow.taskCommitGate`:
+  - `strict`: block moving to next TODO when the `1 task = 1 commit` check fails
+  - `warn`: show warning but allow progress
+  - `off`: disable the check
+  - backward compatibility: if omitted, runtime defaults to `warn`
 - `workflow.prePrReview`:
   - `enabled` (optional): enforce pre-PR review stage (default: same as `requirePr`)
   - `skills` (optional): preferred skill names in priority order (default: `["code-review-excellence"]`)
@@ -455,6 +463,7 @@ Example:
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
+    "taskCommitGate": "strict",
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",

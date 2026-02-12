@@ -1,7 +1,12 @@
 import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
 import { ProjectConfig } from '../config.js';
-import { resolvePrePrReviewPolicy, resolveWorkflowPolicy } from '../workflow.js';
+import { execFileSync } from 'child_process';
+import {
+  resolvePrePrReviewPolicy,
+  resolveTaskCommitGatePolicy,
+  resolveWorkflowPolicy,
+} from '../workflow.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
   return (
@@ -90,12 +95,146 @@ function resolveProjectCommitTopic(feature: FeatureState): string {
   return toShellSafeCommitTopic(topic);
 }
 
+interface TaskCommitGateCheck {
+  pass: boolean;
+  reason:
+    | 'NO_TASKS_COMMIT'
+    | 'TASKS_FILE_UNAVAILABLE'
+    | 'MULTIPLE_DONE_TRANSITIONS'
+    | 'MISMATCH_LAST_DONE';
+  newDoneCount?: number;
+}
+
+function normalizeGitRelativePath(value: string): string {
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function toRepoRelativePath(cwd: string, relativePathFromCwd: string): string {
+  const prefix = (readGitText(cwd, ['rev-parse', '--show-prefix']) || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!prefix) return normalizeGitRelativePath(relativePathFromCwd);
+  return normalizeGitRelativePath(`${prefix}/${relativePathFromCwd}`);
+}
+
+function readGitText(cwd: string, args: string[]): string | undefined {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeTaskTopic(value: string): string {
+  return normalizeCommitTopicText(value).replace(/^T-[A-Za-z0-9-]+\s+/, '');
+}
+
+function parseDoneTaskTopicCounts(content: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  const lines = content.split('\n');
+  let inCodeBlock = false;
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) continue;
+
+    const match = line.match(/^\s*-\s*\[([A-Z]+)\]((?:\[[^\]]+\])*)\s*(.+?)\s*$/);
+    if (!match) continue;
+    if (match[1].toUpperCase() !== 'DONE') continue;
+
+    const topic = normalizeTaskTopic(match[3] || '');
+    if (!topic) continue;
+    counts.set(topic, (counts.get(topic) || 0) + 1);
+  }
+  return counts;
+}
+
+function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
+  const tasksPath = normalizeGitRelativePath(`${feature.docs.featurePathFromDocs}/tasks.md`);
+  const docsGitCwd = feature.git.docsGitCwd;
+  const repoTasksPath = toRepoRelativePath(docsGitCwd, tasksPath);
+
+  const latestTasksCommit = (
+    readGitText(docsGitCwd, ['rev-list', '-n', '1', 'HEAD', '--', tasksPath]) || ''
+  ).trim();
+  if (!latestTasksCommit) {
+    return { pass: false, reason: 'NO_TASKS_COMMIT' };
+  }
+
+  const currentContent = readGitText(docsGitCwd, ['show', `${latestTasksCommit}:${repoTasksPath}`]);
+  if (currentContent === undefined) {
+    return { pass: false, reason: 'TASKS_FILE_UNAVAILABLE' };
+  }
+
+  const previousContent =
+    readGitText(docsGitCwd, ['show', `${latestTasksCommit}^:${repoTasksPath}`]) || '';
+
+  const currentDone = parseDoneTaskTopicCounts(currentContent);
+  const previousDone = parseDoneTaskTopicCounts(previousContent);
+
+  let newDoneCount = 0;
+  for (const [topic, currentCount] of currentDone.entries()) {
+    const previousCount = previousDone.get(topic) || 0;
+    if (currentCount > previousCount) {
+      newDoneCount += currentCount - previousCount;
+    }
+  }
+
+  if (newDoneCount !== 1) {
+    return {
+      pass: false,
+      reason: 'MULTIPLE_DONE_TRANSITIONS',
+      newDoneCount,
+    };
+  }
+
+  const lastDoneTopic = normalizeTaskTopic(feature.lastDoneTask?.title || '');
+  if (lastDoneTopic) {
+    const previousCount = previousDone.get(lastDoneTopic) || 0;
+    const currentCount = currentDone.get(lastDoneTopic) || 0;
+    if (currentCount <= previousCount) {
+      return { pass: false, reason: 'MISMATCH_LAST_DONE', newDoneCount };
+    }
+  }
+
+  return { pass: true, reason: 'MULTIPLE_DONE_TRANSITIONS', newDoneCount };
+}
+
+function getTaskCommitGateReasonText(
+  lang: Lang,
+  check: TaskCommitGateCheck
+): string {
+  switch (check.reason) {
+    case 'NO_TASKS_COMMIT':
+      return tr(lang, 'messages', 'taskCommitGateReasonNoTasksCommit');
+    case 'TASKS_FILE_UNAVAILABLE':
+      return tr(lang, 'messages', 'taskCommitGateReasonTasksFileUnavailable');
+    case 'MISMATCH_LAST_DONE':
+      return tr(lang, 'messages', 'taskCommitGateReasonMismatchLastDone');
+    case 'MULTIPLE_DONE_TRANSITIONS':
+    default:
+      return tr(lang, 'messages', 'taskCommitGateReasonDoneCount', {
+        count: check.newDoneCount ?? 0,
+      });
+  }
+}
+
 export function getStepDefinitions(
   lang: Lang,
   workflow?: ProjectConfig['workflow']
 ): StepDefinition[] {
   const workflowPolicy = resolveWorkflowPolicy(workflow);
   const prePrReviewPolicy = resolvePrePrReviewPolicy(workflow);
+  const taskCommitGatePolicy = resolveTaskCommitGatePolicy(workflow);
 
   return [
     {
@@ -499,6 +638,40 @@ export function getStepDefinitions(
                 },
               ];
             }
+
+            if (taskCommitGatePolicy !== 'off' && f.lastDoneTask) {
+              const commitGate = checkTaskCommitGate(f);
+              if (!commitGate.pass) {
+                const reasonText = getTaskCommitGateReasonText(lang, commitGate);
+                if (taskCommitGatePolicy === 'strict') {
+                  return [
+                    {
+                      type: 'instruction',
+                      category: 'task_execute',
+                      requiresUserCheck: true,
+                      message: tr(lang, 'messages', 'taskCommitGateStrictBlock', {
+                        reason: reasonText,
+                      }),
+                    },
+                  ];
+                }
+                return [
+                  {
+                    type: 'instruction',
+                    category: 'task_execute',
+                    requiresUserCheck: true,
+                    message: `${tr(lang, 'messages', 'startNextTodoTask', {
+                      title: f.nextTodoTask.title,
+                      done: f.tasks.done,
+                      total: f.tasks.total,
+                    })}\n${tr(lang, 'messages', 'taskCommitGateWarnProceed', {
+                      reason: reasonText,
+                    })}`,
+                  },
+                ];
+              }
+            }
+
             return [
               {
                 type: 'instruction',

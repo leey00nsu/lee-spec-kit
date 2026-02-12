@@ -2642,6 +2642,160 @@ test('context requires project commit before starting next TODO task', async () 
     assert.match(payload.actionOptions[0].action.cmd, /git diff --cached --quiet/);
     assert.match(payload.actionOptions[0].action.cmd, /git commit -m "feat\([^"]+\): /);
     assert.match(payload.actionOptions[0].action.cmd, /feat\(F001-alpha\): alpha/);
+    assert.doesNotMatch(payload.actionOptions[0].action.cmd, /T-F001-alpha-01/);
+  });
+});
+
+test('context parses task IDs and blocks next TODO when strict task commit gate fails', async () => {
+  await withTempDir('lsk-context-task-commit-gate-strict-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## Local Tracking
+
+- **Doc Status**: Approved
+
+## Task List
+
+- [DONE] T-F001-alpha-01 alpha baseline
+- [DONE] T-F001-alpha-02 alpha follow-up
+- [TODO] T-F001-alpha-03 alpha polish
+
+## Completion Criteria
+
+- [ ] done
+`,
+      'utf-8'
+    );
+
+    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: update tasks with multiple done transitions',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.lastDoneTask.id, 'T-F001-alpha-02');
+    assert.equal(payload.matchedFeature.nextTodoTask.id, 'T-F001-alpha-03');
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.match(payload.actionOptions[0].action.message, /1 task = 1 commit/);
+    assert.match(payload.actionOptions[0].action.message, /DONE transitions.*2/);
+  });
+});
+
+test('context warn task commit gate allows next TODO with warning', async () => {
+  await withTempDir('lsk-context-task-commit-gate-warn-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = config.workflow || {};
+    config.workflow.taskCommitGate = 'warn';
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## Local Tracking
+
+- **Doc Status**: Approved
+
+## Task List
+
+- [DONE] T-F001-alpha-01 alpha baseline
+- [DONE] T-F001-alpha-02 alpha follow-up
+- [TODO] T-F001-alpha-03 alpha polish
+
+## Completion Criteria
+
+- [ ] done
+`,
+      'utf-8'
+    );
+
+    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha', 'docs/.lee-spec-kit.json']);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: set task commit gate warn and update tasks',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.taskCommitGatePolicy, 'warn');
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.match(payload.actionOptions[0].action.message, /Start the next TODO task/);
+    assert.match(payload.actionOptions[0].action.message, /Task commit boundary warning/);
   });
 });
 

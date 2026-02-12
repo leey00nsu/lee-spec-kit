@@ -234,6 +234,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `category`: 액션 분류 (자동화/반자동용 `approval.mode: "category"`에서 사용)
 - `requiresUserCheck`: 사용자 확인 필요 여부 (에이전트는 **사용자 응답을 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)으로 제한**하는 것을 권장 / 설정의 `approval`로 오버라이드 가능)
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
+- `taskCommitGatePolicy`: 태스크 커밋 게이트 정책 (`off` | `warn` | `strict`)
 - `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`, `blockOnFindings`)
 - `requiredDocs`: 현재 액션 전에 읽어야 할 CLI 내장 문서 목록 (`id`, `command`)
 
@@ -438,6 +439,7 @@ npx lee-spec-kit update --force
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
+    "taskCommitGate": "strict",
     "prePrReview": { "skills": ["code-review-excellence"] }
   },
   "pr": { "screenshots": { "upload": false } },
@@ -456,7 +458,7 @@ npx lee-spec-kit update --force
 | `pushDocs`    | (standalone만) docs 레포를 별도 Git으로 관리/푸시할지 여부 |
 | `docsRemote`  | (standalone+pushDocs) docs 레포 remote URL |
 | `projectRoot` | (standalone만) 프로젝트 레포지토리 경로 (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`, `codeDirtyScope`, `prePrReview`) |
+| `workflow`    | (선택) 워크플로우 요구사항 정책 (`github`/`local`, `codeDirtyScope`, `taskCommitGate`, `prePrReview`) |
 | `pr`          | (선택) PR 결과물 정책 (예: 스크린샷 업로드 여부) |
 | `approval`    | (선택) `context` 출력의 `[확인 필요]`/`requiresUserCheck` 정책 오버라이드 (자동화/반자동용) |
 
@@ -494,6 +496,11 @@ npx lee-spec-kit update --force
   - `auto`: `single => repo`, `multi => component`
   - `workflow.componentPaths`(선택): component 판정 경로를 컴포넌트별로 명시 (예: `"web": ["apps/web", "packages/web-ui"]`)
   - 하위 호환: 값이 없으면 기존 동작인 `repo`로 처리
+- `workflow.taskCommitGate`:
+  - `strict`: 다음 TODO로 넘어가기 전에 `1 태스크 = 1 커밋` 점검 실패 시 차단
+  - `warn`: 점검 실패 시 경고만 표시하고 진행 허용
+  - `off`: 점검 비활성화
+  - 하위 호환: 값이 없으면 `warn`으로 처리
 - `workflow.prePrReview`:
   - `enabled` (선택): pre-PR 리뷰 단계를 강제할지 여부 (기본: `requirePr`와 동일)
   - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
@@ -507,6 +514,7 @@ npx lee-spec-kit update --force
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
+    "taskCommitGate": "strict",
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",

@@ -51,6 +51,15 @@ export interface ProjectConfig {
      */
     componentPaths?: Record<string, string[]>;
     /**
+     * Gate policy for moving from one task to the next.
+     * - off: disable the gate
+     * - warn: show warning but allow next task
+     * - strict: block next task until one-task-per-commit evidence is present
+     *
+     * Backward compatibility: when omitted, runtime defaults to "warn".
+     */
+    taskCommitGate?: 'off' | 'warn' | 'strict';
+    /**
      * Pre-PR self review stage configuration.
      * Enabled by default when PR is required.
      */

@@ -760,6 +760,7 @@ async function runInit(options: InitOptions): Promise<void> {
         workflow: {
           mode: workflowMode,
           codeDirtyScope: 'auto',
+          taskCommitGate: 'strict',
           prePrReview: { skills: ['code-review-excellence'] },
         },
         pr: {
