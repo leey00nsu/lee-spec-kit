@@ -510,7 +510,7 @@ npx lee-spec-kit update --force
   - `workflow.componentPaths`(선택): component 판정 경로를 컴포넌트별로 명시 (예: `"web": ["apps/web", "packages/web-ui"]`)
   - 하위 호환: 값이 없으면 기존 동작인 `repo`로 처리
 - `workflow.taskCommitGate`:
-  - `strict`: 다음 TODO로 넘어가기 전에 `1 태스크 = 1 커밋` 점검 실패 시 차단
+  - `strict`: 최근 `tasks.md` 커밋에서 DONE 전환이 2개 이상이면 차단
   - `warn`: 점검 실패 시 경고만 표시하고 진행 허용
   - `off`: 점검 비활성화
   - 하위 호환: 값이 없으면 `warn`으로 처리

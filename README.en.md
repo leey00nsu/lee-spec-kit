@@ -464,7 +464,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   - `workflow.componentPaths` (optional): explicit per-component paths for component-scoped checks (e.g. `"web": ["apps/web", "packages/web-ui"]`)
   - backward compatibility: if omitted, runtime defaults to `repo`
 - `workflow.taskCommitGate`:
-  - `strict`: block moving to next TODO when the `1 task = 1 commit` check fails
+  - `strict`: block only when the latest `tasks.md` commit includes 2+ DONE transitions
   - `warn`: show warning but allow progress
   - `off`: disable the check
   - backward compatibility: if omitted, runtime defaults to `warn`

@@ -54,7 +54,7 @@ export interface ProjectConfig {
      * Gate policy for moving from one task to the next.
      * - off: disable the gate
      * - warn: show warning but allow next task
-     * - strict: block next task until one-task-per-commit evidence is present
+     * - strict: block only when the latest tasks.md commit adds more than one DONE transition
      *
      * Backward compatibility: when omitted, runtime defaults to "warn".
      */

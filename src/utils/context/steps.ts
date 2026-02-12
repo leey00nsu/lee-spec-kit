@@ -105,6 +105,19 @@ interface TaskCommitGateCheck {
   newDoneCount?: number;
 }
 
+function shouldBlockTaskCommitGate(
+  policy: ReturnType<typeof resolveTaskCommitGatePolicy>,
+  check: TaskCommitGateCheck
+): boolean {
+  if (policy !== 'strict') return false;
+  // Keep strict mode simple: block only when a single tasks.md commit
+  // appears to mark multiple tasks as DONE at once.
+  if (check.reason === 'MULTIPLE_DONE_TRANSITIONS') {
+    return (check.newDoneCount ?? 0) > 1;
+  }
+  return false;
+}
+
 function normalizeGitRelativePath(value: string): string {
   return value
     .replace(/\\/g, '/')
@@ -643,7 +656,7 @@ export function getStepDefinitions(
               const commitGate = checkTaskCommitGate(f);
               if (!commitGate.pass) {
                 const reasonText = getTaskCommitGateReasonText(lang, commitGate);
-                if (taskCommitGatePolicy === 'strict') {
+                if (shouldBlockTaskCommitGate(taskCommitGatePolicy, commitGate)) {
                   return [
                     {
                       type: 'instruction',
