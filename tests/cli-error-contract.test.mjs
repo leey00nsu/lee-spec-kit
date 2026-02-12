@@ -2472,6 +2472,147 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
     const updateResult = await runCli(dir, ['update']);
     assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
     assert.doesNotMatch(updateResult.stderr, /\[PRECONDITION_FAILED\]/);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.workflow?.taskCommitGate, 'strict');
+    assert.equal(config.workflow?.codeDirtyScope, 'auto');
+    assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
+    assert.equal(config.workflow?.prePrReview?.blockOnFindings, true);
+    assert.equal(config.approval?.mode, 'builtin');
+    assert.equal(config.pr?.screenshots?.upload, false);
+  });
+});
+
+test('update backfills missing config defaults including strict taskCommitGate', async () => {
+  await withTempDir('lsk-update-config-backfill-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    delete config.workflow?.taskCommitGate;
+    delete config.workflow?.codeDirtyScope;
+    delete config.workflow?.prePrReview;
+    delete config.pr;
+    delete config.approval;
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const prepAdd = await runCommand(dir, 'git', ['add', 'docs/.lee-spec-kit.json']);
+    assert.equal(prepAdd.code, 0, prepAdd.stderr || prepAdd.stdout);
+    const prepCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: drop config defaults',
+    ]);
+    assert.equal(prepCommit.code, 0, prepCommit.stderr || prepCommit.stdout);
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+
+    const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(nextConfig.workflow?.taskCommitGate, 'strict');
+    assert.equal(nextConfig.workflow?.codeDirtyScope, 'auto');
+    assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
+      'code-review-excellence',
+    ]);
+    assert.equal(nextConfig.pr?.screenshots?.upload, false);
+    assert.equal(nextConfig.approval?.mode, 'builtin');
+  });
+});
+
+test('update keeps explicit config values and only fills missing keys', async () => {
+  await withTempDir('lsk-update-config-preserve-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = config.workflow || {};
+    config.workflow.mode = 'local';
+    config.workflow.codeDirtyScope = 'repo';
+    config.workflow.taskCommitGate = 'warn';
+    config.workflow.prePrReview = { skills: ['custom-skill'] };
+    config.pr = { screenshots: { upload: true } };
+    config.approval = { mode: 'steps', requireCheckSteps: [10] };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const prepAdd = await runCommand(dir, 'git', ['add', 'docs/.lee-spec-kit.json']);
+    assert.equal(prepAdd.code, 0, prepAdd.stderr || prepAdd.stdout);
+    const prepCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: set explicit config values',
+    ]);
+    assert.equal(prepCommit.code, 0, prepCommit.stderr || prepCommit.stdout);
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+
+    const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(nextConfig.workflow?.mode, 'local');
+    assert.equal(nextConfig.workflow?.codeDirtyScope, 'repo');
+    assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
+    assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, ['custom-skill']);
+    assert.equal(nextConfig.pr?.screenshots?.upload, true);
+    assert.equal(nextConfig.approval?.mode, 'steps');
+    assert.deepEqual(nextConfig.approval?.requireCheckSteps, [10]);
   });
 });
 
@@ -3532,6 +3673,7 @@ test('init writes workflow.codeDirtyScope=auto for new projects', async () => {
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
+    assert.equal(config.workflow?.taskCommitGate, 'strict');
   });
 });
 

@@ -29,6 +29,11 @@ interface UpdateOptions {
   force?: boolean;
 }
 
+interface ConfigBackfillResult {
+  changed: boolean;
+  changedPaths: string[];
+}
+
 export function updateCommand(program: Command): void {
   program
     .command('update')
@@ -85,6 +90,9 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const forceOverwrite =
         !!options.force ||
         (await isDocsWorktreeCleanOrThrow(docsDir, lang, [docsLockPath]));
+
+      // Backfill missing config defaults so older projects get current policy keys.
+      const configBackfill = await backfillMissingConfigDefaults(docsDir);
 
       // 업데이트 대상 결정
       const hasExplicitSelection = !!(
@@ -226,12 +234,124 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       }
 
       console.log();
+      if (configBackfill.changed) {
+        console.log(
+          chalk.gray(
+            `  - ${tr(lang, 'cli', 'update.fileUpdated', { file: '.lee-spec-kit.json' })}`
+          )
+        );
+        console.log(
+          chalk.gray(
+            `    (${configBackfill.changedPaths.join(', ')})`
+          )
+        );
+      }
       console.log(
         chalk.green(`✅ ${tr(lang, 'cli', 'update.updatedTotal', { count: updatedCount })}`)
       );
     },
     { owner: 'update' }
   );
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeSkillList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const deduped = new Set<string>();
+  for (const item of raw) {
+    const value = String(item || '').trim();
+    if (!value) continue;
+    deduped.add(value);
+  }
+  return [...deduped];
+}
+
+async function backfillMissingConfigDefaults(
+  docsDir: string
+): Promise<ConfigBackfillResult> {
+  const configPath = path.join(docsDir, '.lee-spec-kit.json');
+  if (!(await fs.pathExists(configPath))) {
+    return { changed: false, changedPaths: [] };
+  }
+
+  const raw = await fs.readJson(configPath);
+  if (!isPlainObject(raw)) {
+    return { changed: false, changedPaths: [] };
+  }
+
+  const changedPaths: string[] = [];
+
+  const setIfMissing = <T>(
+    parent: Record<string, unknown>,
+    key: string,
+    nextValue: T,
+    pathLabel: string
+  ): void => {
+    if (parent[key] !== undefined) return;
+    parent[key] = nextValue;
+    changedPaths.push(pathLabel);
+  };
+
+  if (!isPlainObject(raw.workflow)) {
+    raw.workflow = {};
+    changedPaths.push('workflow');
+  }
+  const workflow = raw.workflow as Record<string, unknown>;
+  setIfMissing(workflow, 'mode', 'github', 'workflow.mode');
+  setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');
+  setIfMissing(workflow, 'taskCommitGate', 'strict', 'workflow.taskCommitGate');
+
+  if (!isPlainObject(workflow.prePrReview)) {
+    workflow.prePrReview = {};
+    changedPaths.push('workflow.prePrReview');
+  }
+  const prePrReview = workflow.prePrReview as Record<string, unknown>;
+  if (prePrReview.skills === undefined) {
+    prePrReview.skills = ['code-review-excellence'];
+    changedPaths.push('workflow.prePrReview.skills');
+  } else {
+    const normalizedSkills = normalizeSkillList(prePrReview.skills);
+    if (normalizedSkills.length === 0) {
+      prePrReview.skills = ['code-review-excellence'];
+      changedPaths.push('workflow.prePrReview.skills');
+    } else if (
+      JSON.stringify(normalizedSkills) !== JSON.stringify(prePrReview.skills)
+    ) {
+      prePrReview.skills = normalizedSkills;
+      changedPaths.push('workflow.prePrReview.skills');
+    }
+  }
+  setIfMissing(prePrReview, 'fallback', 'builtin-checklist', 'workflow.prePrReview.fallback');
+  setIfMissing(prePrReview, 'blockOnFindings', true, 'workflow.prePrReview.blockOnFindings');
+
+  if (!isPlainObject(raw.pr)) {
+    raw.pr = {};
+    changedPaths.push('pr');
+  }
+  const pr = raw.pr as Record<string, unknown>;
+  if (!isPlainObject(pr.screenshots)) {
+    pr.screenshots = {};
+    changedPaths.push('pr.screenshots');
+  }
+  const screenshots = pr.screenshots as Record<string, unknown>;
+  setIfMissing(screenshots, 'upload', false, 'pr.screenshots.upload');
+
+  if (!isPlainObject(raw.approval)) {
+    raw.approval = {};
+    changedPaths.push('approval');
+  }
+  const approval = raw.approval as Record<string, unknown>;
+  setIfMissing(approval, 'mode', 'builtin', 'approval.mode');
+
+  if (changedPaths.length === 0) {
+    return { changed: false, changedPaths: [] };
+  }
+
+  await fs.writeJson(configPath, raw, { spaces: 2 });
+  return { changed: true, changedPaths };
 }
 
 async function updateFolder(
