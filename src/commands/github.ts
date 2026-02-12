@@ -1998,6 +1998,33 @@ export function githubCommand(program: Command): void {
             projectGitCwd,
             tg(config.lang, 'pullBaseAfterMergeFailed', { base: baseBranch })
           );
+
+          if (prUrl && options.syncTasks !== false) {
+            const mergedSync = syncTasksPrMetadata(
+              path.join(config.docsDir, paths.tasksPath),
+              prUrl,
+              'Approved',
+              config.lang
+            );
+            syncChanged = syncChanged || mergedSync.changed;
+            if (mergedSync.changed) {
+              const docsGitCwd = resolveGithubDocsCwd(config, feature);
+              const message = feature.issueNumber
+                ? tg(config.lang, 'syncCommitWithIssue', {
+                    issue: feature.issueNumber,
+                    folder: feature.folderName,
+                  })
+                : tg(config.lang, 'syncCommitNoIssue', {
+                    folder: feature.folderName,
+                  });
+              commitAndPushPath(
+                docsGitCwd,
+                mergedSync.path,
+                message,
+                config.lang
+              );
+            }
+          }
         }
 
         if (options.json) {

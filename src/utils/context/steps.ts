@@ -906,7 +906,10 @@ export function getStepDefinitions(
               {
                 type: 'instruction',
                 category: 'code_review',
-                message: tr(lang, 'messages', 'prResolveReview'),
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prResolveReview', {
+                  featureRef: f.id || f.folderName,
+                }),
               },
             ];
           }
