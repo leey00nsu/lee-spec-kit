@@ -199,7 +199,7 @@ npx lee-spec-kit context F001 --json
 # 승인 + 실행 (일반 케이스)
 npx lee-spec-kit context F001 --approve A --execute
 
-# check-required 옵션일 때만 티켓 포함
+# 선택된 액션이 `requiresUserCheck=true`일 때만 티켓 포함
 npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
 
 # 엄격 실행 모드 (instruction-only 라벨이면 실패)
@@ -220,6 +220,12 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 | `--ticket <token>` | `--approve` 결과에서 받은 1회용 실행 티켓 (`requiresUserCheck=true` 옵션에서 필요) |
 | `--execute`     | 승인된 command 옵션 1개만 실행 (`requiresUserCheck=true`면 `--ticket` 필요) |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
+
+**티켓(approval ticket)이란?**
+
+- `--approve`로 라벨을 승인할 때 CLI가 발급하는 1회용 실행 토큰입니다.
+- 선택한 액션이 `requiresUserCheck=true`인 경우에만 `--execute`에서 `--ticket`이 필요합니다.
+- 발급 후 짧은 시간(기본 5분)만 유효하며, 한 번 사용하면 재사용할 수 없습니다.
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
 

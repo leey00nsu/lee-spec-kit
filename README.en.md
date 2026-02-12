@@ -182,7 +182,7 @@ npx lee-spec-kit context F001 --json
 # approve + execute (common path)
 npx lee-spec-kit context F001 --approve A --execute
 
-# include ticket only for check-required options
+# include ticket only when selected action has `requiresUserCheck=true`
 npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
 
 # strict mode: fail if approved label is instruction-only
@@ -203,6 +203,12 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 | `--ticket <token>` | One-time execution ticket from `--approve` (required when selected option has `requiresUserCheck=true`) |
 | `--execute`    | Execute only the approved option when it is a command (`--ticket` required only for check-required options) |
 | `--execute-strict` | With `--execute`, fail if the approved option is instruction-only |
+
+**What is a ticket (approval ticket)?**
+
+- A one-time execution token issued by the CLI when you approve a label via `--approve`.
+- `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
+- It is short-lived (5 minutes by default) and cannot be reused after one execution.
 
 `--json` output includes:
 
