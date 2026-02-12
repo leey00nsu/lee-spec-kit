@@ -1082,6 +1082,52 @@ function resolveOverviewFromSpec(
     : `Summarize feature \`${feature.folderName}\` from spec.md.`;
 }
 
+function normalizeIssueTitleSummaryLine(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^\s*[-*+]\s+/, '')
+    .replace(/^\s*\d+[.)]\s+/, '')
+    .replace(/^\s*>\s*/, '')
+    .replace(/`/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isOverviewMetadataLine(line: string, lang: Lang): boolean {
+  const cleaned = line.replace(/^[-*+]\s*/, '').trim().toLowerCase();
+  const keys =
+    lang === 'ko'
+      ? ['기능 id', '기능명', '대상 레포', '이슈 번호', '작성일', '상태']
+      : ['feature id', 'feature name', 'target repo', 'issue number', 'created', 'status'];
+  return keys.some((key) => cleaned.startsWith(`${key}:`));
+}
+
+function truncateIssueTitleSummary(input: string, maxLength = 72): string {
+  if (input.length <= maxLength) return input;
+  return `${input.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function resolveIssueTitleSummary(
+  overview: string,
+  feature: FeatureContext,
+  lang: Lang
+): string {
+  const candidates = overview
+    .split('\n')
+    .map((line) => normalizeIssueTitleSummaryLine(line))
+    .filter((line) => !!line)
+    .filter((line) => !isOverviewMetadataLine(line, lang));
+
+  const fallback =
+    lang === 'ko'
+      ? `${feature.slug} 기능 구현`
+      : `${feature.slug} feature implementation`;
+  const picked = candidates[0] || fallback;
+  return truncateIssueTitleSummary(picked);
+}
+
 function getPrScreenshotsHeading(lang: Lang): string {
   return getGithubDraftArtifactHeading('pr', 'screenshots', lang) || (
     lang === 'ko' ? '스크린샷' : 'Screenshots'
@@ -1634,7 +1680,7 @@ export function githubCommand(program: Command): void {
           options.title?.trim() ||
           tg(config.lang, 'issueDefaultTitle', {
             slug: feature.slug,
-            folder: feature.folderName,
+            summary: resolveIssueTitleSummary(overview, feature, config.lang),
           });
         const generatedBody = buildIssueBody(
           specContent,

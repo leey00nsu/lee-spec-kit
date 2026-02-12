@@ -676,6 +676,64 @@ test('github issue --create succeeds with --confirm OK', async () => {
   });
 });
 
+test('github issue default title uses overview summary instead of docs-update suffix', async () => {
+  await withTempDir('lsk-github-issue-default-title-summary-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'daily-theme-hall-of-fame',
+      '--id',
+      'F013',
+      '--desc',
+      'Reflect daily winners in hall of fame',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(dir, 'tmp-issue-body.md');
+    await writeIssueBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'issue',
+        'F013-daily-theme-hall-of-fame',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      /--title daily-theme-hall-of-fame \(Reflect daily winners in hall of fame\)/
+    );
+    assert.doesNotMatch(log, /documentation update/);
+  });
+});
+
 test('github issue --create runs gh from standalone project root', async () => {
   await withTempDir('lsk-github-issue-standalone-cwd-', async (dir) => {
     const projectRoot = path.join(dir, 'project');
