@@ -12,7 +12,7 @@ export function applyReplacements(
   content: string,
   replacements: Record<string, string>,
 ): string {
-  // Avoid overlap issues (e.g. "{{projectName}}" vs "{{projectName}}-{be|fe}")
+  // Avoid overlap issues (e.g. "{{projectName}}" vs "{{projectName}}-{component}")
   // by applying longer keys first.
   const keys = Object.keys(replacements).sort((a, b) => b.length - a.length);
   let next = content;

@@ -329,6 +329,61 @@ test('init --non-interactive works with explicit flags without --yes', async () 
   });
 });
 
+test('init --non-interactive defaults to multi with app component', async () => {
+  await withTempDir('lsk-init-default-multi-', async (dir) => {
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.projectType, 'multi');
+    assert.deepEqual(config.components, ['app']);
+  });
+});
+
+test('feature auto-selects the only component in multi mode', async () => {
+  await withTempDir('lsk-feature-auto-component-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const featureDir = path.join(dir, 'docs', 'features', 'app', 'F001-alpha');
+    const exists = await fs.stat(featureDir);
+    assert.equal(exists.isDirectory(), true);
+  });
+});
+
 test('init standalone non-interactive supports explicit standalone options', async () => {
   await withTempDir('lsk-init-standalone-', async (dir) => {
     const result = await runCli(dir, [

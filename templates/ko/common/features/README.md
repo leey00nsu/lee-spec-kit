@@ -27,7 +27,7 @@ features/
 npx lee-spec-kit feature user-auth
 
 # Multi 프로젝트
-npx lee-spec-kit feature --component fe user-profile
+npx lee-spec-kit feature --component app user-profile
 ```
 
 > 💡 CLI는 `feature-base/`에서 템플릿을 복사하고 ID를 자동 채번합니다.

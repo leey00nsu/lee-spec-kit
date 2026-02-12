@@ -111,32 +111,35 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         let targetComponent = targetFromOptions;
 
         if (!targetComponent) {
-          if (options.nonInteractive) {
+          if (components.length === 1) {
+            targetComponent = components[0];
+          } else if (options.nonInteractive) {
             throw createCliError(
               'PROMPT_BLOCKED',
               '`--component` is required for multi projectRoot update when using `--non-interactive`.'
             );
-          }
-          // 대화형으로 선택
-          const response = await prompts(
-            [
+          } else {
+            // 대화형으로 선택
+            const response = await prompts(
+              [
+                {
+                  type: 'select',
+                  name: 'component',
+                  message: tr(config.lang, 'cli', 'config.selectRepoToUpdate'),
+                  choices: components.map((value) => ({
+                    title: value.toUpperCase(),
+                    value,
+                  })),
+                },
+              ],
               {
-                type: 'select',
-                name: 'component',
-                message: tr(config.lang, 'cli', 'config.selectRepoToUpdate'),
-                choices: components.map((value) => ({
-                  title: value.toUpperCase(),
-                  value,
-                })),
-              },
-            ],
-            {
-              onCancel: () => {
-                throw new Error('canceled');
-              },
-            }
-          );
-          targetComponent = response.component;
+                onCancel: () => {
+                  throw new Error('canceled');
+                },
+              }
+            );
+            targetComponent = response.component;
+          }
         }
         if (!targetComponent) {
           throw createCliError(

@@ -58,8 +58,8 @@ In GitHub Issues, use different link formats **based on file location**:
    > Format: `- **{Label}**: \`{path}\``
 
    ```markdown
-   - **Spec**: `docs/features/{be|fe}/F001-feature-name/spec.md`
-   - **Tasks**: `docs/features/{be|fe}/F001-feature-name/tasks.md`
+   - **Spec**: `docs/features/{component}/F001-feature-name/spec.md`
+   - **Tasks**: `docs/features/{component}/F001-feature-name/tasks.md`
    ```
 
 > ⚠️ Local documents are not clickable on GitHub, so use **bold label + code block path** format instead of markdown links.
@@ -85,7 +85,7 @@ In GitHub Issues, use different link formats **based on file location**:
 
 ## Related Documents
 
-- **Spec**: `docs/features/{be|fe}/F{number}-{feature-name}/spec.md`
+- **Spec**: `docs/features/{component}/F{number}-{feature-name}/spec.md`
 
 ## Labels
 

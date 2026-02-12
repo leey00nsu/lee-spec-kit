@@ -13,7 +13,7 @@
 ## GitHub Issue
 
 - **Doc Status**: Review | Approved
-- **Repo**: {{projectName}}-{be|fe}
+- **Repo**: {{projectName}}-{component}
 - **Issue**: #{issue-number}
 - **Branch**: `feat/{issue-number}-{feature-name}`
 - **PR**: -

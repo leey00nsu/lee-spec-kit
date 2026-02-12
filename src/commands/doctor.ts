@@ -68,6 +68,7 @@ function detectPlaceholders(content: string): string[] {
     { key: '{feature-name}', re: /\{feature-name\}/g },
     { key: '{number}', re: /\{number\}/g },
     { key: '{issue-number}', re: /\{issue-number\}/g },
+    { key: '{component}', re: /\{component\}/g },
     { key: '{be|fe}', re: /\{be\|fe\}/g },
     { key: '{Story Title}', re: /\{Story Title\}/g },
     { key: '{user type}', re: /\{user type\}/g },
@@ -171,8 +172,15 @@ function applyPlaceholderFixes(
   lang: 'ko' | 'en'
 ): { content: string; changed: boolean } {
   const date = getLocalDateString();
+  const projectName = context.projectName || 'project';
+  const repoName =
+    context.repoType === 'single'
+      ? projectName
+      : `${projectName}-${context.repoType}`;
   const replacements: Record<string, string> = {
-    '{{projectName}}': context.projectName || 'project',
+    '{{projectName}}': projectName,
+    '{{projectName}}-{component}': repoName,
+    '{{projectName}}-{be|fe}': repoName,
     '{{date}}': date,
     '{{featurePath}}': context.featurePath,
     '{{description}}': `${context.featureName} feature`,
@@ -182,6 +190,7 @@ function applyPlaceholderFixes(
     '{번호}': context.featureNumber,
     '{issue-number}': '-',
     '{이슈번호}': '-',
+    '{component}': context.repoType === 'single' ? '' : context.repoType,
     '{be|fe}': context.repoType === 'single' ? '' : context.repoType,
     'YYYY-MM-DD': date,
     '{Story Title}': `${context.featureName} user flow`,

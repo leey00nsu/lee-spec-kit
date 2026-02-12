@@ -161,29 +161,32 @@ async function runFeature(
 
   // multi인 경우 component 선택 필요
   if (projectType === 'multi' && !component) {
-    if (options.nonInteractive) {
+    if (configuredComponents.length === 1) {
+      component = configuredComponents[0];
+    } else if (options.nonInteractive) {
       throw createCliError(
         'PROMPT_BLOCKED',
         '`--component` is required in multi mode when using `--non-interactive`.'
       );
-    }
-    const response = await prompts(
-      {
-        type: 'select',
-        name: 'component',
-        message: tr(lang, 'cli', 'feature.selectRepo'),
-        choices: configuredComponents.map((value) => ({
-          title: value.toUpperCase(),
-          value,
-        })),
-      },
-      {
-        onCancel: () => {
-          throw new Error('canceled');
+    } else {
+      const response = await prompts(
+        {
+          type: 'select',
+          name: 'component',
+          message: tr(lang, 'cli', 'feature.selectRepo'),
+          choices: configuredComponents.map((value) => ({
+            title: value.toUpperCase(),
+            value,
+          })),
         },
-      }
-    );
-    component = response.component;
+        {
+          onCancel: () => {
+            throw new Error('canceled');
+          },
+        }
+      );
+      component = response.component;
+    }
   }
 
   if (projectType === 'multi') {
@@ -254,6 +257,8 @@ async function runFeature(
         '{번호}': idNumber,
         '{결정 제목}': `${name} 결정`,
         '{YYYY-MM-DD}': getLocalDateString(),
+        '{component}': component || '',
+        '{{projectName}}-{component}': repoName,
         '{be|fe}': component || '',
         '{이슈번호}': '',
         '{{description}}': options.desc || '',

@@ -408,6 +408,11 @@ function parsePrArtifactMode(
   );
 }
 
+function isMermaidPreferredComponent(component: string): boolean {
+  const normalized = (component || '').trim().toLowerCase();
+  return ['be', 'backend', 'api', 'server', 'core'].includes(normalized);
+}
+
 function resolvePrArtifactPolicy(
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
   feature: FeatureContext,
@@ -435,7 +440,7 @@ function resolvePrArtifactPolicy(
       ? true
       : mermaidMode === 'off'
         ? false
-        : feature.type === 'be';
+        : isMermaidPreferredComponent(feature.type);
 
   return {
     includeScreenshots,

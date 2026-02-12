@@ -7,7 +7,6 @@ import { copyTemplates, replaceInFiles } from '../utils/template.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import {
   assertValidComponentId,
-  isDefaultFullstackComponents,
   parseComponentsOption,
 } from '../utils/components.js';
 import { normalizeProjectType } from '../utils/project-type.js';
@@ -52,8 +51,6 @@ interface InitOptions {
   dir?: string;
   docsRepo?: 'embedded' | 'standalone';
   projectRoot?: string;
-  feProjectRoot?: string;
-  beProjectRoot?: string;
   componentProjectRoots?: string;
   pushDocs?: boolean;
   docsRemote?: string;
@@ -71,7 +68,7 @@ function parseStandaloneMultiProjectRootJson(
   } catch {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--project-root` for standalone multi must be a JSON object. Example: {"fe":"/path/fe","be":"/path/be"}'
+      '`--project-root` for standalone multi must be a JSON object. Example: {"app":"/path/app","api":"/path/api"}'
     );
   }
 
@@ -178,7 +175,7 @@ export function initCommand(program: Command): void {
     .option('-t, --type <type>', 'Project type: single | multi (fullstack alias)')
     .option(
       '--components <list>',
-      'Component list for multi (comma-separated, e.g. fe,be,worker)'
+      'Component list for multi (comma-separated, e.g. app,api,worker)'
     )
     .option('-l, --lang <lang>', 'Language: ko | en (default: en)')
     .option('--workflow <mode>', 'Workflow mode: github | local')
@@ -189,16 +186,8 @@ export function initCommand(program: Command): void {
       'Project root path (standalone single) or JSON map for standalone multi'
     )
     .option(
-      '--fe-project-root <path>',
-      'Frontend repository path (standalone multi)'
-    )
-    .option(
-      '--be-project-root <path>',
-      'Backend repository path (standalone multi)'
-    )
-    .option(
       '--component-project-roots <pairs>',
-      'Component roots for standalone multi (comma-separated, e.g. fe=/path/fe,be=/path/be,worker=/path/worker)'
+      'Component roots for standalone multi (comma-separated, e.g. app=/path/app,api=/path/api,worker=/path/worker)'
     )
     .option('--push-docs', 'Push standalone docs to remote')
     .option('--docs-remote <url>', 'Remote URL for standalone docs repository')
@@ -356,7 +345,7 @@ async function runInit(options: InitOptions): Promise<void> {
               description: tr(lang, 'cli', 'init.choice.projectType.fullstack.desc'),
             },
           ],
-          initial: 0,
+          initial: 1,
         },
         {
           type: options.docsRepo ? null : 'select',
@@ -392,11 +381,11 @@ async function runInit(options: InitOptions): Promise<void> {
     if (docsRepo === 'standalone') {
       // projectRoot 입력 (프로젝트 타입에 따라 다름)
       const resolvedType = normalizeProjectType(
-        String(projectType || response.projectType || 'single')
+        String(projectType || response.projectType || 'multi')
       );
 
       if (resolvedType === 'multi') {
-        const promptComponents = components.length > 0 ? components : ['fe', 'be'];
+        const promptComponents = components.length > 0 ? components : ['app'];
         const rootMap: Record<string, string> = {};
 
         if (typeof projectRoot === 'string' && projectRoot.trim()) {
@@ -410,8 +399,6 @@ async function runInit(options: InitOptions): Promise<void> {
           }
         }
 
-        if (options.feProjectRoot?.trim()) rootMap.fe = options.feProjectRoot.trim();
-        if (options.beProjectRoot?.trim()) rootMap.be = options.beProjectRoot.trim();
         Object.assign(rootMap, componentProjectRoots);
 
         for (const component of promptComponents) {
@@ -420,12 +407,9 @@ async function runInit(options: InitOptions): Promise<void> {
             rootMap[component] = seeded;
             continue;
           }
-          const message =
-            component === 'fe'
-              ? tr(lang, 'cli', 'init.prompt.feRepoPath')
-              : component === 'be'
-                ? tr(lang, 'cli', 'init.prompt.beRepoPath')
-                : tr(lang, 'cli', 'init.prompt.componentRepoPath', { component });
+          const message = tr(lang, 'cli', 'init.prompt.componentRepoPath', {
+            component,
+          });
 
           const response = await prompts(
             [
@@ -533,7 +517,7 @@ async function runInit(options: InitOptions): Promise<void> {
 
   // 타입 기본값
   if (!projectType) {
-    projectType = 'single';
+    projectType = 'multi';
   }
 
   // 입력 검증
@@ -568,7 +552,7 @@ async function runInit(options: InitOptions): Promise<void> {
     }
   } else {
     if (components.length === 0) {
-      components = ['fe', 'be'];
+      components = ['app'];
     }
     components.forEach(assertValidComponentId);
   }
@@ -576,8 +560,6 @@ async function runInit(options: InitOptions): Promise<void> {
   if (docsRepo !== 'standalone') {
     if (
       options.projectRoot ||
-      options.feProjectRoot ||
-      options.beProjectRoot ||
       options.componentProjectRoots ||
       typeof options.pushDocs === 'boolean' ||
       options.docsRemote
@@ -605,8 +587,6 @@ async function runInit(options: InitOptions): Promise<void> {
         }
       }
 
-      if (options.feProjectRoot?.trim()) multiRoot.fe = options.feProjectRoot.trim();
-      if (options.beProjectRoot?.trim()) multiRoot.be = options.beProjectRoot.trim();
       Object.assign(multiRoot, componentProjectRoots);
 
       const unknownComponents = Object.keys(multiRoot).filter(
@@ -637,12 +617,6 @@ async function runInit(options: InitOptions): Promise<void> {
         throw createCliError(
           'INVALID_ARGUMENT',
           '`--component-project-roots` can only be used when `--type multi`.'
-        );
-      }
-      if (options.feProjectRoot || options.beProjectRoot) {
-        throw createCliError(
-          'INVALID_ARGUMENT',
-          '`--fe-project-root` and `--be-project-root` can only be used when `--type multi`.'
         );
       }
       const singleRoot = typeof projectRoot === 'string' ? projectRoot.trim() : '';
@@ -744,9 +718,7 @@ async function runInit(options: InitOptions): Promise<void> {
       // 플레이스홀더 치환
       const featurePath =
         projectType === 'multi'
-          ? isDefaultFullstackComponents(components)
-            ? 'docs/features/{be|fe}'
-            : 'docs/features/{component}'
+          ? 'docs/features/{component}'
           : 'docs/features';
       const replacements: Record<string, string> = {
         '{{projectName}}': projectName,

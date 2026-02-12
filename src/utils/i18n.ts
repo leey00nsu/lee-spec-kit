@@ -155,14 +155,12 @@ const I18N: Record<Lang, I18nData> = {
       'init.choice.projectType.single.title': 'Single - 단일 레포 프로젝트',
       'init.choice.projectType.single.desc': 'features/ 폴더 하나로 관리',
       'init.choice.projectType.fullstack.title': 'Multi - 멀티 컴포넌트 프로젝트',
-      'init.choice.projectType.fullstack.desc': 'Multi 컴포넌트 프로젝트 (기본: features/be/, features/fe/)',
+      'init.choice.projectType.fullstack.desc': 'Multi 컴포넌트 프로젝트 (기본: features/{component}/)',
       'init.prompt.docsMode': 'Docs 관리 방식을 선택하세요:',
       'init.choice.docsRepo.embedded.title': 'embedded - 프로젝트 내 포함 (./docs)',
       'init.choice.docsRepo.embedded.desc': '프로젝트와 함께 push됩니다',
       'init.choice.docsRepo.standalone.title': 'standalone - 별도 독립 레포',
       'init.choice.docsRepo.standalone.desc': 'push 여부를 별도로 설정합니다',
-      'init.prompt.feRepoPath': 'Frontend 레포지토리 경로를 입력하세요:',
-      'init.prompt.beRepoPath': 'Backend 레포지토리 경로를 입력하세요:',
       'init.prompt.componentRepoPath': '{component} 컴포넌트 레포지토리 경로를 입력하세요:',
       'init.prompt.projectRepoPath': '프로젝트 레포지토리 경로를 입력하세요:',
       'init.validation.enterPath': '경로를 입력해주세요',
@@ -389,7 +387,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.git.standaloneProjectRootMissing':
         'standalone 모드입니다. projectRoot가 설정되지 않아 프로젝트 브랜치 확인이 불가능합니다. (npx lee-spec-kit config --project-root ...)',
       'context.git.multiProjectRootShapeInvalid':
-        'multi standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: { "fe": "...", "be": "...", "worker": "..." })',
+        'multi standalone 모드인데 projectRoot 형태가 올바르지 않습니다. (예: { "app": "...", "api": "...", "worker": "..." })',
       'context.git.multiProjectRootRepoMissing':
         'projectRoot.{repo}가 비어있습니다. (npx lee-spec-kit config --project-root ... --component {repo})',
       'context.git.singleProjectRootShapeInvalid':
@@ -687,14 +685,12 @@ const I18N: Record<Lang, I18nData> = {
       'init.choice.projectType.single.title': 'Single - single repo project',
       'init.choice.projectType.single.desc': 'Manage with a single features/ folder',
       'init.choice.projectType.fullstack.title': 'Multi - multi-component project',
-      'init.choice.projectType.fullstack.desc': 'Default structure uses features/be/ and features/fe/',
+      'init.choice.projectType.fullstack.desc': 'Default structure uses features/{component}/',
       'init.prompt.docsMode': 'Select docs mode:',
       'init.choice.docsRepo.embedded.title': 'embedded - inside the project (./docs)',
       'init.choice.docsRepo.embedded.desc': 'Pushed together with the project',
       'init.choice.docsRepo.standalone.title': 'standalone - separate docs repo',
       'init.choice.docsRepo.standalone.desc': 'Configure push settings separately',
-      'init.prompt.feRepoPath': 'Enter frontend repository path:',
-      'init.prompt.beRepoPath': 'Enter backend repository path:',
       'init.prompt.componentRepoPath': 'Enter repository path for component "{component}":',
       'init.prompt.projectRepoPath': 'Enter project repository path:',
       'init.validation.enterPath': 'Please enter a path',
@@ -939,7 +935,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.git.standaloneProjectRootMissing':
         'Standalone mode is enabled, but projectRoot is missing. Cannot resolve project branch. (npx lee-spec-kit config --project-root ...)',
       'context.git.multiProjectRootShapeInvalid':
-        'Multi standalone mode requires projectRoot as an object. (Example: { "fe": "...", "be": "...", "worker": "..." })',
+        'Multi standalone mode requires projectRoot as an object. (Example: { "app": "...", "api": "...", "worker": "..." })',
       'context.git.multiProjectRootRepoMissing':
         'projectRoot.{repo} is empty. (npx lee-spec-kit config --project-root ... --component {repo})',
       'context.git.singleProjectRootShapeInvalid':

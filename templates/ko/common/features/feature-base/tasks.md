@@ -13,7 +13,7 @@
 ## GitHub Issue
 
 - **문서 상태**: Review | Approved
-- **레포**: {{projectName}}-{be|fe}
+- **레포**: {{projectName}}-{component}
 - **Issue**: #{이슈번호}
 - **브랜치**: `feat/{이슈번호}-{기능명}`
 - **PR**: -

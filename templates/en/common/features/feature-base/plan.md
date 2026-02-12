@@ -7,7 +7,7 @@
 ## Overview
 
 - **Feature ID**: F{number}
-- **Target Repo**: {{projectName}}-{be|fe}
+- **Target Repo**: {{projectName}}-{component}
 - **Created**: {YYYY-MM-DD}
 - **Status**: Review | Approved
 

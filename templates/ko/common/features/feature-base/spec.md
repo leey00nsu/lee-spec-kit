@@ -8,7 +8,7 @@
 
 - **기능 ID**: F{번호}
 - **기능명**: {기능명}
-- **대상 레포**: {{projectName}}-{be|fe}
+- **대상 레포**: {{projectName}}-{component}
 - **이슈 번호**: #{이슈번호}
 - **작성일**: {YYYY-MM-DD}
 - **상태**: Review | Approved

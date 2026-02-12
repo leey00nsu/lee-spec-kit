@@ -67,7 +67,7 @@ npx lee-spec-kit doctor
 ### 🚀 Feature creation
 
 - Generates `spec.md`, `plan.md`, `tasks.md`, `decisions.md`
-- Multi mode supports flexible component separation (e.g. FE/BE/worker)
+- Multi mode supports flexible component separation (e.g. app/api/worker)
 - Integrates Issue/PR templates (docs side)
 
 ### 📊 Status management
@@ -109,16 +109,14 @@ npx lee-spec-kit init --name my-project --type fullstack  # alias
 | Option              | Description                                                                                 | Default                         |
 | ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------- |
 | `-n, --name <name>` | Project name                                                                                | current folder                  |
-| `-t, --type <type>` | `single` or `multi` (`fullstack` alias supported)                                          | interactive (`single` with `--yes`/`--non-interactive`) |
-| `--components <list>` | multi component list (comma-separated, e.g. `fe,be,worker`)                              | `fe,be`                         |
+| `-t, --type <type>` | `single` or `multi` (`fullstack` alias supported)                                          | interactive (`multi` with `--yes`/`--non-interactive`) |
+| `--components <list>` | multi component list (comma-separated, e.g. `app,api,worker`)                            | `app`                           |
 | `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
 | `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
 | `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
 | `--docs-repo <mode>` | docs repo mode (`embedded` or `standalone`)                                               | `embedded`                      |
-| `--project-root <path>` | standalone(single) project repo path or standalone(multi) JSON map (`{"fe":"/path/fe"}`) | -                               |
-| `--fe-project-root <path>` | standalone(multi) frontend repo path                                                | -                               |
-| `--be-project-root <path>` | standalone(multi) backend repo path                                                 | -                               |
-| `--component-project-roots <pairs>` | standalone(multi) component roots (`fe=/path/fe,be=/path/be,worker=/path/worker`) | - |
+| `--project-root <path>` | standalone(single) project repo path or standalone(multi) JSON map (`{"app":"/path/app","api":"/path/api"}`) | -                               |
+| `--component-project-roots <pairs>` | standalone(multi) component roots (`app=/path/app,api=/path/api,worker=/path/worker`) | - |
 | `--push-docs` | enable standalone docs push (use with `--docs-remote`)                                   | `false`                         |
 | `--docs-remote <url>` | standalone docs remote URL (used with `--push-docs`)                                    | -                               |
 | `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
@@ -149,8 +147,8 @@ The `--json` payload includes `isLeeSpecKitProject`, `reasonCode` (`PROJECT_DETE
 npx lee-spec-kit feature user-auth
 
 # Multi
-npx lee-spec-kit feature --component be user-auth
-npx lee-spec-kit feature --component fe user-profile
+npx lee-spec-kit feature --component api user-auth
+npx lee-spec-kit feature --component app user-profile
 npx lee-spec-kit feature --component worker queue-jobs
 
 # Specify Feature ID/description
@@ -196,7 +194,7 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
-| `--component <id>` | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
+| `--component <id>` | Select target component in multi mode (e.g. `app`, `api`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
 | `--approve <reply>` | Approve one labeled option using any reply that includes a label token (e.g. `A`, `A OK`, `A proceed`) |
@@ -266,7 +264,7 @@ npx lee-spec-kit view --json
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
-| `--component <id>` | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
+| `--component <id>` | Select target component in multi mode (e.g. `app`, `api`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
 
@@ -291,7 +289,7 @@ npx lee-spec-kit flow --strict
 | Option            | Description |
 | ----------------- | ----------- |
 | `--json`          | JSON output for agents |
-| `--component <id>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
+| `--component <id>`| Select target component in multi mode (e.g. `app`, `api`, `worker`) |
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
 | `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
@@ -419,7 +417,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 | ------------- | ------------------------------------------------ |
 | `projectName` | Project name                                     |
 | `projectType` | `single` or `multi` (`fullstack` alias supported) |
-| `components`  | (multi only) component list (e.g. `["fe","be","worker"]`) |
+| `components`  | (multi only) component list (e.g. `["app","api","worker"]`) |
 | `lang`        | `ko` or `en`                                     |
 | `createdAt`   | Creation date                                    |
 | `docsRepo`    | `embedded` or `standalone`                       |
@@ -544,12 +542,12 @@ npx lee-spec-kit config --project-root /new/path
 npx lee-spec-kit config --dir ./docs2 --project-root /new/path
 
 # update projectRoot (multi)
-npx lee-spec-kit config --project-root /new/fe/path --component fe
-npx lee-spec-kit config --project-root /new/be/path --component be
+npx lee-spec-kit config --project-root /new/app/path --component app
+npx lee-spec-kit config --project-root /new/api/path --component api
 npx lee-spec-kit config --project-root /new/worker/path --component worker
 
 # non-interactive mode (fails immediately if required input is missing)
-npx lee-spec-kit config --project-root /new/fe/path --component fe --non-interactive
+npx lee-spec-kit config --project-root /new/app/path --component app --non-interactive
 ```
 
 **Options:**

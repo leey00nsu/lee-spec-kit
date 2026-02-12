@@ -1,6 +1,6 @@
 import { createCliError } from './cli-error.js';
 
-export const DEFAULT_FULLSTACK_COMPONENTS = ['fe', 'be'] as const;
+export const DEFAULT_MULTI_COMPONENTS = ['app'] as const;
 
 function unique(values: string[]): string[] {
   const seen = new Set<string>();
@@ -54,7 +54,7 @@ export function resolveProjectComponents(
 
   const normalized = normalizeComponentList(configured);
   if (normalized.length > 0) return normalized;
-  return [...DEFAULT_FULLSTACK_COMPONENTS];
+  return [...DEFAULT_MULTI_COMPONENTS];
 }
 
 export function assertAllowedComponent(
@@ -67,10 +67,4 @@ export function assertAllowedComponent(
       `Unknown component "${component}". Allowed: ${allowed.join(', ')}`
     );
   }
-}
-
-export function isDefaultFullstackComponents(components: string[]): boolean {
-  if (components.length !== 2) return false;
-  const set = new Set(components);
-  return set.has('fe') && set.has('be');
 }

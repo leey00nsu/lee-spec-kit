@@ -14,7 +14,7 @@ Core rule: once an idea becomes a Feature, the SSOT moves to `docs/features/`.
 - Put at least these at the top:
   - Goal / context
   - Rough scope (what’s in/out)
-  - Target repo (optional): `be` / `fe` / `both`
+  - Target component (optional): `api` / `app` / `worker` / `all`
 
 ---
 

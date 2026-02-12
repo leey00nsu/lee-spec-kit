@@ -27,7 +27,7 @@ features/
 npx lee-spec-kit feature user-auth
 
 # Multi project
-npx lee-spec-kit feature --component fe user-profile
+npx lee-spec-kit feature --component app user-profile
 ```
 
 > 💡 CLI copies templates from `feature-base/` and auto-assigns IDs.

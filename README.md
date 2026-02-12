@@ -80,7 +80,7 @@ npx lee-spec-kit doctor
 ### 🚀 Feature 생성
 
 - spec.md, plan.md, tasks.md, decisions.md 자동 생성
-- Fullstack 프로젝트의 경우 FE/BE 분리 지원
+- Multi 프로젝트에서 임의 컴포넌트(app/api/worker 등) 분리 지원
 - GitHub Issue/PR 템플릿 연동
 
 ### 📊 상태 관리
@@ -125,16 +125,14 @@ npx lee-spec-kit init --name my-project --type fullstack  # alias
 | 옵션                | 설명                                                                 | 기본값                    |
 | ------------------- | -------------------------------------------------------------------- | ------------------------- |
 | `-n, --name <name>` | 프로젝트 이름                                                        | 현재 폴더명               |
-| `-t, --type <type>` | `single` 또는 `multi` (`fullstack` alias 지원)                        | 대화형 선택 (`--yes`/`--non-interactive`면 `single`) |
-| `--components <list>` | multi 컴포넌트 목록 (쉼표 구분, 예: `fe,be,worker`)                  | `fe,be`                   |
+| `-t, --type <type>` | `single` 또는 `multi` (`fullstack` alias 지원)                        | 대화형 선택 (`--yes`/`--non-interactive`면 `multi`) |
+| `--components <list>` | multi 컴포넌트 목록 (쉼표 구분, 예: `app,api,worker`)                | `app`                     |
 | `-l, --lang <lang>` | `ko` (한국어) 또는 `en` (영어)                                       | `en`                      |
 | `--workflow <mode>` | 워크플로우 모드: `github`(issue/PR/review 포함) 또는 `local`(로컬 중심) | `github`                  |
 | `-d, --dir <dir>`   | 설치 디렉토리                                                        | `./docs`                  |
 | `--docs-repo <mode>` | docs 레포 모드 (`embedded` 또는 `standalone`)                        | `embedded`                |
-| `--project-root <path>` | standalone(single) 프로젝트 레포 경로 또는 standalone(multi) JSON 매핑 (`{"fe":"/path/fe"}`) | -                         |
-| `--fe-project-root <path>` | standalone(multi) FE 레포 경로                                  | -                         |
-| `--be-project-root <path>` | standalone(multi) BE 레포 경로                                  | -                         |
-| `--component-project-roots <pairs>` | standalone(multi) 컴포넌트별 레포 경로 (`fe=/path/fe,be=/path/be,worker=/path/worker`) | - |
+| `--project-root <path>` | standalone(single) 프로젝트 레포 경로 또는 standalone(multi) JSON 매핑 (`{"app":"/path/app","api":"/path/api"}`) | -                         |
+| `--component-project-roots <pairs>` | standalone(multi) 컴포넌트별 레포 경로 (`app=/path/app,api=/path/api,worker=/path/worker`) | - |
 | `--push-docs` | standalone docs 원격 push 사용 (`--docs-remote`와 함께 사용)     | `false`                   |
 | `--docs-remote <url>` | standalone docs 원격 URL (`--push-docs`와 함께 사용)              | -                         |
 | `-y, --yes`         | 대화형 입력을 대부분 스킵 (단, 대상 디렉토리가 비어있지 않으면 덮어쓰기 확인은 표시) | -                         |
@@ -165,8 +163,8 @@ npx lee-spec-kit detect --dir /path/to/workspace
 npx lee-spec-kit feature user-auth
 
 # Multi 프로젝트
-npx lee-spec-kit feature --component be user-auth
-npx lee-spec-kit feature --component fe user-profile
+npx lee-spec-kit feature --component api user-auth
+npx lee-spec-kit feature --component app user-profile
 npx lee-spec-kit feature --component worker queue-jobs
 
 # Feature ID/설명 지정
@@ -213,7 +211,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
-| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
+| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `app`, `api`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 | `--approve <reply>` | 라벨 포함 승인 응답으로 단일 옵션 선택 (예: `A`, `A OK`, `A 진행해`) |
@@ -283,7 +281,7 @@ npx lee-spec-kit view --json
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
-| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
+| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `app`, `api`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 
@@ -308,7 +306,7 @@ npx lee-spec-kit flow --strict
 | 옵션               | 설명 |
 | ------------------ | ---- |
 | `--json`           | 에이전트용 JSON 출력 |
-| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
+| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `app`, `api`, `worker`) |
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
 | `--approve <reply>`| context 라벨 승인 응답 전달 (예: `A`, `A OK`, `A 진행해`) |
@@ -466,7 +464,7 @@ npx lee-spec-kit update --force
 | ------------- | --------------------------------------- |
 | `projectName` | 프로젝트 이름                           |
 | `projectType` | `single` 또는 `multi` (`fullstack` alias 지원) |
-| `components`  | (multi만) 컴포넌트 목록 (예: `["fe","be","worker"]`) |
+| `components`  | (multi만) 컴포넌트 목록 (예: `["app","api","worker"]`) |
 | `lang`        | `ko` 또는 `en`                          |
 | `createdAt`   | 생성 날짜                               |
 | `docsRepo`    | `embedded` 또는 `standalone`            |
@@ -603,8 +601,8 @@ npx lee-spec-kit update --force
   "docsRepo": "standalone",
   "pushDocs": false,
   "projectRoot": {
-    "fe": "/path/to/frontend",
-    "be": "/path/to/backend"
+    "app": "/path/to/app",
+    "api": "/path/to/api"
   }
 }
 ```
@@ -623,12 +621,12 @@ npx lee-spec-kit config --project-root /new/path
 npx lee-spec-kit config --dir ./docs2 --project-root /new/path
 
 # projectRoot 수정 (Multi)
-npx lee-spec-kit config --project-root /new/fe/path --component fe
-npx lee-spec-kit config --project-root /new/be/path --component be
+npx lee-spec-kit config --project-root /new/app/path --component app
+npx lee-spec-kit config --project-root /new/api/path --component api
 npx lee-spec-kit config --project-root /new/worker/path --component worker
 
 # 비대화형 모드 (필수 옵션 누락 시 즉시 실패)
-npx lee-spec-kit config --project-root /new/fe/path --component fe --non-interactive
+npx lee-spec-kit config --project-root /new/app/path --component app --non-interactive
 ```
 
 **옵션:**
@@ -659,7 +657,7 @@ npx lee-spec-kit config --project-root /new/fe/path --component fe --non-interac
 
 ## 생성되는 구조
 
-### Fullstack (FE/BE 분리)
+### Multi (컴포넌트 분리)
 
 ```
 docs/
@@ -675,8 +673,8 @@ docs/
 │   └── README.md
 └── features/
     ├── README.md
-    ├── be/                 # Backend Features
-    └── fe/                 # Frontend Features
+    ├── app/                # App Features
+    └── api/                # API Features
 ```
 
 ### Single (단일 레포)
@@ -715,7 +713,7 @@ flowchart LR
 | 프로젝트 타입 | 설명                                         |
 | ------------- | -------------------------------------------- |
 | `single`      | 단일 레포 프로젝트 (모노레포 또는 단일 스택) |
-| `multi`       | 멀티 컴포넌트 프로젝트 (예: FE/BE/worker)    |
+| `multi`       | 멀티 컴포넌트 프로젝트 (예: app/api/worker)  |
 | `fullstack`   | `multi`의 하위호환 alias                     |
 
 ## 문제 해결

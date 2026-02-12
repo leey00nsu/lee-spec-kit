@@ -174,6 +174,33 @@ function getSearchBaseDirs(cwd: string): string[] {
   return ancestors.slice(0, boundaryIndex + 1);
 }
 
+const FEATURE_FOLDER_PATTERN = /^F\d{3,}-/i;
+
+function normalizeComponentKeys(value: unknown): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.keys(value)
+    .map((key) => key.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function inferComponentsFromFeaturesDir(docsDir: string): Promise<string[]> {
+  const featuresPath = path.join(docsDir, 'features');
+  if (!(await fs.pathExists(featuresPath))) return [];
+
+  const entries = await fs.readdir(featuresPath, { withFileTypes: true });
+  const inferred = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name.trim().toLowerCase())
+    .filter(
+      (name) =>
+        !!name &&
+        name !== 'feature-base' &&
+        !FEATURE_FOLDER_PATTERN.test(name)
+    );
+
+  return [...new Set(inferred)];
+}
+
 export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
   const explicitDocsDir = (
     process.env.LEE_SPEC_KIT_DOCS_DIR ||
@@ -203,9 +230,15 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
         try {
           const configFile: ConfigFile = await fs.readJson(configPath);
           const projectType = normalizeProjectType(configFile.projectType);
+          const inferredComponents = [
+            ...normalizeComponentKeys(configFile.projectRoot),
+            ...(await inferComponentsFromFeaturesDir(resolvedDocsDir)),
+          ];
           const components = resolveProjectComponents(
             projectType,
-            configFile.components
+            Array.isArray(configFile.components) && configFile.components.length > 0
+              ? configFile.components
+              : inferredComponents
           );
           return {
             docsDir: resolvedDocsDir,
@@ -236,15 +269,11 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
         (await fs.pathExists(featuresPath))
       ) {
         // 프로젝트 타입 감지
-        const bePath = path.join(featuresPath, 'be');
-        const fePath = path.join(featuresPath, 'fe');
-        const projectType =
-          (await fs.pathExists(bePath)) || (await fs.pathExists(fePath))
-            ? 'multi'
-            : 'single';
+        const inferredComponents = await inferComponentsFromFeaturesDir(resolvedDocsDir);
+        const projectType = inferredComponents.length > 0 ? 'multi' : 'single';
         const components =
           projectType === 'multi'
-            ? resolveProjectComponents('multi', ['fe', 'be'])
+            ? resolveProjectComponents('multi', inferredComponents)
             : undefined;
 
         // 언어 감지 (project-managed agents docs 기반)

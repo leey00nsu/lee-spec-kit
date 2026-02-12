@@ -4,7 +4,6 @@ import path from 'path';
 import fs from 'fs-extra';
 import { execFileSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
-import { isDefaultFullstackComponents } from '../utils/components.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { applyReplacements } from '../utils/template.js';
@@ -141,9 +140,7 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           // featurePath 치환
           const featurePath =
             projectType === 'multi'
-              ? isDefaultFullstackComponents(config.components || [])
-                ? 'docs/features/{be|fe}'
-                : 'docs/features/{component}'
+              ? 'docs/features/{component}'
               : 'docs/features';
           const projectName = config.projectName ?? '{{projectName}}';
           const commonReplacements: Record<string, string> = {
