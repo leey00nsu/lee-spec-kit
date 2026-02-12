@@ -1,45 +1,43 @@
 # Agents Guide
 
-Operating rules for AI code assistants to perform consistent code generation and refactoring.
+Operating rules for AI code assistants.
+This document covers **policy only**.
 
 ---
 
 ## 🚨 User Approval Required (MUST)
 
-> ⚠️ **The following actions require explicit user approval (OK) before proceeding.**
-> **If approval is not given, stop immediately and request confirmation.**
-> ✅ Approval replies must be in **`<label>` or `<label> OK` format** (e.g. `A`, `A OK`).
+> ⚠️ The actions below require explicit user approval (OK) before execution.
+> ✅ Approval replies must be in `<label>` or `<label> OK` format (e.g. `A`, `A OK`).
 
-| Action                | When to Confirm          | What to Share             |
-| --------------------- | ------------------------ | ------------------------- |
-| Spec Writing          | After writing `spec.md`  | Full spec content         |
-| Task Execution        | Before each task         | Task title                |
-| Commit Creation       | Before `git commit`      | Commit message, file list |
-| Issue Creation        | Before `gh issue create` | Title, body, labels       |
-| PR Creation           | Before `gh pr create`    | Title, body, labels       |
-| Assignee Change       | When assigning others    | Target username           |
-| Remote Git Operations | Before `push`, `merge` (including merge commits) | Branch, changes           |
+| Action | When to confirm | What to share |
+| --- | --- | --- |
+| Spec writing | After writing `spec.md` | Full spec content |
+| Task execution | Before each task | Task title |
+| Commit creation | Before `git commit` | Commit message, included files |
+| Issue creation | Before `gh issue create` | Title, body, labels |
+| PR creation | Before `gh pr create` | Title, body, labels |
+| Assignee change | When assigning someone else | Target username |
+| Remote Git operations | Before `push`, `merge` (including merge commits) | Branch, changes |
 
-### Approval Process
+Approval flow:
+1. Share details first
+2. Wait for explicit approval (OK)
+3. Execute after approval
 
-1. **Share** action details with user first
-2. **Wait** for explicit user approval (OK)
-3. **Execute** only after approval
-
-> 🚫 **Prohibited**: Proceeding without user response
+Prohibited:
+- Proceeding without user response
 
 ---
 
 ## 🧾 Label Response Contract (SSOT)
 
-> This is the single source of truth for user-facing response format in lee-spec-kit projects.
-
-- End **every user-facing reply** with current status and currently available labels.
-- Build it from the latest `npx lee-spec-kit context --json` (or `flow --json`) result.
-- Use label details from `actionOptions[].detail` or command `cmd` **verbatim**. Do not paraphrase.
-- Even when the user asks something else, append the same label block again at the end if executable labels exist.
-- If no executable labels exist, state `Available labels: none` and guide to re-check with `npx lee-spec-kit context`.
-- If the user reply does not include a valid label, do not execute anything; ask for label selection again.
+- End **every user-facing reply** with current status + available labels.
+- Use the latest `npx lee-spec-kit context --json` (or `flow --json`) as source.
+- Use `actionOptions[].detail` or command `cmd` **verbatim**. Do not paraphrase.
+- Even when the user asks something else, append the same label block at the end if executable labels exist.
+- If no executable labels exist, print `Available labels: none` and guide re-check with `npx lee-spec-kit context`.
+- If user input does not contain a valid label, do not execute; request label selection again.
 
 Output format:
 
@@ -53,76 +51,27 @@ Reply format: "<LABEL>" or "<LABEL> OK"
 
 ---
 
-## Reference Documents
+## Required References
 
-### Core Documents
-
-> 🚨 **You MUST read and understand all core documents before proceeding.**
-
-> ⚠️ **Rules in `custom.md` take precedence over all other rules.**
-
-- **🔴 Custom Rules (Highest Priority)**: `/docs/agents/custom.md`
-- **Project Principles**: `/docs/agents/constitution.md`
-- **Agent Root Guide**: `npx lee-spec-kit docs get agents --json`
-- **Git Workflow**: `npx lee-spec-kit docs get git-workflow --json`
-- **Issue Procedure/Template**: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-template --json`
-- **PR Procedure/Template**: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-template --json`
-
-### PRD
-
-- **Product Requirements**: `/docs/prd/`
-
-### Features
-
-- **single**: `/docs/features/{feature-id}/`
-- **multi**: `/docs/features/{component}/{feature-id}/`
-- **Template (SSOT)**: docs generated via `npx lee-spec-kit feature <name>`
+- Highest-priority custom rules: `/docs/agents/custom.md`
+- Project principles: `/docs/agents/constitution.md`
+- Root guide: `npx lee-spec-kit docs get agents --json`
+- Git workflow: `npx lee-spec-kit docs get git-workflow --json`
+- Task execution: `npx lee-spec-kit docs get execute-task --json`
+- Issue procedure/template: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-template --json`
+- PR procedure/template: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-template --json`
 
 ---
 
-## 📁 Standard docs Structure
+## Scope Split
 
-```text
-docs/
-├── README.md
-├── agents/
-│   ├── custom.md
-│   └── constitution.md
-├── prd/
-├── designs/
-├── ideas/
-├── features/
-│   ├── (single) F00X-{name}/
-│   └── (multi)  {component}/F00X-{name}/
-└── scripts/
-```
+- Docs structure/path rules: use `docs/README.md` as SSOT
+- ADR format: use feature `decisions.md` template as SSOT
 
 ---
 
-## Request Type Processes
+## Language / Formatting Rules
 
-> 📖 Read each process guide first with `docs get`.
-
-| Process        | Guide                                 |
-| -------------- | ------------------------------------- |
-| New Feature    | `npx lee-spec-kit docs get create-feature --json` |
-| GitHub Issue   | `npx lee-spec-kit docs get create-issue --json`   |
-| Pull Request   | `npx lee-spec-kit docs get create-pr --json`      |
-| Task Execution | `npx lee-spec-kit docs get execute-task --json`   |
-
----
-
-## 📋 ADR (Architecture Decision Records)
-
-> `decisions.md` is a **required** document for recording technical decisions.
-
-### Format
-
-```markdown
-## D{number}: {Decision Title} ({YYYY-MM-DD})
-
-- **Context**: Problem situation or background
-- **Options**: Alternatives considered
-- **Decision**: Final choice
-- **Rationale**: Reason for choice
-```
+- Replies: English (or project language policy in `custom.md`)
+- Code/file names: English
+- Date/time: use user's local system time
