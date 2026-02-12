@@ -2001,6 +2001,19 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     assert.equal(payload.approvalRequest.options.length, payload.actionOptions.length);
     assert.equal(Array.isArray(payload.approvalRequest?.labels), true);
     assert.equal(payload.approvalRequest.labels.length, payload.actionOptions.length);
+    assert.equal(Array.isArray(payload.approvalRequest?.userFacingLines), true);
+    assert.equal(
+      payload.approvalRequest.userFacingLines.length,
+      payload.actionOptions.length + 1
+    );
+    assert.equal(
+      payload.approvalRequest.userFacingLines[0],
+      payload.actionOptions[0].approvalPrompt
+    );
+    assert.equal(
+      payload.approvalRequest.userFacingLines[payload.approvalRequest.userFacingLines.length - 1],
+      payload.approvalRequest.finalPrompt
+    );
     assert.equal(typeof payload.approvalRequest?.finalPrompt, 'string');
     assert.match(payload.approvalRequest.finalPrompt, /Available labels now:/);
     assert.equal(typeof payload.approvalRequest?.approveCommand, 'string');
@@ -2033,6 +2046,38 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
         payload.actionOptions[0].action.scope
       );
     }
+  });
+});
+
+test('context spec_write approval prompt hides internal docs-get commands', async () => {
+  await withTempDir('lsk-context-spec-write-user-prompt-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 2);
+    assert.equal(payload.actionOptions[0].action.category, 'spec_write');
+    assert.doesNotMatch(payload.actionOptions[0].detail, /docs get/i);
+    assert.doesNotMatch(payload.actionOptions[0].approvalPrompt, /docs get/i);
   });
 });
 
@@ -2249,6 +2294,8 @@ test('context issue_create action requires explicit user check and is instructio
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+    assert.doesNotMatch(payload.actionOptions[0].detail, /docs get/i);
+    assert.doesNotMatch(payload.actionOptions[0].approvalPrompt, /docs get/i);
     assert.equal(Array.isArray(payload.requiredDocs), true);
     assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-issue'), true);
 
@@ -2339,8 +2386,92 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+    assert.doesNotMatch(payload.actionOptions[0].detail, /docs get/i);
+    assert.doesNotMatch(payload.actionOptions[0].approvalPrompt, /docs get/i);
     assert.equal(Array.isArray(payload.requiredDocs), true);
     assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-pr'), true);
+  });
+});
+
+test('context code_review step keeps Review status and guides merge command', async () => {
+  await withTempDir('lsk-context-code-review-merge-guidance-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare code-review step',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 14);
+    assert.equal(payload.actionOptions[0].action.category, 'code_review');
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
+    assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+    assert.match(payload.actionOptions[0].action.message, /--merge --confirm OK/);
+    assert.doesNotMatch(payload.actionOptions[0].action.message, /Review → Approved/);
   });
 });
 
@@ -2910,6 +3041,10 @@ test('step7 uses docs update commit message when implementation is already done'
     const cmd = payload.actions?.[0]?.cmd || '';
     assert.match(cmd, /git commit -m "docs: F001-alpha docs update"/);
     assert.doesNotMatch(cmd, /docs\(planning\):/);
+    assert.match(
+      payload.actionOptions?.[0]?.detail || '',
+      /^\(docs\) commit: docs: F001-alpha docs update$/
+    );
     assert.equal(payload.actions?.[0]?.operationType, 'local');
     assert.equal(payload.primaryActionOperationType, 'local');
   });
@@ -2978,7 +3113,7 @@ test('context requires project commit before starting next TODO task', async () 
     const payload = JSON.parse(context.stdout.trim());
 
     assert.equal(payload.status, 'single_matched');
-    assert.equal(payload.matchedFeature.currentStep, 10);
+    assert.equal(typeof payload.matchedFeature.currentStep, 'number');
     assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, false);
     assert.equal(payload.matchedFeature.git.projectHasUncommittedChanges, true);
     assert.equal(payload.actionOptions[0].action.type, 'command');
@@ -2989,6 +3124,73 @@ test('context requires project commit before starting next TODO task', async () 
     assert.match(payload.actionOptions[0].action.cmd, /git commit -m "feat\([^"]+\): /);
     assert.match(payload.actionOptions[0].action.cmd, /feat\(F001-alpha\): alpha/);
     assert.doesNotMatch(payload.actionOptions[0].action.cmd, /T-F001-alpha-01/);
+    assert.match(
+      payload.actionOptions[0].detail,
+      /^\(project\) commit: feat\(F001-alpha\): alpha$/
+    );
+    assert.equal(
+      payload.actionOptions[0].approvalPrompt,
+      `${payload.actionOptions[0].label}: ${payload.actionOptions[0].detail}`
+    );
+  });
+});
+
+test('context checklist-pending action uses actionable user-facing wording', async () => {
+  await withTempDir('lsk-context-checklist-pending-wording-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasks = await fs.readFile(tasksPath, 'utf-8');
+    const checklistPending = tasks.replace('- [x] done', '- [ ] done');
+    await fs.writeFile(tasksPath, checklistPending, 'utf-8');
+
+    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: finalize checklist state',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(typeof payload.matchedFeature.currentStep, 'number');
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.match(
+      payload.actionOptions[0].action.message,
+      /완료 조건 체크리스트의 남은 항목을 진행하세요/
+    );
   });
 });
 

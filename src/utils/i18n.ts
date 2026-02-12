@@ -114,7 +114,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 정책은 세션 시작(또는 context 압축/리셋 직후)에 `npx lee-spec-kit docs get agents --json`으로 1회 확인하고, 이후에는 정책/설정 변경 또는 사용자 새로고침 요청 시에만 재조회하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 정책은 세션 시작(또는 context 압축/리셋 직후)에 1회 확인하고, 이후에는 정책/설정 변경 또는 사용자 새로고침 요청 시에만 재확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
         '승인 응답 형식: 라벨 토큰 포함 (예: `A`, `A OK`, `A 진행해`)',
       'context.actionExplainHint':
@@ -126,9 +126,9 @@ const I18N: Record<Lang, I18nData> = {
       'context.finalTicketCommandHint':
         '명령 실행은 승인 결과의 티켓으로 실행: {command}',
       'context.readBuiltinDocFirst':
-        '이번 세션에 아직 읽지 않았거나 변경 가능성이 있을 때만 내장 문서를 확인하세요: {command}',
+        '이번 세션에 아직 읽지 않았거나 변경 가능성이 있을 때만 필요한 내장 문서를 확인하세요.',
       'context.tipDocsCommitRules':
-        '커밋 메시지 규칙은 `npx lee-spec-kit docs get git-workflow --json`으로 확인하세요.',
+        '커밋 메시지 규칙은 git-workflow 가이드를 기준으로 확인하세요.',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
       'context.list.projectCommitNeeded': '프로젝트 코드 커밋 필요',
       'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
@@ -137,7 +137,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.list.addPrePrReviewField': 'Pre-PR Review 필드 추가',
       'context.list.completePrePrReview': 'Pre-PR 리뷰 완료 처리',
       'context.list.setPrStatus': 'PR 상태 설정',
-      'context.list.prStatusToApproved': 'PR 상태 {status} → Approved',
+      'context.list.prStatusToApproved': 'PR 머지 필요 (현재 PR 상태: {status} → Approved)',
       'context.list.approveSpec': 'spec 승인 필요',
       'context.list.approvePlan': 'plan 승인 필요',
 
@@ -440,17 +440,17 @@ const I18N: Record<Lang, I18nData> = {
     },
     messages: {
       specCreate:
-        '이번 세션에 `agents` 가이드를 아직 읽지 않았다면 `npx lee-spec-kit docs get agents --json`을 실행한 뒤, 반환된 형식에 맞춰 spec.md를 작성하세요. (이미 읽었다면 재실행하지 마세요.)',
+        'spec.md를 작성하고 상태를 Review로 변경하세요. (agents 가이드 기준)',
       specImprove: 'spec.md를 보완하고 상태를 Review로 변경하세요.',
       specApproval:
         'spec.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       planCreate:
-        '이번 세션에 `agents` 가이드를 아직 읽지 않았다면 `npx lee-spec-kit docs get agents --json`을 실행한 뒤, 반환된 형식에 맞춰 plan.md를 작성하세요. (이미 읽었다면 재실행하지 마세요.)',
+        'plan.md를 작성하고 상태를 Review로 변경하세요. (agents 가이드 기준)',
       planImprove: 'plan.md를 보완하고 상태를 Review로 변경하세요.',
       planApproval:
         'plan.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
       tasksCreate:
-        '이번 세션에 `agents` 가이드를 아직 읽지 않았다면 `npx lee-spec-kit docs get agents --json`을 실행한 뒤, 반환된 형식에 맞춰 tasks.md를 작성하세요. (이미 읽었다면 재실행하지 마세요.)',
+        'tasks.md를 작성하고 문서 상태를 Review로 변경하세요. (agents/execute-task 가이드 기준)',
       tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
       tasksImprove: 'tasks.md를 보완하고 문서 상태를 Review로 변경하세요.',
       tasksApproval:
@@ -458,7 +458,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
-        '이번 세션에 아직 확인하지 않았다면 `npx lee-spec-kit docs get create-issue --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github issue {featureRef} --json`으로 본문 템플릿을 생성하세요. (이미 확인한 동일 문서는 재조회하지 마세요.) 목표/완료 기준을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음, spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
+        '이슈 본문 템플릿을 생성해 목표/완료 기준을 검토·보완하고, 사용자 승인(OK) 후 이슈를 생성하세요. 이후 spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
@@ -472,17 +472,17 @@ const I18N: Record<Lang, I18nData> = {
       createBranch:
         'cd "{projectGitCwd}" && git checkout -b feat/{issueNumber}-{slug}',
       tasksAllDoneButNoChecklist:
-        '모든 태스크가 DONE이지만 완료 조건 체크리스트 섹션을 찾지 못했습니다. tasks.md의 "완료 조건" 섹션을 추가/확인하세요.',
+        '완료 조건 체크리스트를 작성하세요. tasks.md의 "완료 조건" 섹션에 검증 항목을 추가하고, 사용자와 확인 후 충족 항목을 [x]로 체크하세요. 최종 승인(OK)도 반영하세요.',
       tasksAllDoneButChecklist:
-        '모든 태스크가 DONE이지만 완료 조건 체크리스트가 완전히 체크되지 않았습니다. ({checked}/{total})',
+        '완료 조건 체크리스트의 남은 항목을 진행하세요. 현재 진행: ({checked}/{total}) 사용자와 확인 후 충족 항목을 [x]로 체크하고 최종 승인(OK)을 반영하세요.',
       finishDoingTask:
-        '현재 DOING/REVIEW 중인 태스크를 완료하세요: "{title}" ({done}/{total}) (이번 세션에 `execute-task` 가이드를 아직 읽지 않았다면 `npx lee-spec-kit docs get execute-task --json`으로 절차 확인 → 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리)',
+        '현재 DOING/REVIEW 태스크를 완료합니다: "{title}" ({done}/{total}) 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리',
       startNextTodoTask:
-        '다음 TODO 태스크를 시작하세요: "{title}" ({done}/{total}) (이번 세션에 `execute-task` 가이드를 아직 읽지 않았다면 시작 전 `npx lee-spec-kit docs get execute-task --json`으로 절차 확인 → 제목 공유 + 승인(`A` 또는 `A OK` 형식) 후 DOING 처리)',
+        '다음 TODO 태스크를 시작합니다: "{title}" ({done}/{total}) 승인(`A` 또는 `A OK` 형식) 후 DOING 처리',
       checkTaskStatuses:
-        '태스크 상태를 확인하세요. ({done}/{total}) (`execute-task` 가이드 기준으로 점검; 이번 세션에 미확인 시에만 `npx lee-spec-kit docs get execute-task --json` 실행)',
+        '태스크 상태를 확인하세요. ({done}/{total})',
       taskCommitGateStrictBlock:
-        '다음 TODO 태스크로 넘어가기 전에 `1 태스크 = 1 커밋` 규칙을 충족해야 합니다. 점검 결과: {reason}. `execute-task` 가이드 절차를 기준으로 태스크 커밋 단위를 정리한 뒤 다시 진행하세요. (이번 세션에 미확인 시에만 `npx lee-spec-kit docs get execute-task --json` 실행)',
+        '다음 TODO 태스크로 넘어가기 전에 `1 태스크 = 1 커밋` 규칙을 충족해야 합니다. 점검 결과: {reason}. 태스크 커밋 단위를 정리한 뒤 다시 진행하세요.',
       taskCommitGateWarnProceed:
         '⚠️ 태스크 커밋 단위 점검 경고: {reason}. 현재는 진행 가능하지만 `1 태스크 = 1 커밋`을 권장합니다.',
       taskCommitGateReasonNoTasksCommit:
@@ -504,13 +504,13 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         '리스크를 공유하면 PR 생성 진행 가능',
       prCreate:
-        '이번 세션에 아직 확인하지 않았다면 `npx lee-spec-kit docs get create-pr --json`으로 절차를 확인한 뒤, `npx lee-spec-kit github pr {featureRef} --json`으로 본문 템플릿을 생성하세요. (이미 확인한 동일 문서는 재조회하지 마세요.) 변경 사항/테스트 섹션을 검토·보완하고 사용자 승인(OK) 후 `--create --confirm OK`로 생성한 다음 tasks.md에 PR 링크를 기록하세요.',
+        'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
       prFillStatus:
-        'tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요. (merge 후 Approved로 업데이트)',
+        'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
       prResolveReview:
-        '리뷰 코멘트를 해결하고 PR 상태를 업데이트하세요. (PR 상태: Review → Approved)',
+        '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prRequestReview:
-        '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 업데이트하세요.',
+        '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 설정/유지하세요.',
       featureDone:
         '워크플로우 요구사항과 모든 태스크/완료 조건이 충족되었습니다. 이 Feature는 완료 상태입니다.',
       fallbackRerunContext:
@@ -524,7 +524,7 @@ const I18N: Record<Lang, I18nData> = {
       docsPathIgnored:
         '현재 Feature 문서 경로가 git ignore 대상입니다: {path} (docs 커밋 감지가 제한될 수 있습니다.)',
       docsUncommittedChanges:
-        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙은 `npx lee-spec-kit docs get git-workflow --json`으로 확인하세요.',
+        '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙은 git-workflow 가이드를 기준으로 확인하세요.',
       projectUncommittedChanges:
         '프로젝트 코드 변경사항이 커밋되지 않았습니다. (추가 코드 커밋 필요)',
       legacyTasksDocStatusField:
@@ -544,9 +544,9 @@ const I18N: Record<Lang, I18nData> = {
       workflowPrLinkMissing:
         '완료 상태이지만 PR 링크가 비어있습니다. (tasks.md의 PR 필드를 채우세요.)',
       workflowPrStatusMissing:
-        '완료 상태이지만 PR 상태가 비어있습니다. (tasks.md의 PR 상태를 Review/Approved 중 하나로 설정하세요.)',
+        '완료 상태이지만 PR 상태가 비어있습니다. (PR 생성/리뷰 단계에서는 PR 상태를 Review로 설정하세요.)',
       workflowPrStatusNotApproved:
-        '완료 상태이지만 PR 상태가 Approved가 아닙니다. (merge 후 PR 상태를 Approved로 업데이트하세요.)',
+        '완료 상태이지만 PR 상태가 Approved가 아닙니다. (PR 생성/리뷰 단계는 Review를 유지하고, merge 성공 시에만 Approved로 동기화하세요.)',
       workflowPrePrReviewMissing:
         '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
       workflowPrePrReviewNotDone:
@@ -643,7 +643,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  Check user-approval policy once at session start (or right after context compression/reset) with `npx lee-spec-kit docs get agents --json`; re-read only when policy/config changes or user explicitly requests refresh. (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
+        'ℹ️  Check user-approval policy once at session start (or right after context compression/reset); re-check only when policy/config changes or the user explicitly requests refresh. (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
         'Approval reply format: include a label token (e.g. `A`, `A OK`, `A proceed`)',
       'context.actionExplainHint':
@@ -655,9 +655,9 @@ const I18N: Record<Lang, I18nData> = {
       'context.finalTicketCommandHint':
         'Execute commands using the ticket from approval result: {command}',
       'context.readBuiltinDocFirst':
-        'Read built-in docs only if not read in this session yet or likely changed: {command}',
+        'Read required built-in docs only if not read in this session yet or likely changed.',
       'context.tipDocsCommitRules':
-        'Check commit message rules with `npx lee-spec-kit docs get git-workflow --json`.',
+        'Check commit message rules against the git-workflow guide.',
       'context.list.docsCommitNeeded': 'Commit docs changes',
       'context.list.projectCommitNeeded': 'Commit project code changes',
       'context.list.issueNumberNeeded': 'Fill issue number in docs',
@@ -666,7 +666,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.list.addPrePrReviewField': 'Add Pre-PR Review field',
       'context.list.completePrePrReview': 'Complete Pre-PR review',
       'context.list.setPrStatus': 'Set PR Status',
-      'context.list.prStatusToApproved': 'PR Status {status} → Approved',
+      'context.list.prStatusToApproved': 'PR merge required (PR Status: {status} → Approved)',
       'context.list.approveSpec': 'Approve spec',
       'context.list.approvePlan': 'Approve plan',
 
@@ -987,17 +987,17 @@ const I18N: Record<Lang, I18nData> = {
     },
     messages: {
       specCreate:
-        'If `agents` guide has not been read in this session, run `npx lee-spec-kit docs get agents --json`, then write spec.md in that format. (Do not re-run if already read.)',
+        'Write spec.md and change Status to Review. (Follow the agents guide baseline.)',
       specImprove: 'Improve spec.md and change Status to Review.',
       specApproval:
         'Share spec.md with the user and get approval (`A` or `A OK` format).',
       planCreate:
-        'If `agents` guide has not been read in this session, run `npx lee-spec-kit docs get agents --json`, then write plan.md in that format. (Do not re-run if already read.)',
+        'Write plan.md and change Status to Review. (Follow the agents guide baseline.)',
       planImprove: 'Improve plan.md and change Status to Review.',
       planApproval:
         'Share plan.md with the user and get approval (`A` or `A OK` format).',
       tasksCreate:
-        'If `agents` guide has not been read in this session, run `npx lee-spec-kit docs get agents --json`, then write tasks.md in that format. (Do not re-run if already read.)',
+        'Write tasks.md and change Doc Status to Review. (Follow the agents/execute-task guide baseline.)',
       tasksNeedAtLeastOne: 'Write at least 1 task in tasks.md.',
       tasksImprove: 'Improve tasks.md and change Doc Status to Review.',
       tasksApproval:
@@ -1005,7 +1005,7 @@ const I18N: Record<Lang, I18nData> = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
-        'If not checked in this session yet, review procedure with `npx lee-spec-kit docs get create-issue --json`, then generate a body template via `npx lee-spec-kit github issue {featureRef} --json`. (Do not re-read the same doc in the same session.) Refine goals/completion criteria, get explicit user OK, run `--create --confirm OK`, then update issue number in spec.md/tasks.md and prepare a docs commit.',
+        'Generate the issue body template, refine goals/completion criteria, get explicit user OK, create the issue, then update issue number in spec.md/tasks.md and prepare a docs commit.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
@@ -1019,17 +1019,17 @@ const I18N: Record<Lang, I18nData> = {
       createBranch:
         'cd "{projectGitCwd}" && git checkout -b feat/{issueNumber}-{slug}',
       tasksAllDoneButNoChecklist:
-        'All tasks are DONE, but no completion checklist section was found. Add/verify the "Completion Criteria" section in tasks.md.',
+        'Create the completion checklist. Add verification items to the tasks.md "Completion Criteria" section, then mark satisfied items as [x] after user confirmation. Record final approval (OK) as well.',
       tasksAllDoneButChecklist:
-        'All tasks are DONE, but the completion checklist is not fully checked. ({checked}/{total})',
+        'Proceed with remaining completion checklist items. Current progress: ({checked}/{total}) Mark items as [x] only after user confirmation and real verification. Record final approval (OK) as well.',
       finishDoingTask:
-        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) (If `execute-task` guide has not been read in this session yet, read `npx lee-spec-kit docs get execute-task --json`, then share outcome/verification + get OK before marking DONE)',
+        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) Share outcome/verification + get OK before marking DONE',
       startNextTodoTask:
-        'Start the next TODO task: "{title}" ({done}/{total}) (If `execute-task` guide has not been read in this session yet, read `npx lee-spec-kit docs get execute-task --json` before starting, then share title + get OK before marking DOING)',
+        'Start the next TODO task: "{title}" ({done}/{total}) Get approval (`A` or `A OK`) before marking DOING',
       checkTaskStatuses:
-        'Check task statuses. ({done}/{total}) (Use `execute-task` guide as baseline; run `npx lee-spec-kit docs get execute-task --json` only if not read in this session)',
+        'Check task statuses. ({done}/{total})',
       taskCommitGateStrictBlock:
-        'Before moving to the next TODO task, you must satisfy the `1 task = 1 commit` rule. Check result: {reason}. Re-align task commit boundaries using the `execute-task` guide, then continue. (Run `npx lee-spec-kit docs get execute-task --json` only if not read in this session)',
+        'Before moving to the next TODO task, you must satisfy the `1 task = 1 commit` rule. Check result: {reason}. Re-align task commit boundaries, then continue.',
       taskCommitGateWarnProceed:
         '⚠️ Task commit boundary warning: {reason}. You may continue, but `1 task = 1 commit` is recommended.',
       taskCommitGateReasonNoTasksCommit:
@@ -1051,12 +1051,12 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewFindingsWarn:
         'you may proceed after sharing the risks',
       prCreate:
-        'If not checked in this session yet, review procedure with `npx lee-spec-kit docs get create-pr --json`, then generate a body template via `npx lee-spec-kit github pr {featureRef} --json`. (Do not re-read the same doc in the same session.) Refine changes/tests sections, get explicit user OK, run `--create --confirm OK`, then record the PR link in tasks.md.',
+        'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
       prFillStatus:
-        'Set PR Status in tasks.md to Review/Approved. (After merge, update it to Approved.)',
+        'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
       prResolveReview:
-        'Resolve review comments and update PR Status. (PR Status: Review → Approved)',
-      prRequestReview: 'Request review and update PR Status to Review.',
+        'Keep PR Status as Review while addressing comments. Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
+      prRequestReview: 'Request review and set/keep PR Status as Review.',
       featureDone:
         'Workflow requirements and all tasks/completion criteria are satisfied. This feature is done.',
       fallbackRerunContext:
@@ -1070,7 +1070,7 @@ const I18N: Record<Lang, I18nData> = {
       docsPathIgnored:
         'Current feature docs path is ignored by git: {path} (docs commit detection may be limited).',
       docsUncommittedChanges:
-        'Docs changes are not committed. (Additional docs commit needed.) Check commit message rules with `npx lee-spec-kit docs get git-workflow --json`.',
+        'Docs changes are not committed. (Additional docs commit needed.) Check commit message rules against the git-workflow guide.',
       projectUncommittedChanges:
         'Project code changes are not committed. (Additional code commit needed.)',
       legacyTasksDocStatusField:
@@ -1090,9 +1090,9 @@ const I18N: Record<Lang, I18nData> = {
       workflowPrLinkMissing:
         'Implementation is done but PR link is missing. (Fill the PR field in tasks.md.)',
       workflowPrStatusMissing:
-        'Implementation is done but PR Status is missing. (Set PR Status to Review/Approved in tasks.md.)',
+        'Implementation is done but PR Status is missing. (Set PR Status to Review during PR creation/review stages.)',
       workflowPrStatusNotApproved:
-        'Implementation is done but PR Status is not Approved. (After merge, update PR Status to Approved in tasks.md.)',
+        'Implementation is done but PR Status is not Approved. (Keep PR Status as Review before merge and sync to Approved only after successful merge.)',
       workflowPrePrReviewMissing:
         'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
       workflowPrePrReviewNotDone:

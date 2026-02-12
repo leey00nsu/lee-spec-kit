@@ -146,7 +146,25 @@ function getActionSummary(action: ContextAction): string {
 }
 
 function formatActionSummary(action: ContextAction): string {
+  const extractCommitMessage = (command: string): string | null => {
+    const doubleQuoted = command.match(/git\s+commit\s+-m\s+"((?:\\"|[^"])*)"/);
+    if (doubleQuoted) {
+      return doubleQuoted[1].replace(/\\"/g, '"').trim();
+    }
+
+    const singleQuoted = command.match(/git\s+commit\s+-m\s+'((?:\\'|[^'])*)'/);
+    if (singleQuoted) {
+      return singleQuoted[1].replace(/\\'/g, "'").trim();
+    }
+
+    return null;
+  };
+
   if (action.type === 'command') {
+    const commitMessage = extractCommitMessage(action.cmd);
+    if (commitMessage) {
+      return `(${action.scope}) commit: ${commitMessage}`;
+    }
     return `(${action.scope}) ${action.cmd}`;
   }
   return action.message;

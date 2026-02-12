@@ -685,7 +685,7 @@ async function runContext(
           'actionOptions[].approvalPrompt',
         ],
         recommendation:
-          'Before asking for approval, present each label with exact CLI detail first (`A: <detail>`). Do not paraphrase command options. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, require one-time `approvalTicket` only when the selected action has `requiresUserCheck=true`.',
+          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, require one-time `approvalTicket` only when the selected action has `requiresUserCheck=true`.',
         oneApprovalPerAction: true,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
@@ -693,8 +693,12 @@ async function runContext(
       },
         approvalRequest: {
           guidance:
-            'Present each label with exact CLI detail (e.g. `A: <detail>`). For command options, include the raw `cmd` unchanged, then ask for `<LABEL>` or `<LABEL> OK`.',
+            'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested.',
         finalPrompt: finalApprovalPrompt,
+        userFacingLines: [
+          ...state.actionOptions.map((o) => o.approvalPrompt),
+          finalApprovalPrompt,
+        ].filter((line) => line.length > 0),
         labels: state.actionOptions.map((o) => o.label),
         approveCommand,
         executeCommand,
