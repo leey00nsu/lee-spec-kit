@@ -23,18 +23,10 @@ interface FlowOptions extends ContextSelectionOptions {
   strict?: boolean;
 }
 
-function resolveComponentOption(options: Pick<FlowOptions, 'repo' | 'component'>): string | undefined {
-  if (
-    options.repo &&
-    options.component &&
-    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
-  ) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--repo` and `--component` must reference the same value when both are provided.'
-    );
-  }
-  const component = (options.component || options.repo || '').trim().toLowerCase();
+function resolveComponentOption(
+  options: Pick<FlowOptions, 'component'>
+): string | undefined {
+  const component = (options.component || '').trim().toLowerCase();
   return component || undefined;
 }
 
@@ -89,7 +81,7 @@ function buildSelectionArgs(
 ): string[] {
   const args: string[] = [];
   if (featureName) args.push(featureName);
-  const component = (options.component || options.repo || '').trim();
+  const component = (options.component || '').trim();
   if (component) args.push('--component', component);
   if (options.all) args.push('--all');
   if (options.done) args.push('--done');
@@ -101,7 +93,6 @@ export function flowCommand(program: Command): void {
     .command('flow [feature-name]')
     .description('Run combined workflow checks (context + status + doctor)')
     .option('--json', 'Output in JSON format for agents')
-    .option('--repo <repo>', 'Component name for multi projects')
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
@@ -192,19 +183,22 @@ async function runFlow(
       const selectedPayload = selected as
         | {
             status?: string;
+            executeRequiresTicket?: boolean;
             approvalTicket?: { token?: string };
           }
         | undefined;
+      const executeRequiresTicket = selectedPayload?.executeRequiresTicket === true;
       const ticket = selectedPayload?.approvalTicket?.token;
-      if (selectedPayload?.status === 'approved_selected' && ticket) {
+      if (selectedPayload?.status === 'approved_selected') {
         const executeArgs = [
           ...contextArgs,
           '--approve',
           options.approve,
           '--execute',
-          '--ticket',
-          ticket,
         ];
+        if (executeRequiresTicket && ticket) {
+          executeArgs.push('--ticket', ticket);
+        }
         if (options.executeStrict) executeArgs.push('--execute-strict');
         approvalResult = runSelfCliJson(executeArgs, true);
       } else {

@@ -23,7 +23,6 @@ export type ContextSelectionFallback =
   | 'done_features';
 
 export interface ContextSelectionOptions {
-  repo?: string;
   component?: string;
   all?: boolean;
   done?: boolean;
@@ -76,7 +75,7 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
 const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
 
 function resolveComponentOption(options: ContextSelectionOptions): string | undefined {
-  const component = (options.component || options.repo || '').trim().toLowerCase();
+  const component = (options.component || '').trim().toLowerCase();
   return component || undefined;
 }
 

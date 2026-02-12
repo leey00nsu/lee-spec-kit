@@ -29,10 +29,10 @@ features/
 
 ```bash
 # Backend Feature
-npx lee-spec-kit feature --repo be user-auth
+npx lee-spec-kit feature --component be user-auth
 
 # Frontend Feature
-npx lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --component fe user-profile
 ```
 
 > 💡 CLI copies templates from `feature-base/` and auto-assigns IDs.

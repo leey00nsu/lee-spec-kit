@@ -33,7 +33,6 @@ import { getTemplatesDir } from '../utils/paths.js';
 import { toTemplateProjectType } from '../utils/project-type.js';
 
 interface FeatureOptions {
-  repo?: string;
   component?: string;
   id?: string;
   desc?: string;
@@ -53,7 +52,6 @@ export function featureCommand(program: Command): void {
   program
     .command('feature <name>')
     .description('Create a new feature folder')
-    .option('-r, --repo <repo>', 'Component name (multi only)')
     .option('--component <component>', 'Component name (multi only)')
     .option('--id <id>', 'Feature ID (default: auto)')
     .option('-d, --desc <description>', 'Feature description for spec.md')
@@ -152,26 +150,13 @@ async function runFeature(
     lang
   );
 
-  if (
-    options.repo &&
-    options.component &&
-    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
-  ) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--repo` and `--component` must reference the same value when both are provided.'
-    );
-  }
-
-  let component = (options.component || options.repo || '')
-    .trim()
-    .toLowerCase();
+  let component = (options.component || '').trim().toLowerCase();
   if (!component) component = '';
 
   if (projectType === 'single' && component) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--repo`/`--component` can only be used in multi mode.'
+      '`--component` can only be used in multi mode.'
     );
   }
 
@@ -180,7 +165,7 @@ async function runFeature(
     if (options.nonInteractive) {
       throw createCliError(
         'PROMPT_BLOCKED',
-        '`--component` (or `--repo`) is required in multi mode when using `--non-interactive`.'
+        '`--component` is required in multi mode when using `--non-interactive`.'
       );
     }
     const response = await prompts(

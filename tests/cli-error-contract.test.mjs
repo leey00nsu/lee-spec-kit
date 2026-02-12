@@ -1895,7 +1895,7 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     assert.equal(typeof payload.approvalRequest?.executeCommand, 'string');
     assert.match(
       payload.approvalRequest.executeCommand,
-      /--approve <LABEL> --execute --ticket <TICKET>$/
+      /--approve <LABEL> --execute \[--ticket <TICKET>\]$/
     );
     assert.equal(payload.approvalRequest.options[0].detail, payload.actionOptions[0].detail);
     assert.equal(
@@ -1940,6 +1940,11 @@ test('context --approve accepts natural language replies that include a label to
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'require' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -2469,7 +2474,7 @@ test('init invalid project type returns INVALID_ARGUMENT', async () => {
   });
 });
 
-test('feature --repo in single project returns INVALID_ARGUMENT', async () => {
+test('feature rejects removed --repo option', async () => {
   await withTempDir('lsk-feature-single-repo-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -2489,7 +2494,7 @@ test('feature --repo in single project returns INVALID_ARGUMENT', async () => {
 
     const result = await runCli(dir, ['feature', 'alpha', '--repo', 'fe']);
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /\[INVALID_ARGUMENT\]/);
+    assert.match(result.stderr, /unknown option '--repo'/i);
   });
 });
 
@@ -3384,18 +3389,20 @@ test('context --execute-strict fails for instruction-only approved option', asyn
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'skip' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
-    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
     const result = await runCli(dir, [
       'context',
       'F001-alpha',
       '--approve',
       'A',
       '--execute',
-      '--ticket',
-      ticket,
       '--execute-strict',
       '--json',
     ]);
@@ -3424,8 +3431,18 @@ test('context --execute requires a ticket from prior approval', async () => {
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'require' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    assert.equal(contextPayload.actionOptions[0].action.requiresUserCheck, true);
 
     const result = await runCli(dir, [
       'context',
@@ -3439,6 +3456,62 @@ test('context --execute requires a ticket from prior approval', async () => {
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('context --execute can run without ticket when approval policy skips check', async () => {
+  await withTempDir('lsk-context-execute-no-ticket-when-skip-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'skip' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const approveOnly = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--json',
+    ]);
+    assert.equal(approveOnly.code, 0, approveOnly.stderr || approveOnly.stdout);
+    const approvePayload = JSON.parse(approveOnly.stdout.trim());
+    assert.equal(approvePayload.executeRequiresTicket, false);
+    assert.equal(approvePayload.approvalTicket, undefined);
+
+    const result = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.notEqual(payload.status, 'error');
+    assert.equal(
+      payload.status === 'approved_instruction' || payload.status === 'approved_executed',
+      true
+    );
   });
 });
 
@@ -3459,6 +3532,11 @@ test('context tickets are one-time use for execute', async () => {
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'require' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -3682,6 +3760,52 @@ test('flow --json uses internal ticket handshake for --execute', async () => {
   });
 });
 
+test('flow --json executes without ticket when selected option does not require check', async () => {
+  await withTempDir('lsk-flow-approve-execute-no-ticket-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'skip' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001',
+      '--approve',
+      'A proceed',
+      '--execute',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.notEqual(payload.approval?.status, 'error');
+    assert.equal(
+      payload.approval?.status === 'approved_instruction' ||
+        payload.approval?.status === 'approved_executed',
+      true
+    );
+  });
+});
+
 test('context --component scopes fallback selection in multi project', async () => {
   await withTempDir('lsk-context-component-scope-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -3731,7 +3855,7 @@ test('context --component scopes fallback selection in multi project', async () 
       true
     );
 
-    const apiContext = await runCli(dir, ['context', '--repo', 'api', '--json']);
+    const apiContext = await runCli(dir, ['context', '--component', 'api', '--json']);
     assert.equal(apiContext.code, 0, apiContext.stderr || apiContext.stdout);
     const apiPayload = JSON.parse(apiContext.stdout.trim());
     assert.equal(apiPayload.status, 'single_matched');
@@ -4015,8 +4139,8 @@ test('init ignore warning shows repo-relative path and actionable hint', async (
   });
 });
 
-test('context rejects mismatched --repo and --component values', async () => {
-  await withTempDir('lsk-context-mismatch-component-', async (dir) => {
+test('context rejects removed --repo option', async () => {
+  await withTempDir('lsk-context-removed-repo-option-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -4033,17 +4157,9 @@ test('context rejects mismatched --repo and --component values', async () => {
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const result = await runCli(dir, [
-      'context',
-      '--repo',
-      'web',
-      '--component',
-      'api',
-      '--json',
-    ]);
+    const result = await runCli(dir, ['context', '--repo', 'web', '--json']);
     assert.equal(result.code, 1);
-    const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.reasonCode, 'INVALID_ARGUMENT');
+    assert.match(result.stderr, /unknown option '--repo'/i);
   });
 });
 

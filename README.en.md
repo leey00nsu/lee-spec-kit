@@ -149,8 +149,8 @@ The `--json` payload includes `isLeeSpecKitProject`, `reasonCode` (`PROJECT_DETE
 npx lee-spec-kit feature user-auth
 
 # Multi
-npx lee-spec-kit feature --repo be user-auth
-npx lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --component be user-auth
+npx lee-spec-kit feature --component fe user-profile
 npx lee-spec-kit feature --component worker queue-jobs
 
 # Specify Feature ID/description
@@ -161,7 +161,6 @@ npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 
 | Option              | Description                                 | Default      |
 | ------------------- | ------------------------------------------- | ------------ |
-| `-r, --repo <repo>` | Multi target component (backward-compatible alias) | interactive  |
 | `--component <id>`  | Multi target component                       | interactive  |
 | `--id <id>`         | Feature ID (`F001` format)                  | auto-generate |
 | `-d, --desc <desc>` | Default purpose/description text for `spec.md` | empty string |
@@ -173,51 +172,36 @@ npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 For a single matched feature, next steps are always shown as `A/B/C` options.
 
 ```bash
-# Auto-detect (based on git branch)
+# basic check (auto-detect from branch)
 npx lee-spec-kit context
 
-# Specify a feature
-npx lee-spec-kit context user-auth
-
-# Selector: Feature ID / folder name
+# recommended: one feature + labels
 npx lee-spec-kit context F001
-npx lee-spec-kit context F001-user-auth
+npx lee-spec-kit context F001 --json
 
-# multi component selector
-npx lee-spec-kit context --repo fe
-npx lee-spec-kit context --repo worker
+# approve + execute (common path)
+npx lee-spec-kit context F001 --approve A --execute
 
-# include all / done features
-npx lee-spec-kit context --all
-npx lee-spec-kit context --done
-
-# JSON output (for agents)
-npx lee-spec-kit context --json
-
-# approve a labeled option (validation only)
-npx lee-spec-kit context F001 --approve A
-
-# issue an execution ticket from approval result
-npx lee-spec-kit context F001 --approve "A proceed" --json
-
-# execute exactly one command option with ticket
+# include ticket only for check-required options
 npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
 
-# fail when the approved label is instruction-only
+# strict mode: fail if approved label is instruction-only
 npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-strict
 ```
+
+Use advanced selectors (`--component`, `--all`, `--done`) only when you need multi-scope filtering or exceptional fallback behavior.
 
 **Options:**
 
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
-| `--repo <repo>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
+| `--component <id>` | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
 | `--approve <reply>` | Approve one labeled option using any reply that includes a label token (e.g. `A`, `A OK`, `A proceed`) |
-| `--ticket <token>` | One-time execution ticket from the `--approve` result |
-| `--execute`    | Execute only the approved option when it is a command (`--approve` + `--ticket` required) |
+| `--ticket <token>` | One-time execution ticket from `--approve` (required when selected option has `requiresUserCheck=true`) |
+| `--execute`    | Execute only the approved option when it is a command (`--ticket` required only for check-required options) |
 | `--execute-strict` | With `--execute`, fail if the approved option is instruction-only |
 
 `--json` output includes:
@@ -268,18 +252,24 @@ npx lee-spec-kit view --json
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
-| `--repo <repo>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
+| `--component <id>` | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
 
 ### Flow
 
 ```bash
+# workflow summary (context + status + doctor)
 npx lee-spec-kit flow
-npx lee-spec-kit flow F001 --approve A
-npx lee-spec-kit flow F001 --approve "A OK" --execute
-npx lee-spec-kit flow --strict
+
+# approve + execute (recommended agent path)
+npx lee-spec-kit flow F001 --approve A --execute
+
+# JSON output for automation
 npx lee-spec-kit flow --json
+
+# strict checks (optional)
+npx lee-spec-kit flow --strict
 ```
 
 **Options:**
@@ -287,11 +277,11 @@ npx lee-spec-kit flow --json
 | Option            | Description |
 | ----------------- | ----------- |
 | `--json`          | JSON output for agents |
-| `--repo <repo>`   | Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
+| `--component <id>`| Select target component in multi mode (e.g. `fe`, `be`, `worker`) |
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
 | `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
-| `--execute`       | Execute approved option when it is a command (validated by internal approval ticket) |
+| `--execute`       | Execute approved option when it is a command (ticket is required only when `requiresUserCheck=true`) |
 | `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
 | `--strict`        | Also run `status --strict` and `doctor --strict` |
 
@@ -540,12 +530,12 @@ npx lee-spec-kit config --project-root /new/path
 npx lee-spec-kit config --dir ./docs2 --project-root /new/path
 
 # update projectRoot (multi)
-npx lee-spec-kit config --project-root /new/fe/path --repo fe
-npx lee-spec-kit config --project-root /new/be/path --repo be
+npx lee-spec-kit config --project-root /new/fe/path --component fe
+npx lee-spec-kit config --project-root /new/be/path --component be
 npx lee-spec-kit config --project-root /new/worker/path --component worker
 
 # non-interactive mode (fails immediately if required input is missing)
-npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
+npx lee-spec-kit config --project-root /new/fe/path --component fe --non-interactive
 ```
 
 **Options:**
@@ -554,7 +544,6 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 | --- | --- |
 | `--dir <dir>` | Target docs directory or project path |
 | `--project-root <path>` | Set projectRoot path |
-| `--repo <repo>` | Target component in multi mode (backward-compatible alias) |
 | `--component <id>` | Target component in multi mode |
 | `--non-interactive` | Fail immediately instead of prompting for user input |
 

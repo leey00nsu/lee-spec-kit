@@ -165,8 +165,8 @@ npx lee-spec-kit detect --dir /path/to/workspace
 npx lee-spec-kit feature user-auth
 
 # Multi 프로젝트
-npx lee-spec-kit feature --repo be user-auth
-npx lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --component be user-auth
+npx lee-spec-kit feature --component fe user-profile
 npx lee-spec-kit feature --component worker queue-jobs
 
 # Feature ID/설명 지정
@@ -177,7 +177,6 @@ npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 
 | 옵션                | 설명                                         | 기본값      |
 | ------------------- | -------------------------------------------- | ----------- |
-| `-r, --repo <repo>` | multi 대상 컴포넌트 (하위호환 alias)          | 대화형 선택 |
 | `--component <id>`  | multi 대상 컴포넌트                           | 대화형 선택 |
 | `--id <id>`         | Feature ID (`F001` 형식)                     | 자동 생성   |
 | `-d, --desc <desc>` | `spec.md`의 목적(설명) 기본 문구             | 빈 문자열   |
@@ -190,51 +189,36 @@ npx lee-spec-kit feature payment --id F123 --desc "결제 플로우 개선"
 단일 Feature 상세에서는 다음 작업을 항상 `A/B/C` 옵션으로 표시합니다.
 
 ```bash
-# 자동 감지 (Git 브랜치 기준)
+# 기본 조회 (브랜치 기준 자동 감지)
 npx lee-spec-kit context
 
-# 특정 Feature 지정
-npx lee-spec-kit context user-auth
-
-# selector 지원: Feature ID / 폴더명
+# 특정 Feature 상태 + 라벨 확인 (에이전트 권장)
 npx lee-spec-kit context F001
-npx lee-spec-kit context F001-user-auth
+npx lee-spec-kit context F001 --json
 
-# multi에서 컴포넌트 지정
-npx lee-spec-kit context --repo fe
-npx lee-spec-kit context --repo worker
+# 승인 + 실행 (일반 케이스)
+npx lee-spec-kit context F001 --approve A --execute
 
-# 전체/완료 Feature 포함
-npx lee-spec-kit context --all
-npx lee-spec-kit context --done
-
-# 에이전트용 JSON 출력
-npx lee-spec-kit context --json
-
-# 라벨 승인 선택 (검증만)
-npx lee-spec-kit context F001 --approve A
-
-# 라벨 승인 결과에서 티켓 발급
-npx lee-spec-kit context F001 --approve "A 진행해" --json
-
-# 티켓으로 단일 명령 실행
+# check-required 옵션일 때만 티켓 포함
 npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
 
-# 승인 라벨이 instruction-only면 실패 처리
+# 엄격 실행 모드 (instruction-only 라벨이면 실패)
 npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-strict
 ```
+
+고급 선택자(`--component`, `--all`, `--done`)는 multi 범위 제어나 예외 상황에서만 사용하세요.
 
 **옵션:**
 
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
-| `--repo <repo>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
+| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 | `--approve <reply>` | 라벨 포함 승인 응답으로 단일 옵션 선택 (예: `A`, `A OK`, `A 진행해`) |
-| `--ticket <token>` | `--approve` 결과에서 받은 1회용 실행 티켓 |
-| `--execute`     | `--approve` + `--ticket`으로 승인된 command 옵션 1개만 실행 |
+| `--ticket <token>` | `--approve` 결과에서 받은 1회용 실행 티켓 (`requiresUserCheck=true` 옵션에서 필요) |
+| `--execute`     | 승인된 command 옵션 1개만 실행 (`requiresUserCheck=true`면 `--ticket` 필요) |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 
 `--json` 출력에는 다음 액션이 `actions` 배열로 포함됩니다.
@@ -290,18 +274,24 @@ npx lee-spec-kit view --json
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
-| `--repo <repo>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
+| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
 
 ### Flow 오케스트레이션
 
 ```bash
+# 워크플로우 요약 (context + status + doctor)
 npx lee-spec-kit flow
-npx lee-spec-kit flow F001 --approve A
-npx lee-spec-kit flow F001 --approve "A OK" --execute
-npx lee-spec-kit flow --strict
+
+# 승인 + 실행 (에이전트 기본 실행 경로)
+npx lee-spec-kit flow F001 --approve A --execute
+
+# 에이전트 파이프라인용 JSON
 npx lee-spec-kit flow --json
+
+# 엄격 검사(선택)
+npx lee-spec-kit flow --strict
 ```
 
 **옵션:**
@@ -309,11 +299,11 @@ npx lee-spec-kit flow --json
 | 옵션               | 설명 |
 | ------------------ | ---- |
 | `--json`           | 에이전트용 JSON 출력 |
-| `--repo <repo>`    | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
+| `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `fe`, `be`, `worker`) |
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
 | `--approve <reply>`| context 라벨 승인 응답 전달 (예: `A`, `A OK`, `A 진행해`) |
-| `--execute`        | 승인한 옵션이 command일 때 실행 (내부적으로 승인 티켓 검증) |
+| `--execute`        | 승인한 옵션이 command일 때 실행 (`requiresUserCheck=true`면 티켓 연동, 아니면 티켓 없이 실행) |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 | `--strict`         | `status --strict`, `doctor --strict`까지 함께 검사 |
 
@@ -624,12 +614,12 @@ npx lee-spec-kit config --project-root /new/path
 npx lee-spec-kit config --dir ./docs2 --project-root /new/path
 
 # projectRoot 수정 (Multi)
-npx lee-spec-kit config --project-root /new/fe/path --repo fe
-npx lee-spec-kit config --project-root /new/be/path --repo be
+npx lee-spec-kit config --project-root /new/fe/path --component fe
+npx lee-spec-kit config --project-root /new/be/path --component be
 npx lee-spec-kit config --project-root /new/worker/path --component worker
 
 # 비대화형 모드 (필수 옵션 누락 시 즉시 실패)
-npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
+npx lee-spec-kit config --project-root /new/fe/path --component fe --non-interactive
 ```
 
 **옵션:**
@@ -638,7 +628,6 @@ npx lee-spec-kit config --project-root /new/fe/path --repo fe --non-interactive
 | -------------------- | ---- |
 | `--dir <dir>` | 대상 docs 디렉터리 또는 프로젝트 경로 지정 |
 | `--project-root <path>` | projectRoot 경로 설정 |
-| `--repo <repo>` | multi 대상 컴포넌트(하위호환 alias) |
 | `--component <id>` | multi 대상 컴포넌트 |
 | `--non-interactive` | 사용자 입력이 필요하면 프롬프트 대신 즉시 실패 |
 
@@ -741,7 +730,7 @@ flowchart LR
 </details>
 
 <details>
-<summary><strong>Multi 프로젝트에서 --repo/--component 옵션이 동작하지 않습니다</strong></summary>
+<summary><strong>Multi 프로젝트에서 --component 옵션이 동작하지 않습니다</strong></summary>
 
 - `.lee-spec-kit.json`의 `projectType`이 `multi`(또는 구버전 `fullstack`)인지 확인하세요
 - `.lee-spec-kit.json`의 `components` 목록에 해당 값이 포함되어 있는지 확인하세요

@@ -21,7 +21,6 @@ import {
 interface ConfigOptions {
   dir?: string;
   projectRoot?: string;
-  repo?: string;
   component?: string;
   nonInteractive?: boolean;
 }
@@ -32,7 +31,6 @@ export function configCommand(program: Command): void {
     .description('View or modify project configuration')
     .option('--dir <dir>', 'Docs directory or project path to target')
     .option('--project-root <path>', 'Set project root path')
-    .option('--repo <repo>', 'Component name for multi projects')
     .option('--component <component>', 'Component name for multi projects')
     .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (options: ConfigOptions) => {
@@ -106,19 +104,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
       }
 
       const projectType = normalizeProjectType(String(configFile.projectType || 'single'));
-      const targetFromOptions =
-        options.component?.trim().toLowerCase() || options.repo?.trim().toLowerCase();
-
-      if (
-        options.component &&
-        options.repo &&
-        options.component.trim().toLowerCase() !== options.repo.trim().toLowerCase()
-      ) {
-        throw createCliError(
-          'INVALID_ARGUMENT',
-          '`--repo` and `--component` must reference the same value when both are provided.'
-        );
-      }
+      const targetFromOptions = options.component?.trim().toLowerCase();
 
       if (projectType === 'multi') {
         const components = resolveProjectComponents(projectType, configFile.components);
@@ -128,7 +114,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
           if (options.nonInteractive) {
             throw createCliError(
               'PROMPT_BLOCKED',
-              '`--component` (or `--repo`) is required for multi projectRoot update when using `--non-interactive`.'
+              '`--component` is required for multi projectRoot update when using `--non-interactive`.'
             );
           }
           // 대화형으로 선택
@@ -181,7 +167,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         if (targetFromOptions) {
           throw createCliError(
             'INVALID_ARGUMENT',
-            '`--repo`/`--component` is only valid for multi projectRoot updates.'
+            '`--component` is only valid for multi projectRoot updates.'
           );
         }
         // Single: 바로 설정

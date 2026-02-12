@@ -25,7 +25,6 @@ import {
 
 interface GithubBaseOptions {
   json?: boolean;
-  repo?: string;
   component?: string;
 }
 
@@ -94,7 +93,6 @@ type GithubTextKey =
   | 'ghInvalidJson'
   | 'inspectFileStatusFailed'
   | 'inspectWorktreeFailed'
-  | 'invalidRepoComponentMismatch'
   | 'issueCreated'
   | 'issueDefaultTitle'
   | 'issueHeader'
@@ -134,7 +132,6 @@ type GithubTextKey =
   | 'optPrScreenshots'
   | 'optPrMermaid'
   | 'optPrTitle'
-  | 'optRepo'
   | 'prDefaultTitleNoIssue'
   | 'prDefaultTitleWithIssue'
   | 'prHeader'
@@ -223,20 +220,9 @@ function detectGithubCliLangSync(cwd: string): Lang {
 }
 
 function resolveComponentOption(
-  options: Pick<GithubBaseOptions, 'repo' | 'component'>,
-  lang: Lang
+  options: Pick<GithubBaseOptions, 'component'>
 ): string | undefined {
-  if (
-    options.repo &&
-    options.component &&
-    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
-  ) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      tg(lang, 'invalidRepoComponentMismatch')
-    );
-  }
-  const component = (options.component || options.repo || '').trim().toLowerCase();
+  const component = (options.component || '').trim().toLowerCase();
   return component || undefined;
 }
 
@@ -1610,7 +1596,6 @@ export function githubCommand(program: Command): void {
     .command('issue [feature-name]')
     .description(tg(commandLang, 'cmdIssueDescription'))
     .option('--json', tg(commandLang, 'optJson'))
-    .option('--repo <repo>', tg(commandLang, 'optRepo'))
     .option('--component <component>', tg(commandLang, 'optComponent'))
     .option('--title <title>', tg(commandLang, 'optIssueTitle'))
     .option('--labels <labels>', tg(commandLang, 'optLabels'))
@@ -1623,7 +1608,7 @@ export function githubCommand(program: Command): void {
     )
     .action(async (featureName: string | undefined, options: GithubIssueOptions) => {
       try {
-        const selectedComponent = resolveComponentOption(options, commandLang);
+        const selectedComponent = resolveComponentOption(options);
         const { config, feature } = await resolveFeatureOrThrow(featureName, {
           component: selectedComponent,
         }, commandLang);
@@ -1774,7 +1759,6 @@ export function githubCommand(program: Command): void {
     .command('pr [feature-name]')
     .description(tg(commandLang, 'cmdPrDescription'))
     .option('--json', tg(commandLang, 'optJson'))
-    .option('--repo <repo>', tg(commandLang, 'optRepo'))
     .option('--component <component>', tg(commandLang, 'optComponent'))
     .option('--title <title>', tg(commandLang, 'optPrTitle'))
     .option('--labels <labels>', tg(commandLang, 'optLabels'))
@@ -1795,7 +1779,7 @@ export function githubCommand(program: Command): void {
     .option('--commit-sync', tg(commandLang, 'optPrCommitSync'))
     .action(async (featureName: string | undefined, options: GithubPrOptions) => {
       try {
-        const selectedComponent = resolveComponentOption(options, commandLang);
+        const selectedComponent = resolveComponentOption(options);
         const { config, feature } = await resolveFeatureOrThrow(featureName, {
           component: selectedComponent,
         }, commandLang);

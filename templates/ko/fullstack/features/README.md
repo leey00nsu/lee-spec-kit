@@ -29,10 +29,10 @@ features/
 
 ```bash
 # Backend Feature
-npx lee-spec-kit feature --repo be user-auth
+npx lee-spec-kit feature --component be user-auth
 
 # Frontend Feature
-npx lee-spec-kit feature --repo fe user-profile
+npx lee-spec-kit feature --component fe user-profile
 ```
 
 > 💡 CLI는 `feature-base/`에서 템플릿을 복사하고 ID를 자동 채번합니다.

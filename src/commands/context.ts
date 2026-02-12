@@ -43,7 +43,6 @@ import {
 
 interface ContextOptions {
   json?: boolean;
-  repo?: string;
   component?: string;
   all?: boolean;
   done?: boolean;
@@ -326,7 +325,7 @@ function buildApprovalCommand(
   const featureRef = resolveFeatureRefForApproval(state, featureName);
   const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
   if (execute) {
-    return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL> --execute --ticket <TICKET>`;
+    return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL> --execute [--ticket <TICKET>]`;
   }
   return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL>`;
 }
@@ -403,7 +402,6 @@ export function contextCommand(program: Command): void {
     .command('context [feature-name]')
     .description('Show current feature context and next actions')
     .option('--json', 'Output in JSON format for agents')
-    .option('--repo <repo>', 'Component name for multi projects')
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
@@ -411,10 +409,13 @@ export function contextCommand(program: Command): void {
       '--approve <reply>',
       'Approve one labeled option (examples: A, A OK, A proceed, A 진행해)'
     )
-    .option('--ticket <token>', 'Approval ticket issued by `--approve`')
+    .option(
+      '--ticket <token>',
+      'Approval ticket issued by `--approve` (required only when selected option requires user check)'
+    )
     .option(
       '--execute',
-      'Execute approved option when it is a command (requires --ticket)'
+      'Execute approved option when it is a command (ticket required only for check-required options)'
     )
     .option(
       '--execute-strict',
@@ -532,10 +533,10 @@ async function runContext(
     );
   }
 
-  if (options.execute && (!options.ticket || !options.approve)) {
+  if (options.execute && !options.approve) {
     throw createCliError(
       'APPROVAL_REQUIRED',
-      '`--execute` requires both `--approve <reply>` and `--ticket <token>`. Run `context --approve <reply>` first.'
+      '`--execute` requires `--approve <reply>`.'
     );
   }
 
@@ -553,20 +554,7 @@ async function runContext(
     );
   }
 
-  if (
-    options.repo &&
-    options.component &&
-    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
-  ) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--repo` and `--component` must reference the same value when both are provided.'
-    );
-  }
-
-  const selectedComponent = (options.component || options.repo || '')
-    .trim()
-    .toLowerCase();
+  const selectedComponent = (options.component || '').trim().toLowerCase();
 
   const stepDefinitions = getStepDefinitions(lang, config.workflow);
   const stepsMap = getStepsMap(lang, config.workflow);
@@ -646,20 +634,21 @@ async function runContext(
           'actionOptions[].approvalPrompt',
         ],
         recommendation:
-          'Before asking for approval, present each label with exact CLI detail first (`A: <detail>`). Do not paraphrase command options. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, require one-time `approvalTicket` from the approval result.',
+          'Before asking for approval, present each label with exact CLI detail first (`A: <detail>`). Do not paraphrase command options. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, require one-time `approvalTicket` only when the selected action has `requiresUserCheck=true`.',
         oneApprovalPerAction: true,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
       },
-      approvalRequest: {
-        guidance:
-          'Present each label with exact CLI detail (e.g. `A: <detail>`). For command options, include the raw `cmd` unchanged, then ask for `<LABEL>` or `<LABEL> OK`.',
+        approvalRequest: {
+          guidance:
+            'Present each label with exact CLI detail (e.g. `A: <detail>`). For command options, include the raw `cmd` unchanged, then ask for `<LABEL>` or `<LABEL> OK`.',
         finalPrompt: finalApprovalPrompt,
         labels: state.actionOptions.map((o) => o.label),
         approveCommand,
         executeCommand,
-        executeRequiresTicket: true,
+        executeRequiresTicket:
+          !!state.actionOptions[0]?.action?.requiresUserCheck,
         options: state.actionOptions.map((o) => ({
           label: o.label,
           summary: o.summary,
@@ -671,6 +660,7 @@ async function runContext(
           cmd: o.action.type === 'command' ? o.action.cmd : undefined,
           message: o.action.type === 'instruction' ? o.action.message : undefined,
           requiresUserCheck: !!o.action.requiresUserCheck,
+          executeRequiresTicket: !!o.action.requiresUserCheck,
           operationType: o.action.operationType,
         })),
       },
@@ -1071,16 +1061,19 @@ async function runApprovedOption(
   }
 
   const selectedAction = freshSelected.action;
+  const executeRequiresTicket = !!selectedAction.requiresUserCheck;
   const actionHash = toActionHash(freshSelected);
   const featureRef = freshState.matchedFeature.folderName;
 
   if (!options.execute) {
-    const ticket = await issueApprovalTicket(config, {
-      contextVersion: freshState.contextVersion,
-      actionHash,
-      label: parsedLabel,
-      featureRef,
-    });
+    const ticket = executeRequiresTicket
+      ? await issueApprovalTicket(config, {
+          contextVersion: freshState.contextVersion,
+          actionHash,
+          label: parsedLabel,
+          featureRef,
+        })
+      : null;
     if (options.json) {
       console.log(
         JSON.stringify(
@@ -1092,16 +1085,19 @@ async function runApprovedOption(
             action: selectedAction,
             contextVersion: freshState.contextVersion,
             executable: selectedAction.type === 'command',
+            executeRequiresTicket,
             oneApprovalPerAction: true,
-            approvalTicket: {
-              token: ticket.token,
-              sessionId: ticket.sessionId,
-              label: ticket.label,
-              contextVersion: ticket.contextVersion,
-              actionHash: ticket.actionHash,
-              expiresAt: ticket.expiresAt,
-              oneTime: true,
-            },
+            approvalTicket: ticket
+              ? {
+                  token: ticket.token,
+                  sessionId: ticket.sessionId,
+                  label: ticket.label,
+                  contextVersion: ticket.contextVersion,
+                  actionHash: ticket.actionHash,
+                  expiresAt: ticket.expiresAt,
+                  oneTime: true,
+                }
+              : undefined,
           },
           null,
           2
@@ -1115,15 +1111,21 @@ async function runApprovedOption(
     console.log(chalk.gray(`   - Action: ${formatActionSummary(selectedAction)}`));
     if (selectedAction.type === 'command') {
       const selectedComponent = selectionOptions.component || '';
-      const executeCommand = buildApprovalCommand(
+      let executeCommand = buildApprovalCommand(
         freshState,
         featureName,
         selectedComponent,
         true
-      )
-        .replace('<LABEL>', parsedLabel)
-        .replace('<TICKET>', ticket.token);
-      console.log(chalk.gray(`   - Ticket: ${ticket.token} (expires: ${ticket.expiresAt})`));
+      ).replace('<LABEL>', parsedLabel);
+      if (ticket) {
+        executeCommand = executeCommand.replace(
+          '[--ticket <TICKET>]',
+          `--ticket ${ticket.token}`
+        );
+        console.log(chalk.gray(`   - Ticket: ${ticket.token} (expires: ${ticket.expiresAt})`));
+      } else {
+        executeCommand = executeCommand.replace(' [--ticket <TICKET>]', '');
+      }
       console.log(chalk.gray(`   - Run with: ${executeCommand}`));
     } else {
       console.log(chalk.gray('   - Instruction-only action (no command execution).'));
@@ -1133,18 +1135,22 @@ async function runApprovedOption(
   }
 
   if (!ticketToken) {
-    throw createCliError(
-      'APPROVAL_REQUIRED',
-      '`--execute` requires `--ticket <token>`. Run `context --approve <reply>` first.'
-    );
+    if (executeRequiresTicket) {
+      throw createCliError(
+        'APPROVAL_REQUIRED',
+        '`--execute` requires `--ticket <token>` for check-required options. Run `context --approve <reply>` first.'
+      );
+    }
   }
 
-  await consumeApprovalTicket(config, ticketToken, {
-    contextVersion: freshState.contextVersion,
-    actionHash,
-    label: parsedLabel,
-    featureRef,
-  });
+  if (executeRequiresTicket) {
+    await consumeApprovalTicket(config, ticketToken, {
+      contextVersion: freshState.contextVersion,
+      actionHash,
+      label: parsedLabel,
+      featureRef,
+    });
+  }
 
   if (selectedAction.type !== 'command') {
     if (options.executeStrict) {

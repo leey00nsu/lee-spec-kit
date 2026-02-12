@@ -161,7 +161,7 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
     },
     {
       titleKey: 'contextSelection.narrowByComponent',
-      command: 'npx lee-spec-kit context --repo <component>',
+      command: 'npx lee-spec-kit context --component <component>',
     },
     {
       titleKey: 'contextSelection.inspectAllCandidates',

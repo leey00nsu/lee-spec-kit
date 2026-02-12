@@ -19,18 +19,10 @@ interface ViewOptions extends ContextSelectionOptions {
   json?: boolean;
 }
 
-function resolveComponentOption(options: Pick<ViewOptions, 'repo' | 'component'>): string | undefined {
-  if (
-    options.repo &&
-    options.component &&
-    options.repo.trim().toLowerCase() !== options.component.trim().toLowerCase()
-  ) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--repo` and `--component` must reference the same value when both are provided.'
-    );
-  }
-  const component = (options.component || options.repo || '').trim().toLowerCase();
+function resolveComponentOption(
+  options: Pick<ViewOptions, 'component'>
+): string | undefined {
+  const component = (options.component || '').trim().toLowerCase();
   return component || undefined;
 }
 
@@ -39,7 +31,6 @@ export function viewCommand(program: Command): void {
     .command('view [feature-name]')
     .description('Show workflow dashboard for features')
     .option('--json', 'Output in JSON format for agents')
-    .option('--repo <repo>', 'Component name for multi projects')
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')

@@ -49,7 +49,7 @@ const I18N: Record<Lang, I18nData> = {
         '⚠️  projectRoot는 standalone 모드에서만 설정 가능합니다.',
       'config.selectRepoToUpdate': '수정할 레포지토리를 선택하세요:',
       'config.fullstackRepoRequired':
-        'Multi 프로젝트는 --repo 또는 --component로 대상 컴포넌트를 지정해야 합니다.',
+        'Multi 프로젝트는 --component로 대상 컴포넌트를 지정해야 합니다.',
       'config.projectRootSet': '✅ {repo} projectRoot 설정 완료: {path}',
       'config.projectRootSetSingle': '✅ projectRoot 설정 완료: {path}',
 
@@ -201,7 +201,6 @@ const I18N: Record<Lang, I18nData> = {
       'github.cmdIssueDescription': 'feature 문서 기반 GitHub issue 본문 생성/생성',
       'github.cmdPrDescription': 'GitHub PR 본문 생성/생성 + tasks 동기화 + merge 재시도',
       'github.optJson': '에이전트용 JSON 형식으로 출력',
-      'github.optRepo': '멀티 프로젝트 컴포넌트 이름',
       'github.optComponent': '멀티 프로젝트 컴포넌트 이름',
       'github.optIssueTitle': 'Issue 제목',
       'github.optLabels': '쉼표 구분 라벨 목록 (기본: enhancement)',
@@ -224,8 +223,6 @@ const I18N: Record<Lang, I18nData> = {
       'github.optPrMermaid': 'PR Mermaid 섹션 모드 (auto|on|off, 기본: auto)',
       'github.optPrNoSyncTasks': 'tasks.md PR URL/PR 상태 동기화를 건너뜀',
       'github.optPrCommitSync': 'tasks.md 동기화 변경을 자동 commit/push',
-      'github.invalidRepoComponentMismatch':
-        '`--repo`와 `--component`를 함께 쓸 때는 같은 값을 지정해야 합니다.',
       'github.labelsRequired': '최소 1개 라벨이 필요합니다. `--labels enhancement`를 사용하세요.',
       'github.approvalRequired':
         '{operation}은(는) 사용자 명시 승인 후에만 실행할 수 있습니다. 계획 공유 후 `--confirm OK`로 다시 실행하세요.',
@@ -366,7 +363,7 @@ const I18N: Record<Lang, I18nData> = {
         '실행 전에 제목/본문/라벨(또는 머지 계획)을 사용자에게 공유하고 명시적 승인을 받으세요.',
       'cliError.contextSelection.specifySelector': '단일 Feature selector를 명시하세요.',
       'cliError.contextSelection.narrowByComponent':
-        'multi 모드에서는 --repo(또는 --component)로 범위를 좁히세요.',
+        'multi 모드에서는 --component로 범위를 좁히세요.',
       'cliError.contextSelection.inspectAllCandidates': '먼저 전체 후보를 확인하세요.',
       'cliError.noActionOptions.refreshContext':
         '현재 상태를 보기 위해 context를 새로 조회하세요.',
@@ -585,7 +582,7 @@ const I18N: Record<Lang, I18nData> = {
         '⚠️  projectRoot can only be set in standalone mode.',
       'config.selectRepoToUpdate': 'Select a repository to update:',
       'config.fullstackRepoRequired':
-        'For multi projects, specify a target component via `--repo` or `--component`.',
+        'For multi projects, specify a target component via `--component`.',
       'config.projectRootSet': '✅ {repo} projectRoot set: {path}',
       'config.projectRootSetSingle': '✅ projectRoot set: {path}',
 
@@ -738,7 +735,6 @@ const I18N: Record<Lang, I18nData> = {
       'github.cmdPrDescription':
         'Generate/create GitHub PR body with validation, tasks PR sync, and merge retry',
       'github.optJson': 'Output in JSON format for agents',
-      'github.optRepo': 'Component name for multi projects',
       'github.optComponent': 'Component name for multi projects',
       'github.optIssueTitle': 'Issue title',
       'github.optLabels': 'Comma-separated labels (default: enhancement)',
@@ -763,8 +759,6 @@ const I18N: Record<Lang, I18nData> = {
       'github.optPrMermaid': 'PR Mermaid section mode (auto|on|off, default: auto)',
       'github.optPrNoSyncTasks': 'Do not sync PR URL/PR status into tasks.md',
       'github.optPrCommitSync': 'Commit and push tasks.md metadata sync automatically',
-      'github.invalidRepoComponentMismatch':
-        '`--repo` and `--component` must reference the same value when both are provided.',
       'github.labelsRequired': 'At least one label is required. Use `--labels enhancement`.',
       'github.approvalRequired':
         '{operation} requires explicit user approval. Re-run with `--confirm OK` after sharing the plan with the user.',
