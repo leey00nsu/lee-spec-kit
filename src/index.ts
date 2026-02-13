@@ -20,7 +20,12 @@ function shouldShowBanner(): boolean {
   const argv = process.argv.slice(2);
   const disabledByEnv = (process.env.LEE_SPEC_KIT_NO_BANNER || '').trim() === '1';
   const disabledByFlag = argv.includes('--no-banner');
-  return !disabledByEnv && !disabledByFlag;
+  const hasJsonFlag = argv.includes('--json');
+  const isNonTtyOutput = !process.stdout.isTTY;
+  if (disabledByEnv || disabledByFlag) return false;
+  // Keep machine output lean: suppress banner for JSON/non-TTY executions.
+  if (hasJsonFlag || isNonTtyOutput) return false;
+  return true;
 }
 
 function shouldCheckForUpdates(): boolean {

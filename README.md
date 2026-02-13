@@ -378,6 +378,7 @@ npx lee-spec-kit --no-banner --help
 ```
 
 또는 환경변수 `LEE_SPEC_KIT_NO_BANNER=1`로 배너 출력을 비활성화할 수 있습니다.
+비TTY 출력(예: 에이전트/파이프라인)에서는 배너가 기본적으로 출력되지 않습니다.
 
 ### 문서 진단 (Doctor)
 

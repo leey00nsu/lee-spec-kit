@@ -4800,3 +4800,12 @@ test('--no-banner hides ASCII banner in help output', async () => {
     assert.match(result.stdout, /Usage: lee-spec-kit/);
   });
 });
+
+test('help output omits ASCII banner in non-TTY mode by default', async () => {
+  await withTempDir('lsk-help-non-tty-no-banner-', async (dir) => {
+    const result = await runCli(dir, ['--help']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.doesNotMatch(result.stdout, /░██/);
+    assert.match(result.stdout, /Usage: lee-spec-kit/);
+  });
+});

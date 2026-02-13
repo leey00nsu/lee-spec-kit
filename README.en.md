@@ -353,6 +353,7 @@ npx lee-spec-kit --no-banner --help
 ```
 
 You can also disable banner output via `LEE_SPEC_KIT_NO_BANNER=1`.
+Banner output is also suppressed by default for non-TTY runs (for example, agent/pipeline execution).
 
 ### Doctor
 
