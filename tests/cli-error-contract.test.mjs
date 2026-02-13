@@ -3415,9 +3415,54 @@ test('context handles no-open state without crashing', async () => {
     const payload = JSON.parse(jsonResult.stdout.trim());
     assert.equal(payload.status, 'no_open');
     assert.equal(payload.reasonCode, 'NO_OPEN_FEATURES');
+    assert.equal(Array.isArray(payload.actionOptions), true);
+    assert.equal(payload.actionOptions.length, 0);
+    assert.equal(Array.isArray(payload.suggestionOptions), true);
+    assert.equal(payload.suggestionOptions.length >= 2, true);
+    assert.equal(payload.suggestionOptions[0].label, 'A');
+    assert.match(payload.suggestionOptions[0].command, /context --done/);
+    assert.equal(Array.isArray(payload.suggestionRequest?.labels), true);
+    assert.equal(payload.suggestionRequest.labels.includes('A'), true);
+    assert.equal(typeof payload.suggestionRequest?.finalPrompt, 'string');
+    assert.match(payload.suggestionRequest.finalPrompt, /Recommended labels now:/);
 
     const textResult = await runCli(dir, ['context']);
     assert.equal(textResult.code, 0, textResult.stderr || textResult.stdout);
+  });
+});
+
+test('context --json returns suggestion labels when no features exist', async () => {
+  await withTempDir('lsk-context-no-features-suggestions-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['context', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'no_features');
+    assert.equal(payload.reasonCode, 'NO_FEATURES');
+    assert.equal(Array.isArray(payload.actionOptions), true);
+    assert.equal(payload.actionOptions.length, 0);
+    assert.equal(Array.isArray(payload.suggestionOptions), true);
+    assert.equal(payload.suggestionOptions.length >= 1, true);
+    assert.equal(payload.suggestionOptions[0].label, 'A');
+    assert.match(payload.suggestionOptions[0].summary, /Create a new feature/i);
+    assert.match(payload.suggestionOptions[0].command, /lee-spec-kit feature <name>/);
+    assert.equal(Array.isArray(payload.suggestionRequest?.userFacingLines), true);
+    assert.equal(payload.suggestionRequest.userFacingLines.length >= 2, true);
   });
 });
 
@@ -4898,6 +4943,12 @@ test('context recommendation in single project does not mention --component', as
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'multiple_active');
     assert.doesNotMatch(payload.recommendation, /--component/);
+    assert.equal(Array.isArray(payload.suggestionOptions), true);
+    assert.equal(payload.suggestionOptions.length, 2);
+    assert.equal(payload.suggestionOptions[0].label, 'A');
+    assert.match(payload.suggestionOptions[0].command, /context <slug\|F001\|F001-slug>$/);
+    assert.equal(Array.isArray(payload.suggestionRequest?.labels), true);
+    assert.deepEqual(payload.suggestionRequest.labels, ['A', 'B']);
   });
 });
 
@@ -4932,6 +4983,13 @@ test('context recommendation with selected component does not re-suggest --compo
     assert.equal(payload.status, 'multiple_active');
     assert.match(payload.recommendation, /component "web"/);
     assert.doesNotMatch(payload.recommendation, /use --component/i);
+    assert.equal(Array.isArray(payload.suggestionOptions), true);
+    assert.equal(payload.suggestionOptions.length, 2);
+    assert.equal(payload.suggestionOptions[0].label, 'A');
+    assert.match(
+      payload.suggestionOptions[0].command,
+      /context <slug\|F001\|F001-slug> --component web$/
+    );
   });
 });
 

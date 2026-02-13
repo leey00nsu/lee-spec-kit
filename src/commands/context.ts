@@ -60,6 +60,13 @@ interface RequiredDocHint {
   command: string;
 }
 
+interface SuggestionOption {
+  label: string;
+  summary: string;
+  detail: string;
+  command: string;
+}
+
 interface ApprovalTicketRecord {
   token: string;
   sessionId: string;
@@ -356,6 +363,11 @@ function listLabels(actionOptions: ActionOption[]): string {
   return actionOptions.map((o) => o.label).join(', ');
 }
 
+function listSuggestionLabels(suggestionOptions: SuggestionOption[]): string {
+  if (suggestionOptions.length === 0) return '-';
+  return suggestionOptions.map((o) => o.label).join(', ');
+}
+
 function resolveFeatureRefForApproval(
   state: ResolvedContextState,
   featureName: string | undefined
@@ -392,6 +404,133 @@ function buildFinalApprovalPrompt(
     labels,
     example,
   });
+}
+
+function buildSuggestionFinalPrompt(
+  lang: 'ko' | 'en',
+  suggestionOptions: SuggestionOption[]
+): string {
+  if (suggestionOptions.length === 0) return '';
+  const labels = listSuggestionLabels(suggestionOptions);
+  const example = suggestionOptions[0]?.label || 'A';
+  return tr(lang, 'cli', 'context.suggestionFinalPrompt', {
+    labels,
+    example,
+  });
+}
+
+function toSuggestionLabel(index: number): string {
+  let n = index + 1;
+  let label = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+function buildSuggestionOptions(
+  lang: 'ko' | 'en',
+  state: ResolvedContextState,
+  projectType: 'single' | 'multi',
+  selectedComponent: string
+): SuggestionOption[] {
+  const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
+  const createFeatureCommand =
+    projectType === 'multi'
+      ? selectedComponent
+        ? `npx lee-spec-kit feature <name> --component ${selectedComponent}`
+        : 'npx lee-spec-kit feature <name> --component <component>'
+      : 'npx lee-spec-kit feature <name>';
+  const selectFeatureCommand =
+    projectType === 'multi'
+      ? selectedComponent
+        ? `npx lee-spec-kit context <slug|F001|F001-slug> --component ${selectedComponent}`
+        : 'npx lee-spec-kit context <slug|F001|F001-slug> --component <component>'
+      : 'npx lee-spec-kit context <slug|F001|F001-slug>';
+  const showDoneCommand = `npx lee-spec-kit context --done${componentArg}`;
+  const showAllCommand = `npx lee-spec-kit context --all${componentArg}`;
+  const showOpenCommand = `npx lee-spec-kit context${componentArg}`;
+
+  const rawSuggestions: Array<{ summary: string; command: string }> = [];
+  switch (state.status) {
+    case 'no_features':
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.createFeature'),
+        command: createFeatureCommand,
+      });
+      break;
+    case 'no_open':
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.showDone'),
+        command: showDoneCommand,
+      });
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.createFeature'),
+        command: createFeatureCommand,
+      });
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.showAll'),
+        command: showAllCommand,
+      });
+      break;
+    case 'multiple_active':
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.selectFeature'),
+        command: selectFeatureCommand,
+      });
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.showAll'),
+        command: showAllCommand,
+      });
+      break;
+    case 'no_match':
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.showOpen'),
+        command: showOpenCommand,
+      });
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.showAll'),
+        command: showAllCommand,
+      });
+      break;
+    case 'single_matched':
+    default:
+      break;
+  }
+
+  return rawSuggestions.map((item, index) => {
+    const label = toSuggestionLabel(index);
+    return {
+      label,
+      summary: item.summary,
+      detail: `${item.summary}: ${item.command}`,
+      command: item.command,
+    };
+  });
+}
+
+function printSuggestionOptions(
+  lang: 'ko' | 'en',
+  suggestionOptions: SuggestionOption[]
+): void {
+  if (suggestionOptions.length === 0) return;
+  const finalPrompt = buildSuggestionFinalPrompt(lang, suggestionOptions);
+  console.log(chalk.green(chalk.bold(`👉 ${tr(lang, 'cli', 'context.suggestionHeader')}`)));
+  suggestionOptions.forEach((option) => {
+    console.log(`   ${option.label}: ${option.summary}`);
+    console.log(
+      chalk.gray(
+        `   ↳ ${tr(lang, 'cli', 'context.suggestionCommandHint', {
+          command: option.command,
+        })}`
+      )
+    );
+  });
+  if (finalPrompt) {
+    console.log(chalk.cyan(`   ↳ ${finalPrompt}`));
+  }
 }
 
 function formatActionSummary(action: ActionOption['action']): string {
@@ -646,6 +785,13 @@ async function runContext(
   };
   const state = await resolveContextState(config, featureName, selectionOptions);
   const requiredDocs = buildRequiredDocHints(state.actionOptions);
+  const suggestionOptions = buildSuggestionOptions(
+    lang,
+    state,
+    config.projectType,
+    selectedComponent
+  );
+  const suggestionFinalPrompt = buildSuggestionFinalPrompt(lang, suggestionOptions);
 
   if (options.approve || options.execute) {
     await runApprovedOption(
@@ -693,6 +839,7 @@ async function runContext(
         state.selectionMode === 'open' ? state.readyToCloseFeatures : [],
       actions: state.actions,
       actionOptions: state.actionOptions,
+      suggestionOptions,
       primaryActionLabel: primaryAction?.label ?? null,
       primaryActionType: primaryAction?.action.type ?? null,
       primaryActionCategory: primaryAction?.action.category ?? null,
@@ -721,9 +868,9 @@ async function runContext(
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
       },
-        approvalRequest: {
-          guidance:
-            'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`.',
+      approvalRequest: {
+        guidance:
+          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`.',
         finalPrompt: finalApprovalPrompt,
         userFacingLines: [
           ...state.actionOptions.map((o) => o.approvalPrompt),
@@ -747,6 +894,22 @@ async function runContext(
           requiresUserCheck: !!o.action.requiresUserCheck,
           executeRequiresTicket: !!o.action.requiresUserCheck,
           operationType: o.action.operationType,
+        })),
+      },
+      suggestionRequest: {
+        guidance:
+          'When `actionOptions` is empty, present `suggestionOptions` as user-facing next choices. Keep command strings internal unless the user asks for executable commands.',
+        finalPrompt: suggestionFinalPrompt,
+        userFacingLines: [
+          ...suggestionOptions.map((o) => `${o.label}: ${o.summary}`),
+          suggestionFinalPrompt,
+        ].filter((line) => line.length > 0),
+        labels: suggestionOptions.map((o) => o.label),
+        options: suggestionOptions.map((o) => ({
+          label: o.label,
+          summary: o.summary,
+          detail: o.detail,
+          command: o.command,
         })),
       },
       prPolicy: {
@@ -821,6 +984,8 @@ async function runContext(
       )
     );
     console.log();
+    printSuggestionOptions(lang, suggestionOptions);
+    console.log();
     return;
   }
 
@@ -844,6 +1009,8 @@ async function runContext(
         )
       );
     }
+    console.log();
+    printSuggestionOptions(lang, suggestionOptions);
     console.log();
     return;
   }
@@ -950,6 +1117,8 @@ async function runContext(
         )
       );
     }
+    console.log();
+    printSuggestionOptions(lang, suggestionOptions);
     console.log();
     return;
   }

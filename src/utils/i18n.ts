@@ -121,6 +121,16 @@ const I18N: Record<Lang, I18nData> = {
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.finalLabelPrompt':
         '현재 선택 가능한 라벨: {labels}. 응답은 `<라벨>` 또는 `<라벨> OK` 형식으로 해주세요. (예: {example})',
+      'context.suggestionHeader': '추천 다음 선택지',
+      'context.suggestionCommandHint': '라벨 참고 명령: {command}',
+      'context.suggestionFinalPrompt':
+        '현재 추천 라벨: {labels}. 응답은 `<라벨>` 또는 `<라벨> OK` 형식으로 해주세요. (예: {example})',
+      'context.suggestion.createFeature': '새 Feature를 생성합니다',
+      'context.suggestion.showDone': '완료된 Feature 목록을 확인합니다',
+      'context.suggestion.showAll': '전체 Feature 목록을 확인합니다',
+      'context.suggestion.selectFeature':
+        '진행할 Feature를 선택해 상세 컨텍스트를 엽니다',
+      'context.suggestion.showOpen': '진행 중 Feature 목록을 확인합니다',
       'context.finalLabelCommandHint':
         '라벨을 받으면 승인 선택 실행: {command}',
       'context.finalTicketCommandHint':
@@ -684,6 +694,16 @@ const I18N: Record<Lang, I18nData> = {
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.finalLabelPrompt':
         'Available labels now: {labels}. Please reply in `<label>` or `<label> OK` format. (e.g. {example})',
+      'context.suggestionHeader': 'Suggested Next Options',
+      'context.suggestionCommandHint': 'Reference command: {command}',
+      'context.suggestionFinalPrompt':
+        'Recommended labels now: {labels}. Please reply in `<label>` or `<label> OK` format. (e.g. {example})',
+      'context.suggestion.createFeature': 'Create a new feature',
+      'context.suggestion.showDone': 'Show completed features',
+      'context.suggestion.showAll': 'Show all features',
+      'context.suggestion.selectFeature':
+        'Select a feature and open detailed context',
+      'context.suggestion.showOpen': 'Show open features',
       'context.finalLabelCommandHint':
         'When a label is provided, run approval selection: {command}',
       'context.finalTicketCommandHint':
