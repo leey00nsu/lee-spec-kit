@@ -43,7 +43,18 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 데이터 구조/파일 구조/CLI 출력 규칙이 바뀌었다
 - “나중에 보면 헷갈릴 것 같은” 결정이 있었다
 
-작성 형식은 Feature의 `decisions.md` 템플릿을 따르세요. (Context/Options/Decision/Rationale/Consequences)
+작성 시점 규칙:
+
+- 태스크를 `[DOING]`으로 전환할 때 `Context/Constraints`와 `Trace(초기 가설)`를 1~3줄로 먼저 기록합니다.
+- 태스크를 `[DONE]`으로 전환하기 전에 `Options/Decision/Rationale`를 최종화하고 `Trace(확정 근거)`를 보강합니다.
+- PR 머지 후 `Trace(머지 후 확인)`에 실제 결과/영향을 1~2줄로 추가합니다.
+
+증거 링크 규칙:
+
+- 모든 ADR에는 최소 1개 이상의 Evidence 링크(커밋/PR/테스트 로그 중 하나 이상)를 남깁니다.
+- 가능하면 `Commit`, `PR`, `Test/Log` 3가지를 모두 채우고, 미해당 항목은 `N/A`로 명시합니다.
+
+최종 형식은 Feature의 `decisions.md` 템플릿을 따릅니다. (Context/Constraints/Options/Decision/Rationale/Trace/Evidence/Consequences)
 
 #### 3-2) 태스크/체크리스트 업데이트 + 커밋
 

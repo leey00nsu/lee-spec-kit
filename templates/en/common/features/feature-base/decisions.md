@@ -7,12 +7,30 @@ Record technical decisions and their rationale.
 
 > Format: `D{number}: {Decision Title} ({YYYY-MM-DD})`
 
+Recording principles:
+
+- Every ADR must capture both **Decision (what was chosen)** and **Trace (how it was evaluated and validated)**.
+- Use fixed timing checkpoints:
+  - Task start (`[TODO] -> [DOING]`): add 1-3 lines for `Context/Constraints` and `Trace (initial hypothesis)`
+  - Right before task done (`[DOING] -> [DONE]`): finalize `Options/Decision/Rationale` and enrich `Trace`
+  - After PR merge: append 1-2 lines in `Trace (post-merge check)` with actual outcome/impact
+- Every ADR must include at least one **Evidence link** (commit, PR, or test/log evidence).
+
 ---
 
 ## D001: {Decision Title} ({YYYY-MM-DD})
 
 - **Context**: Problem situation or background
+- **Constraints**: Constraints (time/technical/operations/compatibility)
 - **Options**: Alternatives considered
 - **Decision**: Final choice
 - **Rationale**: Reason for choice
+- **Trace**:
+  - **At DOING start**: Initial reasoning/hypothesis
+  - **Before DONE**: Finalized reasoning behind the selected option
+  - **Post-merge check**: Actual outcome/impact observed
+- **Evidence**:
+  - **Commit**: Commit hash or link
+  - **PR**: PR link
+  - **Test/Log**: Test output/log/screenshot path
 - **Consequences**: Results and impact (optional)

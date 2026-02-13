@@ -65,4 +65,4 @@ npx lee-spec-kit status --write
 | `spec.md`      | **What and Why**          | Feature definition  |
 | `plan.md`      | **How** (technical)       | After spec approval |
 | `tasks.md`     | Specific work items       | After plan approval |
-| `decisions.md` | Technical decisions (ADR) | During development  |
+| `decisions.md` | Technical decisions + reasoning trace + evidence links (ADR) | During development (DOING start / before DONE / post-merge) |
