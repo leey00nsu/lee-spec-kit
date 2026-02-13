@@ -38,6 +38,7 @@
 
 ```markdown
 - [TODO][P1] T-F{number}-01 {Task Title}
+  - Date: YYYY-MM-DD
   - Acceptance:
     - (verification condition)
   - Checklist:
@@ -57,8 +58,8 @@
 ### Test Run Log (Latest by Command)
 
 > Keep one row per command. If you rerun the same command, update that row instead of appending.
-> Use `YYYY-MM-DD HH-MM` for `Last Run` (local time).
+> Use `YYYY-MM-DD` for `Last Run` (local date).
 
-| Command | Last Run (Local, YYYY-MM-DD HH-MM) | Result |
+| Command | Last Run (Local, YYYY-MM-DD) | Result |
 | --- | --- | --- |
 | `{test command you ran}` | `-` | `{PASS/FAIL summary}` |

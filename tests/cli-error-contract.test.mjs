@@ -1733,7 +1733,7 @@ test('local workflow templates reduce issue/pr focused fields', async () => {
   });
 });
 
-test('feature keeps YYYY-MM-DD HH-MM placeholder in test log format text', async () => {
+test('feature keeps YYYY-MM-DD placeholder in test log format text', async () => {
   await withTempDir('lsk-feature-testlog-date-format-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -1758,8 +1758,8 @@ test('feature keeps YYYY-MM-DD HH-MM placeholder in test log format text', async
       path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
       'utf-8'
     );
-    assert.match(featureTasks, /YYYY-MM-DD HH-MM/);
-    assert.doesNotMatch(featureTasks, /\b20\d{2}-\d{2}-\d{2}\s+HH-MM\b/);
+    assert.match(featureTasks, /YYYY-MM-DD/);
+    assert.doesNotMatch(featureTasks, /YYYY-MM-DD HH-MM/);
   });
 });
 
