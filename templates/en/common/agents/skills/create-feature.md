@@ -26,6 +26,7 @@ For gated actions, proceed only after the user replies in **`<label>` or `<label
 - If the CLI asks for writing a file, write that file and follow the format.
 - If the CLI prints a command, **copy/paste and run it exactly**. (It may include repo-safe `git -C ...` commands and scopes like `project` vs `docs`.)
 - When requesting approval, present labels as `A: ...` using the exact CLI detail/cmd text. Do not paraphrase command options.
+- For approved command options, default to one-shot execution via `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` to avoid session mismatch.
 
 ### Step 3: Repeat
 

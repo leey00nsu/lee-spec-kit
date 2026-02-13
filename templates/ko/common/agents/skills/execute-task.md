@@ -25,6 +25,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 태스크 상태 전환/승인 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다. (예: `[TODO]→[DOING]`, `[DOING]→[DONE]` 시점의 OK)
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷(매 응답 말미의 상태/라벨 표시 포함)은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다.
+- 승인된 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
 
 ### 3단계: 기록 및 반복 (Record & Loop)
 

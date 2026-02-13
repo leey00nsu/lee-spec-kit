@@ -23,6 +23,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - Treat the task state/approval rules in `tasks.md` **"Task Rules"** as SSOT (e.g. when OK is required for `[TODO]→[DOING]`, `[DOING]→[DONE]`).
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow user-facing response format (including the final status/label block in every reply) from `agents.md` **"Label Response Contract (SSOT)"**.
+- For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
 
 ### Step 3: Update tasks.md (only what you did)
 

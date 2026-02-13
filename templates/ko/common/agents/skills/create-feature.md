@@ -27,6 +27,7 @@ CLI가 출력하는 **`👉 Next Options (Atomic)` 목록에서 단 하나의 �
 - CLI가 이슈 생성을 지시하면 이슈를 생성합니다.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 승인 요청 시 라벨 옵션은 `A: ...` 형식으로 **CLI가 출력한 원문(detail/cmd) 그대로** 공유합니다. 요약/의역하지 않습니다.
+- 승인된 command 옵션을 실행할 때는 세션 불일치 방지를 위해 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용합니다.
 
 ### 3단계: 반복
 

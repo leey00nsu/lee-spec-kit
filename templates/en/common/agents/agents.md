@@ -23,7 +23,7 @@ This document covers **policy only**.
 Approval flow:
 1. Share details first
 2. Wait for explicit approval (OK)
-3. Execute after approval
+3. Execute after approval (for command execution, default to `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`)
 
 Prohibited:
 - Proceeding without user response
@@ -38,6 +38,7 @@ Prohibited:
 - Even when the user asks something else, append the same label block at the end if executable labels exist.
 - If no executable labels exist, print `Available labels: none` and guide re-check with `npx lee-spec-kit context`.
 - If user input does not contain a valid label, do not execute; request label selection again.
+- For approved command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
 
 Output format:
 

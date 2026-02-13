@@ -23,7 +23,7 @@
 확인 절차:
 1. 작업 내용을 먼저 공유
 2. 명시적 승인(OK) 대기
-3. 승인 후 실행
+3. 승인 후 실행 (명령 실행은 기본적으로 `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`를 사용)
 
 금지:
 - 사용자 응답 없이 임의 진행
@@ -38,6 +38,7 @@
 - 사용자가 다른 질문을 하더라도, 실행 가능한 라벨이 있으면 응답 마지막에 동일 블록을 다시 표시합니다.
 - 실행 가능한 라벨이 없으면 `선택 가능: 없음` + `npx lee-spec-kit context` 재확인을 안내합니다.
 - 사용자 입력에 유효 라벨이 없으면 실행하지 말고 라벨 선택을 다시 요청합니다.
+- 승인된 command 옵션 실행은 `flow --approve <LABEL> --execute` 1회 호출을 기본으로 하며, `context --approve`와 `context --execute --ticket`를 턴/세션 사이로 분리하지 않습니다.
 
 출력 형식:
 
