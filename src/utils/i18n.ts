@@ -473,6 +473,10 @@ const I18N: Record<Lang, I18nData> = {
         'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 이번 태스크에서 수정한 파일만 선택해 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "feat(#{issueNumber}): {commitTopic}")',
       projectCommitUpdate:
         'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 이번 태스크에서 수정한 파일만 선택해 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "feat({folderName}): {commitTopic}")',
+      reviewFixCommitIssueGuidance:
+        'PR 리뷰 수정 커밋을 진행하세요. 커밋 메시지는 해결한 리뷰 지적사항을 요약해야 하며, 태스크 제목을 재사용하지 마세요. 예: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 리뷰 수정 반영 파일만 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "fix(#{issueNumber}): <review-fix-summary>")` (`<review-fix-summary>`는 이번 커밋에서 실제로 해결한 리뷰 항목으로 직접 작성)',
+      reviewFixCommitGuidance:
+        'PR 리뷰 수정 커밋을 진행하세요. 커밋 메시지는 해결한 리뷰 지적사항을 요약해야 하며, 태스크 제목을 재사용하지 마세요. 예: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 리뷰 수정 반영 파일만 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "fix(review): <review-fix-summary>")` (`<review-fix-summary>`는 이번 커밋에서 실제로 해결한 리뷰 항목으로 직접 작성)',
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -526,7 +530,7 @@ const I18N: Record<Lang, I18nData> = {
       prFillStatus:
         'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
       prResolveReview:
-        '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+        '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prRequestReview:
         '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 설정/유지하세요.',
       featureDone:
@@ -1050,6 +1054,10 @@ const I18N: Record<Lang, I18nData> = {
         'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files changed in this task with git add [files], then run again." && exit 1 || git commit -m "feat(#{issueNumber}): {commitTopic}")',
       projectCommitUpdate:
         'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files changed in this task with git add [files], then run again." && exit 1 || git commit -m "feat({folderName}): {commitTopic}")',
+      reviewFixCommitIssueGuidance:
+        'Commit PR review fixes. The commit message must summarize review comments resolved in this commit, not reuse a task title. Example: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files that implement review fixes with git add [files], then run again." && exit 1 || git commit -m "fix(#{issueNumber}): <review-fix-summary>")` (replace `<review-fix-summary>` with what this commit actually resolves).',
+      reviewFixCommitGuidance:
+        'Commit PR review fixes. The commit message must summarize review comments resolved in this commit, not reuse a task title. Example: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files that implement review fixes with git add [files], then run again." && exit 1 || git commit -m "fix(review): <review-fix-summary>")` (replace `<review-fix-summary>` with what this commit actually resolves).',
       standaloneNeedsProjectRoot:
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:
@@ -1103,7 +1111,7 @@ const I18N: Record<Lang, I18nData> = {
       prFillStatus:
         'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
       prResolveReview:
-        'Keep PR Status as Review while addressing comments. Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
+        'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prRequestReview: 'Request review and set/keep PR Status as Review.',
       featureDone:
         'Workflow requirements and all tasks/completion criteria are satisfied. This feature is done.',

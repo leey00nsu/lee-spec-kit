@@ -2798,6 +2798,91 @@ test('context code_review step keeps Review status and guides merge command', as
   });
 });
 
+test('context uses review-fix commit guidance when project is dirty during PR review', async () => {
+  await withTempDir('lsk-context-code-review-dirty-commit-guidance-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare review step with dirty project',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(path.join(dir, 'app.js'), "console.log('review fix');\n", 'utf-8');
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 11);
+    assert.equal(payload.actionOptions[0].action.type, 'instruction');
+    assert.equal(payload.actionOptions[0].action.category, 'review_fix_commit');
+    assert.match(payload.actionOptions[0].action.message, /review fixes/i);
+    assert.match(payload.actionOptions[0].action.message, /fix\(review\): <review-fix-summary>/i);
+    assert.doesNotMatch(payload.actionOptions[0].action.message, /feat\(/i);
+    assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-pr'), true);
+    assert.equal(payload.requiredDocs.some((doc) => doc.id === 'git-workflow'), true);
+  });
+});
+
 test('status --json marks workflow completion as WORKFLOW_DONE', async () => {
   await withTempDir('lsk-status-workflow-done-', async (dir) => {
     const initResult = await runCli(dir, [

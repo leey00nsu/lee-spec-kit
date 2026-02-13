@@ -70,6 +70,7 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
   'docs_commit',
   'branch_create',
   'task_execute',
+  'review_fix_commit',
 ]);
 
 const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
@@ -131,6 +132,7 @@ function getActionSummary(action: ContextAction): string {
   if (action.category === 'pr_status_update') return 'Update PR status';
   if (action.category === 'code_review') return 'Process code review feedback';
   if (action.category === 'task_execute') return 'Proceed with task execution';
+  if (action.category === 'review_fix_commit') return 'Commit review feedback fixes';
   if (action.category === 'feature_done') return 'Feature is complete';
   if (action.category === 'spec_approve') return 'Request spec approval';
   if (action.category === 'plan_approve') return 'Request plan approval';

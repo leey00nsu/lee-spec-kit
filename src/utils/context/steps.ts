@@ -34,6 +34,19 @@ function isPrMetadataConfigured(feature: FeatureState): boolean {
   return feature.docs.prFieldExists && feature.docs.prStatusFieldExists;
 }
 
+function isReviewIterationPhase(
+  feature: FeatureState,
+  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>
+): boolean {
+  return (
+    workflowPolicy.requirePr &&
+    workflowPolicy.requireReview &&
+    isPrMetadataConfigured(feature) &&
+    !!feature.pr.link &&
+    feature.pr.status === 'Review'
+  );
+}
+
 function isPrePrReviewSatisfied(
   feature: FeatureState,
   prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
@@ -621,12 +634,40 @@ export function getStepDefinitions(
               ];
             }
 
-            if (f.git.projectHasUncommittedChanges) {
+          if (f.git.projectHasUncommittedChanges) {
+            if (isReviewIterationPhase(f, workflowPolicy)) {
               if (!f.git.projectGitCwd) {
                 return [
                   {
                     type: 'instruction',
-                    category: 'task_execute',
+                    category: 'review_fix_commit',
+                    message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+                  },
+                ];
+              }
+
+              return [
+                {
+                  type: 'instruction',
+                  category: 'review_fix_commit',
+                  requiresUserCheck: true,
+                  message: f.issueNumber
+                    ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
+                        projectGitCwd: f.git.projectGitCwd,
+                        issueNumber: f.issueNumber,
+                      })
+                    : tr(lang, 'messages', 'reviewFixCommitGuidance', {
+                        projectGitCwd: f.git.projectGitCwd,
+                      }),
+                },
+              ];
+            }
+
+            if (!f.git.projectGitCwd) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'task_execute',
                     message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
                   },
                 ];
@@ -842,6 +883,33 @@ export function getStepDefinitions(
                       docsGitCwd: f.git.docsGitCwd,
                       featurePath: f.docs.featurePathFromDocs,
                       folderName: f.folderName,
+                    }),
+              },
+            ];
+          }
+
+          if (isReviewIterationPhase(f, workflowPolicy)) {
+            if (!f.git.projectGitCwd) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'review_fix_commit',
+                  message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+                },
+              ];
+            }
+            return [
+              {
+                type: 'instruction',
+                category: 'review_fix_commit',
+                requiresUserCheck: true,
+                message: f.issueNumber
+                  ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
+                      projectGitCwd: f.git.projectGitCwd,
+                      issueNumber: f.issueNumber,
+                    })
+                  : tr(lang, 'messages', 'reviewFixCommitGuidance', {
+                      projectGitCwd: f.git.projectGitCwd,
                     }),
               },
             ];

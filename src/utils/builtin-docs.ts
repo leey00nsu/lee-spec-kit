@@ -102,6 +102,7 @@ const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
   tasks_write: ['agents', 'execute-task'],
   tasks_approve: ['execute-task'],
   task_execute: ['execute-task', 'git-workflow'],
+  review_fix_commit: ['create-pr', 'git-workflow'],
   docs_commit: ['git-workflow'],
   branch_create: ['git-workflow'],
   issue_create: ['create-issue', 'issue-template', 'git-workflow'],

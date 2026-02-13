@@ -16,6 +16,7 @@ export type ActionCategory =
   | 'issue_create'
   | 'branch_create'
   | 'task_execute'
+  | 'review_fix_commit'
   | 'pr_create'
   | 'pr_metadata_migrate'
   | 'pre_pr_review'
