@@ -288,6 +288,7 @@ async function backfillMissingConfigDefaults(
   }
   setIfMissing(prePrReview, 'fallback', 'builtin-checklist', 'workflow.prePrReview.fallback');
   setIfMissing(prePrReview, 'blockOnFindings', true, 'workflow.prePrReview.blockOnFindings');
+  setIfMissing(prePrReview, 'minorPolicy', 'warn', 'workflow.prePrReview.minorPolicy');
 
   if (!isPlainObject(raw.pr)) {
     raw.pr = {};

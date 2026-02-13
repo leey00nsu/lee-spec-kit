@@ -744,7 +744,10 @@ async function runInit(options: InitOptions): Promise<void> {
           mode: workflowMode,
           codeDirtyScope: 'auto',
           taskCommitGate: 'strict',
-          prePrReview: { skills: ['code-review-excellence'] },
+          prePrReview: {
+            skills: ['code-review-excellence'],
+            minorPolicy: 'warn',
+          },
         },
         pr: {
           screenshots: { upload: false },

@@ -136,6 +136,12 @@ const I18N: Record<Lang, I18nData> = {
       'context.list.recordPrLink': 'PR 링크 기록',
       'context.list.addPrePrReviewField': 'Pre-PR Review 필드 추가',
       'context.list.completePrePrReview': 'Pre-PR 리뷰 완료 처리',
+      'context.list.addPrePrFindings': 'Pre-PR Findings 필드/값 보완',
+      'context.list.addPrePrEvidence': 'Pre-PR Evidence 근거 추가',
+      'context.list.resolvePrePrMajorFindings':
+        'Pre-PR 주요 Findings 해소 필요 ({count}건)',
+      'context.list.resolvePrePrMinorFindings':
+        'Pre-PR minor Findings 해소 필요 ({count}건)',
       'context.list.setPrStatus': 'PR 상태 설정',
       'context.list.prStatusToApproved': 'PR 머지 필요 (현재 PR 상태: {status} → Approved)',
       'context.list.approveSpec': 'spec 승인 필요',
@@ -497,12 +503,24 @@ const I18N: Record<Lang, I18nData> = {
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prePrReviewFieldMissing:
         'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
+      prePrReviewFindingsMissing:
+        'tasks.md에 `PR 전 리뷰 Findings` 필드가 없거나 값 형식이 잘못되었습니다. `- **PR 전 리뷰 Findings**: major=0, minor=0` 형식으로 기록하세요. (확인 필요)',
+      prePrReviewEvidenceMissing:
+        'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 placeholder입니다. 리뷰 근거(문서 경로/링크/로그)를 채우세요. (확인 필요)',
+      prePrReviewMajorBlocked:
+        'Pre-PR 주요 Findings가 {count}건으로 기록되었습니다. `blockOnFindings=true` 정책에서는 주요 이슈 해결/합의 전 PR 생성으로 진행할 수 없습니다.',
+      prePrReviewMinorBlocked:
+        'Pre-PR minor Findings가 {count}건으로 기록되었습니다. `minorPolicy=block` 정책에서는 minor 이슈 정리/합의 전 PR 생성으로 진행할 수 없습니다.',
       prePrReviewRun:
-        'PR 생성 전 사전 코드리뷰를 진행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용). 스킬을 쓸 수 없으면 `{fallback}` 정책으로 진행하고 `PR 전 리뷰`를 Done으로 업데이트하세요. Findings 정책: {findingsPolicy}',
+        'PR 생성 전 사전 코드리뷰를 진행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용). 스킬을 쓸 수 없으면 `{fallback}` 정책으로 진행하고 `PR 전 리뷰`를 Done으로 업데이트하세요. Major 정책: {findingsPolicy}. Minor 정책: {minorFindingsPolicy}',
       prePrReviewFindingsBlock:
         '중요 이슈는 수정/합의 후에만 PR 생성',
       prePrReviewFindingsWarn:
         '리스크를 공유하면 PR 생성 진행 가능',
+      prePrReviewMinorFindingsBlock:
+        'minor 이슈도 정리/합의 후에만 PR 생성',
+      prePrReviewMinorFindingsWarn:
+        'minor 이슈는 기록/공유 후 PR 생성 진행 가능',
       prCreate:
         'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
       prFillStatus:
@@ -533,6 +551,10 @@ const I18N: Record<Lang, I18nData> = {
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       legacyTasksPrePrReviewField:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰` 필드를 추가하세요. (`- **PR 전 리뷰**: Pending | Done`)',
+      legacyTasksPrePrFindingsField:
+        '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Findings` 필드를 추가하세요. (`- **PR 전 리뷰 Findings**: major=0, minor=0`)',
+      legacyTasksPrePrEvidenceField:
+        '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Evidence` 필드를 추가하세요.',
       workflowSpecNotApproved:
         '완료 상태이지만 spec.md 상태가 Approved가 아닙니다. (spec.md의 상태를 Approved로 업데이트하세요.)',
       workflowPlanNotApproved:
@@ -551,6 +573,14 @@ const I18N: Record<Lang, I18nData> = {
         '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
       workflowPrePrReviewNotDone:
         '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
+      workflowPrePrFindingsMissing:
+        '완료 상태이지만 `PR 전 리뷰 Findings`가 없거나 형식이 올바르지 않습니다. (`major=0, minor=0` 형식)',
+      workflowPrePrEvidenceMissing:
+        '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있습니다. (리뷰 근거를 기록하세요.)',
+      workflowPrePrFindingsBlocked:
+        '완료 상태이지만 Pre-PR 주요 Findings가 {count}건 남아 있습니다. (`blockOnFindings=true` 정책)',
+      workflowPrePrMinorFindingsBlocked:
+        '완료 상태이지만 Pre-PR minor Findings가 {count}건 남아 있습니다. (`minorPolicy=block` 정책)',
     },
   },
   en: {
@@ -665,6 +695,12 @@ const I18N: Record<Lang, I18nData> = {
       'context.list.recordPrLink': 'Record PR link',
       'context.list.addPrePrReviewField': 'Add Pre-PR Review field',
       'context.list.completePrePrReview': 'Complete Pre-PR review',
+      'context.list.addPrePrFindings': 'Add/fill Pre-PR Findings',
+      'context.list.addPrePrEvidence': 'Add Pre-PR Evidence',
+      'context.list.resolvePrePrMajorFindings':
+        'Resolve major pre-PR findings ({count})',
+      'context.list.resolvePrePrMinorFindings':
+        'Resolve minor pre-PR findings ({count})',
       'context.list.setPrStatus': 'Set PR Status',
       'context.list.prStatusToApproved': 'PR merge required (PR Status: {status} → Approved)',
       'context.list.approveSpec': 'Approve spec',
@@ -1044,12 +1080,24 @@ const I18N: Record<Lang, I18nData> = {
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prePrReviewFieldMissing:
         'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
+      prePrReviewFindingsMissing:
+        'tasks.md is missing `Pre-PR Findings` or uses an invalid format. Record it as `- **Pre-PR Findings**: major=0, minor=0`. (CHECK required)',
+      prePrReviewEvidenceMissing:
+        'tasks.md `Pre-PR Evidence` is empty or placeholder. Add concrete review evidence (doc path/link/log). (CHECK required)',
+      prePrReviewMajorBlocked:
+        'Pre-PR major findings are recorded ({count}). With `blockOnFindings=true`, PR creation is blocked until major findings are resolved/aligned.',
+      prePrReviewMinorBlocked:
+        'Pre-PR minor findings are recorded ({count}). With `minorPolicy=block`, PR creation is blocked until minor findings are resolved/aligned.',
       prePrReviewRun:
-        'Run a pre-PR code review before creating the PR. Preferred skills: {skills} (if a better installed skill fits this change, propose it first). If no skill can run, use `{fallback}` and set `Pre-PR Review` to Done in tasks.md. Findings policy: {findingsPolicy}',
+        'Run a pre-PR code review before creating the PR. Preferred skills: {skills} (if a better installed skill fits this change, propose it first). If no skill can run, use `{fallback}` and set `Pre-PR Review` to Done in tasks.md. Major policy: {findingsPolicy}. Minor policy: {minorFindingsPolicy}',
       prePrReviewFindingsBlock:
         'major findings must be fixed/aligned before PR creation',
       prePrReviewFindingsWarn:
         'you may proceed after sharing the risks',
+      prePrReviewMinorFindingsBlock:
+        'minor findings must also be fixed/aligned before PR creation',
+      prePrReviewMinorFindingsWarn:
+        'you may proceed after documenting/sharing minor risks',
       prCreate:
         'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
       prFillStatus:
@@ -1079,6 +1127,10 @@ const I18N: Record<Lang, I18nData> = {
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       legacyTasksPrePrReviewField:
         'Legacy tasks.md format detected. Add `Pre-PR Review` before PR steps. (`- **Pre-PR Review**: Pending | Done`)',
+      legacyTasksPrePrFindingsField:
+        'Legacy tasks.md format detected. Add `Pre-PR Findings` before PR steps. (`- **Pre-PR Findings**: major=0, minor=0`)',
+      legacyTasksPrePrEvidenceField:
+        'Legacy tasks.md format detected. Add `Pre-PR Evidence` before PR steps.',
       workflowSpecNotApproved:
         'Implementation is done but spec.md Status is not Approved. (Update spec.md Status to Approved.)',
       workflowPlanNotApproved:
@@ -1097,6 +1149,14 @@ const I18N: Record<Lang, I18nData> = {
         'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
       workflowPrePrReviewNotDone:
         'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
+      workflowPrePrFindingsMissing:
+        'Implementation is done but `Pre-PR Findings` is missing or invalid. (Use `major=0, minor=0` format.)',
+      workflowPrePrEvidenceMissing:
+        'Implementation is done but `Pre-PR Evidence` is empty. (Record review evidence.)',
+      workflowPrePrFindingsBlocked:
+        'Implementation is done but major pre-PR findings remain ({count}) while `blockOnFindings=true`.',
+      workflowPrePrMinorFindingsBlocked:
+        'Implementation is done but minor pre-PR findings remain ({count}) while `minorPolicy=block`.',
     },
   },
 };

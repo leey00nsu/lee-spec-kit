@@ -244,7 +244,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `primaryActionLabel`/`primaryActionType`/`primaryActionCategory`/`primaryActionOperationType`: 첫 번째 원자 액션 요약 메타데이터
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `taskCommitGatePolicy`: 태스크 커밋 게이트 정책 (`off` | `warn` | `strict`)
-- `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`, `blockOnFindings`)
+- `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`, `blockOnFindings`, `minorPolicy`)
 
 오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`)
 
@@ -520,6 +520,7 @@ npx lee-spec-kit update --force
   - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
   - `fallback` (선택): 스킬 미사용 시 폴백 정책 (기본: `"builtin-checklist"`)
   - `blockOnFindings` (선택): 주요 이슈 발견 시 PR 생성 전 해결/합의를 요구할지 여부 (기본: `true`)
+  - `minorPolicy` (선택): minor 이슈 정책 (`warn` | `block`, 기본: `warn`)
 
 예시:
 
@@ -532,7 +533,8 @@ npx lee-spec-kit update --force
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",
-      "blockOnFindings": true
+      "blockOnFindings": true,
+      "minorPolicy": "warn"
     }
   }
 }

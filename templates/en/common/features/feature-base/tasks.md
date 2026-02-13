@@ -22,6 +22,10 @@
   - Values: Review | Approved
 - **Pre-PR Review**: Pending | Done
   - Mark `Done` after pre-PR review is completed
+- **Pre-PR Findings**: major=0, minor=0
+  - Update with final findings counts from pre-PR review
+- **Pre-PR Evidence**: -
+  - Example: review note link, log path, or docs path
 
 ---
 

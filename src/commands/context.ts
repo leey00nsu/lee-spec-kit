@@ -531,6 +531,36 @@ function getListLabel(
     if (prePrReviewPolicy.enabled && f.prePrReview.status !== 'Done') {
       return tr(lang, 'cli', 'context.list.completePrePrReview');
     }
+    if (
+      prePrReviewPolicy.enabled &&
+      (!f.docs.prePrFindingsFieldExists || !f.prePrReview.findings)
+    ) {
+      return tr(lang, 'cli', 'context.list.addPrePrFindings');
+    }
+    if (
+      prePrReviewPolicy.enabled &&
+      (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided)
+    ) {
+      return tr(lang, 'cli', 'context.list.addPrePrEvidence');
+    }
+    if (
+      prePrReviewPolicy.enabled &&
+      prePrReviewPolicy.blockOnFindings &&
+      (f.prePrReview.findings?.major || 0) > 0
+    ) {
+      return tr(lang, 'cli', 'context.list.resolvePrePrMajorFindings', {
+        count: f.prePrReview.findings?.major || 0,
+      });
+    }
+    if (
+      prePrReviewPolicy.enabled &&
+      prePrReviewPolicy.minorPolicy === 'block' &&
+      (f.prePrReview.findings?.minor || 0) > 0
+    ) {
+      return tr(lang, 'cli', 'context.list.resolvePrePrMinorFindings', {
+        count: f.prePrReview.findings?.minor || 0,
+      });
+    }
     if (workflowPolicy.requirePr && !f.pr.link) {
       return tr(lang, 'cli', 'context.list.recordPrLink');
     }

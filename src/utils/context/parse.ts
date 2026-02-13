@@ -14,6 +14,7 @@ import {
   FeatureContext,
   FeatureState,
   Lang,
+  PrePrReviewFindings,
   PrePrReviewStatus,
   RepoType,
   StepDefinition,
@@ -81,6 +82,33 @@ function parsePrePrReviewStatus(
   if (/^done$/i.test(trimmed)) return 'Done';
   if (/^pending$/i.test(trimmed)) return 'Pending';
   return undefined;
+}
+
+function parsePrePrFindings(
+  value: string | undefined
+): PrePrReviewFindings | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes('|')) return undefined;
+
+  const majorMatch = trimmed.match(/\bmajor\s*[:=]\s*(\d+)\b/i);
+  const minorMatch = trimmed.match(/\bminor\s*[:=]\s*(\d+)\b/i);
+  if (!majorMatch || !minorMatch) return undefined;
+
+  const major = Number(majorMatch[1]);
+  const minor = Number(minorMatch[1]);
+  if (!Number.isInteger(major) || !Number.isInteger(minor)) return undefined;
+  if (major < 0 || minor < 0) return undefined;
+  return { major, minor };
+}
+
+function isPlaceholderReviewEvidence(value: string | undefined): boolean {
+  if (!value) return true;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  return /^(?:-|#)?\s*(?:tbd|todo|n\/a|na|none|pending|미정|없음|-)\s*$/i.test(
+    trimmed
+  );
 }
 
 function parseIssueNumber(value: string | undefined): string | undefined {
@@ -282,6 +310,46 @@ function isPrMetadataConfigured(feature: {
   return feature.docs.prFieldExists && feature.docs.prStatusFieldExists;
 }
 
+function isPrePrReviewSatisfied(
+  feature: {
+    docs: {
+      prePrReviewFieldExists: boolean;
+      prePrFindingsFieldExists: boolean;
+      prePrEvidenceFieldExists: boolean;
+    };
+    prePrReview: {
+      status?: PrePrReviewStatus;
+      findings?: PrePrReviewFindings;
+      evidenceProvided: boolean;
+    };
+  },
+  policy: ReturnType<typeof resolvePrePrReviewPolicy>
+): boolean {
+  if (!policy.enabled) return true;
+  if (!feature.docs.prePrReviewFieldExists || feature.prePrReview.status !== 'Done') {
+    return false;
+  }
+  if (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findings) {
+    return false;
+  }
+  if (
+    !feature.docs.prePrEvidenceFieldExists ||
+    !feature.prePrReview.evidenceProvided
+  ) {
+    return false;
+  }
+  if (policy.blockOnFindings && feature.prePrReview.findings.major > 0) {
+    return false;
+  }
+  if (
+    policy.minorPolicy === 'block' &&
+    feature.prePrReview.findings.minor > 0
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export async function parseFeature(
   featurePath: string,
   type: RepoType,
@@ -350,11 +418,16 @@ export async function parseFeature(
   let tasksDocStatusFieldExists = false;
   let completionChecklist: CompletionChecklistSummary | undefined;
   let prePrReviewStatus: PrePrReviewStatus | undefined;
+  let prePrFindings: PrePrReviewFindings | undefined;
+  let prePrEvidence: string | undefined;
+  let prePrEvidenceProvided = false;
   let prLink: string | undefined;
   let prStatus: DocStatus | undefined;
   let prFieldExists = false;
   let prStatusFieldExists = false;
   let prePrReviewFieldExists = false;
+  let prePrFindingsFieldExists = false;
+  let prePrEvidenceFieldExists = false;
 
   if (tasksExists) {
     const content = await fs.readFile(tasksPath, 'utf-8');
@@ -399,6 +472,27 @@ export async function parseFeature(
       'Pre-PR Review',
     ]);
     prePrReviewStatus = parsePrePrReviewStatus(prePrReviewValue);
+
+    const prePrFindingsValue = extractFirstSpecValue(content, [
+      'PR 전 리뷰 Findings',
+      'Pre-PR Findings',
+    ]);
+    prePrFindingsFieldExists = hasAnySpecKey(content, [
+      'PR 전 리뷰 Findings',
+      'Pre-PR Findings',
+    ]);
+    prePrFindings = parsePrePrFindings(prePrFindingsValue);
+
+    const prePrEvidenceValue = extractFirstSpecValue(content, [
+      'PR 전 리뷰 Evidence',
+      'Pre-PR Evidence',
+    ]);
+    prePrEvidenceFieldExists = hasAnySpecKey(content, [
+      'PR 전 리뷰 Evidence',
+      'Pre-PR Evidence',
+    ]);
+    prePrEvidence = prePrEvidenceValue?.trim();
+    prePrEvidenceProvided = !isPlaceholderReviewEvidence(prePrEvidenceValue);
   }
 
   const warnings: string[] = [];
@@ -518,6 +612,12 @@ export async function parseFeature(
   if (tasksExists && prePrReviewPolicy.enabled && !prePrReviewFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrReviewField'));
   }
+  if (tasksExists && prePrReviewPolicy.enabled && !prePrFindingsFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrFindingsField'));
+  }
+  if (tasksExists && prePrReviewPolicy.enabled && !prePrEvidenceFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrEvidenceField'));
+  }
   if (tasksExists && !tasksDocStatusFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksDocStatusField'));
   }
@@ -548,8 +648,21 @@ export async function parseFeature(
       (isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
         !!prLink)) &&
     (!workflowPolicy.requireReview || prStatus === 'Approved') &&
-    (!prePrReviewPolicy.enabled ||
-      (prePrReviewFieldExists && prePrReviewStatus === 'Done'));
+    isPrePrReviewSatisfied(
+      {
+        docs: {
+          prePrReviewFieldExists,
+          prePrFindingsFieldExists,
+          prePrEvidenceFieldExists,
+        },
+        prePrReview: {
+          status: prePrReviewStatus,
+          findings: prePrFindings,
+          evidenceProvided: prePrEvidenceProvided,
+        },
+      },
+      prePrReviewPolicy
+    );
 
   if (implementationDone && !workflowDone) {
     if (specStatus !== 'Approved') {
@@ -581,6 +694,25 @@ export async function parseFeature(
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewMissing'));
       } else if (prePrReviewStatus !== 'Done') {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewNotDone'));
+      } else if (!prePrFindingsFieldExists || !prePrFindings) {
+        warnings.push(tr(lang, 'warnings', 'workflowPrePrFindingsMissing'));
+      } else if (!prePrEvidenceFieldExists || !prePrEvidenceProvided) {
+        warnings.push(tr(lang, 'warnings', 'workflowPrePrEvidenceMissing'));
+      } else if (prePrReviewPolicy.blockOnFindings && prePrFindings.major > 0) {
+        warnings.push(
+          tr(lang, 'warnings', 'workflowPrePrFindingsBlocked', {
+            count: prePrFindings.major,
+          })
+        );
+      } else if (
+        prePrReviewPolicy.minorPolicy === 'block' &&
+        prePrFindings.minor > 0
+      ) {
+        warnings.push(
+          tr(lang, 'warnings', 'workflowPrePrMinorFindingsBlocked', {
+            count: prePrFindings.minor,
+          })
+        );
       }
     }
   }
@@ -606,6 +738,9 @@ export async function parseFeature(
     completionChecklist,
     prePrReview: {
       status: prePrReviewStatus,
+      findings: prePrFindings,
+      evidence: prePrEvidence,
+      evidenceProvided: prePrEvidenceProvided,
     },
     pr: { link: prLink, status: prStatus },
     git: {
@@ -629,6 +764,8 @@ export async function parseFeature(
       prFieldExists,
       prStatusFieldExists,
       prePrReviewFieldExists,
+      prePrFindingsFieldExists,
+      prePrEvidenceFieldExists,
     },
   };
 

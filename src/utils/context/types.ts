@@ -57,6 +57,11 @@ export interface CompletionChecklistSummary {
 
 export type PrePrReviewStatus = 'Pending' | 'Done';
 
+export interface PrePrReviewFindings {
+  major: number;
+  minor: number;
+}
+
 export interface FeatureState {
   id?: string;
   slug: string;
@@ -93,6 +98,9 @@ export interface FeatureState {
   completionChecklist?: CompletionChecklistSummary;
   prePrReview: {
     status?: PrePrReviewStatus;
+    findings?: PrePrReviewFindings;
+    evidence?: string;
+    evidenceProvided: boolean;
   };
   pr: {
     link?: string;
@@ -119,6 +127,8 @@ export interface FeatureState {
     prFieldExists: boolean;
     prStatusFieldExists: boolean;
     prePrReviewFieldExists: boolean;
+    prePrFindingsFieldExists: boolean;
+    prePrEvidenceFieldExists: boolean;
   };
 }
 

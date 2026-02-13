@@ -34,6 +34,38 @@ function isPrMetadataConfigured(feature: FeatureState): boolean {
   return feature.docs.prFieldExists && feature.docs.prStatusFieldExists;
 }
 
+function isPrePrReviewSatisfied(
+  feature: FeatureState,
+  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
+): boolean {
+  if (!prePrReviewPolicy.enabled) return true;
+  if (!feature.docs.prePrReviewFieldExists || feature.prePrReview.status !== 'Done') {
+    return false;
+  }
+  if (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findings) {
+    return false;
+  }
+  if (
+    !feature.docs.prePrEvidenceFieldExists ||
+    !feature.prePrReview.evidenceProvided
+  ) {
+    return false;
+  }
+  if (
+    prePrReviewPolicy.blockOnFindings &&
+    feature.prePrReview.findings.major > 0
+  ) {
+    return false;
+  }
+  if (
+    prePrReviewPolicy.minorPolicy === 'block' &&
+    feature.prePrReview.findings.minor > 0
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function isFeatureDone(
   feature: FeatureState,
   workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
@@ -53,9 +85,7 @@ function isFeatureDone(
     (!workflowPolicy.requirePr ||
       (isPrMetadataConfigured(feature) && !!feature.pr.link)) &&
     (!workflowPolicy.requireReview || feature.pr.status === 'Approved') &&
-    (!prePrReviewPolicy.enabled ||
-      (feature.docs.prePrReviewFieldExists &&
-        feature.prePrReview.status === 'Done'))
+    isPrePrReviewSatisfied(feature, prePrReviewPolicy)
   );
 }
 
@@ -67,6 +97,15 @@ function getFindingsPolicyText(lang: Lang, blockOnFindings: boolean): string {
   return blockOnFindings
     ? tr(lang, 'messages', 'prePrReviewFindingsBlock')
     : tr(lang, 'messages', 'prePrReviewFindingsWarn');
+}
+
+function getMinorFindingsPolicyText(
+  lang: Lang,
+  minorPolicy: ReturnType<typeof resolvePrePrReviewPolicy>['minorPolicy']
+): string {
+  return minorPolicy === 'block'
+    ? tr(lang, 'messages', 'prePrReviewMinorFindingsBlock')
+    : tr(lang, 'messages', 'prePrReviewMinorFindingsWarn');
 }
 
 function normalizeCommitTopicText(value: string): string {
@@ -846,9 +885,7 @@ export function getStepDefinitions(
       step: 12,
       name: tr(lang, 'steps', 'prePrReview'),
       checklist: {
-        done: (f) =>
-          !prePrReviewPolicy.enabled ||
-          (f.docs.prePrReviewFieldExists && f.prePrReview.status === 'Done'),
+        done: (f) => isPrePrReviewSatisfied(f, prePrReviewPolicy),
       },
       current: {
         when: (f) =>
@@ -861,7 +898,7 @@ export function getStepDefinitions(
           !f.git.docsHasUncommittedChanges &&
           !f.git.projectHasUncommittedChanges &&
           (!isPrMetadataConfigured(f) || !f.pr.link) &&
-          (!f.docs.prePrReviewFieldExists || f.prePrReview.status !== 'Done'),
+          !isPrePrReviewSatisfied(f, prePrReviewPolicy),
         actions: (f) => {
           if (!prePrReviewPolicy.enabled) return [];
           if (!f.docs.prePrReviewFieldExists) {
@@ -871,6 +908,98 @@ export function getStepDefinitions(
                 category: 'pr_metadata_migrate',
                 requiresUserCheck: true,
                 message: tr(lang, 'messages', 'prePrReviewFieldMissing'),
+              },
+            ];
+          }
+          if (f.prePrReview.status !== 'Done') {
+            if (!prePrReviewPolicy.skills.length) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'pre_pr_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prePrReviewRun', {
+                    skills: 'code-review-excellence',
+                    fallback: prePrReviewPolicy.fallback,
+                    findingsPolicy: getFindingsPolicyText(
+                      lang,
+                      prePrReviewPolicy.blockOnFindings
+                    ),
+                    minorFindingsPolicy: getMinorFindingsPolicyText(
+                      lang,
+                      prePrReviewPolicy.minorPolicy
+                    ),
+                  }),
+                },
+              ];
+            }
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewRun', {
+                  skills: formatSkillList(prePrReviewPolicy.skills),
+                  fallback: prePrReviewPolicy.fallback,
+                  findingsPolicy: getFindingsPolicyText(
+                    lang,
+                    prePrReviewPolicy.blockOnFindings
+                  ),
+                  minorFindingsPolicy: getMinorFindingsPolicyText(
+                    lang,
+                    prePrReviewPolicy.minorPolicy
+                  ),
+                }),
+              },
+            ];
+          }
+          if (!f.docs.prePrFindingsFieldExists || !f.prePrReview.findings) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewFindingsMissing'),
+              },
+            ];
+          }
+          if (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewEvidenceMissing'),
+              },
+            ];
+          }
+          if (
+            prePrReviewPolicy.blockOnFindings &&
+            f.prePrReview.findings.major > 0
+          ) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewMajorBlocked', {
+                  count: f.prePrReview.findings.major,
+                }),
+              },
+            ];
+          }
+          if (
+            prePrReviewPolicy.minorPolicy === 'block' &&
+            f.prePrReview.findings.minor > 0
+          ) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewMinorBlocked', {
+                  count: f.prePrReview.findings.minor,
+                }),
               },
             ];
           }
@@ -887,6 +1016,10 @@ export function getStepDefinitions(
                     lang,
                     prePrReviewPolicy.blockOnFindings
                   ),
+                  minorFindingsPolicy: getMinorFindingsPolicyText(
+                    lang,
+                    prePrReviewPolicy.minorPolicy
+                  ),
                 }),
               },
             ];
@@ -902,6 +1035,10 @@ export function getStepDefinitions(
                 findingsPolicy: getFindingsPolicyText(
                   lang,
                   prePrReviewPolicy.blockOnFindings
+                ),
+                minorFindingsPolicy: getMinorFindingsPolicyText(
+                  lang,
+                  prePrReviewPolicy.minorPolicy
                 ),
               }),
             },

@@ -22,6 +22,10 @@
   - 값: Review | Approved
 - **PR 전 리뷰**: Pending | Done
   - 사전 코드리뷰 완료 후 `Done`으로 변경
+- **PR 전 리뷰 Findings**: major=0, minor=0
+  - 사전 리뷰 최종 결과에 맞게 major/minor 건수를 갱신
+- **PR 전 리뷰 Evidence**: -
+  - 예: 리뷰 노트 링크, 로그 경로, 문서 경로
 
 ---
 
