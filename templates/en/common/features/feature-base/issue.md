@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- **Status**: Draft | Ready | Opened
+- **Status**: Draft | Ready
 - **Issue Number**: #{issue-number}
 - **Title**: {feature-name}
 - **Labels**: enhancement

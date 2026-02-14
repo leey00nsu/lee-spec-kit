@@ -12,7 +12,7 @@
 
 ## GitHub Issue
 
-- **Doc Status**: Review | Approved
+- **Doc Status**: Draft | Review | Approved
 - **Repo**: {{projectName}}-{component}
 - **Issue**: #{issue-number}
 - **Branch**: `feat/{issue-number}-{feature-name}`

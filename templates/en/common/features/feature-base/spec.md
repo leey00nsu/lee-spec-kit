@@ -11,7 +11,7 @@
 - **Target Repo**: {{projectName}}-{component}
 - **Issue Number**: #{issue-number}
 - **Created**: {YYYY-MM-DD}
-- **Status**: Review | Approved
+- **Status**: Draft | Review | Approved
 
 ---
 

@@ -16,6 +16,7 @@ import {
   Lang,
   PrePrReviewFindings,
   PrePrReviewStatus,
+  PrReviewStatus,
   RepoType,
   StepDefinition,
   TaskRef,
@@ -66,11 +67,11 @@ function parseDocStatus(value: string | undefined): DocStatus | undefined {
   const trimmed = value.trim();
   if (trimmed.includes('|')) return undefined;
 
-  const match = trimmed.match(/\b(Draft|Review|Approved)\b/i);
+  const match = trimmed.match(/\b(Draft|Review|In[ -_]?Review|Approved)\b/i);
   if (!match) return undefined;
-  const normalized = match[1].toLowerCase();
+  const normalized = match[1].toLowerCase().replace(/[\s_-]/g, '');
   if (normalized === 'draft') return 'Draft';
-  if (normalized === 'review') return 'Review';
+  if (normalized === 'review' || normalized === 'inreview') return 'Review';
   return 'Approved';
 }
 
@@ -79,13 +80,34 @@ function parseWorkflowDocStatus(value: string | undefined): WorkflowDocStatus | 
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('|')) return undefined;
 
-  const match = trimmed.match(/\b(Draft|Ready|Opened|Merged)\b/i);
+  const match = trimmed.match(/\b(Draft|Ready|Opened|Open|Merged)\b/i);
   if (!match) return undefined;
   const normalized = match[1].toLowerCase();
   if (normalized === 'draft') return 'Draft';
-  if (normalized === 'ready') return 'Ready';
-  if (normalized === 'opened') return 'Opened';
-  return 'Merged';
+  // Backward compatibility:
+  // Legacy workflow docs used Opened/Merged, but current branching treats
+  // "ready to execute/create" as a single state.
+  if (
+    normalized === 'ready' ||
+    normalized === 'opened' ||
+    normalized === 'open' ||
+    normalized === 'merged'
+  ) {
+    return 'Ready';
+  }
+  return undefined;
+}
+
+function parsePrReviewStatus(value: string | undefined): PrReviewStatus | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes('|')) return undefined;
+
+  const match = trimmed.match(/\b(Review|Approved)\b/i);
+  if (!match) return undefined;
+  const normalized = match[1].toLowerCase();
+  if (normalized === 'review') return 'Review';
+  return 'Approved';
 }
 
 function parsePrePrReviewStatus(
@@ -94,7 +116,7 @@ function parsePrePrReviewStatus(
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('|')) return undefined;
-  if (/^done$/i.test(trimmed)) return 'Done';
+  if (/^(done|complete|completed)$/i.test(trimmed)) return 'Done';
   if (/^pending$/i.test(trimmed)) return 'Pending';
   return undefined;
 }
@@ -439,7 +461,7 @@ export async function parseFeature(
   let prePrEvidence: string | undefined;
   let prePrEvidenceProvided = false;
   let prLink: string | undefined;
-  let prStatus: DocStatus | undefined;
+  let prStatus: PrReviewStatus | undefined;
   let prFieldExists = false;
   let prStatusFieldExists = false;
   let issueDocStatus: WorkflowDocStatus | undefined;
@@ -485,7 +507,7 @@ export async function parseFeature(
 
     const prStatusValue = extractFirstSpecValue(content, ['PR 상태', 'PR Status']);
     prStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
-    prStatus = parseDocStatus(prStatusValue);
+    prStatus = parsePrReviewStatus(prStatusValue);
 
     const prePrReviewValue = extractFirstSpecValue(content, [
       'PR 전 리뷰',
@@ -561,7 +583,7 @@ export async function parseFeature(
       'PR Status',
     ]);
     prDocReviewStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
-    const parsedPrStatus = parseDocStatus(prReviewStatusValue);
+    const parsedPrStatus = parsePrReviewStatus(prReviewStatusValue);
     if (parsedPrStatus) {
       prStatus = parsedPrStatus;
     }

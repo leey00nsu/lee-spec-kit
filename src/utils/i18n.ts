@@ -95,9 +95,9 @@ const I18N: Record<Lang, I18nData> = {
         'plan.md의 Status(상태)가 설정되지 않았습니다. (템플릿 그대로일 수 있음)',
       'doctor.issue.tasksEmpty': 'tasks.md에 태스크가 없습니다.',
       'doctor.issue.tasksDocStatusUnset':
-        'tasks.md의 문서 상태(Doc Status)가 설정되지 않았습니다. (Review/Approved 중 하나로 설정하세요.)',
+        'tasks.md의 문서 상태(Doc Status)가 설정되지 않았습니다. (Draft/Review/Approved 중 하나로 설정하세요.)',
       'doctor.issue.tasksDocStatusMissing':
-        'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: Review | Approved`를 추가하세요.',
+        'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: Draft | Review | Approved`를 추가하세요.',
       'doctor.issue.duplicateFeatureId': '중복 Feature ID 감지: {id} ({count}개)',
       'doctor.issue.missingFeatureId':
         'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',
@@ -578,7 +578,7 @@ const I18N: Record<Lang, I18nData> = {
       projectUncommittedChanges:
         '프로젝트 코드 변경사항이 커밋되지 않았습니다. (추가 코드 커밋 필요)',
       legacyTasksDocStatusField:
-        '구버전 tasks.md 포맷입니다. `문서 상태` 필드(Review/Approved)를 추가해 태스크 승인 단계를 활성화하세요.',
+        '구버전 tasks.md 포맷입니다. `문서 상태` 필드(Draft/Review/Approved)를 추가해 태스크 승인 단계를 활성화하세요.',
       legacyTasksPrFields:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       legacyTasksPrePrReviewField:
@@ -686,9 +686,9 @@ const I18N: Record<Lang, I18nData> = {
       'doctor.issue.planStatusUnset': 'plan.md Status is not set. (May still be a template)',
       'doctor.issue.tasksEmpty': 'tasks.md has no tasks.',
       'doctor.issue.tasksDocStatusUnset':
-        'tasks.md Doc Status is not set. (Set it to Review or Approved.)',
+        'tasks.md Doc Status is not set. (Set it to Draft, Review, or Approved.)',
       'doctor.issue.tasksDocStatusMissing':
-        'tasks.md is missing the Doc Status field. Add `- **Doc Status**: Review | Approved`.',
+        'tasks.md is missing the Doc Status field. Add `- **Doc Status**: Draft | Review | Approved`.',
       'doctor.issue.duplicateFeatureId': 'Duplicate Feature ID detected: {id} ({count})',
       'doctor.issue.missingFeatureId':
         'Feature folder name is not in F001-... format. (Cannot extract ID)',
@@ -1186,7 +1186,7 @@ const I18N: Record<Lang, I18nData> = {
       projectUncommittedChanges:
         'Project code changes are not committed. (Additional code commit needed.)',
       legacyTasksDocStatusField:
-        'Legacy tasks.md format detected. Add a `Doc Status` field (Review/Approved) to enable tasks approval.',
+        'Legacy tasks.md format detected. Add a `Doc Status` field (Draft/Review/Approved) to enable tasks approval.',
       legacyTasksPrFields:
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       legacyTasksPrePrReviewField:

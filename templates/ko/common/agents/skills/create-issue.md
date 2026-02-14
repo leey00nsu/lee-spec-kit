@@ -29,7 +29,7 @@ npx lee-spec-kit github issue F001 --json
 
 `docs get issue-doc --json` 출력은 문서 구조 정책으로 보고,
 `github issue --json`의 `body`를 참고해 `issue.md` 초안을 보완하세요.
-실제 진행 상태는 `issue.md`의 `상태(Draft | Ready | Opened)`를 사용합니다.
+실제 진행 상태는 `issue.md`의 `상태(Draft | Ready)`를 사용합니다.
 
 | 항목   | 형식                                     |
 | ------ | ---------------------------------------- |
@@ -66,7 +66,7 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 생성 후:
 - 생성된 이슈 번호를 `issue.md`에 기록
 - `spec.md`, `tasks.md`의 이슈 번호도 동기화
-- `issue.md` 상태를 `Opened`로 변경
+- `issue.md` 상태는 `Ready`로 유지 (`Issue Number`/링크 필드로 생성 상태를 관리)
 
 ---
 

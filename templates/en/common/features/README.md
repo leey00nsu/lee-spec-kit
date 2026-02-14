@@ -60,6 +60,18 @@ npx lee-spec-kit status --write
 
 ---
 
+## Status Glossary
+
+| Scope | Field | Values |
+| --- | --- | --- |
+| Document status | `Status` in `spec.md`/`plan.md`, `Doc Status` in `tasks.md` | `Draft` \| `Review` \| `Approved` |
+| Issue doc status | `Status` in `issue.md` | `Draft` \| `Ready` |
+| PR doc status | `Status` in `pr.md` | `Draft` \| `Ready` |
+| PR review status | `PR Status` in `tasks.md`/`pr.md` | `Review` \| `Approved` |
+| Pre-PR review status | `Pre-PR Review` in `tasks.md` | `Pending` \| `Done` |
+
+---
+
 ## File Roles
 
 | File           | Role                      | When to Write       |
@@ -67,6 +79,6 @@ npx lee-spec-kit status --write
 | `spec.md`      | **What and Why**          | Feature definition  |
 | `plan.md`      | **How** (technical)       | After spec approval |
 | `tasks.md`     | Specific work items       | After plan approval |
-| `issue.md`     | Issue draft + issue state (`Draft/Ready/Opened`) | Before/when creating issue |
-| `pr.md`        | PR draft + PR state (`Draft/Ready/Opened/Merged`) | Before/when creating PR |
+| `issue.md`     | Issue draft + issue state (`Draft/Ready`) | Before/when creating issue |
+| `pr.md`        | PR draft + PR state (`Draft/Ready`) | Before/when creating PR |
 | `decisions.md` | Technical decisions + reasoning trace + evidence links (ADR) | During development (DOING start / before DONE / post-merge) |

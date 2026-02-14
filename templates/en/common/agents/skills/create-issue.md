@@ -29,7 +29,7 @@ npx lee-spec-kit github issue F001 --json
 
 Use `docs get issue-doc --json` output as document-structure policy,
 then refine the feature `issue.md` draft from `github issue --json` `body`.
-Use `issue.md` status (`Draft | Ready | Opened`) as the actual workflow state.
+Use `issue.md` status (`Draft | Ready`) as the actual workflow state.
 
 | Item     | Format                                      |
 | -------- | ------------------------------------------- |
@@ -66,7 +66,7 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 After creation:
 - sync created issue number into `issue.md`
 - sync issue number into `spec.md` and `tasks.md`
-- set `issue.md` status to `Opened`
+- keep `issue.md` status as `Ready` (creation state is tracked by issue number/link fields)
 
 ---
 

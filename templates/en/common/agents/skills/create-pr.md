@@ -34,7 +34,7 @@ npx lee-spec-kit github pr F001 --json
 
 Use `docs get pr-doc --json` output as document-structure policy,
 then refine the feature `pr.md` draft from `github pr --json` `body`.
-Use `pr.md` status (`Draft | Ready | Opened | Merged`) as the actual workflow state.
+Use `pr.md` status (`Draft | Ready`) as the actual workflow state.
 
 | Item     | Format                             |
 | -------- | ---------------------------------- |
@@ -155,7 +155,7 @@ npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 After creation:
 - record created PR link into `pr.md` and `tasks.md`
 - record/keep PR status as `Review`
-- set `pr.md` status to `Opened`
+- keep `pr.md` status as `Ready` (creation/merge state is tracked by PR link + `PR Status`)
 
 ---
 

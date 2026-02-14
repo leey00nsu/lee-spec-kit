@@ -60,6 +60,18 @@ npx lee-spec-kit status --write
 
 ---
 
+## 상태 용어 정리
+
+| 구분 | 필드 | 값 |
+| --- | --- | --- |
+| 문서 상태 | `spec.md`/`plan.md`의 `상태`, `tasks.md`의 `문서 상태` | `Draft` \| `Review` \| `Approved` |
+| 이슈 문서 상태 | `issue.md`의 `상태` | `Draft` \| `Ready` |
+| PR 문서 상태 | `pr.md`의 `상태` | `Draft` \| `Ready` |
+| PR 리뷰 상태 | `tasks.md`/`pr.md`의 `PR 상태` | `Review` \| `Approved` |
+| Pre-PR 리뷰 상태 | `tasks.md`의 `PR 전 리뷰` | `Pending` \| `Done` |
+
+---
+
 ## 각 파일 역할
 
 | 파일           | 역할                       | 작성 시점      |
@@ -67,6 +79,6 @@ npx lee-spec-kit status --write
 | `spec.md`      | **무엇을, 왜** 만드는지    | 기능 정의 시   |
 | `plan.md`      | **어떻게** 만드는지 (기술) | 스펙 승인 후   |
 | `tasks.md`     | 구체적인 작업 목록         | 계획 승인 후   |
-| `issue.md`     | 이슈 초안 + 이슈 상태(`Draft/Ready/Opened`) | 이슈 생성 전/생성 시 |
-| `pr.md`        | PR 초안 + PR 상태(`Draft/Ready/Opened/Merged`) | PR 생성 전/생성 시 |
+| `issue.md`     | 이슈 초안 + 이슈 상태(`Draft/Ready`) | 이슈 생성 전/생성 시 |
+| `pr.md`        | PR 초안 + PR 상태(`Draft/Ready`) | PR 생성 전/생성 시 |
 | `decisions.md` | 기술 결정 + 판단 근거(Trace) + 증거 링크(ADR) | 개발 중 수시로 (DOING 시작 / DONE 직전 / 머지 후) |

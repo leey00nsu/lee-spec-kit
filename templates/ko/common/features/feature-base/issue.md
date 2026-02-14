@@ -2,7 +2,7 @@
 
 ## 메타데이터
 
-- **상태**: Draft | Ready | Opened
+- **상태**: Draft | Ready
 - **이슈 번호**: #{이슈번호}
 - **제목**: {기능명}
 - **라벨**: enhancement

@@ -2,9 +2,10 @@
 
 ## Metadata
 
-- **Status**: Draft | Ready | Opened | Merged
+- **Status**: Draft | Ready
 - **PR**: -
 - **PR Status**: -
+  - Values: Review | Approved
 - **Base**: main
 - **Created**: {YYYY-MM-DD}
 

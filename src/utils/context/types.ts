@@ -1,6 +1,7 @@
 export type RepoType = string;
 export type DocStatus = 'Draft' | 'Review' | 'Approved';
-export type WorkflowDocStatus = 'Draft' | 'Ready' | 'Opened' | 'Merged';
+export type WorkflowDocStatus = 'Draft' | 'Ready';
+export type PrReviewStatus = 'Review' | 'Approved';
 export type { Lang } from '../i18n.js';
 
 export type ActionScope = 'project' | 'docs';
@@ -106,7 +107,7 @@ export interface FeatureState {
   };
   pr: {
     link?: string;
-    status?: DocStatus;
+    status?: PrReviewStatus;
   };
   git: {
     docsBranch: string;

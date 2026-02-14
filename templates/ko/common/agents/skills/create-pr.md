@@ -34,7 +34,7 @@ npx lee-spec-kit github pr F001 --json
 
 `docs get pr-doc --json` 출력은 문서 구조 정책으로 보고,
 `github pr --json`의 `body`를 참고해 `pr.md` 초안을 보완하세요.
-실제 진행 상태는 `pr.md`의 `상태(Draft | Ready | Opened | Merged)`를 사용합니다.
+실제 진행 상태는 `pr.md`의 `상태(Draft | Ready)`를 사용합니다.
 
 | 항목   | 형식                               |
 | ------ | ---------------------------------- |
@@ -155,7 +155,7 @@ npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 생성 후:
 - 생성된 PR 링크를 `pr.md`와 `tasks.md`에 기록
 - PR 상태를 `Review`로 기록/유지
-- `pr.md` 상태를 `Opened`로 변경
+- `pr.md` 상태는 `Ready`로 유지 (생성/머지 상태는 PR 링크 + `PR 상태`로 관리)
 
 ---
 
