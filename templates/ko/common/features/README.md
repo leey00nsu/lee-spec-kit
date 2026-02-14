@@ -13,6 +13,8 @@ features/
 │   ├── spec.md
 │   ├── plan.md
 │   ├── tasks.md
+│   ├── issue.md
+│   ├── pr.md
 │   └── decisions.md
 ├── (single) F00X-{name}/
 └── (multi)  {component}/F00X-{name}/
@@ -65,4 +67,6 @@ npx lee-spec-kit status --write
 | `spec.md`      | **무엇을, 왜** 만드는지    | 기능 정의 시   |
 | `plan.md`      | **어떻게** 만드는지 (기술) | 스펙 승인 후   |
 | `tasks.md`     | 구체적인 작업 목록         | 계획 승인 후   |
+| `issue.md`     | 이슈 초안 + 이슈 상태(`Draft/Ready/Opened`) | 이슈 생성 전/생성 시 |
+| `pr.md`        | PR 초안 + PR 상태(`Draft/Ready/Opened/Merged`) | PR 생성 전/생성 시 |
 | `decisions.md` | 기술 결정 + 판단 근거(Trace) + 증거 링크(ADR) | 개발 중 수시로 (DOING 시작 / DONE 직전 / 머지 후) |

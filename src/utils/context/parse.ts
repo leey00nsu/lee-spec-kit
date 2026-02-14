@@ -19,6 +19,7 @@ import {
   RepoType,
   StepDefinition,
   TaskRef,
+  WorkflowDocStatus,
 } from './types.js';
 import { ProjectConfig } from '../config.js';
 import {
@@ -71,6 +72,20 @@ function parseDocStatus(value: string | undefined): DocStatus | undefined {
   if (normalized === 'draft') return 'Draft';
   if (normalized === 'review') return 'Review';
   return 'Approved';
+}
+
+function parseWorkflowDocStatus(value: string | undefined): WorkflowDocStatus | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes('|')) return undefined;
+
+  const match = trimmed.match(/\b(Draft|Ready|Opened|Merged)\b/i);
+  if (!match) return undefined;
+  const normalized = match[1].toLowerCase();
+  if (normalized === 'draft') return 'Draft';
+  if (normalized === 'ready') return 'Ready';
+  if (normalized === 'opened') return 'Opened';
+  return 'Merged';
 }
 
 function parsePrePrReviewStatus(
@@ -386,6 +401,8 @@ export async function parseFeature(
   const specPath = path.join(featurePath, 'spec.md');
   const planPath = path.join(featurePath, 'plan.md');
   const tasksPath = path.join(featurePath, 'tasks.md');
+  const issueDocPath = path.join(featurePath, 'issue.md');
+  const prDocPath = path.join(featurePath, 'pr.md');
 
   let specStatus: DocStatus | undefined;
   let issueNumber: string | undefined;
@@ -425,6 +442,13 @@ export async function parseFeature(
   let prStatus: DocStatus | undefined;
   let prFieldExists = false;
   let prStatusFieldExists = false;
+  let issueDocStatus: WorkflowDocStatus | undefined;
+  let issueDocStatusFieldExists = false;
+  let issueDocIssueFieldExists = false;
+  let prDocStatus: WorkflowDocStatus | undefined;
+  let prDocStatusFieldExists = false;
+  let prDocPrFieldExists = false;
+  let prDocReviewStatusFieldExists = false;
   let prePrReviewFieldExists = false;
   let prePrFindingsFieldExists = false;
   let prePrEvidenceFieldExists = false;
@@ -493,6 +517,61 @@ export async function parseFeature(
     ]);
     prePrEvidence = prePrEvidenceValue?.trim();
     prePrEvidenceProvided = !isPlaceholderReviewEvidence(prePrEvidenceValue);
+  }
+
+  const issueDocExists = await fs.pathExists(issueDocPath);
+  if (issueDocExists) {
+    const content = await fs.readFile(issueDocPath, 'utf-8');
+    const issueDocStatusValue = extractFirstSpecValue(content, ['상태', 'Status']);
+    issueDocStatusFieldExists = hasAnySpecKey(content, ['상태', 'Status']);
+    issueDocStatus = parseWorkflowDocStatus(issueDocStatusValue);
+
+    const issueValue = extractFirstSpecValue(content, [
+      '이슈 번호',
+      'Issue Number',
+      'Issue',
+    ]);
+    issueDocIssueFieldExists = hasAnySpecKey(content, [
+      '이슈 번호',
+      'Issue Number',
+      'Issue',
+    ]);
+    const parsedIssueFromDoc = parseIssueNumber(issueValue);
+    if (parsedIssueFromDoc) {
+      issueNumber = parsedIssueFromDoc;
+    }
+  }
+
+  const prDocExists = await fs.pathExists(prDocPath);
+  if (prDocExists) {
+    const content = await fs.readFile(prDocPath, 'utf-8');
+    const prDocStatusValue = extractFirstSpecValue(content, ['상태', 'Status']);
+    prDocStatusFieldExists = hasAnySpecKey(content, ['상태', 'Status']);
+    prDocStatus = parseWorkflowDocStatus(prDocStatusValue);
+
+    const prValue = extractFirstSpecValue(content, ['PR', 'Pull Request']);
+    prDocPrFieldExists = hasAnySpecKey(content, ['PR', 'Pull Request']);
+    const parsedPrLink = parsePrLink(prValue);
+    if (parsedPrLink) {
+      prLink = parsedPrLink;
+    }
+
+    const prReviewStatusValue = extractFirstSpecValue(content, [
+      'PR 상태',
+      'PR Status',
+    ]);
+    prDocReviewStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
+    const parsedPrStatus = parseDocStatus(prReviewStatusValue);
+    if (parsedPrStatus) {
+      prStatus = parsedPrStatus;
+    }
+  }
+
+  if (prDocPrFieldExists) {
+    prFieldExists = true;
+  }
+  if (prDocReviewStatusFieldExists) {
+    prStatusFieldExists = true;
   }
 
   const warnings: string[] = [];
@@ -606,7 +685,12 @@ export async function parseFeature(
       })
     );
   }
-  if (tasksExists && workflowPolicy.requirePr && (!prFieldExists || !prStatusFieldExists)) {
+  if (
+    tasksExists &&
+    workflowPolicy.requirePr &&
+    !prDocExists &&
+    (!prFieldExists || !prStatusFieldExists)
+  ) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrFields'));
   }
   if (tasksExists && prePrReviewPolicy.enabled && !prePrReviewFieldExists) {
@@ -760,6 +844,15 @@ export async function parseFeature(
       specExists,
       planExists,
       tasksExists,
+      issueDocExists,
+      issueDocStatus,
+      issueDocStatusFieldExists,
+      issueDocIssueFieldExists,
+      prDocExists,
+      prDocStatus,
+      prDocStatusFieldExists,
+      prDocPrFieldExists,
+      prDocReviewStatusFieldExists,
       tasksDocStatusFieldExists,
       prFieldExists,
       prStatusFieldExists,

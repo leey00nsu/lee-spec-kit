@@ -251,7 +251,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 ### CLI 내장 문서 조회
 
 `agents.md`를 프로젝트에 복구하지 않는 환경에서는 아래 명령으로 내장 가이드를 직접 조회할 수 있습니다.
-`docs get create-issue|issue-template|create-pr|pr-template --json` 응답에는 `contract`(필수 섹션/아티팩트 규칙)도 포함됩니다.
+`docs get create-issue|issue-doc|create-pr|pr-doc --json` 응답에는 `contract`(필수 섹션/아티팩트 규칙)도 포함됩니다.
 
 ```bash
 # 조회 가능한 내장 문서 목록
@@ -262,9 +262,9 @@ npx lee-spec-kit docs get agents --json
 
 # 이슈/PR 절차 + 템플릿
 npx lee-spec-kit docs get create-issue --json
-npx lee-spec-kit docs get issue-template --json
+npx lee-spec-kit docs get issue-doc --json
 npx lee-spec-kit docs get create-pr --json
-npx lee-spec-kit docs get pr-template --json
+npx lee-spec-kit docs get pr-doc --json
 ```
 
 ### View 대시보드

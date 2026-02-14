@@ -81,6 +81,9 @@ export async function applyLocalWorkflowTemplateToFeatureDir(
   await patchMarkdownIfExists(path.join(featureDir, 'tasks.md'), (content) =>
     sanitizeTasksForLocal(content, lang)
   );
+  // Local workflow does not require remote issue/PR tracking docs.
+  await fs.remove(path.join(featureDir, 'issue.md'));
+  await fs.remove(path.join(featureDir, 'pr.md'));
 }
 
 export async function applyLocalWorkflowTemplateToFeatureBase(

@@ -71,8 +71,8 @@ Reply format: "<LABEL>" or "<LABEL> OK"
 - Root guide: `npx lee-spec-kit docs get agents --json`
 - Git workflow: `npx lee-spec-kit docs get git-workflow --json`
 - Task execution: `npx lee-spec-kit docs get execute-task --json`
-- Issue procedure/template: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-template --json`
-- PR procedure/template: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-template --json`
+- Issue procedure/doc: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-doc --json`
+- PR procedure/doc: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-doc --json`
 
 ---
 
@@ -80,6 +80,7 @@ Reply format: "<LABEL>" or "<LABEL> OK"
 
 - Docs structure/path rules: use `docs/README.md` as SSOT
 - ADR format: use feature `decisions.md` template as SSOT
+- Issue/PR execution state: use each feature's `issue.md` and `pr.md` as SSOT
 
 ---
 

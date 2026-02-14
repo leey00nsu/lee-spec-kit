@@ -1,5 +1,6 @@
 export type RepoType = string;
 export type DocStatus = 'Draft' | 'Review' | 'Approved';
+export type WorkflowDocStatus = 'Draft' | 'Ready' | 'Opened' | 'Merged';
 export type { Lang } from '../i18n.js';
 
 export type ActionScope = 'project' | 'docs';
@@ -124,6 +125,15 @@ export interface FeatureState {
     specExists: boolean;
     planExists: boolean;
     tasksExists: boolean;
+    issueDocExists: boolean;
+    issueDocStatus?: WorkflowDocStatus;
+    issueDocStatusFieldExists: boolean;
+    issueDocIssueFieldExists: boolean;
+    prDocExists: boolean;
+    prDocStatus?: WorkflowDocStatus;
+    prDocStatusFieldExists: boolean;
+    prDocPrFieldExists: boolean;
+    prDocReviewStatusFieldExists: boolean;
     tasksDocStatusFieldExists: boolean;
     prFieldExists: boolean;
     prStatusFieldExists: boolean;

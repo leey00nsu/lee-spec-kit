@@ -1,6 +1,7 @@
 # Pull Request Creation Process
 
 Guide for creating Pull Requests.
+Execution-state SSOT is the feature-local `pr.md`.
 
 ---
 
@@ -15,14 +16,14 @@ Guide for creating Pull Requests.
 
 ## Steps
 
-### 1. Prepare PR Body Template
+### 1. Prepare `pr.md` Draft
 
 > 📖 **If not read in this session, read procedure/template via `docs get`; do not re-read the same doc in the same session, then generate a body template and treat it as the source of truth.**
 
 ```bash
 # 1) Read procedure + template policy (only docs not read in this session)
 npx lee-spec-kit docs get create-pr --json
-npx lee-spec-kit docs get pr-template --json
+npx lee-spec-kit docs get pr-doc --json
 
 # 2) Generate body template (no remote action)
 npx lee-spec-kit github pr F001 --json
@@ -31,9 +32,9 @@ npx lee-spec-kit github pr F001 --json
 # - Auto policy (default): --screenshots auto --mermaid auto
 ```
 
-Use `docs get pr-template --json` output as the section policy,
-and `github pr --json` output `body` as the first PR body template.
-If needed, use `bodyFile` as the filesystem source.
+Use `docs get pr-doc --json` output as document-structure policy,
+then refine the feature `pr.md` draft from `github pr --json` `body`.
+Use `pr.md` status (`Draft | Ready | Opened | Merged`) as the actual workflow state.
 
 | Item     | Format                             |
 | -------- | ---------------------------------- |
@@ -124,19 +125,20 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 - Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated body template format.
 
-### 4. Request User Approval
+### 4. Request User Approval + Move to `Ready`
 
 > 🚨 **User Approval Required**
 
 Before creating PR, share the following **in a code block** and wait for **explicit approval (OK)**:
 
 - Title
-- Full body template (from `body`)
+- Full body template (from `pr.md`)
 - Labels (at least 1; cannot be empty)
 
-Before approval/create, refine the generated body template's Changes/Tests sections based on actual work.
+Before approval/create, refine `pr.md` Changes/Tests sections based on actual work.
+After approval, set `pr.md` status to `Ready`.
 
-### 5. Create PR
+### 5. Create PR (when `pr.md` is `Ready`)
 
 ```bash
 gh pr create \
@@ -149,6 +151,11 @@ gh pr create \
 # Or via lee-spec-kit helper (requires explicit confirmation)
 npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
+
+After creation:
+- record created PR link into `pr.md` and `tasks.md`
+- record/keep PR status as `Review`
+- set `pr.md` status to `Opened`
 
 ---
 
@@ -191,3 +198,4 @@ Use **current branch name** for file links in PR body:
 
 - **Body template generator**: `npx lee-spec-kit github pr <feature-name>`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
+- **Execution-state SSOT**: `docs/features/.../<feature>/pr.md`

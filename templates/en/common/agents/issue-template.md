@@ -1,6 +1,7 @@
 # GitHub Issue Template Guide
 
 A template for AI agents to create GitHub Issues.
+This document is a section policy/style guide. Use feature-local `issue.md` as the SSOT for actual workflow state.
 
 ---
 

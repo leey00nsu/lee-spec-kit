@@ -71,8 +71,8 @@ B: <detail>
 - 루트 가이드: `npx lee-spec-kit docs get agents --json`
 - Git 워크플로우: `npx lee-spec-kit docs get git-workflow --json`
 - 태스크 실행: `npx lee-spec-kit docs get execute-task --json`
-- 이슈 절차/템플릿: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-template --json`
-- PR 절차/템플릿: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-template --json`
+- 이슈 절차/문서: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-doc --json`
+- PR 절차/문서: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-doc --json`
 
 ---
 
@@ -80,6 +80,7 @@ B: <detail>
 
 - docs 구조/경로 규칙: `docs/README.md`를 SSOT로 사용
 - ADR 작성 형식: `docs/features/.../decisions.md` 템플릿을 SSOT로 사용
+- 이슈/PR 실행 상태: 각 Feature의 `issue.md`, `pr.md`를 SSOT로 사용
 
 ---
 

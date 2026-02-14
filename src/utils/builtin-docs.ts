@@ -8,8 +8,8 @@ import { getTemplatesDir } from './paths.js';
 export type BuiltinDocId =
   | 'agents'
   | 'git-workflow'
-  | 'issue-template'
-  | 'pr-template'
+  | 'issue-doc'
+  | 'pr-doc'
   | 'create-feature'
   | 'execute-task'
   | 'create-issue'
@@ -40,14 +40,16 @@ const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
     relativePath: (_, lang) => path.join(lang, 'common', 'agents', 'git-workflow.md'),
   },
   {
-    id: 'issue-template',
-    title: { ko: 'Issue 템플릿', en: 'Issue Template' },
-    relativePath: (_, lang) => path.join(lang, 'common', 'agents', 'issue-template.md'),
+    id: 'issue-doc',
+    title: { ko: 'Issue 문서 템플릿', en: 'Issue Document Template' },
+    relativePath: (_, lang) =>
+      path.join(lang, 'common', 'features', 'feature-base', 'issue.md'),
   },
   {
-    id: 'pr-template',
-    title: { ko: 'PR 템플릿', en: 'PR Template' },
-    relativePath: (_, lang) => path.join(lang, 'common', 'agents', 'pr-template.md'),
+    id: 'pr-doc',
+    title: { ko: 'PR 문서 템플릿', en: 'PR Document Template' },
+    relativePath: (_, lang) =>
+      path.join(lang, 'common', 'features', 'feature-base', 'pr.md'),
   },
   {
     id: 'create-feature',
@@ -81,17 +83,17 @@ const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
     'execute-task',
     'git-workflow',
     'create-issue',
-    'issue-template',
+    'issue-doc',
     'create-pr',
-    'pr-template',
+    'pr-doc',
   ],
   'git-workflow': [],
-  'issue-template': [],
-  'pr-template': [],
+  'issue-doc': [],
+  'pr-doc': [],
   'create-feature': ['execute-task'],
   'execute-task': ['git-workflow'],
-  'create-issue': ['issue-template'],
-  'create-pr': ['pr-template'],
+  'create-issue': ['issue-doc'],
+  'create-pr': ['pr-doc'],
 };
 
 const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
@@ -105,9 +107,9 @@ const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
   review_fix_commit: ['create-pr', 'git-workflow'],
   docs_commit: ['git-workflow'],
   branch_create: ['git-workflow'],
-  issue_create: ['create-issue', 'issue-template', 'git-workflow'],
+  issue_create: ['create-issue', 'issue-doc', 'git-workflow'],
   pre_pr_review: ['create-pr'],
-  pr_create: ['create-pr', 'pr-template', 'git-workflow'],
+  pr_create: ['create-pr', 'pr-doc', 'git-workflow'],
   pr_status_update: ['create-pr'],
   code_review: ['create-pr'],
 };
@@ -119,8 +121,11 @@ export function getBuiltinDocIds(): BuiltinDocId[] {
 export function normalizeBuiltinDocId(input: string): BuiltinDocId | null {
   const normalized = input.trim().toLowerCase().replace(/_/g, '-');
   if (normalized === 'git-workflow') return 'git-workflow';
-  if (normalized === 'issue-template') return 'issue-template';
-  if (normalized === 'pr-template') return 'pr-template';
+  if (normalized === 'issue-doc' || normalized === 'issue-md') return 'issue-doc';
+  if (normalized === 'pr-doc' || normalized === 'pr-md') return 'pr-doc';
+  // Backward-compat aliases (deprecated)
+  if (normalized === 'issue-template') return 'issue-doc';
+  if (normalized === 'pr-template') return 'pr-doc';
   if (normalized === 'create-feature') return 'create-feature';
   if (normalized === 'execute-task') return 'execute-task';
   if (normalized === 'create-issue') return 'create-issue';

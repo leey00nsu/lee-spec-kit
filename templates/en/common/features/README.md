@@ -13,6 +13,8 @@ features/
 │   ├── spec.md
 │   ├── plan.md
 │   ├── tasks.md
+│   ├── issue.md
+│   ├── pr.md
 │   └── decisions.md
 ├── (single) F00X-{name}/
 └── (multi)  {component}/F00X-{name}/
@@ -65,4 +67,6 @@ npx lee-spec-kit status --write
 | `spec.md`      | **What and Why**          | Feature definition  |
 | `plan.md`      | **How** (technical)       | After spec approval |
 | `tasks.md`     | Specific work items       | After plan approval |
+| `issue.md`     | Issue draft + issue state (`Draft/Ready/Opened`) | Before/when creating issue |
+| `pr.md`        | PR draft + PR state (`Draft/Ready/Opened/Merged`) | Before/when creating PR |
 | `decisions.md` | Technical decisions + reasoning trace + evidence links (ADR) | During development (DOING start / before DONE / post-merge) |

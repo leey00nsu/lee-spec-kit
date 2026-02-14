@@ -1730,6 +1730,48 @@ test('local workflow templates reduce issue/pr focused fields', async () => {
     assert.doesNotMatch(featureTasks, /\*\*PR\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*PR Status\*\*:/);
     assert.doesNotMatch(featureTasks, /\*\*Pre-PR Review\*\*:/);
+
+    const issueDocExists = await pathExists(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'issue.md')
+    );
+    const prDocExists = await pathExists(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md')
+    );
+    assert.equal(issueDocExists, false);
+    assert.equal(prDocExists, false);
+  });
+});
+
+test('github workflow feature template includes issue.md and pr.md drafts', async () => {
+  await withTempDir('lsk-feature-issue-pr-drafts-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const issueDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'issue.md');
+    const prDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md');
+    assert.equal(await pathExists(issueDocPath), true);
+    assert.equal(await pathExists(prDocPath), true);
+
+    const issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    const prDoc = await fs.readFile(prDocPath, 'utf-8');
+    assert.match(issueDoc, /\*\*Status\*\*:\s*Draft \| Ready \| Opened/);
+    assert.match(prDoc, /\*\*Status\*\*:\s*Draft \| Ready \| Opened \| Merged/);
   });
 });
 
@@ -1789,6 +1831,10 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     assert.equal(Array.isArray(listPayload.docs), true);
     assert.equal(listPayload.docs.some((doc) => doc.id === 'agents'), true);
     assert.equal(listPayload.docs.some((doc) => doc.id === 'create-issue'), true);
+    assert.equal(listPayload.docs.some((doc) => doc.id === 'issue-doc'), true);
+    assert.equal(listPayload.docs.some((doc) => doc.id === 'pr-doc'), true);
+    assert.equal(listPayload.docs.some((doc) => doc.id === 'issue-template'), false);
+    assert.equal(listPayload.docs.some((doc) => doc.id === 'pr-template'), false);
 
     const loaded = await runCli(dir, ['docs', 'get', 'agents', '--json']);
     assert.equal(loaded.code, 0, loaded.stderr || loaded.stdout);
@@ -1825,6 +1871,40 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
       createPrPayload.contract.artifacts.some((artifact) => artifact.id === 'screenshots'),
       true
     );
+
+    const legacyIssueTemplateAliasLoaded = await runCli(dir, [
+      'docs',
+      'get',
+      'issue-template',
+      '--json',
+    ]);
+    assert.equal(
+      legacyIssueTemplateAliasLoaded.code,
+      0,
+      legacyIssueTemplateAliasLoaded.stderr || legacyIssueTemplateAliasLoaded.stdout
+    );
+    const legacyIssueTemplateAliasPayload = JSON.parse(
+      legacyIssueTemplateAliasLoaded.stdout.trim()
+    );
+    assert.equal(legacyIssueTemplateAliasPayload.status, 'ok');
+    assert.equal(legacyIssueTemplateAliasPayload.doc.id, 'issue-doc');
+
+    const legacyPrTemplateAliasLoaded = await runCli(dir, [
+      'docs',
+      'get',
+      'pr-template',
+      '--json',
+    ]);
+    assert.equal(
+      legacyPrTemplateAliasLoaded.code,
+      0,
+      legacyPrTemplateAliasLoaded.stderr || legacyPrTemplateAliasLoaded.stdout
+    );
+    const legacyPrTemplateAliasPayload = JSON.parse(
+      legacyPrTemplateAliasLoaded.stdout.trim()
+    );
+    assert.equal(legacyPrTemplateAliasPayload.status, 'ok');
+    assert.equal(legacyPrTemplateAliasPayload.doc.id, 'pr-doc');
   });
 });
 
@@ -2477,7 +2557,7 @@ test('context pre-PR review allows PR step on minor-only findings when minorPoli
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 13);
     assert.equal(payload.actionOptions[0].action.category, 'pr_create');
-    assert.equal(payload.actionOptions.length >= 2, true);
+    assert.equal(payload.actionOptions.length, 1);
   });
 });
 
@@ -2710,10 +2790,9 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
-    assert.equal(payload.actionOptions.length >= 2, true);
-    assert.equal(payload.actionOptions[1].action.category, 'pr_create');
-    assert.match(payload.actionOptions[0].action.message, /template|본문 템플릿/i);
-    assert.match(payload.actionOptions[1].action.message, /record.*PR link|PR 링크/i);
+    assert.equal(payload.actionOptions.length, 1);
+    assert.match(payload.actionOptions[0].action.message, /pr\.md|PR 초안|PR title\/body\/labels/i);
+    assert.match(payload.actionOptions[0].action.message, /Ready/);
     assert.doesNotMatch(payload.actionOptions[0].detail, /docs get/i);
     assert.doesNotMatch(payload.actionOptions[0].approvalPrompt, /docs get/i);
     assert.equal(Array.isArray(payload.requiredDocs), true);

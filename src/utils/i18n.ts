@@ -475,6 +475,10 @@ const I18N: Record<Lang, I18nData> = {
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
         '이슈 본문 템플릿을 생성해 목표/완료 기준을 검토·보완하고, 사용자 승인(OK) 후 이슈를 생성하세요. 이후 spec.md/tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
+      issuePrepareFromDoc:
+        '`issue.md`를 기준으로 이슈 제목/본문/라벨 초안을 보완하고 사용자 승인(OK)을 받아 상태를 `Ready`로 변경하세요.',
+      issueCreateFromDoc:
+        '`issue.md` 상태가 `Ready`이면 GitHub Issue를 생성하고, 생성된 이슈 번호를 `issue.md`와 `spec.md/tasks.md`에 반영하세요.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} 문서 업데이트"',
       docsCommitUpdate:
@@ -537,10 +541,16 @@ const I18N: Record<Lang, I18nData> = {
         'minor 이슈는 기록/공유 후 PR 생성 진행 가능',
       prCreate:
         'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
+      prCreatePrepareFromDoc:
+        '`pr.md`를 기준으로 PR 제목/본문/라벨 초안을 보완하고 사용자 승인(OK)을 받아 상태를 `Ready`로 변경하세요.',
+      prCreateExecuteFromDoc:
+        '`pr.md` 상태가 `Ready`이면 PR을 생성하고, 생성된 PR 링크/PR 상태를 `pr.md`와 `tasks.md`에 기록하세요.',
       prCreatePrepare:
         'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, PR 생성 전 사용자 승인(OK)을 받으세요.',
       prCreateExecute:
         '확정된 PR 본문으로 PR을 생성하고, 생성된 PR 링크를 tasks.md의 PR 필드에 기록하세요.',
+      prCreateRequiredSequence:
+        'PR 생성은 필수 2단계입니다: (1) PR 본문 템플릿 생성/보완 + 사용자 승인(OK), (2) PR 생성 + tasks.md PR 링크 기록. 위 순서를 모두 완료하세요.',
       prFillStatus:
         'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
       prResolveReview:
@@ -1074,6 +1084,10 @@ const I18N: Record<Lang, I18nData> = {
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
         'Generate the issue body template, refine goals/completion criteria, get explicit user OK, create the issue, then update issue number in spec.md/tasks.md and prepare a docs commit.',
+      issuePrepareFromDoc:
+        'Use `issue.md` to refine issue title/body/labels draft, get explicit user OK, then set status to `Ready`.',
+      issueCreateFromDoc:
+        'When `issue.md` status is `Ready`, create the GitHub Issue and sync the created issue number into `issue.md` and `spec.md/tasks.md`.',
       docsCommitIssueUpdate:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(#{issueNumber}): {folderName} docs update"',
       docsCommitUpdate:
@@ -1136,10 +1150,16 @@ const I18N: Record<Lang, I18nData> = {
         'you may proceed after documenting/sharing minor risks',
       prCreate:
         'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
+      prCreatePrepareFromDoc:
+        'Use `pr.md` to refine PR title/body/labels draft, get explicit user OK, then set status to `Ready`.',
+      prCreateExecuteFromDoc:
+        'When `pr.md` status is `Ready`, create the PR and record the PR link/status in `pr.md` and `tasks.md`.',
       prCreatePrepare:
         'Generate the PR body template, refine changes/tests sections, and get explicit user OK before PR creation.',
       prCreateExecute:
         'Create the PR with the finalized body, then record the created PR link in tasks.md.',
+      prCreateRequiredSequence:
+        'PR creation is a required 2-step sequence: (1) generate/refine PR body template + explicit user OK, (2) create PR + record PR link in tasks.md. Complete both in order.',
       prFillStatus:
         'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
       prResolveReview:

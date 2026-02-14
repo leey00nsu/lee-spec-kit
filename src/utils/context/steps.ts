@@ -528,12 +528,36 @@ export function getStepDefinitions(
           !f.issueNumber,
         actions: (f) => {
           void f;
+          if (!f.docs.issueDocExists) {
+            return [
+              {
+                type: 'instruction',
+                category: 'issue_create',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'issueCreateAndWrite', {
+                  featureRef: f.id || f.folderName,
+                }),
+              },
+            ];
+          }
+          if (f.docs.issueDocStatus === 'Ready') {
+            return [
+              {
+                type: 'instruction',
+                category: 'issue_create',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'issueCreateFromDoc', {
+                  featureRef: f.id || f.folderName,
+                }),
+              },
+            ];
+          }
           return [
             {
               type: 'instruction',
               category: 'issue_create',
               requiresUserCheck: true,
-              message: tr(lang, 'messages', 'issueCreateAndWrite', {
+              message: tr(lang, 'messages', 'issuePrepareFromDoc', {
                 featureRef: f.id || f.folderName,
               }),
             },
@@ -1141,18 +1165,36 @@ export function getStepDefinitions(
               },
             ];
           }
+          if (!f.docs.prDocExists) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pr_create',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prCreateRequiredSequence', {
+                  featureRef: f.id || f.folderName,
+                }),
+              },
+            ];
+          }
+          if (f.docs.prDocStatus === 'Ready') {
+            return [
+              {
+                type: 'instruction',
+                category: 'pr_create',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prCreateExecuteFromDoc', {
+                  featureRef: f.id || f.folderName,
+                }),
+              },
+            ];
+          }
           return [
             {
               type: 'instruction',
               category: 'pr_create',
               requiresUserCheck: true,
-              message: tr(lang, 'messages', 'prCreatePrepare'),
-            },
-            {
-              type: 'instruction',
-              category: 'pr_create',
-              requiresUserCheck: true,
-              message: tr(lang, 'messages', 'prCreateExecute', {
+              message: tr(lang, 'messages', 'prCreatePrepareFromDoc', {
                 featureRef: f.id || f.folderName,
               }),
             },

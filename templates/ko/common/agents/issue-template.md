@@ -1,6 +1,7 @@
 # GitHub Issue 템플릿 가이드
 
 에이전트가 GitHub Issue를 생성할 때 참조하는 템플릿입니다.
+이 문서는 섹션 정책/스타일 가이드이며, 실제 진행 상태 관리는 Feature 폴더의 `issue.md`를 SSOT로 사용합니다.
 
 ---
 

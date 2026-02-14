@@ -1,6 +1,7 @@
 # GitHub Issue Creation Process
 
 Guide for creating GitHub Issues.
+Execution-state SSOT is the feature-local `issue.md`.
 
 ---
 
@@ -13,22 +14,22 @@ Guide for creating GitHub Issues.
 
 ## Steps
 
-### 1. Prepare Issue Draft
+### 1. Prepare `issue.md` Draft
 
 > 📖 **If not read in this session, read procedure/template via `docs get`; do not re-read the same doc in the same session, then generate a draft and treat it as the source of truth.**
 
 ```bash
 # 1) Read procedure + template policy (only docs not read in this session)
 npx lee-spec-kit docs get create-issue --json
-npx lee-spec-kit docs get issue-template --json
+npx lee-spec-kit docs get issue-doc --json
 
 # 2) Generate draft body (no remote action)
 npx lee-spec-kit github issue F001 --json
 ```
 
-Use `docs get issue-template --json` output as the section policy,
-and `github issue --json` output `body` as the first draft to review/share.
-If needed, use `bodyFile` as the filesystem source.
+Use `docs get issue-doc --json` output as document-structure policy,
+then refine the feature `issue.md` draft from `github issue --json` `body`.
+Use `issue.md` status (`Draft | Ready | Opened`) as the actual workflow state.
 
 | Item     | Format                                      |
 | -------- | ------------------------------------------- |
@@ -37,19 +38,19 @@ If needed, use `bodyFile` as the filesystem source.
 | Labels   | `enhancement`, `bug`, `documentation`, etc. |
 | Assignee | `@me` (default)                             |
 
-### 2. Request User Approval
+### 2. Request User Approval + Move to `Ready`
 
 > 🚨 **User Approval Required**
 
-Before creating issue, share and wait for explicit approval (OK):
+Share the `issue.md` draft and wait for explicit approval (OK):
 
 - Title
-- Full body draft (from `body`)
+- Full body draft (from `issue.md`)
 - Labels
 
-Also refine Goals/Completion Criteria based on spec before creating.
+After approval, set `issue.md` status to `Ready`.
 
-### 3. Create Issue
+### 3. Create Issue (when `issue.md` is `Ready`)
 
 ```bash
 gh issue create \
@@ -62,9 +63,15 @@ gh issue create \
 npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
+After creation:
+- sync created issue number into `issue.md`
+- sync issue number into `spec.md` and `tasks.md`
+- set `issue.md` status to `Opened`
+
 ---
 
 ## Reference Documents
 
 - **Draft generator**: `npx lee-spec-kit github issue <feature-name>`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
+- **Execution-state SSOT**: `docs/features/.../<feature>/issue.md`

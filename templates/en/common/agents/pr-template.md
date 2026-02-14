@@ -1,6 +1,7 @@
 # GitHub PR Template Guide
 
 A template for AI agents to create Pull Requests.
+This document is a section policy/style guide. Use feature-local `pr.md` as the SSOT for actual workflow state.
 
 ---
 

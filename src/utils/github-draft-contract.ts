@@ -104,10 +104,10 @@ export function getGithubDraftContractForBuiltinDoc(
   docId: BuiltinDocId,
   lang: Lang
 ): GithubDraftContractView | null {
-  if (docId === 'create-issue' || docId === 'issue-template') {
+  if (docId === 'create-issue' || docId === 'issue-doc') {
     return getGithubDraftContractView('issue', lang);
   }
-  if (docId === 'create-pr' || docId === 'pr-template') {
+  if (docId === 'create-pr' || docId === 'pr-doc') {
     return getGithubDraftContractView('pr', lang);
   }
   return null;

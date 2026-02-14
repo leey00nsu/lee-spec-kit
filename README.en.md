@@ -234,7 +234,7 @@ Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions
 ### Built-in Docs
 
 If you do not restore `agents.md` into project docs, fetch CLI-managed guides directly:
-`docs get create-issue|issue-template|create-pr|pr-template --json` also returns `contract` (required sections / artifact rules).
+`docs get create-issue|issue-doc|create-pr|pr-doc --json` also returns `contract` (required sections / artifact rules).
 
 ```bash
 # list built-in docs
@@ -245,9 +245,9 @@ npx lee-spec-kit docs get agents --json
 
 # issue/PR procedure + templates
 npx lee-spec-kit docs get create-issue --json
-npx lee-spec-kit docs get issue-template --json
+npx lee-spec-kit docs get issue-doc --json
 npx lee-spec-kit docs get create-pr --json
-npx lee-spec-kit docs get pr-template --json
+npx lee-spec-kit docs get pr-doc --json
 ```
 
 ### View
@@ -587,4 +587,4 @@ For the full code list and meanings, see `errors.en.md` (English) or `errors.md`
 
 See the Korean README for the full tree examples and workflow details: `README.md`.
 
-Note: generated docs keep project-scoped policy docs (`agents/custom.md`, `agents/constitution.md`) and do not sync CLI-managed docs (`agents.md`, `agents/skills/*`, `git-workflow.md`, `issue-template.md`, `pr-template.md`, `features/feature-base/*`).
+Note: generated docs keep project-scoped policy docs (`agents/custom.md`, `agents/constitution.md`) and do not sync CLI-managed docs (`agents.md`, `agents/skills/*`, `git-workflow.md`, `features/feature-base/*`).
