@@ -537,10 +537,18 @@ const I18N: Record<Lang, I18nData> = {
         'minor 이슈는 기록/공유 후 PR 생성 진행 가능',
       prCreate:
         'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
+      prCreatePrepare:
+        'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, PR 생성 전 사용자 승인(OK)을 받으세요.',
+      prCreateExecute:
+        '확정된 PR 본문으로 PR을 생성하고, 생성된 PR 링크를 tasks.md의 PR 필드에 기록하세요.',
       prFillStatus:
         'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
       prResolveReview:
         '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+      prReviewResolve:
+        '리뷰 코멘트를 해결하는 동안 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요.',
+      prReviewMerge:
+        '머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prRequestReview:
         '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 설정/유지하세요.',
       featureDone:
@@ -1128,10 +1136,18 @@ const I18N: Record<Lang, I18nData> = {
         'you may proceed after documenting/sharing minor risks',
       prCreate:
         'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
+      prCreatePrepare:
+        'Generate the PR body template, refine changes/tests sections, and get explicit user OK before PR creation.',
+      prCreateExecute:
+        'Create the PR with the finalized body, then record the created PR link in tasks.md.',
       prFillStatus:
         'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
       prResolveReview:
         'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
+      prReviewResolve:
+        'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles).',
+      prReviewMerge:
+        'When ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prRequestReview: 'Request review and set/keep PR Status as Review.',
       featureDone:
         'Workflow requirements and all tasks/completion criteria are satisfied. This feature is done.',

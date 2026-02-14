@@ -2477,6 +2477,7 @@ test('context pre-PR review allows PR step on minor-only findings when minorPoli
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 13);
     assert.equal(payload.actionOptions[0].action.category, 'pr_create');
+    assert.equal(payload.actionOptions.length >= 2, true);
   });
 });
 
@@ -2709,6 +2710,10 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
+    assert.equal(payload.actionOptions.length >= 2, true);
+    assert.equal(payload.actionOptions[1].action.category, 'pr_create');
+    assert.match(payload.actionOptions[0].action.message, /template|본문 템플릿/i);
+    assert.match(payload.actionOptions[1].action.message, /record.*PR link|PR 링크/i);
     assert.doesNotMatch(payload.actionOptions[0].detail, /docs get/i);
     assert.doesNotMatch(payload.actionOptions[0].approvalPrompt, /docs get/i);
     assert.equal(Array.isArray(payload.requiredDocs), true);
@@ -2793,8 +2798,11 @@ test('context code_review step keeps Review status and guides merge command', as
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
-    assert.match(payload.actionOptions[0].action.message, /--merge --confirm OK/);
-    assert.doesNotMatch(payload.actionOptions[0].action.message, /Review → Approved/);
+    assert.equal(payload.actionOptions.length >= 2, true);
+    assert.equal(payload.actionOptions[1].action.category, 'code_review');
+    assert.match(payload.actionOptions[0].action.message, /addressing comments|리뷰 코멘트/);
+    assert.match(payload.actionOptions[1].action.message, /--merge --confirm OK/);
+    assert.doesNotMatch(payload.actionOptions[1].action.message, /Review → Approved/);
   });
 });
 

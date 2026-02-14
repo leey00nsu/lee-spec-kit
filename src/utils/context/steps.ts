@@ -1146,7 +1146,13 @@ export function getStepDefinitions(
               type: 'instruction',
               category: 'pr_create',
               requiresUserCheck: true,
-              message: tr(lang, 'messages', 'prCreate', {
+              message: tr(lang, 'messages', 'prCreatePrepare'),
+            },
+            {
+              type: 'instruction',
+              category: 'pr_create',
+              requiresUserCheck: true,
+              message: tr(lang, 'messages', 'prCreateExecute', {
                 featureRef: f.id || f.folderName,
               }),
             },
@@ -1185,7 +1191,13 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prResolveReview', {
+                message: tr(lang, 'messages', 'prReviewResolve'),
+              },
+              {
+                type: 'instruction',
+                category: 'code_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prReviewMerge', {
                   featureRef: f.id || f.folderName,
                 }),
               },
