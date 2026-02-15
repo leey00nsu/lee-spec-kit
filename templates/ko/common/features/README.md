@@ -76,6 +76,12 @@ npx lee-spec-kit status --write
 
 ---
 
+## Pre-PR 폴백 체크리스트
+
+리뷰 스킬을 사용할 수 없고 `workflow.prePrReview.fallback`이 `builtin-checklist`라면, 상세 기준은 `agents/skills/create-pr.md`의 `Pre-PR 리뷰 폴백` 섹션을 단일 기준으로 사용하세요.
+
+---
+
 ## 각 파일 역할
 
 | 파일           | 역할                       | 작성 시점      |

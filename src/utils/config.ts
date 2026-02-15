@@ -75,6 +75,7 @@ export interface ProjectConfig {
       skills?: string[];
       /**
        * Fallback policy when no configured skill can run.
+       * - builtin-checklist: follow the "Pre-PR Review Fallback" section in create-pr doc
        */
       fallback?: 'builtin-checklist';
       /**

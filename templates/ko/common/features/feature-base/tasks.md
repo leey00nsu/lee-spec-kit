@@ -26,6 +26,7 @@
   - 사전 리뷰 최종 결과에 맞게 major/minor 건수를 갱신
 - **PR 전 리뷰 Evidence**: -
   - 예: 리뷰 노트 링크, 로그 경로, 문서 경로
+  - `builtin-checklist` 폴백을 썼다면 `agents/skills/create-pr.md`(`Pre-PR 리뷰 폴백`) 기준을 따르세요
 - **PR 리뷰 Findings**: major=0, minor=0
   - PR 리뷰 코멘트 반영 결과에 맞게 major/minor 건수를 갱신
 - **PR 리뷰 Evidence**: -
