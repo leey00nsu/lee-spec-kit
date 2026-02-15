@@ -26,6 +26,10 @@
   - Update with final findings counts from pre-PR review
 - **Pre-PR Evidence**: -
   - Example: review note link, log path, or docs path
+- **PR Review Findings**: major=0, minor=0
+  - Update with findings counts from PR review comment resolution
+- **PR Review Evidence**: -
+  - Example: resolved/aligned comment link, verification log, or docs path
 
 ---
 

@@ -76,6 +76,11 @@ export interface PrePrReviewFindings {
   minor: number;
 }
 
+export interface PrReviewFindings {
+  major: number;
+  minor: number;
+}
+
 export interface FeatureState {
   id?: string;
   slug: string;
@@ -116,6 +121,11 @@ export interface FeatureState {
     evidence?: string;
     evidenceProvided: boolean;
   };
+  prReview: {
+    findings?: PrReviewFindings;
+    evidence?: string;
+    evidenceProvided: boolean;
+  };
   pr: {
     link?: string;
     status?: PrReviewStatus;
@@ -153,6 +163,8 @@ export interface FeatureState {
     prePrReviewFieldExists: boolean;
     prePrFindingsFieldExists: boolean;
     prePrEvidenceFieldExists: boolean;
+    prReviewFindingsFieldExists: boolean;
+    prReviewEvidenceFieldExists: boolean;
   };
 }
 

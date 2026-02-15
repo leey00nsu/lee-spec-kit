@@ -706,6 +706,22 @@ function getListLabel(
     if (workflowPolicy.requireReview && !f.pr.status) {
       return tr(lang, 'cli', 'context.list.setPrStatus');
     }
+    if (
+      workflowPolicy.requireReview &&
+      f.pr.status === 'Review' &&
+      (!f.docs.prReviewFindingsFieldExists || !f.prReview.findings)
+    ) {
+      return tr(lang, 'cli', 'context.list.addPrReviewFindings');
+    }
+    if (
+      workflowPolicy.requireReview &&
+      f.pr.status === 'Review' &&
+      (!f.docs.prReviewEvidenceFieldExists ||
+        (((f.prReview.findings?.major || 0) + (f.prReview.findings?.minor || 0) > 0) &&
+          !f.prReview.evidenceProvided))
+    ) {
+      return tr(lang, 'cli', 'context.list.addPrReviewEvidence');
+    }
     if (workflowPolicy.requireReview && f.pr.status !== 'Approved') {
       return tr(lang, 'cli', 'context.list.prStatusToApproved', {
         status: f.pr.status,

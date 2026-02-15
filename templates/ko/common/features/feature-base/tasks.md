@@ -26,6 +26,10 @@
   - 사전 리뷰 최종 결과에 맞게 major/minor 건수를 갱신
 - **PR 전 리뷰 Evidence**: -
   - 예: 리뷰 노트 링크, 로그 경로, 문서 경로
+- **PR 리뷰 Findings**: major=0, minor=0
+  - PR 리뷰 코멘트 반영 결과에 맞게 major/minor 건수를 갱신
+- **PR 리뷰 Evidence**: -
+  - 예: 해결/합의한 코멘트 링크, 검증 로그, 관련 문서 경로
 
 ---
 

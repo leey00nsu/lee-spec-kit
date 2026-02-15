@@ -17,6 +17,7 @@ import {
   Lang,
   PrePrReviewFindings,
   PrePrReviewStatus,
+  PrReviewFindings,
   PrRemoteStatus,
   PrReviewStatus,
   RepoType,
@@ -123,9 +124,9 @@ function parsePrePrReviewStatus(
   return undefined;
 }
 
-function parsePrePrFindings(
+function parseReviewFindings(
   value: string | undefined
-): PrePrReviewFindings | undefined {
+): PrReviewFindings | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('|')) return undefined;
@@ -589,6 +590,9 @@ export async function parseFeature(
   let prePrFindings: PrePrReviewFindings | undefined;
   let prePrEvidence: string | undefined;
   let prePrEvidenceProvided = false;
+  let prReviewFindings: PrReviewFindings | undefined;
+  let prReviewEvidence: string | undefined;
+  let prReviewEvidenceProvided = false;
   let prLink: string | undefined;
   let prStatus: PrReviewStatus | undefined;
   let prRemote: PrRemoteStatus | undefined;
@@ -604,6 +608,8 @@ export async function parseFeature(
   let prePrReviewFieldExists = false;
   let prePrFindingsFieldExists = false;
   let prePrEvidenceFieldExists = false;
+  let prReviewFindingsFieldExists = false;
+  let prReviewEvidenceFieldExists = false;
 
   if (tasksExists) {
     const content = await fs.readFile(tasksPath, 'utf-8');
@@ -657,7 +663,7 @@ export async function parseFeature(
       'PR 전 리뷰 Findings',
       'Pre-PR Findings',
     ]);
-    prePrFindings = parsePrePrFindings(prePrFindingsValue);
+    prePrFindings = parseReviewFindings(prePrFindingsValue);
 
     const prePrEvidenceValue = extractFirstSpecValue(content, [
       'PR 전 리뷰 Evidence',
@@ -669,6 +675,27 @@ export async function parseFeature(
     ]);
     prePrEvidence = prePrEvidenceValue?.trim();
     prePrEvidenceProvided = !isPlaceholderReviewEvidence(prePrEvidenceValue);
+
+    const prReviewFindingsValue = extractFirstSpecValue(content, [
+      'PR 리뷰 Findings',
+      'PR Review Findings',
+    ]);
+    prReviewFindingsFieldExists = hasAnySpecKey(content, [
+      'PR 리뷰 Findings',
+      'PR Review Findings',
+    ]);
+    prReviewFindings = parseReviewFindings(prReviewFindingsValue);
+
+    const prReviewEvidenceValue = extractFirstSpecValue(content, [
+      'PR 리뷰 Evidence',
+      'PR Review Evidence',
+    ]);
+    prReviewEvidenceFieldExists = hasAnySpecKey(content, [
+      'PR 리뷰 Evidence',
+      'PR Review Evidence',
+    ]);
+    prReviewEvidence = prReviewEvidenceValue?.trim();
+    prReviewEvidenceProvided = !isPlaceholderReviewEvidence(prReviewEvidenceValue);
   }
 
   const issueDocExists = await fs.pathExists(issueDocPath);
@@ -863,6 +890,12 @@ export async function parseFeature(
   if (tasksExists && prePrReviewPolicy.enabled && !prePrEvidenceFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrEvidenceField'));
   }
+  if (tasksExists && workflowPolicy.requireReview && !prReviewFindingsFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewFindingsField'));
+  }
+  if (tasksExists && workflowPolicy.requireReview && !prReviewEvidenceFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewEvidenceField'));
+  }
   if (tasksExists && !tasksDocStatusFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksDocStatusField'));
   }
@@ -948,6 +981,17 @@ export async function parseFeature(
         if (!prStatus) warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
         if (prStatus && prStatus !== 'Approved') {
           warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
+          if (prStatus === 'Review') {
+            if (!prReviewFindingsFieldExists || !prReviewFindings) {
+              warnings.push(tr(lang, 'warnings', 'workflowPrReviewFindingsMissing'));
+            }
+            if (
+              (!prReviewEvidenceFieldExists || !prReviewEvidenceProvided) &&
+              (prReviewFindings?.major || 0) + (prReviewFindings?.minor || 0) > 0
+            ) {
+              warnings.push(tr(lang, 'warnings', 'workflowPrReviewEvidenceMissing'));
+            }
+          }
         }
       }
     }
@@ -1004,6 +1048,11 @@ export async function parseFeature(
       evidence: prePrEvidence,
       evidenceProvided: prePrEvidenceProvided,
     },
+    prReview: {
+      findings: prReviewFindings,
+      evidence: prReviewEvidence,
+      evidenceProvided: prReviewEvidenceProvided,
+    },
     pr: { link: prLink, status: prStatus, remote: prRemote },
     git: {
       docsBranch: context.docsBranch,
@@ -1037,6 +1086,8 @@ export async function parseFeature(
       prePrReviewFieldExists,
       prePrFindingsFieldExists,
       prePrEvidenceFieldExists,
+      prReviewFindingsFieldExists,
+      prReviewEvidenceFieldExists,
     },
   };
 

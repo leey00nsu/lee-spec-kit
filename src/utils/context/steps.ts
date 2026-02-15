@@ -1260,6 +1260,50 @@ export function getStepDefinitions(
             ];
           }
           if (f.pr.status === 'Review') {
+            if (!f.docs.prReviewFindingsFieldExists) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'code_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewFindingsFieldMissing'),
+                },
+              ];
+            }
+            if (!f.prReview.findings) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'code_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewFindingsMissing'),
+                },
+              ];
+            }
+            if (!f.docs.prReviewEvidenceFieldExists) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'code_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewEvidenceFieldMissing'),
+                },
+              ];
+            }
+            if (
+              (f.prReview.findings.major > 0 || f.prReview.findings.minor > 0) &&
+              !f.prReview.evidenceProvided
+            ) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'code_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewEvidenceMissing'),
+                },
+              ];
+            }
+
             const remoteBlockReasons = getPrReviewRemoteBlockReasons(f, lang);
             const actions: NextAction[] = [
               {
