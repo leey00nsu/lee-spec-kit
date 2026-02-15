@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { tr } from '../i18n.js';
 import {
   getGitStatusPorcelain,
@@ -16,6 +17,7 @@ import {
   Lang,
   PrePrReviewFindings,
   PrePrReviewStatus,
+  PrRemoteStatus,
   PrReviewStatus,
   RepoType,
   StepDefinition,
@@ -207,6 +209,133 @@ const PROJECT_DIRTY_STATUS_CACHE = new Map<
 >();
 
 const COMPONENT_STATUS_PATH_CACHE = new Map<string, string[]>();
+const PR_REMOTE_STATUS_CACHE = new Map<string, PrRemoteStatus | null>();
+
+function toUpperToken(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toUpperCase();
+  return normalized || undefined;
+}
+
+function parseCheckSignal(check: unknown): { failing: boolean; pending: boolean } {
+  if (!check || typeof check !== 'object') return { failing: false, pending: false };
+  const row = check as Record<string, unknown>;
+  const tokens = new Set<string>();
+  for (const key of ['conclusion', 'status', 'state']) {
+    const token = toUpperToken(row[key]);
+    if (token) tokens.add(token);
+  }
+
+  for (const token of tokens) {
+    if (
+      token === 'FAILURE' ||
+      token === 'FAILED' ||
+      token === 'ERROR' ||
+      token === 'TIMED_OUT' ||
+      token === 'CANCELLED' ||
+      token === 'ACTION_REQUIRED' ||
+      token === 'STARTUP_FAILURE'
+    ) {
+      return { failing: true, pending: false };
+    }
+  }
+
+  for (const token of tokens) {
+    if (
+      token === 'PENDING' ||
+      token === 'IN_PROGRESS' ||
+      token === 'QUEUED' ||
+      token === 'EXPECTED' ||
+      token === 'WAITING' ||
+      token === 'REQUESTED'
+    ) {
+      return { failing: false, pending: true };
+    }
+  }
+
+  return { failing: false, pending: false };
+}
+
+function isMergeBlockedState(value: string | undefined): boolean {
+  if (!value) return false;
+  return (
+    value === 'BLOCKED' ||
+    value === 'DIRTY' ||
+    value === 'BEHIND' ||
+    value === 'DRAFT' ||
+    value === 'HAS_HOOKS' ||
+    value === 'UNKNOWN' ||
+    value === 'UNSTABLE'
+  );
+}
+
+function resolvePrRemoteStatus(
+  prRef: string,
+  projectGitCwd: string
+): PrRemoteStatus | null {
+  const cacheKey = `${projectGitCwd}::${prRef}`;
+  if (PR_REMOTE_STATUS_CACHE.has(cacheKey)) {
+    return PR_REMOTE_STATUS_CACHE.get(cacheKey) || null;
+  }
+
+  try {
+    const raw = execFileSync(
+      'gh',
+      [
+        'pr',
+        'view',
+        prRef,
+        '--json',
+        'reviewDecision,mergeStateStatus,isDraft,statusCheckRollup',
+      ],
+      {
+        cwd: projectGitCwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 5000,
+        maxBuffer: 1024 * 1024,
+      }
+    ).trim();
+    if (!raw) {
+      PR_REMOTE_STATUS_CACHE.set(cacheKey, null);
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const reviewDecision = toUpperToken(parsed.reviewDecision);
+    const mergeStateStatus = toUpperToken(parsed.mergeStateStatus);
+    const isDraft = parsed.isDraft === true;
+
+    let failingChecks = 0;
+    let pendingChecks = 0;
+    const rollup = Array.isArray(parsed.statusCheckRollup)
+      ? parsed.statusCheckRollup
+      : [];
+    for (const check of rollup) {
+      const signal = parseCheckSignal(check);
+      if (signal.failing) failingChecks++;
+      else if (signal.pending) pendingChecks++;
+    }
+
+    const remote: PrRemoteStatus = {
+      source: 'gh',
+      available: true,
+      reviewDecision,
+      mergeStateStatus,
+      isDraft,
+      hasBlockingReview:
+        reviewDecision === 'CHANGES_REQUESTED' || reviewDecision === 'REVIEW_REQUIRED',
+      mergeBlocked: isDraft || isMergeBlockedState(mergeStateStatus),
+      failingChecks,
+      pendingChecks,
+    };
+    PR_REMOTE_STATUS_CACHE.set(cacheKey, remote);
+    return remote;
+  } catch {
+    PR_REMOTE_STATUS_CACHE.set(cacheKey, null);
+    return null;
+  }
+}
 
 async function resolveComponentStatusPaths(
   projectGitCwd: string,
@@ -462,6 +591,7 @@ export async function parseFeature(
   let prePrEvidenceProvided = false;
   let prLink: string | undefined;
   let prStatus: PrReviewStatus | undefined;
+  let prRemote: PrRemoteStatus | undefined;
   let prFieldExists = false;
   let prStatusFieldExists = false;
   let issueDocStatus: WorkflowDocStatus | undefined;
@@ -594,6 +724,15 @@ export async function parseFeature(
   }
   if (prDocReviewStatusFieldExists) {
     prStatusFieldExists = true;
+  }
+
+  if (
+    workflowPolicy.requireReview &&
+    prStatus === 'Review' &&
+    prLink &&
+    context.projectGitCwd
+  ) {
+    prRemote = resolvePrRemoteStatus(prLink, context.projectGitCwd) || undefined;
   }
 
   const warnings: string[] = [];
@@ -734,6 +873,23 @@ export async function parseFeature(
   if (projectHasUncommittedChanges) {
     warnings.push(tr(lang, 'warnings', 'projectUncommittedChanges'));
   }
+  if (prRemote?.hasBlockingReview) {
+    warnings.push(tr(lang, 'warnings', 'workflowPrRemoteChangesRequested'));
+  }
+  if ((prRemote?.failingChecks || 0) > 0) {
+    warnings.push(
+      tr(lang, 'warnings', 'workflowPrRemoteChecksFailing', {
+        count: prRemote?.failingChecks || 0,
+      })
+    );
+  }
+  if ((prRemote?.pendingChecks || 0) > 0) {
+    warnings.push(
+      tr(lang, 'warnings', 'workflowPrRemoteChecksPending', {
+        count: prRemote?.pendingChecks || 0,
+      })
+    );
+  }
 
   const tasksDocApproved = !tasksDocStatusFieldExists || tasksDocStatus === 'Approved';
   const implementationDone =
@@ -848,7 +1004,7 @@ export async function parseFeature(
       evidence: prePrEvidence,
       evidenceProvided: prePrEvidenceProvided,
     },
-    pr: { link: prLink, status: prStatus },
+    pr: { link: prLink, status: prStatus, remote: prRemote },
     git: {
       docsBranch: context.docsBranch,
       projectBranch: context.projectBranch,

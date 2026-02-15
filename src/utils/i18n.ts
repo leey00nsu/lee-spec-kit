@@ -114,17 +114,17 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 정책은 세션 시작(또는 context 압축/리셋 직후)에 1회 확인하고, 이후에는 정책/설정 변경 또는 사용자 새로고침 요청 시에만 재확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 `<라벨>` 또는 `<라벨> OK` (예: `A`, `A OK`) 응답을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 정책은 세션 시작(또는 context 압축/리셋 직후)에 1회 확인하고, 이후에는 정책/설정 변경 또는 사용자 새로고침 요청 시에만 재확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 라벨 토큰이 포함된 응답(예: `A`, `A OK`, `A 진행해`)을 받은 뒤 진행 (config: approval로 조정 가능)',
       'context.actionOptionHint':
         '승인 응답 형식: 라벨 토큰 포함 (예: `A`, `A OK`, `A 진행해`)',
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.finalLabelPrompt':
-        '현재 선택 가능한 라벨: {labels}. 응답은 `<라벨>` 또는 `<라벨> OK` 형식으로 해주세요. (예: {example})',
+        '현재 선택 가능한 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
       'context.suggestionHeader': '추천 다음 선택지',
       'context.suggestionCommandHint': '라벨 참고 명령: {command}',
       'context.suggestionFinalPrompt':
-        '현재 추천 라벨: {labels}. 응답은 `<라벨>` 또는 `<라벨> OK` 형식으로 해주세요. (예: {example})',
+        '현재 추천 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
       'context.suggestion.createFeature': '새 Feature를 생성합니다',
       'context.suggestion.showDone': '완료된 Feature 목록을 확인합니다',
       'context.suggestion.showAll': '전체 Feature 목록을 확인합니다',
@@ -556,7 +556,19 @@ const I18N: Record<Lang, I18nData> = {
       prResolveReview:
         '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewResolve:
-        '리뷰 코멘트를 해결하는 동안 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요.',
+        '리뷰 코멘트를 해결하는 동안 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 커밋 후 원격 반영(push)도 사용자 승인(OK)을 받은 뒤 진행하세요.',
+      prReviewPush:
+        '리뷰 수정 커밋을 원격 PR 브랜치에 반영하려면 사용자 승인(OK) 후 `cd "{projectGitCwd}" && git push`를 실행하세요.',
+      prReviewRemoteBlocked:
+        '원격 PR 상태를 확인한 결과 아직 머지 준비가 되지 않았습니다: {reasons}. 리뷰 코멘트/체크 상태를 정리한 뒤 다시 확인하세요.',
+      prReviewRemoteReasonChangesRequested:
+        '리뷰 승인 상태가 변경 요청 또는 추가 리뷰 필요 상태입니다',
+      prReviewRemoteReasonChecksFailing:
+        '실패한 체크가 {count}건 있습니다',
+      prReviewRemoteReasonChecksPending:
+        '대기 중인 체크가 {count}건 있습니다',
+      prReviewRemoteReasonMergeBlocked:
+        '머지 상태가 `{status}`로 차단되어 있습니다',
       prReviewMerge:
         '머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prRequestReview:
@@ -601,6 +613,12 @@ const I18N: Record<Lang, I18nData> = {
         '완료 상태이지만 PR 상태가 비어있습니다. (PR 생성/리뷰 단계에서는 PR 상태를 Review로 설정하세요.)',
       workflowPrStatusNotApproved:
         '완료 상태이지만 PR 상태가 Approved가 아닙니다. (PR 생성/리뷰 단계는 Review를 유지하고, merge 성공 시에만 Approved로 동기화하세요.)',
+      workflowPrRemoteChangesRequested:
+        '원격 PR에서 변경 요청 또는 추가 리뷰가 감지되었습니다. 코멘트 반영 후 push하고 다시 확인하세요.',
+      workflowPrRemoteChecksFailing:
+        '원격 PR 체크 실패가 {count}건 감지되었습니다. 실패 원인을 해결 후 다시 확인하세요.',
+      workflowPrRemoteChecksPending:
+        '원격 PR 체크 대기가 {count}건 감지되었습니다. 체크 완료 후 다시 확인하세요.',
       workflowPrePrReviewMissing:
         '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
       workflowPrePrReviewNotDone:
@@ -705,17 +723,17 @@ const I18N: Record<Lang, I18nData> = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  Check user-approval policy once at session start (or right after context compression/reset); re-check only when policy/config changes or the user explicitly requests refresh. (includes git push/merge and merge commits). If you see [CHECK required], wait for `<label>` or `<label> OK` (e.g. `A`, `A OK`) before proceeding (config: approval can override)',
+        'ℹ️  Check user-approval policy once at session start (or right after context compression/reset); re-check only when policy/config changes or the user explicitly requests refresh. (includes git push/merge and merge commits). If you see [CHECK required], wait for a reply that includes a label token (e.g. `A`, `A OK`, `A proceed`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
         'Approval reply format: include a label token (e.g. `A`, `A OK`, `A proceed`)',
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.finalLabelPrompt':
-        'Available labels now: {labels}. Please reply in `<label>` or `<label> OK` format. (e.g. {example})',
+        'Available labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
       'context.suggestionHeader': 'Suggested Next Options',
       'context.suggestionCommandHint': 'Reference command: {command}',
       'context.suggestionFinalPrompt':
-        'Recommended labels now: {labels}. Please reply in `<label>` or `<label> OK` format. (e.g. {example})',
+        'Recommended labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
       'context.suggestion.createFeature': 'Create a new feature',
       'context.suggestion.showDone': 'Show completed features',
       'context.suggestion.showAll': 'Show all features',
@@ -1165,7 +1183,19 @@ const I18N: Record<Lang, I18nData> = {
       prResolveReview:
         'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prReviewResolve:
-        'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles).',
+        'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). After committing, push should also run only after explicit user OK.',
+      prReviewPush:
+        'To reflect review-fix commits on the PR head branch, get explicit user OK and run `cd "{projectGitCwd}" && git push`.',
+      prReviewRemoteBlocked:
+        'Remote PR checks indicate this PR is not ready to merge yet: {reasons}. Resolve review comments/check statuses, then re-check.',
+      prReviewRemoteReasonChangesRequested:
+        'review decision is changes requested or additional review required',
+      prReviewRemoteReasonChecksFailing:
+        '{count} failing check(s) detected',
+      prReviewRemoteReasonChecksPending:
+        '{count} pending check(s) detected',
+      prReviewRemoteReasonMergeBlocked:
+        'merge state is blocked (`{status}`)',
       prReviewMerge:
         'When ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prRequestReview: 'Request review and set/keep PR Status as Review.',
@@ -1209,6 +1239,12 @@ const I18N: Record<Lang, I18nData> = {
         'Implementation is done but PR Status is missing. (Set PR Status to Review during PR creation/review stages.)',
       workflowPrStatusNotApproved:
         'Implementation is done but PR Status is not Approved. (Keep PR Status as Review before merge and sync to Approved only after successful merge.)',
+      workflowPrRemoteChangesRequested:
+        'Remote PR shows changes requested or additional review required. Address comments, push, then re-check.',
+      workflowPrRemoteChecksFailing:
+        'Remote PR has {count} failing check(s). Fix failures, then re-check.',
+      workflowPrRemoteChecksPending:
+        'Remote PR has {count} pending check(s). Wait for checks to complete, then re-check.',
       workflowPrePrReviewMissing:
         'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
       workflowPrePrReviewNotDone:

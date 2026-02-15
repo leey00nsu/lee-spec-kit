@@ -2,6 +2,17 @@ export type RepoType = string;
 export type DocStatus = 'Draft' | 'Review' | 'Approved';
 export type WorkflowDocStatus = 'Draft' | 'Ready';
 export type PrReviewStatus = 'Review' | 'Approved';
+export interface PrRemoteStatus {
+  source: 'gh';
+  available: boolean;
+  reviewDecision?: string;
+  mergeStateStatus?: string;
+  isDraft: boolean;
+  hasBlockingReview: boolean;
+  mergeBlocked: boolean;
+  failingChecks: number;
+  pendingChecks: number;
+}
 export type { Lang } from '../i18n.js';
 
 export type ActionScope = 'project' | 'docs';
@@ -108,6 +119,7 @@ export interface FeatureState {
   pr: {
     link?: string;
     status?: PrReviewStatus;
+    remote?: PrRemoteStatus;
   };
   git: {
     docsBranch: string;

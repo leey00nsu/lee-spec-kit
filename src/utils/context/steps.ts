@@ -121,6 +121,38 @@ function getMinorFindingsPolicyText(
     : tr(lang, 'messages', 'prePrReviewMinorFindingsWarn');
 }
 
+function getPrReviewRemoteBlockReasons(feature: FeatureState, lang: Lang): string[] {
+  const remote = feature.pr.remote;
+  if (!remote || !remote.available) return [];
+
+  const reasons: string[] = [];
+  if (remote.hasBlockingReview) {
+    reasons.push(tr(lang, 'messages', 'prReviewRemoteReasonChangesRequested'));
+  }
+  if (remote.failingChecks > 0) {
+    reasons.push(
+      tr(lang, 'messages', 'prReviewRemoteReasonChecksFailing', {
+        count: remote.failingChecks,
+      })
+    );
+  }
+  if (remote.pendingChecks > 0) {
+    reasons.push(
+      tr(lang, 'messages', 'prReviewRemoteReasonChecksPending', {
+        count: remote.pendingChecks,
+      })
+    );
+  }
+  if (remote.mergeBlocked) {
+    reasons.push(
+      tr(lang, 'messages', 'prReviewRemoteReasonMergeBlocked', {
+        status: remote.mergeStateStatus || 'UNKNOWN',
+      })
+    );
+  }
+  return reasons;
+}
+
 function normalizeCommitTopicText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -1228,22 +1260,51 @@ export function getStepDefinitions(
             ];
           }
           if (f.pr.status === 'Review') {
-            return [
+            const remoteBlockReasons = getPrReviewRemoteBlockReasons(f, lang);
+            const actions: NextAction[] = [
               {
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
                 message: tr(lang, 'messages', 'prReviewResolve'),
               },
-              {
+            ];
+
+            if (!f.git.projectGitCwd) {
+              actions.push({
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prReviewMerge', {
-                  featureRef: f.id || f.folderName,
+                message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+              });
+            } else {
+              actions.push({
+                type: 'command',
+                category: 'code_review',
+                requiresUserCheck: true,
+                scope: 'project',
+                cwd: f.git.projectGitCwd,
+                cmd: tr(lang, 'messages', 'prReviewPush', {
+                  projectGitCwd: f.git.projectGitCwd,
                 }),
-              },
-            ];
+              });
+            }
+
+            actions.push({
+              type: 'instruction',
+              category: 'code_review',
+              requiresUserCheck: true,
+              message:
+                remoteBlockReasons.length > 0
+                  ? tr(lang, 'messages', 'prReviewRemoteBlocked', {
+                      reasons: remoteBlockReasons.join('; '),
+                    })
+                  : tr(lang, 'messages', 'prReviewMerge', {
+                      featureRef: f.id || f.folderName,
+                    }),
+            });
+
+            return actions;
           }
           return [
             {
