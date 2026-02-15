@@ -566,7 +566,7 @@ const I18N: Record<Lang, I18nData> = {
       prResolveReview:
         '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewResolve:
-        '리뷰 코멘트를 해결하는 동안 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. `PR 리뷰 Findings/Evidence`를 최신으로 기록하고, 커밋 후 원격 반영(push)도 사용자 승인(OK)을 받은 뒤 진행하세요.',
+        '리뷰 코멘트를 먼저 확인/분석한 뒤 필요한 수정 작업을 진행하세요. 진행 중에는 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. `PR 리뷰 Findings/Evidence`를 최신으로 기록하고, 커밋 후 원격 반영(push)도 사용자 승인(OK)을 받은 뒤 진행하세요.',
       prReviewPush:
         '리뷰 수정 커밋을 원격 PR 브랜치에 반영하려면 사용자 승인(OK) 후 `cd "{projectGitCwd}" && git push`를 실행하세요.',
       prReviewRemoteBlocked:
@@ -1211,7 +1211,7 @@ const I18N: Record<Lang, I18nData> = {
       prResolveReview:
         'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prReviewResolve:
-        'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Keep `PR Review Findings/Evidence` updated, then run push only after explicit user OK.',
+        'First review/analyze the PR comments, then apply the required fixes. Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Keep `PR Review Findings/Evidence` updated, then run push only after explicit user OK.',
       prReviewPush:
         'To reflect review-fix commits on the PR head branch, get explicit user OK and run `cd "{projectGitCwd}" && git push`.',
       prReviewRemoteBlocked:
