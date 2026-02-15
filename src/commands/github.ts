@@ -408,14 +408,8 @@ function parsePrArtifactMode(
   );
 }
 
-function isMermaidPreferredComponent(component: string): boolean {
-  const normalized = (component || '').trim().toLowerCase();
-  return ['be', 'backend', 'api', 'server', 'core'].includes(normalized);
-}
-
 function resolvePrArtifactPolicy(
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
-  feature: FeatureContext,
   options: GithubPrOptions
 ): PrArtifactPolicy {
   const screenshotsMode = parsePrArtifactMode(
@@ -440,7 +434,7 @@ function resolvePrArtifactPolicy(
       ? true
       : mermaidMode === 'off'
         ? false
-        : isMermaidPreferredComponent(feature.type);
+        : true;
 
   return {
     includeScreenshots,
@@ -1855,7 +1849,7 @@ export function githubCommand(program: Command): void {
               slug: feature.slug,
             });
         const title = options.title?.trim() || defaultTitle;
-        const artifactPolicy = resolvePrArtifactPolicy(config, feature, options);
+        const artifactPolicy = resolvePrArtifactPolicy(config, options);
         const generatedBody = buildPrBody(
           feature,
           specContent,

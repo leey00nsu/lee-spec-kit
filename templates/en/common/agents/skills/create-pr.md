@@ -74,8 +74,9 @@ Include the artifacts in the PR body.
 
 > - If this includes UI changes, include **screenshots**.
 > - If this includes logic/structure changes, include a **diagram**.
+> - `--mermaid auto` includes a diagram by default; use `--mermaid off` only when no logic/structure change exists.
 
-#### UI changes (Frontend PR)
+#### UI changes
 
 - Default is `pr.screenshots.upload: false`. If you need upload/URL inclusion, enable it in `.lee-spec-kit.json`.
 - If `.lee-spec-kit.json` has `pr.screenshots.upload: false`, **do not upload/include URLs**, and **do not include a "Screenshots" section** in the PR body.
@@ -135,9 +136,10 @@ gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
 echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 ```
 
-#### Logic/structure changes (Backend PR)
+#### Logic/structure changes
 
 - Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated body template format.
+- Apply this rule based on change type (logic/structure), not by frontend/backend classification.
 
 ### 4. Request User Approval + Move to `Ready`
 

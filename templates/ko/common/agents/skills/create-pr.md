@@ -74,8 +74,9 @@ PR 본문에 결과물을 포함합니다.
 
 > - UI 변경에 해당된다면 **스크린샷을** 포함하세요.
 > - 로직/구조 변경에 해당된다면 **다이어그램을** 포함하세요.
+> - `--mermaid auto`는 기본적으로 다이어그램을 포함합니다. 로직/구조 변경이 전혀 없는 경우에만 `--mermaid off`를 사용하세요.
 
-#### UI 변경 (프론트엔드 PR)
+#### UI 변경
 
 - 기본값은 `pr.screenshots.upload: false`입니다. 업로드/URL 포함이 필요하다면 `.lee-spec-kit.json`에서 `true`로 켜세요.
 - `.lee-spec-kit.json`에서 `pr.screenshots.upload: false`라면 **업로드/URL 포함을 하지 않으며**, PR 본문에서도 **"스크린샷" 섹션을 만들지 않습니다.**
@@ -135,9 +136,10 @@ gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
 echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 ```
 
-#### 로직/구조 변경 (백엔드 PR)
+#### 로직/구조 변경
 
 - PR 본문에 Mermaid **`sequenceDiagram`**을 작성하고, 생성된 본문 템플릿 형식과 일치하게 유지합니다.
+- 이 기준은 프론트/백엔드 구분이 아니라 변경 유형(로직/구조) 기준으로 적용합니다.
 
 ### 4. 사용자 확인 요청 + `Ready` 전환
 
