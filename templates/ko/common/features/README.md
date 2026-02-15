@@ -67,7 +67,7 @@ npx lee-spec-kit status --write
 | 문서 상태 | `spec.md`/`plan.md`의 `상태`, `tasks.md`의 `문서 상태` | `Draft` \| `Review` \| `Approved` |
 | 이슈 문서 상태 | `issue.md`의 `상태` | `Draft` \| `Ready` |
 | PR 문서 상태 | `pr.md`의 `상태` | `Draft` \| `Ready` |
-| PR 리뷰 상태 | `tasks.md`/`pr.md`의 `PR 상태` | `Review` \| `Approved` |
+| PR 리뷰 상태 | `tasks.md`의 `PR 상태` | `Review` \| `Approved` |
 | Pre-PR 리뷰 상태 | `tasks.md`의 `PR 전 리뷰` | `Pending` \| `Done` |
 | Pre-PR 리뷰 Findings | `tasks.md`의 `PR 전 리뷰 Findings` | `major=<n>, minor=<n>` |
 | Pre-PR 리뷰 Evidence | `tasks.md`의 `PR 전 리뷰 Evidence` | 근거 링크/로그/문서 경로 |

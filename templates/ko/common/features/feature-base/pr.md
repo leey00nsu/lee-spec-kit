@@ -3,9 +3,6 @@
 ## 메타데이터
 
 - **상태**: Draft | Ready
-- **PR**: -
-- **PR 상태**: - 
-  - 값: Review | Approved
 - **Base**: main
 - **작성일**: {YYYY-MM-DD}
 

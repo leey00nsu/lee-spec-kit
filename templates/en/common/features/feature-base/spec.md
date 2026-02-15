@@ -9,7 +9,6 @@
 - **Feature ID**: F{number}
 - **Feature Name**: {feature-name}
 - **Target Repo**: {{projectName}}-{component}
-- **Issue Number**: #{issue-number}
 - **Created**: {YYYY-MM-DD}
 - **Status**: Draft | Review | Approved
 

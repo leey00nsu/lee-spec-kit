@@ -3,9 +3,6 @@
 ## Metadata
 
 - **Status**: Draft | Ready
-- **PR**: -
-- **PR Status**: -
-  - Values: Review | Approved
 - **Base**: main
 - **Created**: {YYYY-MM-DD}
 

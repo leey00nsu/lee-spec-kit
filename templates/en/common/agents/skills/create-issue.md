@@ -64,9 +64,8 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
 After creation:
-- sync created issue number into `issue.md`
-- sync issue number into `spec.md` and `tasks.md`
-- keep `issue.md` status as `Ready` (creation state is tracked by issue number/link fields)
+- sync created issue number into `tasks.md`
+- keep `issue.md` status as `Ready` (creation state is tracked in `tasks.md`)
 
 ---
 

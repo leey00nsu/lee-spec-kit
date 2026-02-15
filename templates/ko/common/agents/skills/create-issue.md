@@ -64,9 +64,8 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
 생성 후:
-- 생성된 이슈 번호를 `issue.md`에 기록
-- `spec.md`, `tasks.md`의 이슈 번호도 동기화
-- `issue.md` 상태는 `Ready`로 유지 (`Issue Number`/링크 필드로 생성 상태를 관리)
+- 생성된 이슈 번호를 `tasks.md`에 기록
+- `issue.md` 상태는 `Ready`로 유지 (생성 상태는 `tasks.md`에서 관리)
 
 ---
 

@@ -167,9 +167,9 @@ npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
 
 생성 후:
-- 생성된 PR 링크를 `pr.md`와 `tasks.md`에 기록
+- 생성된 PR 링크를 `tasks.md`에 기록
 - PR 상태를 `Review`로 기록/유지
-- `pr.md` 상태는 `Ready`로 유지 (생성/머지 상태는 PR 링크 + `PR 상태`로 관리)
+- `pr.md` 상태는 `Ready`로 유지 (생성/머지 상태는 `tasks.md`의 PR/PR 상태로 관리)
 
 ---
 

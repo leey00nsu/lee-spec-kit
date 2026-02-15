@@ -167,9 +167,9 @@ npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
 
 After creation:
-- record created PR link into `pr.md` and `tasks.md`
+- record created PR link into `tasks.md`
 - record/keep PR status as `Review`
-- keep `pr.md` status as `Ready` (creation/merge state is tracked by PR link + `PR Status`)
+- keep `pr.md` status as `Ready` (creation/merge state is tracked by `tasks.md` PR/PR Status)
 
 ---
 

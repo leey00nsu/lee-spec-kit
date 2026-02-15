@@ -3,7 +3,6 @@
 ## Metadata
 
 - **Status**: Draft | Ready
-- **Issue Number**: #{issue-number}
 - **Title**: {feature-name}
 - **Labels**: enhancement
 - **Created**: {YYYY-MM-DD}

@@ -628,10 +628,13 @@ export async function parseFeature(
     nextTodoTask = nextTodo;
     completionChecklist = parseCompletionChecklist(content);
 
-    if (!issueNumber) {
-      const issueValue = extractFirstSpecValue(content, ['이슈 번호', 'Issue Number', 'Issue']);
-      issueNumber = parseIssueNumber(issueValue);
-    }
+    const issueValue = extractFirstSpecValue(content, [
+      '이슈 번호',
+      'Issue Number',
+      'Issue',
+    ]);
+    // tasks.md is the primary source of operational tracking metadata.
+    issueNumber = parseIssueNumber(issueValue);
 
     const tasksDocStatusValue = extractFirstSpecValue(content, ['문서 상태', 'Doc Status']);
     tasksDocStatusFieldExists = hasAnySpecKey(content, ['문서 상태', 'Doc Status']);
@@ -705,20 +708,11 @@ export async function parseFeature(
     issueDocStatusFieldExists = hasAnySpecKey(content, ['상태', 'Status']);
     issueDocStatus = parseWorkflowDocStatus(issueDocStatusValue);
 
-    const issueValue = extractFirstSpecValue(content, [
-      '이슈 번호',
-      'Issue Number',
-      'Issue',
-    ]);
     issueDocIssueFieldExists = hasAnySpecKey(content, [
       '이슈 번호',
       'Issue Number',
       'Issue',
     ]);
-    const parsedIssueFromDoc = parseIssueNumber(issueValue);
-    if (parsedIssueFromDoc) {
-      issueNumber = parsedIssueFromDoc;
-    }
   }
 
   const prDocExists = await fs.pathExists(prDocPath);
@@ -728,29 +722,9 @@ export async function parseFeature(
     prDocStatusFieldExists = hasAnySpecKey(content, ['상태', 'Status']);
     prDocStatus = parseWorkflowDocStatus(prDocStatusValue);
 
-    const prValue = extractFirstSpecValue(content, ['PR', 'Pull Request']);
     prDocPrFieldExists = hasAnySpecKey(content, ['PR', 'Pull Request']);
-    const parsedPrLink = parsePrLink(prValue);
-    if (parsedPrLink) {
-      prLink = parsedPrLink;
-    }
 
-    const prReviewStatusValue = extractFirstSpecValue(content, [
-      'PR 상태',
-      'PR Status',
-    ]);
     prDocReviewStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
-    const parsedPrStatus = parsePrReviewStatus(prReviewStatusValue);
-    if (parsedPrStatus) {
-      prStatus = parsedPrStatus;
-    }
-  }
-
-  if (prDocPrFieldExists) {
-    prFieldExists = true;
-  }
-  if (prDocReviewStatusFieldExists) {
-    prStatusFieldExists = true;
   }
 
   if (

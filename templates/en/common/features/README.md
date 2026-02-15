@@ -67,7 +67,7 @@ npx lee-spec-kit status --write
 | Document status | `Status` in `spec.md`/`plan.md`, `Doc Status` in `tasks.md` | `Draft` \| `Review` \| `Approved` |
 | Issue doc status | `Status` in `issue.md` | `Draft` \| `Ready` |
 | PR doc status | `Status` in `pr.md` | `Draft` \| `Ready` |
-| PR review status | `PR Status` in `tasks.md`/`pr.md` | `Review` \| `Approved` |
+| PR review status | `PR Status` in `tasks.md` | `Review` \| `Approved` |
 | Pre-PR review status | `Pre-PR Review` in `tasks.md` | `Pending` \| `Done` |
 | Pre-PR review findings | `Pre-PR Findings` in `tasks.md` | `major=<n>, minor=<n>` |
 | Pre-PR review evidence | `Pre-PR Evidence` in `tasks.md` | evidence link/log/doc path |
