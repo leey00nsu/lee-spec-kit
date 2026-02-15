@@ -56,6 +56,44 @@ npx lee-spec-kit status
 npx lee-spec-kit doctor
 ```
 
+## New Project Start Order
+
+For a brand-new project, scaffold the **codebase first**, then initialize docs.
+This sequence assumes the default `docsRepo: embedded` mode.
+
+```bash
+# 0) Create/init the code project first (example: Next.js)
+npx create-next-app@latest my-app
+cd my-app
+
+# 1) Initialize docs structure
+npx lee-spec-kit init
+
+# 2) Detect project (agent entrypoint)
+npx lee-spec-kit detect --json
+
+# 3) Create feature and start workflow
+npx lee-spec-kit feature user-auth
+npx lee-spec-kit context --json
+```
+
+- Apply lee-spec-kit workflow only when `detect --json` returns `isLeeSpecKitProject: true`.
+- If `isLeeSpecKitProject: false`, continue with normal non-lee-spec-kit workflow.
+- If you use `standalone` docs, run commands against the docs repo location (`--dir` or `LEE_SPEC_KIT_DOCS_DIR`).
+
+## Agent Kickoff Prompt
+
+You can paste the following as an agent session-start instruction.
+
+```text
+Start procedure:
+1) Run npx lee-spec-kit detect --json
+2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json
+3) If actionOptions exist, show approvalPrompt and finalPrompt exactly as provided, then wait for user approval (<LABEL> or <LABEL> OK)
+4) Do not execute before approval; execute requiresUserCheck=true actions only after approval
+5) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
+```
+
 ## Features
 
 ### 📁 Project initialization

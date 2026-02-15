@@ -37,6 +37,8 @@
 ## 목차
 
 - [Quick Start](#quick-start)
+- [신규 프로젝트 시작 순서](#신규-프로젝트-시작-순서)
+- [에이전트 킥오프 프롬프트](#에이전트-킥오프-프롬프트)
 - [주요 기능](#주요-기능)
 - [사용법](#사용법)
 - [설정 파일](#설정-파일)
@@ -67,6 +69,44 @@ npx lee-spec-kit status
 
 # 6. 문서/Feature 진단
 npx lee-spec-kit doctor
+```
+
+## 신규 프로젝트 시작 순서
+
+신규 프로젝트에서는 **코드 스캐폴딩을 먼저** 하고, 그 다음 docs를 초기화하세요.
+이 순서는 기본값인 `docsRepo: embedded` 기준입니다.
+
+```bash
+# 0. 코드 프로젝트 생성/초기화 (예: Next.js)
+npx create-next-app@latest my-app
+cd my-app
+
+# 1. docs 구조 초기화
+npx lee-spec-kit init
+
+# 2. 감지 확인 (에이전트 시작점)
+npx lee-spec-kit detect --json
+
+# 3. Feature 생성 후 작업 시작
+npx lee-spec-kit feature user-auth
+npx lee-spec-kit context --json
+```
+
+- `detect --json` 결과가 `isLeeSpecKitProject: true`일 때 lee-spec-kit 워크플로우를 적용하세요.
+- `isLeeSpecKitProject: false`면 일반 프로젝트 워크플로우로 진행하세요.
+- `standalone`으로 docs를 분리한 경우에는 docs 레포 위치(`--dir` 또는 `LEE_SPEC_KIT_DOCS_DIR`) 기준으로 실행하세요.
+
+## 에이전트 킥오프 프롬프트
+
+아래 프롬프트를 에이전트 시작 메시지로 그대로 사용할 수 있습니다.
+
+```text
+작업 시작 절차:
+1) npx lee-spec-kit detect --json
+2) isLeeSpecKitProject === true 이면 npx lee-spec-kit context --json 실행
+3) actionOptions가 있으면 approvalPrompt와 finalPrompt를 그대로 사용자에게 제시하고 승인(<LABEL> 또는 <LABEL> OK) 대기
+4) 승인 전에는 실행하지 말고, requiresUserCheck=true 액션은 승인 후에만 실행
+5) isLeeSpecKitProject === false 이면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행
 ```
 
 ## 주요 기능

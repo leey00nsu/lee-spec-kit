@@ -2,6 +2,26 @@
 
 This documentation is organized by feature to help agents quickly understand the project.
 
+## Agent Session Start Checklist
+
+```bash
+# 1) Detect project
+npx lee-spec-kit detect --json
+
+# 2) If detected, read context first
+npx lee-spec-kit context --json
+```
+
+- Apply lee-spec-kit workflow only when `isLeeSpecKitProject: true`.
+- When `actionOptions` exist, show `approvalPrompt`/`finalPrompt` exactly as provided and wait for user approval (`<LABEL>` or `<LABEL> OK`) before execution.
+- If `isLeeSpecKitProject: false`, skip lee-spec-kit-specific flow and continue with normal workflow.
+
+## New Project Start Order
+
+- Scaffold the code project first (for example Next.js/NestJS), then run `lee-spec-kit init`.
+- After that, verify detection with `detect --json`, then continue with `feature` and `context`.
+- This sequence assumes default `docsRepo: embedded`. For `standalone`, run against the docs repo path (`--dir` or `LEE_SPEC_KIT_DOCS_DIR`).
+
 ## Directory Structure
 
 | Path              | Purpose               | Key Documents |

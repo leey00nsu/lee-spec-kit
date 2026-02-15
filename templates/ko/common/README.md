@@ -2,6 +2,26 @@
 
 에이전트가 프로젝트 전반을 빠르게 파악할 수 있도록 문서를 기능별로 분리해 두었습니다.
 
+## 에이전트 세션 시작 체크리스트
+
+```bash
+# 1) 프로젝트 감지
+npx lee-spec-kit detect --json
+
+# 2) 감지 성공 시 컨텍스트 조회
+npx lee-spec-kit context --json
+```
+
+- `isLeeSpecKitProject: true`일 때만 lee-spec-kit 워크플로우를 적용합니다.
+- `actionOptions`가 있으면 `approvalPrompt`/`finalPrompt`를 그대로 사용자에게 보여주고 승인(`<LABEL>` 또는 `<LABEL> OK`)을 받은 뒤 실행합니다.
+- `isLeeSpecKitProject: false`면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행합니다.
+
+## 신규 프로젝트 시작 순서
+
+- 코드 프로젝트 스캐폴딩(예: Next.js/NestJS) 후 `lee-spec-kit init`을 실행하세요.
+- 그 다음 `detect --json`으로 감지 결과를 확인하고, `feature`/`context` 순서로 진행하세요.
+- 위 순서는 기본값인 `docsRepo: embedded` 기준입니다. `standalone`이면 docs 레포 경로 기준(`--dir` 또는 `LEE_SPEC_KIT_DOCS_DIR`)으로 실행하세요.
+
 ## 상위 구조 요약
 
 | 경로             | 목적               | 핵심 문서/역할 |
