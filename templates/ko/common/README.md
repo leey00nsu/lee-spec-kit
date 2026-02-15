@@ -20,7 +20,8 @@ npx lee-spec-kit context --json
 
 - 코드 프로젝트 스캐폴딩(예: Next.js/NestJS) 후 `lee-spec-kit init`을 실행하세요.
 - 그 다음 `detect --json`으로 감지 결과를 확인하고, `feature`/`context` 순서로 진행하세요.
-- 위 순서는 기본값인 `docsRepo: embedded` 기준입니다. `standalone`이면 docs 레포 경로 기준(`--dir` 또는 `LEE_SPEC_KIT_DOCS_DIR`)으로 실행하세요.
+- 대부분의 경우(기본값: embedded) 위 순서만 따르면 됩니다.
+- docs를 코드 저장소와 분리해 운영할 때만 standalone을 선택하세요. 이때는 상위 워크스페이스 폴더(예: `workspace/docs`, `workspace/project`)에서 `init`을 실행해 docs/project 경로를 함께 지정하는 방식을 권장합니다. (예: `npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project`)
 
 ## 상위 구조 요약
 

@@ -59,7 +59,7 @@ npx lee-spec-kit doctor
 ## New Project Start Order
 
 For a brand-new project, scaffold the **codebase first**, then initialize docs.
-This sequence assumes the default `docsRepo: embedded` mode.
+For most users (default: embedded), running `npx lee-spec-kit init` in project root is enough.
 
 ```bash
 # 0) Create/init the code project first (example: Next.js)
@@ -79,7 +79,19 @@ npx lee-spec-kit context --json
 
 - Apply lee-spec-kit workflow only when `detect --json` returns `isLeeSpecKitProject: true`.
 - If `isLeeSpecKitProject: false`, continue with normal non-lee-spec-kit workflow.
-- If you use `standalone` docs, run commands against the docs repo location (`--dir` or `LEE_SPEC_KIT_DOCS_DIR`).
+
+For teams that keep docs separate from the code repo (standalone), the recommended start point is the **parent workspace folder**.
+
+```bash
+# Recommended layout:
+# workspace/
+#   ├─ docs/      (lee-spec-kit docs)
+#   └─ project/   (actual code repo)
+#
+# Run from workspace root
+npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project
+npx lee-spec-kit detect --json
+```
 
 ## Agent Kickoff Prompt
 
@@ -99,7 +111,7 @@ Start procedure:
 ### 📁 Project initialization
 
 - Interactive init or CLI options
-- Supports `single` and `multi` (`fullstack` remains as a backward-compatible alias)
+- Default is `multi`; `single` remains supported for simple single-repo and backward-compatibility scenarios (`fullstack` is a backward-compatible alias of `multi`)
 - Korean/English templates
 
 ### 🚀 Feature creation

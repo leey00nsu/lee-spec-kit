@@ -74,7 +74,7 @@ npx lee-spec-kit doctor
 ## 신규 프로젝트 시작 순서
 
 신규 프로젝트에서는 **코드 스캐폴딩을 먼저** 하고, 그 다음 docs를 초기화하세요.
-이 순서는 기본값인 `docsRepo: embedded` 기준입니다.
+대부분의 사용자(기본값: embedded)는 프로젝트 루트에서 `npx lee-spec-kit init`만 실행하면 됩니다.
 
 ```bash
 # 0. 코드 프로젝트 생성/초기화 (예: Next.js)
@@ -94,7 +94,19 @@ npx lee-spec-kit context --json
 
 - `detect --json` 결과가 `isLeeSpecKitProject: true`일 때 lee-spec-kit 워크플로우를 적용하세요.
 - `isLeeSpecKitProject: false`면 일반 프로젝트 워크플로우로 진행하세요.
-- `standalone`으로 docs를 분리한 경우에는 docs 레포 위치(`--dir` 또는 `LEE_SPEC_KIT_DOCS_DIR`) 기준으로 실행하세요.
+
+docs를 코드 저장소와 분리해 운영하는 팀(standalone)은 **상위 워크스페이스 폴더**를 기준으로 시작하는 것을 권장합니다.
+
+```bash
+# 권장 레이아웃:
+# workspace/
+#   ├─ docs/      (lee-spec-kit 문서)
+#   └─ project/   (실제 코드 저장소)
+#
+# workspace 루트에서 실행
+npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project
+npx lee-spec-kit detect --json
+```
 
 ## 에이전트 킥오프 프롬프트
 
@@ -114,7 +126,7 @@ npx lee-spec-kit context --json
 ### 📁 프로젝트 초기화
 
 - 대화형 모드 또는 CLI 옵션으로 프로젝트 설정
-- Single(단일 레포) / Multi(멀티 컴포넌트) 프로젝트 타입 지원 (`fullstack`는 하위호환 alias)
+- 기본값은 Multi이며, Single도 단순 단일 레포/기존 호환 시나리오를 위해 지원합니다. (`fullstack`는 `multi` 하위호환 alias)
 - 한국어/영어 템플릿 선택
 
 ### 🚀 Feature 생성

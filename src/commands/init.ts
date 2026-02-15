@@ -799,6 +799,10 @@ async function initGit(
   docsRemote?: string
 ): Promise<void> {
   try {
+    // embedded: manage git in current workspace
+    // standalone: manage git in docs directory itself
+    const gitWorkdir = docsRepo === 'standalone' ? targetDir : cwd;
+
     const runGit = (args: string[], workdir: string): void => {
       execFileSync('git', args, { cwd: workdir, stdio: 'ignore' });
     };
@@ -852,18 +856,19 @@ async function initGit(
 
     // Git이 이미 초기화되어 있는지 확인
     try {
-      runGit(['rev-parse', '--is-inside-work-tree'], cwd);
+      runGit(['rev-parse', '--is-inside-work-tree'], gitWorkdir);
       // Git이 이미 있으면 docs만 커밋
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitRepoDetectedCommit')));
     } catch {
       // Git이 없으면 초기화
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitInit')));
-      runGit(['init'], cwd);
+      runGit(['init'], gitWorkdir);
     }
 
     // docs 폴더 스테이징
-    const relativePath = path.relative(cwd, targetDir);
-    const stagedBeforeAdd = getCachedStagedFiles(cwd);
+    const relativePath =
+      docsRepo === 'standalone' ? '.' : path.relative(cwd, targetDir);
+    const stagedBeforeAdd = getCachedStagedFiles(gitWorkdir);
     if (relativePath === '.' && stagedBeforeAdd && stagedBeforeAdd.length > 0) {
       console.log(
         chalk.yellow(
@@ -875,8 +880,8 @@ async function initGit(
       return;
     }
 
-    if (relativePath !== '.' && isPathIgnored(cwd, relativePath)) {
-      const repoRelativePath = toRepoRelativePath(cwd, relativePath);
+    if (relativePath !== '.' && isPathIgnored(gitWorkdir, relativePath)) {
+      const repoRelativePath = toRepoRelativePath(gitWorkdir, relativePath);
       console.log(
         chalk.yellow(
           tr(lang, 'cli', 'init.warn.docsPathIgnoredSkipCommit', {
@@ -895,19 +900,19 @@ async function initGit(
       return;
     }
 
-    runGit(['add', relativePath], cwd);
+    runGit(['add', relativePath], gitWorkdir);
 
     // 커밋
     // pathspec을 사용해 "docs만" 커밋 (다른 staged 변경이 있어도 포함되지 않음)
     runGit(
       ['commit', '-m', 'init: docs 구조 초기화 (lee-spec-kit)', '--', relativePath],
-      cwd
+      gitWorkdir
     );
 
     // standalone + remote 선택 시 origin 추가
     if (docsRepo === 'standalone' && pushDocs && docsRemote) {
       try {
-        runGit(['remote', 'add', 'origin', docsRemote], cwd);
+        runGit(['remote', 'add', 'origin', docsRemote], gitWorkdir);
         console.log(
           chalk.green(tr(lang, 'cli', 'init.log.gitRemoteSet', { remote: docsRemote }))
         );
