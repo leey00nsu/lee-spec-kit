@@ -512,13 +512,13 @@ const I18N: Record<Lang, I18nData> = {
       taskCommitGateWarnProceed:
         '⚠️ 태스크 커밋 단위 점검 경고: {reason}. 현재는 진행 가능하지만 `1 태스크 = 1 커밋`을 권장합니다.',
       taskCommitGateReasonNoTasksCommit:
-        '최근 tasks.md 커밋을 찾을 수 없습니다',
+        '최근 프로젝트 코드 커밋을 찾을 수 없습니다',
       taskCommitGateReasonTasksFileUnavailable:
-        '최근 커밋에서 tasks.md 이력을 판독할 수 없습니다',
+        '최근 프로젝트 코드 커밋 이력을 판독할 수 없습니다',
       taskCommitGateReasonDoneCount:
-        '최근 tasks.md 커밋의 DONE 전환 수가 {count}개입니다 (정상: 1개)',
+        '최근 프로젝트 코드 커밋 점검 결과가 예상과 다릅니다 ({count})',
       taskCommitGateReasonMismatchLastDone:
-        '최근 tasks.md 커밋이 직전 완료 태스크와 일치하지 않습니다',
+        '최근 프로젝트 코드 커밋이 직전 완료 태스크와 일치하지 않습니다',
       prLegacyAsk:
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prePrReviewFieldMissing:
@@ -1157,13 +1157,13 @@ const I18N: Record<Lang, I18nData> = {
       taskCommitGateWarnProceed:
         '⚠️ Task commit boundary warning: {reason}. You may continue, but `1 task = 1 commit` is recommended.',
       taskCommitGateReasonNoTasksCommit:
-        'No recent tasks.md commit was found',
+        'No recent project code commit was found',
       taskCommitGateReasonTasksFileUnavailable:
-        'Cannot read tasks.md history from the latest commit',
+        'Cannot read recent project code commit history',
       taskCommitGateReasonDoneCount:
-        'DONE transitions in the latest tasks.md commit: {count} (expected: 1)',
+        'Project commit gate check result is unexpected ({count})',
       taskCommitGateReasonMismatchLastDone:
-        'The latest tasks.md commit does not match the last completed task',
+        'The latest project code commit does not match the last completed task',
       prLegacyAsk:
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prePrReviewFieldMissing:

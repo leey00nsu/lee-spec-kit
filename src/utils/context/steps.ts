@@ -2,6 +2,7 @@ import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
 import { ProjectConfig } from '../config.js';
 import { execFileSync } from 'child_process';
+import path from 'path';
 import {
   resolvePrePrReviewPolicy,
   resolveTaskCommitGatePolicy,
@@ -181,12 +182,10 @@ function resolveProjectCommitTopic(feature: FeatureState): string {
 
 interface TaskCommitGateCheck {
   pass: boolean;
-  reason:
-    | 'NO_TASKS_COMMIT'
-    | 'TASKS_FILE_UNAVAILABLE'
-    | 'MULTIPLE_DONE_TRANSITIONS'
+  reason?:
+    | 'NO_PROJECT_COMMIT'
+    | 'PROJECT_LOG_UNAVAILABLE'
     | 'MISMATCH_LAST_DONE';
-  newDoneCount?: number;
 }
 
 function shouldBlockTaskCommitGate(
@@ -194,12 +193,7 @@ function shouldBlockTaskCommitGate(
   check: TaskCommitGateCheck
 ): boolean {
   if (policy !== 'strict') return false;
-  // Keep strict mode simple: block only when a single tasks.md commit
-  // appears to mark multiple tasks as DONE at once.
-  if (check.reason === 'MULTIPLE_DONE_TRANSITIONS') {
-    return (check.newDoneCount ?? 0) > 1;
-  }
-  return false;
+  return !check.pass;
 }
 
 function normalizeGitRelativePath(value: string): string {
@@ -207,14 +201,6 @@ function normalizeGitRelativePath(value: string): string {
     .replace(/\\/g, '/')
     .replace(/^\.\/+/, '')
     .replace(/\/+$/, '');
-}
-
-function toRepoRelativePath(cwd: string, relativePathFromCwd: string): string {
-  const prefix = (readGitText(cwd, ['rev-parse', '--show-prefix']) || '')
-    .trim()
-    .replace(/\/+$/, '');
-  if (!prefix) return normalizeGitRelativePath(relativePathFromCwd);
-  return normalizeGitRelativePath(`${prefix}/${relativePathFromCwd}`);
 }
 
 function readGitText(cwd: string, args: string[]): string | undefined {
@@ -233,79 +219,46 @@ function normalizeTaskTopic(value: string): string {
   return normalizeCommitTopicText(value).replace(/^T-[A-Za-z0-9-]+\s+/, '');
 }
 
-function parseDoneTaskTopicCounts(content: string): Map<string, number> {
-  const counts = new Map<string, number>();
-  const lines = content.split('\n');
-  let inCodeBlock = false;
-  for (const line of lines) {
-    if (/^\s*(```|~~~)/.test(line)) {
-      inCodeBlock = !inCodeBlock;
-      continue;
-    }
-    if (inCodeBlock) continue;
-
-    const match = line.match(/^\s*-\s*\[([A-Z]+)\]((?:\[[^\]]+\])*)\s*(.+?)\s*$/);
-    if (!match) continue;
-    if (match[1].toUpperCase() !== 'DONE') continue;
-
-    const topic = normalizeTaskTopic(match[3] || '');
-    if (!topic) continue;
-    counts.set(topic, (counts.get(topic) || 0) + 1);
-  }
-  return counts;
+function normalizeCommitSubjectForGate(value: string): string {
+  return normalizeCommitTopicText(value)
+    .replace(/^[a-z]+(?:\([^)]*\))?!?:\s*/i, '')
+    .toLowerCase();
 }
 
 function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
-  const tasksPath = normalizeGitRelativePath(`${feature.docs.featurePathFromDocs}/tasks.md`);
-  const docsGitCwd = feature.git.docsGitCwd;
-  const repoTasksPath = toRepoRelativePath(docsGitCwd, tasksPath);
-
-  const latestTasksCommit = (
-    readGitText(docsGitCwd, ['rev-list', '-n', '1', 'HEAD', '--', tasksPath]) || ''
-  ).trim();
-  if (!latestTasksCommit) {
-    return { pass: false, reason: 'NO_TASKS_COMMIT' };
+  const projectGitCwd = feature.git.projectGitCwd;
+  const lastDoneTopic = normalizeTaskTopic(feature.lastDoneTask?.title || '');
+  if (!projectGitCwd || !lastDoneTopic) {
+    return { pass: true };
   }
 
-  const currentContent = readGitText(docsGitCwd, ['show', `${latestTasksCommit}:${repoTasksPath}`]);
-  if (currentContent === undefined) {
-    return { pass: false, reason: 'TASKS_FILE_UNAVAILABLE' };
+  const args = ['log', '-n', '1', '--pretty=%s', '--', '.'];
+  const relativeDocsDir = path.relative(projectGitCwd, feature.git.docsGitCwd);
+  const normalizedDocsDir = normalizeGitRelativePath(relativeDocsDir);
+  if (
+    normalizedDocsDir &&
+    normalizedDocsDir !== '.' &&
+    normalizedDocsDir !== '..' &&
+    !normalizedDocsDir.startsWith('../')
+  ) {
+    args.push(`:(exclude)${normalizedDocsDir}/**`);
   }
 
-  const previousContent =
-    readGitText(docsGitCwd, ['show', `${latestTasksCommit}^:${repoTasksPath}`]) || '';
-
-  const currentDone = parseDoneTaskTopicCounts(currentContent);
-  const previousDone = parseDoneTaskTopicCounts(previousContent);
-
-  let newDoneCount = 0;
-  for (const [topic, currentCount] of currentDone.entries()) {
-    const previousCount = previousDone.get(topic) || 0;
-    if (currentCount > previousCount) {
-      newDoneCount += currentCount - previousCount;
-    }
+  const latestProjectSubject = readGitText(projectGitCwd, args);
+  if (latestProjectSubject === undefined) {
+    return { pass: false, reason: 'PROJECT_LOG_UNAVAILABLE' };
+  }
+  const normalizedSubject = normalizeCommitSubjectForGate(latestProjectSubject);
+  if (!normalizedSubject) {
+    return { pass: false, reason: 'NO_PROJECT_COMMIT' };
   }
 
-  if (newDoneCount > 1) {
-    return {
-      pass: false,
-      reason: 'MULTIPLE_DONE_TRANSITIONS',
-      newDoneCount,
-    };
+  const normalizedLastDone = normalizeTaskTopic(lastDoneTopic).toLowerCase();
+  if (!normalizedSubject.includes(normalizedLastDone)) {
+    return { pass: false, reason: 'MISMATCH_LAST_DONE' };
   }
 
-  if (newDoneCount === 1) {
-    const lastDoneTopic = normalizeTaskTopic(feature.lastDoneTask?.title || '');
-    if (lastDoneTopic) {
-      const previousCount = previousDone.get(lastDoneTopic) || 0;
-      const currentCount = currentDone.get(lastDoneTopic) || 0;
-      if (currentCount <= previousCount) {
-        return { pass: false, reason: 'MISMATCH_LAST_DONE', newDoneCount };
-      }
-    }
-  }
-
-  return { pass: true, reason: 'MULTIPLE_DONE_TRANSITIONS', newDoneCount };
+  return { pass: true };
 }
 
 function getTaskCommitGateReasonText(
@@ -313,17 +266,14 @@ function getTaskCommitGateReasonText(
   check: TaskCommitGateCheck
 ): string {
   switch (check.reason) {
-    case 'NO_TASKS_COMMIT':
+    case 'NO_PROJECT_COMMIT':
       return tr(lang, 'messages', 'taskCommitGateReasonNoTasksCommit');
-    case 'TASKS_FILE_UNAVAILABLE':
+    case 'PROJECT_LOG_UNAVAILABLE':
       return tr(lang, 'messages', 'taskCommitGateReasonTasksFileUnavailable');
     case 'MISMATCH_LAST_DONE':
       return tr(lang, 'messages', 'taskCommitGateReasonMismatchLastDone');
-    case 'MULTIPLE_DONE_TRANSITIONS':
     default:
-      return tr(lang, 'messages', 'taskCommitGateReasonDoneCount', {
-        count: check.newDoneCount ?? 0,
-      });
+      return tr(lang, 'messages', 'taskCommitGateReasonMismatchLastDone');
   }
 }
 
