@@ -78,7 +78,7 @@ npx lee-spec-kit status --write
 
 ## Pre-PR Fallback Checklist
 
-When review skills are unavailable and `workflow.prePrReview.fallback` is `builtin-checklist`, use the `Pre-PR Review Fallback` section in `agents/skills/create-pr.md` as the single source of truth.
+Use `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline for every Pre-PR review. Use review skills additionally for deeper inspection.
 
 ---
 

@@ -472,8 +472,8 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `workflow.prePrReview`:
   - `enabled` (optional): enforce pre-PR review stage (default: same as `requirePr`)
   - `skills` (optional): preferred skill names in priority order (default: `["code-review-excellence"]`)
-  - `fallback` (optional): fallback policy when no skill can run (default: `"builtin-checklist"`)
-    - Use the `Pre-PR Review Fallback` section in `docs get create-pr --json` as the single source of truth
+  - `fallback` (optional): baseline review policy (default: `"builtin-checklist"`)
+    - Use the `Pre-PR Baseline Checklist` section in `docs get create-pr --json` as the single source of truth
   - `blockOnFindings` (optional): require major findings to be resolved/aligned before PR creation (default: `true`)
   - `minorPolicy` (optional): minor findings policy (`warn` | `block`, default: `warn`)
 

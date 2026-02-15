@@ -26,7 +26,7 @@
   - Update with final findings counts from pre-PR review
 - **Pre-PR Evidence**: -
   - Example: review note link, log path, or docs path
-  - If `builtin-checklist` fallback is used, follow `agents/skills/create-pr.md` (`Pre-PR Review Fallback`)
+  - Follow `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline
 - **PR Review Findings**: major=0, minor=0
   - Update with findings counts from PR review comment resolution
 - **PR Review Evidence**: -

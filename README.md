@@ -518,8 +518,8 @@ npx lee-spec-kit update --force
 - `workflow.prePrReview`:
   - `enabled` (선택): pre-PR 리뷰 단계를 강제할지 여부 (기본: `requirePr`와 동일)
   - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
-  - `fallback` (선택): 스킬 미사용 시 폴백 정책 (기본: `"builtin-checklist"`)
-    - 상세 기준은 `docs get create-pr --json`의 `Pre-PR 리뷰 폴백` 섹션을 단일 기준으로 사용
+  - `fallback` (선택): 기본 베이스라인 정책 (기본: `"builtin-checklist"`)
+    - 상세 기준은 `docs get create-pr --json`의 `Pre-PR 기본 체크리스트` 섹션을 단일 기준으로 사용
   - `blockOnFindings` (선택): 주요 이슈 발견 시 PR 생성 전 해결/합의를 요구할지 여부 (기본: `true`)
   - `minorPolicy` (선택): minor 이슈 정책 (`warn` | `block`, 기본: `warn`)
 

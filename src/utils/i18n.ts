@@ -532,7 +532,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewMinorBlocked:
         'Pre-PR minor Findings가 {count}건으로 기록되었습니다. `minorPolicy=block` 정책에서는 minor 이슈 정리/합의 전 PR 생성으로 진행할 수 없습니다.',
       prePrReviewRun:
-        'PR 생성 전 사전 코드리뷰를 진행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용). 스킬을 쓸 수 없으면 `{fallback}` 정책으로 진행하고, 상세 기준은 `create-pr` 문서의 `Pre-PR 리뷰 폴백` 섹션을 따르세요. 완료 후 `PR 전 리뷰`를 Done으로 업데이트하세요. Major 정책: {findingsPolicy}. Minor 정책: {minorFindingsPolicy}',
+        'PR 생성 전 사전 코드리뷰를 진행하세요. 기본 베이스라인은 `{fallback}`이며, `create-pr` 문서의 `Pre-PR 기본 체크리스트` 섹션을 항상 수행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용)로 추가 심화 검토를 진행하세요. 완료 후 `PR 전 리뷰`를 Done으로 업데이트하세요. Major 정책: {findingsPolicy}. Minor 정책: {minorFindingsPolicy}',
       prePrReviewFindingsBlock:
         '중요 이슈는 수정/합의 후에만 PR 생성',
       prePrReviewFindingsWarn:
@@ -1177,7 +1177,7 @@ const I18N: Record<Lang, I18nData> = {
       prePrReviewMinorBlocked:
         'Pre-PR minor findings are recorded ({count}). With `minorPolicy=block`, PR creation is blocked until minor findings are resolved/aligned.',
       prePrReviewRun:
-        'Run a pre-PR code review before creating the PR. Preferred skills: {skills} (if a better installed skill fits this change, propose it first). If no skill can run, use `{fallback}` and follow the `Pre-PR Review Fallback` section in the `create-pr` doc. After completing it, set `Pre-PR Review` to Done in tasks.md. Major policy: {findingsPolicy}. Minor policy: {minorFindingsPolicy}',
+        'Run a pre-PR code review before creating the PR. Always execute the `{fallback}` baseline by following the `Pre-PR Baseline Checklist` section in the `create-pr` doc. Then use preferred skills ({skills}) for deeper review (if a better installed skill fits this change, propose it first). After completing it, set `Pre-PR Review` to Done in tasks.md. Major policy: {findingsPolicy}. Minor policy: {minorFindingsPolicy}',
       prePrReviewFindingsBlock:
         'major findings must be fixed/aligned before PR creation',
       prePrReviewFindingsWarn:

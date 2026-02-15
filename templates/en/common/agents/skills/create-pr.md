@@ -14,15 +14,17 @@ Execution-state SSOT is the feature-local `pr.md`.
 
 ---
 
-## Pre-PR Review Fallback (`builtin-checklist`)
+## Pre-PR Baseline Checklist (`builtin-checklist`)
 
-Use this when the configured review skill cannot run.
+Always run this checklist in Pre-PR review. Treat it as the minimum baseline, then use review skills for deeper inspection when available.
 
-1. Review alignment with `spec.md` / `plan.md` / `tasks.md` and inspect regression, exception, and security risks.
-2. Run related test/verification commands (or explicitly record why they were not run).
-3. Update `Pre-PR Findings` in `tasks.md` as `major=<n>, minor=<n>`.
-4. Update `Pre-PR Evidence` with concrete proof (review links, logs, or doc paths).
-5. Set `Pre-PR Review` to `Done` only after the checklist is completed.
+1. Review alignment with `spec.md` / `plan.md` / `tasks.md` and confirm implementation still matches the original goal.
+2. Inspect regression, exception handling, critical/security risks, side effects, user flow impact, and release readiness.
+3. Check maintainability: split oversized functions/files when needed, reuse/integrate existing code where appropriate, and remove obsolete code.
+4. Run related test/verification commands (or explicitly record why they were not run).
+5. Update `Pre-PR Findings` in `tasks.md` as `major=<n>, minor=<n>`.
+6. Update `Pre-PR Evidence` with concrete proof (review links, logs, or doc paths).
+7. Set `Pre-PR Review` to `Done` only after the checklist is completed.
 
 ---
 
