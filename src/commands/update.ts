@@ -128,14 +128,8 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
           const targetAgentsBase = path.join(docsDir, 'agents');
 
-          const commonAgents =
-            agentsMode === 'skills'
-              ? path.join(commonAgentsBase, 'skills')
-              : commonAgentsBase;
-          const targetAgents =
-            agentsMode === 'skills'
-              ? path.join(targetAgentsBase, 'skills')
-              : targetAgentsBase;
+          const commonAgents = commonAgentsBase;
+          const targetAgents = targetAgentsBase;
 
           // featurePath 치환
           const featurePath =
@@ -168,11 +162,7 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           }
           console.log(
             chalk.green(
-              `  ✅ ${
-                agentsMode === 'skills'
-                  ? tr(lang, 'cli', 'update.skillsUpdated')
-                  : tr(lang, 'cli', 'update.agentsUpdated')
-              }`
+              `  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`
             )
           );
         }

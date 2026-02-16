@@ -17,7 +17,11 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src",
-    "test:race": "pnpm build && node --test tests/race.test.mjs",
+    "lint:test": "eslint tests",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc -p tsconfig.tests.json --noEmit",
+    "test": "pnpm build && vitest run",
+    "test:race": "pnpm build && vitest run tests/race.test.mjs",
     "format": "prettier --write .",
     "prepublishOnly": "pnpm build"
   },
@@ -57,7 +61,8 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.7.4",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "packageManager": "pnpm@10.7.0"
 }

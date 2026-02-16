@@ -88,6 +88,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     console.log();
     return;
   }
+  const projectRoot = options.projectRoot;
 
   await withFileLock(
     getDocsLockPath(config.docsDir),
@@ -155,14 +156,14 @@ async function runConfig(options: ConfigOptions): Promise<void> {
           typeof configFile.projectRoot === 'object' && configFile.projectRoot
             ? configFile.projectRoot
             : {};
-        currentRoot[targetComponent] = options.projectRoot;
+        currentRoot[targetComponent] = projectRoot;
         configFile.projectRoot = currentRoot;
 
         console.log(
           chalk.green(
             tr(config.lang, 'cli', 'config.projectRootSet', {
               repo: targetComponent.toUpperCase(),
-              path: options.projectRoot,
+              path: projectRoot,
             })
           )
         );
@@ -174,11 +175,11 @@ async function runConfig(options: ConfigOptions): Promise<void> {
           );
         }
         // Single: 바로 설정
-        configFile.projectRoot = options.projectRoot;
+        configFile.projectRoot = projectRoot;
         console.log(
           chalk.green(
             tr(config.lang, 'cli', 'config.projectRootSetSingle', {
-              path: options.projectRoot,
+              path: projectRoot,
             })
           )
         );
