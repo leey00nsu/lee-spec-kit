@@ -40,19 +40,22 @@
 # 1) Initialize docs structure
 npx lee-spec-kit init
 
-# 2) Create a feature
+# 2) Run initial onboarding checks
+npx lee-spec-kit onboard --strict
+
+# 3) Create a feature
 npx lee-spec-kit feature user-auth
 
-# 3) Show next steps (for agents)
+# 4) Show next steps (for agents)
 npx lee-spec-kit context
 
-# 4) Show workflow dashboard
+# 5) Show workflow dashboard
 npx lee-spec-kit view
 
-# 5) Show overall status
+# 6) Show overall status
 npx lee-spec-kit status
 
-# 6) Validate docs / feature metadata
+# 7) Validate docs / feature metadata
 npx lee-spec-kit doctor
 ```
 
@@ -69,10 +72,13 @@ cd my-app
 # 1) Initialize docs structure
 npx lee-spec-kit init
 
-# 2) Detect project (agent entrypoint)
+# 2) Run initial onboarding checks
+npx lee-spec-kit onboard --strict
+
+# 3) Detect project (agent entrypoint)
 npx lee-spec-kit detect --json
 
-# 3) Create feature and start workflow
+# 4) Create feature and start workflow
 npx lee-spec-kit feature user-auth
 npx lee-spec-kit context --json
 ```
@@ -189,6 +195,21 @@ npx lee-spec-kit detect --dir /path/to/workspace
 ```
 
 The `--json` payload includes `isLeeSpecKitProject`, `reasonCode` (`PROJECT_DETECTED` | `PROJECT_NOT_DETECTED`), `docsDir`, `configPath`, and `detectionSource` (`config` | `heuristic`).
+
+### Onboarding checks
+
+Validate initial setup readiness (Constitution/PRD/git remotes, etc.).
+
+```bash
+# human-readable output
+npx lee-spec-kit onboard
+
+# JSON output for agents/automation
+npx lee-spec-kit onboard --json
+
+# exit code 1 when WARN/BLOCK exists
+npx lee-spec-kit onboard --strict
+```
 
 ### Create a feature
 

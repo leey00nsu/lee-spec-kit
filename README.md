@@ -55,19 +55,22 @@
 # 1. 프로젝트 문서 구조 생성
 npx lee-spec-kit init
 
-# 2. 새 기능 생성
+# 2. 초기 온보딩 점검
+npx lee-spec-kit onboard --strict
+
+# 3. 새 기능 생성
 npx lee-spec-kit feature user-auth
 
-# 3. 진행 상황 및 다음 단계 확인 (AI 에이전트용)
+# 4. 진행 상황 및 다음 단계 확인 (AI 에이전트용)
 npx lee-spec-kit context
 
-# 4. 워크플로우 대시보드 확인
+# 5. 워크플로우 대시보드 확인
 npx lee-spec-kit view
 
-# 5. 전체 상태 확인
+# 6. 전체 상태 확인
 npx lee-spec-kit status
 
-# 6. 문서/Feature 진단
+# 7. 문서/Feature 진단
 npx lee-spec-kit doctor
 ```
 
@@ -84,10 +87,13 @@ cd my-app
 # 1. docs 구조 초기화
 npx lee-spec-kit init
 
-# 2. 감지 확인 (에이전트 시작점)
+# 2. 초기 온보딩 점검
+npx lee-spec-kit onboard --strict
+
+# 3. 감지 확인 (에이전트 시작점)
 npx lee-spec-kit detect --json
 
-# 3. Feature 생성 후 작업 시작
+# 4. Feature 생성 후 작업 시작
 npx lee-spec-kit feature user-auth
 npx lee-spec-kit context --json
 ```
@@ -207,6 +213,21 @@ npx lee-spec-kit detect --dir /path/to/workspace
 ```
 
 `--json` 출력은 `isLeeSpecKitProject`, `reasonCode`(`PROJECT_DETECTED` | `PROJECT_NOT_DETECTED`), `docsDir`, `configPath`, `detectionSource`(`config` | `heuristic`)를 포함합니다.
+
+### 온보딩 점검
+
+초기 설정(Constitution/PRD/Git remote 등) 준비 상태를 점검합니다.
+
+```bash
+# 사람 읽기 쉬운 출력
+npx lee-spec-kit onboard
+
+# 에이전트/자동화용 JSON
+npx lee-spec-kit onboard --json
+
+# WARN/BLOCK이 있으면 종료 코드 1
+npx lee-spec-kit onboard --strict
+```
 
 ### 새 기능 생성
 

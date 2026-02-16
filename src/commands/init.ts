@@ -784,6 +784,7 @@ async function runInit(options: InitOptions): Promise<void> {
         chalk.gray(tr(lang, 'cli', 'init.log.nextSteps1', { docsDir: targetDir }))
       );
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
+      console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps3')));
       console.log();
     },
     { owner: 'init' }

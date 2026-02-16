@@ -13,6 +13,7 @@ import { flowCommand } from './commands/flow.js';
 import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
+import { onboardCommand } from './commands/onboard.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -91,5 +92,6 @@ flowCommand(program);
 githubCommand(program);
 docsCommand(program);
 detectCommand(program);
+onboardCommand(program);
 
 await program.parseAsync();

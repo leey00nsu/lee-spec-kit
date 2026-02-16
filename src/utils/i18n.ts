@@ -126,6 +126,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.suggestionFinalPrompt':
         '현재 추천 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
       'context.suggestion.createFeature': '새 Feature를 생성합니다',
+      'context.suggestion.runOnboard': '초기 설정 점검(onboard)을 실행합니다',
       'context.suggestion.showDone': '완료된 Feature 목록을 확인합니다',
       'context.suggestion.showAll': '전체 Feature 목록을 확인합니다',
       'context.suggestion.selectFeature':
@@ -197,6 +198,7 @@ const I18N: Record<Lang, I18nData> = {
       'init.log.nextStepsTitle': '다음 단계:',
       'init.log.nextSteps1': '  1. {docsDir}/prd/README.md 작성',
       'init.log.nextSteps2': '  2. npx lee-spec-kit feature <name> 으로 기능 추가',
+      'init.log.nextSteps3': '  3. npx lee-spec-kit onboard --strict 로 초기 설정 점검',
       'init.log.gitRepoDetectedCommit': '📦 Git 레포지토리 감지, docs 커밋 중...',
       'init.log.gitInit': '📦 Git 초기화 중...',
       'init.warn.stagedChangesSkip':
@@ -753,6 +755,7 @@ const I18N: Record<Lang, I18nData> = {
       'context.suggestionFinalPrompt':
         'Recommended labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
       'context.suggestion.createFeature': 'Create a new feature',
+      'context.suggestion.runOnboard': 'Run onboarding checks',
       'context.suggestion.showDone': 'Show completed features',
       'context.suggestion.showAll': 'Show all features',
       'context.suggestion.selectFeature':
@@ -825,6 +828,7 @@ const I18N: Record<Lang, I18nData> = {
       'init.log.nextStepsTitle': 'Next steps:',
       'init.log.nextSteps1': '  1. Write {docsDir}/prd/README.md',
       'init.log.nextSteps2': '  2. Add a feature with: npx lee-spec-kit feature <name>',
+      'init.log.nextSteps3': '  3. Run setup checks: npx lee-spec-kit onboard --strict',
       'init.log.gitRepoDetectedCommit': '📦 Git repo detected, committing docs...',
       'init.log.gitInit': '📦 Initializing Git...',
       'init.warn.stagedChangesSkip':

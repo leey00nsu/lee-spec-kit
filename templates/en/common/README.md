@@ -5,6 +5,9 @@ This documentation is organized by feature to help agents quickly understand the
 ## Agent Session Start Checklist
 
 ```bash
+# (recommended once at start) run onboarding checks
+npx lee-spec-kit onboard --strict
+
 # 1) Detect project
 npx lee-spec-kit detect --json
 

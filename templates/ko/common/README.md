@@ -5,6 +5,9 @@
 ## 에이전트 세션 시작 체크리스트
 
 ```bash
+# (최초 1회 권장) 초기 온보딩 점검
+npx lee-spec-kit onboard --strict
+
 # 1) 프로젝트 감지
 npx lee-spec-kit detect --json
 

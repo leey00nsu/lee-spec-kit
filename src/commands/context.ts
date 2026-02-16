@@ -452,10 +452,15 @@ function buildSuggestionOptions(
   const showDoneCommand = `npx lee-spec-kit context --done${componentArg}`;
   const showAllCommand = `npx lee-spec-kit context --all${componentArg}`;
   const showOpenCommand = `npx lee-spec-kit context${componentArg}`;
+  const runOnboardCommand = 'npx lee-spec-kit onboard --strict';
 
   const rawSuggestions: Array<{ summary: string; command: string }> = [];
   switch (state.status) {
     case 'no_features':
+      rawSuggestions.push({
+        summary: tr(lang, 'cli', 'context.suggestion.runOnboard'),
+        command: runOnboardCommand,
+      });
       rawSuggestions.push({
         summary: tr(lang, 'cli', 'context.suggestion.createFeature'),
         command: createFeatureCommand,
@@ -943,7 +948,8 @@ async function runContext(
         selectedComponent
       );
     } else if (result.status === 'no_features') {
-      result.recommendation = 'No features found. Create a feature first.';
+      result.recommendation =
+        'No features found. Run onboarding checks first, then create a feature.';
     } else if (result.status === 'no_open') {
       result.recommendation =
         'No open features found. Use `context --done` to inspect completed features.';
