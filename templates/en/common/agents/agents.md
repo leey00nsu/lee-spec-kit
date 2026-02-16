@@ -33,7 +33,7 @@ Prohibited:
 ## 🧾 Label Response Contract (SSOT)
 
 - End **every user-facing reply** with current status + available labels.
-- Use the latest `npx lee-spec-kit context --json` (or `flow --json`) as source.
+- Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required).
 - Use `actionOptions[].detail` or command `cmd` **verbatim**. Do not paraphrase.
 - Even when the user asks something else, append the same label block at the end if executable labels exist.
 - If no executable labels exist, print `Available labels: none` and guide re-check with `npx lee-spec-kit context`.

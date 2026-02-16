@@ -44,6 +44,7 @@ import {
 
 interface ContextOptions {
   json?: boolean;
+  jsonCompact?: boolean;
   component?: string;
   all?: boolean;
   done?: boolean;
@@ -597,6 +598,10 @@ export function contextCommand(program: Command): void {
     .command('context [feature-name]')
     .description('Show current feature context and next actions')
     .option('--json', 'Output in JSON format for agents')
+    .option(
+      '--json-compact',
+      'Output compact JSON for agents (implies --json, reduced duplication)'
+    )
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
@@ -625,7 +630,7 @@ export function contextCommand(program: Command): void {
           const lang = config?.lang ?? DEFAULT_LANG;
           const cliError = toCliError(error);
           const suggestions = getCliErrorSuggestions(cliError.code, lang);
-          if (options.json) {
+          if (options.json || options.jsonCompact) {
             console.log(
               JSON.stringify({
                 status: 'error',
@@ -756,6 +761,127 @@ function getMultipleFeaturesRecommendation(
   return 'Multiple features detected across components. Please specify feature name (slug | F001 | F001-slug) or use --component.';
 }
 
+function getFeatureRef(feature: FeatureContext): string {
+  return feature.folderName || `${feature.type}:${feature.slug}`;
+}
+
+function toCompactFeature(
+  feature: FeatureContext | null | undefined
+): Record<string, unknown> | null {
+  if (!feature) return null;
+
+  return {
+    ref: getFeatureRef(feature),
+    id: feature.id ?? null,
+    slug: feature.slug,
+    folderName: feature.folderName,
+    type: feature.type,
+    path: feature.path,
+    currentStep: feature.currentStep,
+    nextAction: feature.nextAction,
+    completion: feature.completion,
+    specStatus: feature.specStatus,
+    planStatus: feature.planStatus,
+    tasks: feature.tasks,
+    prePrReview: {
+      status: feature.prePrReview.status,
+      findings: feature.prePrReview.findings,
+      evidenceProvided: feature.prePrReview.evidenceProvided,
+    },
+    prReview: {
+      findings: feature.prReview.findings,
+      evidenceProvided: feature.prReview.evidenceProvided,
+    },
+    pr: {
+      link: feature.pr.link,
+      status: feature.pr.status,
+      remote: feature.pr.remote,
+    },
+    git: {
+      docsBranch: feature.git.docsBranch,
+      projectBranch: feature.git.projectBranch,
+      projectBranchAvailable: feature.git.projectBranchAvailable,
+      onExpectedBranch: feature.git.onExpectedBranch,
+      docsEverCommitted: feature.git.docsEverCommitted,
+      docsHasUncommittedChanges: feature.git.docsHasUncommittedChanges,
+      projectHasUncommittedChanges: feature.git.projectHasUncommittedChanges,
+      docsPathIgnored: feature.git.docsPathIgnored,
+    },
+    docs: {
+      specExists: feature.docs.specExists,
+      planExists: feature.docs.planExists,
+      tasksExists: feature.docs.tasksExists,
+      issueDocIssueFieldExists: feature.docs.issueDocIssueFieldExists,
+      prDocPrFieldExists: feature.docs.prDocPrFieldExists,
+      prDocReviewStatusFieldExists: feature.docs.prDocReviewStatusFieldExists,
+      prFieldExists: feature.docs.prFieldExists,
+      prStatusFieldExists: feature.docs.prStatusFieldExists,
+      prePrReviewFieldExists: feature.docs.prePrReviewFieldExists,
+      prePrFindingsFieldExists: feature.docs.prePrFindingsFieldExists,
+      prePrEvidenceFieldExists: feature.docs.prePrEvidenceFieldExists,
+      prReviewFindingsFieldExists: feature.docs.prReviewFindingsFieldExists,
+      prReviewEvidenceFieldExists: feature.docs.prReviewEvidenceFieldExists,
+    },
+    warnings: feature.warnings,
+  };
+}
+
+function toCompactActionOption(option: ActionOption): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    label: option.label,
+    summary: option.summary,
+    detail: option.detail,
+    approvalPrompt: option.approvalPrompt,
+    actionType: option.action.type,
+    category: option.action.category,
+    operationType: option.action.operationType,
+    requiresUserCheck: !!option.action.requiresUserCheck,
+  };
+
+  if (option.action.type === 'command') {
+    base.scope = option.action.scope;
+    base.cwd = option.action.cwd;
+    base.cmd = option.action.cmd;
+    return base;
+  }
+
+  base.message = option.action.message;
+  return base;
+}
+
+function toCompactSuggestionOption(
+  option: SuggestionOption
+): Record<string, string> {
+  return {
+    label: option.label,
+    summary: option.summary,
+    command: option.command,
+  };
+}
+
+function resolveContextRecommendation(
+  state: ResolvedContextState,
+  projectType: 'single' | 'multi',
+  selectedComponent: string
+): string {
+  if (state.status === 'multiple_active') {
+    return getMultipleFeaturesRecommendation(projectType, selectedComponent);
+  }
+  if (state.status === 'no_features') {
+    return 'No features found. Run onboarding checks first, then create a feature.';
+  }
+  if (state.status === 'no_open') {
+    return 'No open features found. Use `context --done` to inspect completed features.';
+  }
+  if (state.status === 'no_match') {
+    return 'No features found.';
+  }
+  if (state.targetFeatures.length === 1) {
+    return state.targetFeatures[0].nextAction;
+  }
+  return 'No matched feature.';
+}
+
 async function runContext(
   featureName: string | undefined,
   options: ContextOptions
@@ -826,8 +952,10 @@ async function runContext(
     return;
   }
 
+  const jsonMode = !!options.json || !!options.jsonCompact;
+
   // 2. 결과 출력 (JSON)
-  if (options.json) {
+  if (jsonMode) {
     const primaryAction = state.actionOptions[0] ?? null;
     const finalApprovalPrompt = buildFinalApprovalPrompt(lang, state.actionOptions);
     const approveCommand = buildApprovalCommand(
@@ -842,6 +970,94 @@ async function runContext(
       selectedComponent,
       true
     );
+    const recommendation = resolveContextRecommendation(
+      state,
+      config.projectType,
+      selectedComponent
+    );
+
+    if (options.jsonCompact) {
+      const compactResult = {
+        schema: 'context.v2.compact',
+        status: state.status,
+        reasonCode: toReasonCode(state.status),
+        selectionMode: state.selectionMode,
+        selectionFallback: state.selectionFallback,
+        branches: state.branches,
+        warnings: state.warnings,
+        contextVersion: state.contextVersion,
+        matchedFeature: toCompactFeature(state.matchedFeature),
+        candidateRefs:
+          state.targetFeatures.length > 1
+            ? state.targetFeatures.map((feature) => getFeatureRef(feature))
+            : [],
+        completedCandidateRefs:
+          state.selectionMode === 'open'
+            ? state.doneFeatures.map((feature) => getFeatureRef(feature))
+            : [],
+        openCandidateRefs:
+          state.selectionMode === 'open'
+            ? state.openFeatures.map((feature) => getFeatureRef(feature))
+            : [],
+        inProgressCandidateRefs:
+          state.selectionMode === 'open'
+            ? state.inProgressFeatures.map((feature) => getFeatureRef(feature))
+            : [],
+        readyToCloseCandidateRefs:
+          state.selectionMode === 'open'
+            ? state.readyToCloseFeatures.map((feature) => getFeatureRef(feature))
+            : [],
+        actionOptions: state.actionOptions.map((option) => toCompactActionOption(option)),
+        suggestionOptions: suggestionOptions.map((option) =>
+          toCompactSuggestionOption(option)
+        ),
+        primaryActionLabel: primaryAction?.label ?? null,
+        workflowPolicy,
+        taskCommitGatePolicy,
+        prePrReviewPolicy,
+        checkPolicy: {
+          docPath: 'builtin://agents/policy',
+          token: '<LABEL>',
+          acceptedTokens: ['<LABEL>', '<LABEL> OK', '<LABEL> ...', '... <LABEL> ...'],
+          tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
+          validLabels: state.actionOptions.map((o) => o.label),
+          oneApprovalPerAction: true,
+          requireFreshContext: true,
+          contextVersion: state.contextVersion,
+          config: config.approval ?? { mode: 'builtin' },
+        },
+        approvalRequest: {
+          finalPrompt: finalApprovalPrompt,
+          userFacingLines: [
+            ...state.actionOptions.map((o) => o.approvalPrompt),
+            finalApprovalPrompt,
+          ].filter((line) => line.length > 0),
+          labels: state.actionOptions.map((o) => o.label),
+          approveCommand,
+          executeCommand,
+          executeRequiresTicket:
+            !!state.actionOptions[0]?.action?.requiresUserCheck,
+        },
+        suggestionRequest: {
+          finalPrompt: suggestionFinalPrompt,
+          userFacingLines: [
+            ...suggestionOptions.map((o) => `${o.label}: ${o.summary}`),
+            suggestionFinalPrompt,
+          ].filter((line) => line.length > 0),
+          labels: suggestionOptions.map((o) => o.label),
+        },
+        prPolicy: {
+          screenshots: {
+            upload: config.pr?.screenshots?.upload ?? false,
+          },
+        },
+        requiredDocs,
+        recommendation,
+      };
+      console.log(JSON.stringify(compactResult, null, 2));
+      return;
+    }
+
     const result = {
       status: state.status,
       reasonCode: toReasonCode(state.status),
@@ -939,27 +1155,8 @@ async function runContext(
         },
       },
       requiredDocs,
-      recommendation: '',
+      recommendation,
     };
-
-    if (result.status === 'multiple_active') {
-      result.recommendation = getMultipleFeaturesRecommendation(
-        config.projectType,
-        selectedComponent
-      );
-    } else if (result.status === 'no_features') {
-      result.recommendation =
-        'No features found. Run onboarding checks first, then create a feature.';
-    } else if (result.status === 'no_open') {
-      result.recommendation =
-        'No open features found. Use `context --done` to inspect completed features.';
-    } else if (result.status === 'no_match') {
-      result.recommendation = 'No features found.';
-    } else if (state.targetFeatures.length === 1) {
-      result.recommendation = state.targetFeatures[0].nextAction;
-    } else {
-      result.recommendation = 'No matched feature.';
-    }
 
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -1278,6 +1475,7 @@ async function runApprovedOption(
 ): Promise<void> {
   const approval = options.approve || '';
   const ticketToken = (options.ticket || '').trim();
+  const jsonMode = !!options.json || !!options.jsonCompact;
   let parsedLabel: string | null = null;
 
   if (state.status !== 'single_matched' || !state.matchedFeature) {
@@ -1350,7 +1548,7 @@ async function runApprovedOption(
           featureRef,
         })
       : null;
-    if (options.json) {
+    if (jsonMode) {
       console.log(
         JSON.stringify(
           {
@@ -1435,7 +1633,7 @@ async function runApprovedOption(
         `Approved label "${parsedLabel}" is instruction-only. Re-run without \`--execute\` or pick a command option.`
       );
     }
-    if (options.json) {
+    if (jsonMode) {
       console.log(
         JSON.stringify(
           {
@@ -1462,7 +1660,7 @@ async function runApprovedOption(
     return;
   }
 
-  if (!options.json) {
+  if (!jsonMode) {
     console.log();
     console.log(chalk.blue(`▶ Executing option ${parsedLabel}...`));
     console.log(chalk.gray(`   ${selectedAction.cmd}`));
@@ -1476,12 +1674,12 @@ async function runApprovedOption(
       async () =>
         executeCommandAction(
           selectedAction.cmd,
-          !!options.json,
+          jsonMode,
           selectedAction.cwd
         ),
       { owner: `context-execute:${selectedAction.scope}` }
     );
-    if (options.json) {
+    if (jsonMode) {
       console.log(
         JSON.stringify(
           {

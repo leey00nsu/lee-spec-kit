@@ -12,7 +12,7 @@ npx lee-spec-kit onboard --strict
 npx lee-spec-kit detect --json
 
 # 2) If detected, read context first
-npx lee-spec-kit context --json
+npx lee-spec-kit context --json-compact
 ```
 
 - Apply lee-spec-kit workflow only when `isLeeSpecKitProject: true`.

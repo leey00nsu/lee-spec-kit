@@ -12,7 +12,7 @@ npx lee-spec-kit onboard --strict
 npx lee-spec-kit detect --json
 
 # 2) 감지 성공 시 컨텍스트 조회
-npx lee-spec-kit context --json
+npx lee-spec-kit context --json-compact
 ```
 
 - `isLeeSpecKitProject: true`일 때만 lee-spec-kit 워크플로우를 적용합니다.

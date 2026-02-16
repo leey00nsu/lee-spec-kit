@@ -80,7 +80,7 @@ npx lee-spec-kit detect --json
 
 # 4) Create feature and start workflow
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit context --json
+npx lee-spec-kit context --json-compact
 ```
 
 - Apply lee-spec-kit workflow only when `detect --json` returns `isLeeSpecKitProject: true`.
@@ -106,7 +106,7 @@ You can paste the following as an agent session-start instruction.
 ```text
 Start procedure:
 1) Run npx lee-spec-kit detect --json
-2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json
+2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact (use --json only when full detail is needed)
 3) If actionOptions exist, show approvalPrompt and finalPrompt exactly as provided, then wait for user approval (<LABEL> or <LABEL> OK)
 4) Do not execute before approval; execute requiresUserCheck=true actions only after approval
 5) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
@@ -247,6 +247,7 @@ npx lee-spec-kit context
 # recommended: one feature + labels
 npx lee-spec-kit context F001
 npx lee-spec-kit context F001 --json
+npx lee-spec-kit context F001 --json-compact
 
 # approve + execute (common path)
 npx lee-spec-kit context F001 --approve A --execute
@@ -265,6 +266,7 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 | Option         | Description                                     |
 | -------------- | ----------------------------------------------- |
 | `--json`       | JSON output for agents                          |
+| `--json-compact` | Compact JSON for agents (implies `--json`, minimizes duplicated fields) |
 | `--component <id>` | Select target component in multi mode (e.g. `app`, `api`, `worker`) |
 | `--all`        | Include completed features when auto-detecting  |
 | `--done`       | Show completed (workflow-done) features only    |
@@ -279,7 +281,8 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 - `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
 - It is short-lived (5 minutes by default) and cannot be reused after one execution.
 
-`context --json` is organized into `actions` (atomic actions), `actionOptions` (label mapping), and top-level metadata.
+`context --json-compact` is the default recommended format, providing a reduced and deduplicated decision state.  
+Use `context --json` only when full-detail debugging fields are required.
 
 **Core fields (recommended for normal agent flows)**
 
@@ -508,8 +511,8 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 `approval` only affects the following values produced by `context`:
 
 - the `[CHECK required]` tag in text output
-- `actions[].requiresUserCheck` in `context --json`
-- `checkPolicy.token` (`context --json`): approval token format (`<LABEL>`)
+- `actionOptions[].requiresUserCheck` in `context --json-compact` (`actions[].requiresUserCheck` in `--json`)
+- `checkPolicy.token` (`context --json-compact`/`--json`): approval token format (`<LABEL>`)
 - `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
 - `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
@@ -569,7 +572,7 @@ Example:
 #### Modes
 
 - `builtin` (default): keep built-in `requiresUserCheck` in steps/actions
-- `category` (recommended): control CHECK policy by `actions[].category`
+- `category` (recommended): control CHECK policy by `actionOptions[].category` (`actions[].category` in `--json`)
 - `steps`: control by step numbers (not recommended; fragile)
 
 #### Fields
@@ -597,7 +600,7 @@ Example:
 }
 ```
 
-> To discover available `category` values, check `actions[].category` in `context --json`.
+> To discover available `category` values, check `actionOptions[].category` in `context --json-compact` first, and use `actions[].category` in `context --json` when needed.
 
 ### pr (PR artifacts policy)
 

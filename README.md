@@ -95,7 +95,7 @@ npx lee-spec-kit detect --json
 
 # 4. Feature 생성 후 작업 시작
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit context --json
+npx lee-spec-kit context --json-compact
 ```
 
 - `detect --json` 결과가 `isLeeSpecKitProject: true`일 때 lee-spec-kit 워크플로우를 적용하세요.
@@ -121,7 +121,7 @@ npx lee-spec-kit detect --json
 ```text
 작업 시작 절차:
 1) npx lee-spec-kit detect --json
-2) isLeeSpecKitProject === true 이면 npx lee-spec-kit context --json 실행
+2) isLeeSpecKitProject === true 이면 npx lee-spec-kit context --json-compact 실행 (필요 시 --json으로 상세 조회)
 3) actionOptions가 있으면 approvalPrompt와 finalPrompt를 그대로 사용자에게 제시하고 승인(<LABEL> 또는 <LABEL> OK) 대기
 4) 승인 전에는 실행하지 말고, requiresUserCheck=true 액션은 승인 후에만 실행
 5) isLeeSpecKitProject === false 이면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행
@@ -266,6 +266,7 @@ npx lee-spec-kit context
 # 특정 Feature 상태 + 라벨 확인 (에이전트 권장)
 npx lee-spec-kit context F001
 npx lee-spec-kit context F001 --json
+npx lee-spec-kit context F001 --json-compact
 
 # 승인 + 실행 (일반 케이스)
 npx lee-spec-kit context F001 --approve A --execute
@@ -284,6 +285,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 | 옵션            | 설명                                            |
 | --------------- | ----------------------------------------------- |
 | `--json`        | 에이전트용 JSON 출력                            |
+| `--json-compact` | 에이전트용 압축 JSON 출력 (`--json` 포함, 중복 필드 최소화) |
 | `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `app`, `api`, `worker`) |
 | `--all`         | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`        | 완료(workflow-done) Feature만 표시              |
@@ -298,7 +300,8 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - 선택한 액션이 `requiresUserCheck=true`인 경우에만 `--execute`에서 `--ticket`이 필요합니다.
 - 발급 후 짧은 시간(기본 5분)만 유효하며, 한 번 사용하면 재사용할 수 없습니다.
 
-`context --json` 출력은 크게 `actions`(원자 액션), `actionOptions`(라벨 매핑), 상위 메타데이터로 구성됩니다.
+기본 권장 포맷은 `context --json-compact`이며, 같은 판단 정보를 중복 없이 축약해 전달합니다.  
+`context --json`은 디버깅/세부 필드 확인이 필요할 때만 사용하세요.
 
 **핵심 필드 (실사용 권장)**
 
@@ -559,8 +562,8 @@ npx lee-spec-kit update --force
 `approval`은 `context`가 출력하는 다음 값에만 영향을 줍니다:
 
 - 텍스트 출력의 `[확인 필요]` 표시
-- `context --json`의 `actions[].requiresUserCheck`
-- `checkPolicy.token` (`context --json`): 승인 토큰 형식 (`<LABEL>`)
+- `context --json-compact`의 `actionOptions[].requiresUserCheck` (`--json`에서는 `actions[].requiresUserCheck`)
+- `checkPolicy.token` (`context --json-compact`/`--json`): 승인 토큰 형식 (`<LABEL>`)
 - `checkPolicy.acceptedTokens`: 허용되는 승인 응답 템플릿 (예: `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
 - `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
 - `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
@@ -617,7 +620,7 @@ npx lee-spec-kit update --force
 #### 모드
 
 - `builtin` (기본): 코드에 내장된 `requiresUserCheck`를 그대로 사용
-- `category` (권장): `actions[].category` 기준으로 확인 정책을 제어
+- `category` (권장): `actionOptions[].category` 기준으로 확인 정책을 제어 (`--json`에서는 `actions[].category`)
 - `steps`: step 번호 기준(변경에 취약하므로 권장하지 않음)
 
 #### 설정 필드
@@ -645,7 +648,7 @@ npx lee-spec-kit update --force
 }
 ```
 
-> 사용 가능한 `category` 값은 `context --json`의 `actions[].category`로 확인하는 것을 권장합니다.
+> 사용 가능한 `category` 값은 `context --json-compact`의 `actionOptions[].category`에서 우선 확인하고, 필요 시 `context --json`의 `actions[].category`를 참고하세요.
 
 ### pr (PR 결과물 정책)
 
