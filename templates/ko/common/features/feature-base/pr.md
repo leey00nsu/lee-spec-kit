@@ -27,6 +27,6 @@
 
 ## 관련 문서
 
-- Spec: `./spec.md`
-- Tasks: `./tasks.md`
-- Decisions: `./decisions.md`
+- Spec: `docs/.../spec.md`
+- Tasks: `docs/.../tasks.md`
+- Decisions: `docs/.../decisions.md`

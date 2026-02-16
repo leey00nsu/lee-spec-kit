@@ -22,12 +22,8 @@
 - [ ] (verifiable criterion 1)
 - [ ] (verifiable criterion 2)
 
-## Out of Scope
-
-- (what this issue does not cover)
-
 ## Related Docs
 
-- Spec: `./spec.md`
-- Plan: `./plan.md`
-- Tasks: `./tasks.md`
+- Spec: `docs/.../spec.md`
+- Plan: `docs/.../plan.md`
+- Tasks: `docs/.../tasks.md`

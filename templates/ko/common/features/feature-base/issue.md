@@ -22,12 +22,8 @@
 - [ ] (검증 가능한 완료 기준 1)
 - [ ] (검증 가능한 완료 기준 2)
 
-## 제외 범위
-
-- (이번 이슈에서 다루지 않는 내용)
-
 ## 관련 문서
 
-- Spec: `./spec.md`
-- Plan: `./plan.md`
-- Tasks: `./tasks.md`
+- Spec: `docs/.../spec.md`
+- Plan: `docs/.../plan.md`
+- Tasks: `docs/.../tasks.md`
