@@ -82,8 +82,15 @@ main
 ### 브랜치 생성
 
 ```bash
-git checkout -b feat/{issue-number}-{feature-name}
+# 기본(권장): 전용 worktree + 브랜치 생성
+mkdir -p .worktrees
+git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-number}-{feature-name}
+
+# 이미 브랜치가 존재하면 worktree만 연결
+git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-number}-{feature-name}
 ```
+
+> 이후 작업은 생성된 worktree 경로(`.worktrees/feat-{issue-number}-{feature-name}`)에서 진행하세요.
 
 ### 문서 커밋 규칙 (Continuous Sync)
 

@@ -1,4 +1,5 @@
 import { execFileSync, execSync } from 'child_process';
+import path from 'path';
 import { ProjectConfig } from '../config.js';
 import { DEFAULT_LANG, Lang, tr } from '../i18n.js';
 
@@ -140,6 +141,13 @@ export function isGitPathIgnored(
   }
 }
 
+interface GitWorktreeEntry {
+  path: string;
+  branch?: string;
+}
+
+const GIT_WORKTREE_CACHE = new Map<string, GitWorktreeEntry[]>();
+
 function getGitTopLevel(cwd: string): string | null {
   try {
     return execSync('git rev-parse --show-toplevel', {
@@ -150,6 +158,62 @@ function getGitTopLevel(cwd: string): string | null {
   } catch {
     return null;
   }
+}
+
+function listGitWorktrees(cwd: string): GitWorktreeEntry[] | undefined {
+  const topLevel = getGitTopLevel(cwd) || cwd;
+  const cacheKey = path.resolve(topLevel);
+  const cached = GIT_WORKTREE_CACHE.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const out = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+      cwd: topLevel,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const entries: GitWorktreeEntry[] = [];
+    let current: GitWorktreeEntry | null = null;
+
+    for (const rawLine of out.split('\n')) {
+      const line = rawLine.trim();
+      if (!line) {
+        if (current?.path) entries.push(current);
+        current = null;
+        continue;
+      }
+
+      if (line.startsWith('worktree ')) {
+        if (current?.path) entries.push(current);
+        current = { path: line.slice('worktree '.length).trim() };
+        continue;
+      }
+
+      if (line.startsWith('branch ')) {
+        if (!current) continue;
+        const fullRef = line.slice('branch '.length).trim();
+        current.branch = fullRef.replace(/^refs\/heads\//, '');
+      }
+    }
+
+    if (current?.path) entries.push(current);
+    GIT_WORKTREE_CACHE.set(cacheKey, entries);
+    return entries;
+  } catch {
+    return undefined;
+  }
+}
+
+export function findWorktreePathForBranch(
+  cwd: string,
+  branchName: string
+): string | undefined {
+  const target = branchName.trim();
+  if (!target) return undefined;
+  const entries = listGitWorktrees(cwd);
+  if (!entries) return undefined;
+  const match = entries.find((entry) => entry.branch === target);
+  return match?.path;
 }
 
 export function resolveProjectGitCwd(

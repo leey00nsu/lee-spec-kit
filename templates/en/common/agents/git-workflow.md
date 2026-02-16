@@ -82,8 +82,15 @@ main
 ### Branch Creation
 
 ```bash
-git checkout -b feat/{issue-number}-{feature-name}
+# Default (recommended): create dedicated worktree + branch
+mkdir -p .worktrees
+git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-number}-{feature-name}
+
+# If branch already exists, attach worktree only
+git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-number}-{feature-name}
 ```
+
+> Continue implementation from the created worktree path (`.worktrees/feat-{issue-number}-{feature-name}`).
 
 ### Document Commit Rules (Continuous Sync)
 

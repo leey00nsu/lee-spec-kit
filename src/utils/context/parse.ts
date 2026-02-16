@@ -3,6 +3,8 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 import { tr } from '../i18n.js';
 import {
+  findWorktreePathForBranch,
+  getCurrentBranch,
   getGitStatusPorcelain,
   getLastCommitForPath,
   isExpectedFeatureBranch,
@@ -211,6 +213,34 @@ const PROJECT_DIRTY_STATUS_CACHE = new Map<
 
 const COMPONENT_STATUS_PATH_CACHE = new Map<string, string[]>();
 const PR_REMOTE_STATUS_CACHE = new Map<string, PrRemoteStatus | null>();
+const FEATURE_WORKTREE_CACHE = new Map<string, string | null>();
+
+function resolveFeatureWorktreePath(
+  projectGitCwd: string,
+  issueNumber: string,
+  slug: string,
+  folderName: string
+): { cwd: string; branch: string } | undefined {
+  const expectedBranches = [
+    `feat/${issueNumber}-${slug}`,
+    `feat/${issueNumber}-${folderName}`,
+  ];
+
+  for (const branchName of expectedBranches) {
+    const cacheKey = `${projectGitCwd}::${branchName}`;
+    let foundPath = FEATURE_WORKTREE_CACHE.get(cacheKey);
+    if (typeof foundPath === 'undefined') {
+      foundPath = findWorktreePathForBranch(projectGitCwd, branchName) || null;
+      FEATURE_WORKTREE_CACHE.set(cacheKey, foundPath);
+    }
+    if (!foundPath) continue;
+    return {
+      cwd: foundPath,
+      branch: getCurrentBranch(foundPath) || branchName,
+    };
+  }
+  return undefined;
+}
 
 function toUpperToken(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -569,6 +599,32 @@ export async function parseFeature(
     issueNumber = parseIssueNumber(issueValue);
   }
 
+  let effectiveProjectGitCwd = context.projectGitCwd;
+  let effectiveProjectBranch = context.projectBranch;
+  let effectiveProjectBranchAvailable = context.projectBranchAvailable;
+
+  if (effectiveProjectGitCwd && issueNumber) {
+    const alreadyExpected = isExpectedFeatureBranch(
+      effectiveProjectBranch,
+      issueNumber,
+      slug,
+      folderName
+    );
+    if (!alreadyExpected) {
+      const worktree = resolveFeatureWorktreePath(
+        effectiveProjectGitCwd,
+        issueNumber,
+        slug,
+        folderName
+      );
+      if (worktree) {
+        effectiveProjectGitCwd = worktree.cwd;
+        effectiveProjectBranch = worktree.branch;
+        effectiveProjectBranchAvailable = true;
+      }
+    }
+  }
+
   let planStatus: DocStatus | undefined;
   const planExists = await fs.pathExists(planPath);
 
@@ -731,18 +787,18 @@ export async function parseFeature(
     workflowPolicy.requireReview &&
     prStatus === 'Review' &&
     prLink &&
-    context.projectGitCwd
+    effectiveProjectGitCwd
   ) {
-    prRemote = resolvePrRemoteStatus(prLink, context.projectGitCwd) || undefined;
+    prRemote = resolvePrRemoteStatus(prLink, effectiveProjectGitCwd) || undefined;
   }
 
   const warnings: string[] = [];
-  if (context.projectBranchAvailable === false) {
+  if (effectiveProjectBranchAvailable === false) {
     warnings.push(tr(lang, 'warnings', 'projectBranchUnavailable'));
   }
 
   const onExpectedBranch = isExpectedFeatureBranch(
-    context.projectBranch,
+    effectiveProjectBranch,
     issueNumber,
     slug,
     folderName
@@ -791,11 +847,11 @@ export async function parseFeature(
 
   if (
     typeof context.projectHasUncommittedChanges !== 'boolean' &&
-    context.projectGitCwd
+    effectiveProjectGitCwd
   ) {
     const dirtyScopePolicy = resolveCodeDirtyScopePolicy(options.workflow, options.projectType);
     const projectCacheKey = JSON.stringify({
-      projectGitCwd: context.projectGitCwd,
+      projectGitCwd: effectiveProjectGitCwd,
       docsDir: context.docsDir,
       type,
       dirtyScopePolicy,
@@ -809,22 +865,22 @@ export async function parseFeature(
       let projectStatusPaths: string[] = [];
       if (dirtyScopePolicy === 'component' && type !== 'single') {
         const componentStatusPaths = await resolveComponentStatusPaths(
-          context.projectGitCwd,
+          effectiveProjectGitCwd,
           type,
           options.workflow
         );
         projectStatusPaths =
           componentStatusPaths.length > 0
             ? componentStatusPaths
-            : resolveProjectStatusPaths(context.projectGitCwd, context.docsDir);
+            : resolveProjectStatusPaths(effectiveProjectGitCwd, context.docsDir);
       } else {
         projectStatusPaths = resolveProjectStatusPaths(
-          context.projectGitCwd,
+          effectiveProjectGitCwd,
           context.docsDir
         );
       }
       const projectStatus = getGitStatusPorcelain(
-        context.projectGitCwd,
+        effectiveProjectGitCwd,
         projectStatusPaths
       );
       projectStatusUnavailable = projectStatus === undefined;
@@ -1030,10 +1086,10 @@ export async function parseFeature(
     pr: { link: prLink, status: prStatus, remote: prRemote },
     git: {
       docsBranch: context.docsBranch,
-      projectBranch: context.projectBranch,
-      projectBranchAvailable: context.projectBranchAvailable,
+      projectBranch: effectiveProjectBranch,
+      projectBranchAvailable: effectiveProjectBranchAvailable,
       docsGitCwd: context.docsGitCwd,
-      projectGitCwd: context.projectGitCwd,
+      projectGitCwd: effectiveProjectGitCwd,
       onExpectedBranch,
       docsEverCommitted,
       docsHasUncommittedChanges,

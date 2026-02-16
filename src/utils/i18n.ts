@@ -498,7 +498,7 @@ const I18N: Record<Lang, I18nData> = {
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
-        'cd "{projectGitCwd}" && git checkout -b feat/{issueNumber}-{slug}',
+        'cd "{projectGitCwd}" && mkdir -p .worktrees && (git worktree add ".worktrees/feat-{issueNumber}-{slug}" "feat/{issueNumber}-{slug}" || git worktree add -b "feat/{issueNumber}-{slug}" ".worktrees/feat-{issueNumber}-{slug}") && echo "worktree: {projectGitCwd}/.worktrees/feat-{issueNumber}-{slug}"',
       tasksAllDoneButNoChecklist:
         '완료 조건 체크리스트를 작성하세요. tasks.md의 "완료 조건" 섹션에 검증 항목을 추가하고, 사용자와 확인 후 충족 항목을 [x]로 체크하세요. 최종 승인(OK)도 반영하세요.',
       tasksAllDoneButChecklist:
@@ -1145,7 +1145,7 @@ const I18N: Record<Lang, I18nData> = {
       standaloneNeedsProjectRoot:
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:
-        'cd "{projectGitCwd}" && git checkout -b feat/{issueNumber}-{slug}',
+        'cd "{projectGitCwd}" && mkdir -p .worktrees && (git worktree add ".worktrees/feat-{issueNumber}-{slug}" "feat/{issueNumber}-{slug}" || git worktree add -b "feat/{issueNumber}-{slug}" ".worktrees/feat-{issueNumber}-{slug}") && echo "worktree: {projectGitCwd}/.worktrees/feat-{issueNumber}-{slug}"',
       tasksAllDoneButNoChecklist:
         'Create the completion checklist. Add verification items to the tasks.md "Completion Criteria" section, then mark satisfied items as [x] after user confirmation. Record final approval (OK) as well.',
       tasksAllDoneButChecklist:
