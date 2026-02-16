@@ -131,6 +131,7 @@ function getActionSummary(action: ContextAction): string {
   if (action.category === 'pre_pr_review') return 'Run pre-PR self review';
   if (action.category === 'pr_status_update') return 'Update PR status';
   if (action.category === 'code_review') return 'Process code review feedback';
+  if (action.category === 'user_request_replan') return 'Handle a new user request first';
   if (action.category === 'task_execute') return 'Proceed with task execution';
   if (action.category === 'review_fix_commit') return 'Commit review feedback fixes';
   if (action.category === 'feature_done') return 'Feature is complete';

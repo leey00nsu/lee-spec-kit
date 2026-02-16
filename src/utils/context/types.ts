@@ -35,6 +35,7 @@ export type ActionCategory =
   | 'pre_pr_review'
   | 'pr_status_update'
   | 'code_review'
+  | 'user_request_replan'
   | 'feature_done'
   | 'fallback';
 

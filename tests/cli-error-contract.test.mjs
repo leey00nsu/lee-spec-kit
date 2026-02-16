@@ -2557,7 +2557,13 @@ test('context pre-PR review allows PR step on minor-only findings when minorPoli
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 13);
     assert.equal(payload.actionOptions[0].action.category, 'pr_create');
-    assert.equal(payload.actionOptions.length, 1);
+    assert.equal(payload.actionOptions.length >= 2, true);
+    assert.equal(
+      payload.actionOptions.some(
+        (option) => option.action.category === 'user_request_replan'
+      ),
+      true
+    );
   });
 });
 
@@ -2790,7 +2796,13 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
-    assert.equal(payload.actionOptions.length, 1);
+    assert.equal(payload.actionOptions.length >= 2, true);
+    assert.equal(
+      payload.actionOptions.some(
+        (option) => option.action.category === 'user_request_replan'
+      ),
+      true
+    );
     assert.match(payload.actionOptions[0].action.message, /pr\.md|PR 초안|PR title\/body\/labels/i);
     assert.match(payload.actionOptions[0].action.message, /Ready/);
     assert.doesNotMatch(payload.actionOptions[0].detail, /docs get/i);
@@ -2877,11 +2889,22 @@ test('context code_review step keeps Review status and guides merge command', as
     assert.equal(payload.actionOptions[0].action.type, 'instruction');
     assert.equal(payload.actionOptions[0].action.requiresUserCheck, true);
     assert.equal(payload.actionOptions[0].action.operationType, 'remote');
-    assert.equal(payload.actionOptions.length >= 2, true);
-    assert.equal(payload.actionOptions[1].action.category, 'code_review');
+    assert.equal(payload.actionOptions.length >= 3, true);
+    assert.equal(
+      payload.actionOptions.some(
+        (option) => option.action.category === 'user_request_replan'
+      ),
+      true
+    );
+    const mergeAction = payload.actionOptions.find(
+      (option) =>
+        option.action.category === 'code_review' &&
+        option.action.type === 'instruction' &&
+        /--merge --confirm OK/.test(option.action.message || '')
+    );
+    assert.equal(Boolean(mergeAction), true);
     assert.match(payload.actionOptions[0].action.message, /addressing comments|리뷰 코멘트/);
-    assert.match(payload.actionOptions[1].action.message, /--merge --confirm OK/);
-    assert.doesNotMatch(payload.actionOptions[1].action.message, /Review → Approved/);
+    assert.doesNotMatch(mergeAction.action.message, /Review → Approved/);
   });
 });
 

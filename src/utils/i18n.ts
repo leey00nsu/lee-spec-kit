@@ -585,6 +585,8 @@ const I18N: Record<Lang, I18nData> = {
         '머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prRequestReview:
         '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 설정/유지하세요.',
+      userRequestReplan:
+        '현재 단계와 별개로 사용자가 제안한 새 요구를 먼저 반영할 수 있습니다. 요구사항을 요약해 tasks.md에 추가하거나 별도 Feature로 분리한 뒤, 문서 상태를 맞추고 context를 다시 실행하세요.',
       featureDone:
         '워크플로우 요구사항과 모든 태스크/완료 조건이 충족되었습니다. 이 Feature는 완료 상태입니다.',
       fallbackRerunContext:
@@ -1231,6 +1233,8 @@ const I18N: Record<Lang, I18nData> = {
       prReviewMerge:
         'When ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prRequestReview: 'Request review and set/keep PR Status as Review.',
+      userRequestReplan:
+        'You can pause this step and handle a newly requested user requirement first. Summarize it, add it to tasks.md or split it into a separate Feature, then align document statuses and rerun context.',
       featureDone:
         'Workflow requirements and all tasks/completion criteria are satisfied. This feature is done.',
       fallbackRerunContext:

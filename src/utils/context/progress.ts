@@ -56,6 +56,24 @@ function applyApprovalPolicy(
   });
 }
 
+function withUserRequestReplanOption(
+  actions: NextAction[],
+  lang: Lang
+): NextAction[] {
+  if (actions.some((action) => action.category === 'user_request_replan')) {
+    return actions;
+  }
+  return [
+    ...actions,
+    {
+      type: 'instruction',
+      category: 'user_request_replan',
+      requiresUserCheck: true,
+      message: tr(lang, 'messages', 'userRequestReplan'),
+    },
+  ];
+}
+
 export function resolveFeatureProgress(
   feature: FeatureState,
   stepDefinitions: StepDefinition[],
@@ -70,9 +88,13 @@ export function resolveFeatureProgress(
   for (const definition of ordered) {
     if (!definition.current) continue;
     if (definition.current.when(feature)) {
+      const currentActions = withUserRequestReplanOption(
+        definition.current.actions(feature),
+        lang
+      );
       const actions = applyApprovalPolicy(
         definition.step,
-        definition.current.actions(feature),
+        currentActions,
         approval
       );
       return {
