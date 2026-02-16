@@ -491,7 +491,7 @@ npx lee-spec-kit doctor --decisions-placeholders warn
 
 기본 동작은 `docs/` 작업트리에 변경사항이 없을 때만 업데이트를 진행하며, 이 경우 변경된 파일은 확인 없이 덮어씁니다.  
 변경사항이 있는 상태에서 업데이트하려면 `--force`를 사용하세요.
-또한 `update`는 `.lee-spec-kit.json`의 누락 필드를 현재 기본 정책으로 보강합니다. (예: `workflow.taskCommitGate: "strict"`)
+또한 `update`는 `.lee-spec-kit.json`의 누락 필드를 현재 기본 정책으로 보강합니다. (예: `workflow.taskCommitGate: "warn"`)
 
 ```bash
 # 전체 업데이트
@@ -529,7 +529,7 @@ npx lee-spec-kit update --force
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
-    "taskCommitGate": "strict",
+    "taskCommitGate": "warn",
     "prePrReview": { "skills": ["code-review-excellence"] }
   },
   "pr": { "screenshots": { "upload": false } },
@@ -590,7 +590,7 @@ npx lee-spec-kit update --force
   - `strict`: 최근 `tasks.md` 커밋에서 DONE 전환이 2개 이상이면 차단
   - `warn`: 점검 실패 시 경고만 표시하고 진행 허용
   - `off`: 점검 비활성화
-  - 하위 호환: 값이 없으면 `warn`으로 처리
+  - 기본값: `warn` (값이 없으면 `warn`)
 - `workflow.prePrReview`:
   - `enabled` (선택): pre-PR 리뷰 단계를 강제할지 여부 (기본: `requirePr`와 동일)
   - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
@@ -606,7 +606,7 @@ npx lee-spec-kit update --force
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
-    "taskCommitGate": "strict",
+    "taskCommitGate": "warn",
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",

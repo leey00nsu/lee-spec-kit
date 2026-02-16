@@ -264,7 +264,7 @@ async function backfillMissingConfigDefaults(
   const workflow = raw.workflow as Record<string, unknown>;
   setIfMissing(workflow, 'mode', 'github', 'workflow.mode');
   setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');
-  setIfMissing(workflow, 'taskCommitGate', 'strict', 'workflow.taskCommitGate');
+  setIfMissing(workflow, 'taskCommitGate', 'warn', 'workflow.taskCommitGate');
 
   if (!isPlainObject(workflow.prePrReview)) {
     workflow.prePrReview = {};

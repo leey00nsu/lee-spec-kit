@@ -3329,7 +3329,7 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    assert.equal(config.workflow?.taskCommitGate, 'strict');
+    assert.equal(config.workflow?.taskCommitGate, 'warn');
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
     assert.equal(config.workflow?.prePrReview?.blockOnFindings, true);
@@ -3339,7 +3339,7 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
   });
 });
 
-test('update backfills missing config defaults including strict taskCommitGate', async () => {
+test('update backfills missing config defaults including warn taskCommitGate', async () => {
   await withTempDir('lsk-update-config-backfill-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);
     assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
@@ -3394,7 +3394,7 @@ test('update backfills missing config defaults including strict taskCommitGate',
     assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
 
     const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    assert.equal(nextConfig.workflow?.taskCommitGate, 'strict');
+    assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
     assert.equal(nextConfig.workflow?.codeDirtyScope, 'auto');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
       'code-review-excellence',
@@ -3834,7 +3834,51 @@ test('context parses task IDs and blocks next TODO when strict task commit gate 
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
     await setFeatureAsDone(dir, 'F001-alpha');
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = config.workflow || {};
+    config.workflow.taskCommitGate = 'strict';
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
     const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## Local Tracking
+
+- **Doc Status**: Approved
+
+## Task List
+
+- [TODO] T-F001-alpha-01 alpha baseline
+- [TODO] T-F001-alpha-02 alpha follow-up
+- [TODO] T-F001-alpha-03 alpha polish
+
+## Completion Criteria
+
+- [ ] done
+`,
+      'utf-8'
+    );
+
+    const baselineAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+      'docs/.lee-spec-kit.json',
+    ]);
+    assert.equal(baselineAdd.code, 0, baselineAdd.stderr || baselineAdd.stdout);
+    const baselineCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: baseline todos before done transitions',
+    ]);
+    assert.equal(
+      baselineCommit.code,
+      0,
+      baselineCommit.stderr || baselineCommit.stdout
+    );
+
     await fs.writeFile(
       tasksPath,
       `# Tasks: alpha
@@ -3856,7 +3900,11 @@ test('context parses task IDs and blocks next TODO when strict task commit gate 
       'utf-8'
     );
 
-    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    const docsAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+      'docs/.lee-spec-kit.json',
+    ]);
     assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
     const docsCommit = await runCommand(dir, 'git', [
       'commit',
@@ -3908,6 +3956,12 @@ test('context strict task commit gate ignores latest commit when DONE transition
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
     await setFeatureAsDone(dir, 'F001-alpha');
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = config.workflow || {};
+    config.workflow.taskCommitGate = 'strict';
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
     const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
     await fs.writeFile(
       tasksPath,
@@ -3929,7 +3983,11 @@ test('context strict task commit gate ignores latest commit when DONE transition
       'utf-8'
     );
 
-    const firstAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    const firstAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+      'docs/.lee-spec-kit.json',
+    ]);
     assert.equal(firstAdd.code, 0, firstAdd.stderr || firstAdd.stdout);
     const firstCommit = await runCommand(dir, 'git', [
       'commit',
@@ -4021,6 +4079,44 @@ test('context warn task commit gate allows next TODO with warning', async () => 
     await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
     const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## Local Tracking
+
+- **Doc Status**: Approved
+
+## Task List
+
+- [TODO] T-F001-alpha-01 alpha baseline
+- [TODO] T-F001-alpha-02 alpha follow-up
+- [TODO] T-F001-alpha-03 alpha polish
+
+## Completion Criteria
+
+- [ ] done
+`,
+      'utf-8'
+    );
+
+    const baselineAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+      'docs/.lee-spec-kit.json',
+    ]);
+    assert.equal(baselineAdd.code, 0, baselineAdd.stderr || baselineAdd.stdout);
+    const baselineCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: baseline todos for warn gate',
+    ]);
+    assert.equal(
+      baselineCommit.code,
+      0,
+      baselineCommit.stderr || baselineCommit.stdout
+    );
+
     await fs.writeFile(
       tasksPath,
       `# Tasks: alpha
@@ -4901,7 +4997,7 @@ test('context --component scopes fallback selection in multi project', async () 
   });
 });
 
-test('init writes workflow.codeDirtyScope=auto for new projects', async () => {
+test('init writes workflow.codeDirtyScope=auto and warn taskCommitGate for new projects', async () => {
   await withTempDir('lsk-init-dirty-scope-auto-', async (dir) => {
     const result = await runCli(dir, [
       'init',
@@ -4922,7 +5018,7 @@ test('init writes workflow.codeDirtyScope=auto for new projects', async () => {
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
-    assert.equal(config.workflow?.taskCommitGate, 'strict');
+    assert.equal(config.workflow?.taskCommitGate, 'warn');
   });
 });
 

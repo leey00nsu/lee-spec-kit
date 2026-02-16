@@ -183,9 +183,11 @@ function resolveProjectCommitTopic(feature: FeatureState): string {
 interface TaskCommitGateCheck {
   pass: boolean;
   reason?:
+    | 'DONE_TRANSITIONS_COUNT'
     | 'NO_PROJECT_COMMIT'
     | 'PROJECT_LOG_UNAVAILABLE'
     | 'MISMATCH_LAST_DONE';
+  doneTransitions?: number;
 }
 
 function shouldBlockTaskCommitGate(
@@ -225,7 +227,101 @@ function normalizeCommitSubjectForGate(value: string): string {
     .toLowerCase();
 }
 
+function toTaskKey(rawTitle: string): string {
+  const trimmed = normalizeCommitTopicText(rawTitle);
+  if (!trimmed) return '';
+  const idMatch = trimmed.match(/^(T-[A-Za-z0-9-]+)/i);
+  if (idMatch) return idMatch[1].toUpperCase();
+  return normalizeTaskTopic(trimmed).toLowerCase();
+}
+
+function countDoneTransitionsInLatestTasksCommit(
+  feature: FeatureState
+): number | undefined {
+  const docsGitCwd = feature.git.docsGitCwd;
+  const tasksRelativePath = normalizeGitRelativePath(
+    path.join(feature.docs.featurePathFromDocs, 'tasks.md')
+  );
+
+  const diff = readGitText(docsGitCwd, [
+    'diff',
+    '--unified=0',
+    '--no-color',
+    'HEAD~1',
+    'HEAD',
+    '--',
+    tasksRelativePath,
+  ]);
+  if (diff === undefined) return 0;
+  if (!diff.trim()) return 0;
+
+  const removedByTask = new Map<string, Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>>();
+  const addedByTask = new Map<string, Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>>();
+
+  const parseTaskLine = (
+    line: string
+  ): { key: string; status: 'TODO' | 'DOING' | 'DONE' | 'REVIEW' } | null => {
+    const match = line.match(/^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\s+(.+?)\s*$/i);
+    if (!match) return null;
+    const key = toTaskKey(match[2]);
+    if (!key) return null;
+    return {
+      key,
+      status: match[1].toUpperCase() as 'TODO' | 'DOING' | 'DONE' | 'REVIEW',
+    };
+  };
+
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('---') || line.startsWith('+++')) continue;
+
+    if (line.startsWith('-')) {
+      const parsed = parseTaskLine(line.slice(1));
+      if (!parsed) continue;
+      const existing = removedByTask.get(parsed.key) || new Set();
+      existing.add(parsed.status);
+      removedByTask.set(parsed.key, existing);
+      continue;
+    }
+
+    if (line.startsWith('+')) {
+      const parsed = parseTaskLine(line.slice(1));
+      if (!parsed) continue;
+      const existing = addedByTask.get(parsed.key) || new Set();
+      existing.add(parsed.status);
+      addedByTask.set(parsed.key, existing);
+    }
+  }
+
+  let doneTransitions = 0;
+  for (const [taskKey, addedStatuses] of addedByTask.entries()) {
+    if (!addedStatuses.has('DONE')) continue;
+    const removedStatuses = removedByTask.get(taskKey);
+    if (!removedStatuses) continue;
+    const transitionedFromOpen =
+      removedStatuses.has('TODO') || removedStatuses.has('DOING') || removedStatuses.has('REVIEW');
+    if (transitionedFromOpen) {
+      doneTransitions += 1;
+    }
+  }
+
+  return doneTransitions;
+}
+
 function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
+  const doneTransitions = countDoneTransitionsInLatestTasksCommit(feature);
+  if (doneTransitions === 0) {
+    // Docs-only edits (e.g., adding/changing TODO text) should not trigger
+    // project commit gate checks.
+    return { pass: true, doneTransitions };
+  }
+  if (typeof doneTransitions === 'number' && doneTransitions > 1) {
+    return {
+      pass: false,
+      reason: 'DONE_TRANSITIONS_COUNT',
+      doneTransitions,
+    };
+  }
+
   const projectGitCwd = feature.git.projectGitCwd;
   const lastDoneTopic = normalizeTaskTopic(feature.lastDoneTask?.title || '');
   if (!projectGitCwd || !lastDoneTopic) {
@@ -266,6 +362,10 @@ function getTaskCommitGateReasonText(
   check: TaskCommitGateCheck
 ): string {
   switch (check.reason) {
+    case 'DONE_TRANSITIONS_COUNT':
+      return tr(lang, 'messages', 'taskCommitGateReasonDoneCount', {
+        count: check.doneTransitions || 0,
+      });
     case 'NO_PROJECT_COMMIT':
       return tr(lang, 'messages', 'taskCommitGateReasonNoTasksCommit');
     case 'PROJECT_LOG_UNAVAILABLE':

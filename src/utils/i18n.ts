@@ -518,7 +518,7 @@ const I18N: Record<Lang, I18nData> = {
       taskCommitGateReasonTasksFileUnavailable:
         '최근 프로젝트 코드 커밋 이력을 판독할 수 없습니다',
       taskCommitGateReasonDoneCount:
-        '최근 프로젝트 코드 커밋 점검 결과가 예상과 다릅니다 ({count})',
+        '최신 tasks.md 커밋에서 DONE 전환이 {count}건 감지되었습니다',
       taskCommitGateReasonMismatchLastDone:
         '최근 프로젝트 코드 커밋이 직전 완료 태스크와 일치하지 않습니다',
       prLegacyAsk:
@@ -1167,7 +1167,7 @@ const I18N: Record<Lang, I18nData> = {
       taskCommitGateReasonTasksFileUnavailable:
         'Cannot read recent project code commit history',
       taskCommitGateReasonDoneCount:
-        'Project commit gate check result is unexpected ({count})',
+        'DONE transitions detected in the latest tasks.md commit ({count})',
       taskCommitGateReasonMismatchLastDone:
         'The latest project code commit does not match the last completed task',
       prLegacyAsk:

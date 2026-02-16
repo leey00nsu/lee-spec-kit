@@ -451,7 +451,7 @@ npx lee-spec-kit doctor --decisions-placeholders warn
 
 By default, `update` runs only when the `docs/` working tree is clean; in that case it overwrites changed files without prompting.  
 If you want to update while you have uncommitted changes, use `--force`.
-`update` also backfills missing `.lee-spec-kit.json` keys using current defaults (e.g. `workflow.taskCommitGate: "strict"`).
+`update` also backfills missing `.lee-spec-kit.json` keys using current defaults (e.g. `workflow.taskCommitGate: "warn"`).
 
 ```bash
 npx lee-spec-kit update
@@ -480,7 +480,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
-    "taskCommitGate": "strict",
+    "taskCommitGate": "warn",
     "prePrReview": { "skills": ["code-review-excellence"] }
   },
   "pr": { "screenshots": { "upload": false } },
@@ -558,7 +558,7 @@ Example:
   "workflow": {
     "mode": "github",
     "codeDirtyScope": "auto",
-    "taskCommitGate": "strict",
+    "taskCommitGate": "warn",
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",
