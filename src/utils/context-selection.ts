@@ -177,6 +177,14 @@ function formatActionSummary(action: ContextAction): string {
     if (action.category === 'branch_create') {
       return formatBranchCreateDetail(action.cmd);
     }
+    if (action.category === 'code_review') {
+      if (/--merge\s+--confirm\s+OK/.test(action.cmd)) {
+        return `(${action.scope}) merge PR after explicit OK`;
+      }
+      if (/\bgit\s+push\b/i.test(action.cmd)) {
+        return `(${action.scope}) push review-fix commits`;
+      }
+    }
     const commitMessage = extractCommitMessage(action.cmd);
     if (commitMessage) {
       return `(${action.scope}) commit: ${commitMessage}`;

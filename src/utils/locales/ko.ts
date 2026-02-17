@@ -544,9 +544,9 @@ const ko = {
       prReviewMergedSyncStatus:
         '원격 PR이 이미 머지되었습니다. tasks.md의 PR 상태를 Approved로 업데이트하세요. (PR/리뷰 근거 필드도 최신 상태로 확인)',
       prResolveReview:
-        '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+        '리뷰 코멘트를 해결하세요. PR 상태는 Review를 유지하고, 리뷰 수정 커밋 메시지는 실제로 해결한 항목 요약으로 작성하세요. (태스크 제목 재사용 금지) 머지 준비가 되면 사용자 승인(OK) 후 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewResolve:
-        '리뷰 코멘트를 먼저 확인/분석한 뒤 필요한 수정 작업을 진행하세요. 진행 중에는 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. `PR 리뷰 Findings/Evidence`를 최신으로 기록하고, 커밋 후 원격 반영(push)도 사용자 승인(OK)을 받은 뒤 진행하세요.',
+        '리뷰 코멘트를 확인/분석한 뒤 필요한 수정을 진행하세요. PR 상태는 Review를 유지하고 `PR 리뷰 Findings/Evidence`를 최신으로 기록하세요. 원격 반영(push)은 사용자 승인(OK) 후 진행하세요.',
       prReviewPush:
         'cd "{projectGitCwd}" && git push',
       prReviewRemoteBlocked:
@@ -564,7 +564,7 @@ const ko = {
       prReviewRemoteReasonUnavailable:
         '원격 PR 상태를 확인하지 못했습니다 (gh 인증/네트워크/권한 확인 필요)',
       prReviewMerge:
-        '머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+        '머지 준비가 되면 사용자 승인(OK)을 받은 뒤 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewMergeCommand:
         'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
       prRequestReview:

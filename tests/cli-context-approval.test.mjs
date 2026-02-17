@@ -1186,6 +1186,17 @@ process.exit(0);
     );
     assert.equal(Boolean(mergeOption), true);
     assert.equal(mergeOption.action.scope, 'docs');
+    assert.match(mergeOption.detail, /\(docs\)\s+merge PR after explicit OK/i);
+    assert.doesNotMatch(mergeOption.detail, /--merge --confirm OK/);
+    const pushOption = payload.actionOptions.find(
+      (option) =>
+        option.action.type === 'command' &&
+        option.action.category === 'code_review' &&
+        /\bgit\s+push\b/.test(option.action.cmd || '')
+    );
+    assert.equal(Boolean(pushOption), true);
+    assert.match(pushOption.detail, /\(project\)\s+push review-fix commits/i);
+    assert.doesNotMatch(pushOption.detail, /\bgit\s+push\b/);
     assert.match(primaryActionOption(payload).action.message, /addressing comments|리뷰 코멘트/);
     assert.doesNotMatch(primaryActionOption(payload).action.message, /Review → Approved/);
   });

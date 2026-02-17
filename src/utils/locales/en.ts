@@ -561,9 +561,9 @@ const en = {
       prReviewMergedSyncStatus:
         'The remote PR is already merged. Update PR Status in tasks.md to Approved. (Also verify PR/review evidence fields are up to date.)',
       prResolveReview:
-        'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
+        'Address review comments while keeping PR Status as Review. For review-fix commits, summarize resolved feedback in the commit message (do not reuse task titles). Once ready to merge, get explicit user OK and run the merge option. (On success, PR Status is synced to Approved.)',
       prReviewResolve:
-        'First review/analyze the PR comments, then apply the required fixes. Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Keep `PR Review Findings/Evidence` updated, then run push only after explicit user OK.',
+        'Review/analyze PR comments first, then apply required fixes while addressing comments. Keep PR Status as Review and keep `PR Review Findings/Evidence` updated. Run push only after explicit user OK.',
       prReviewPush:
         'cd "{projectGitCwd}" && git push',
       prReviewRemoteBlocked:
@@ -581,7 +581,7 @@ const en = {
       prReviewRemoteReasonUnavailable:
         'remote PR status could not be verified (check gh auth/network/permissions)',
       prReviewMerge:
-        'When ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
+        'When ready to merge, get explicit user OK and run the merge option. (On success, PR Status is synced to Approved.)',
       prReviewMergeCommand:
         'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
       prRequestReview: 'Request review and set/keep PR Status as Review.',
