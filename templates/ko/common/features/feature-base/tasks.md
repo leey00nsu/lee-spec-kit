@@ -12,7 +12,8 @@
 
 ## GitHub Issue
 
-- **문서 상태**: Draft | Review | Approved
+- **문서 상태**: -
+  - 값: Draft | Review | Approved
 - **레포**: {{projectName}}-{component}
 - **Issue**: #{이슈번호}
 - **브랜치**: `feat/{이슈번호}-{기능명}`
@@ -20,7 +21,8 @@
   - 예: `#123` 또는 PR URL
 - **PR 상태**: -
   - 값: Review | Approved
-- **PR 전 리뷰**: Pending | Done
+- **PR 전 리뷰**: -
+  - 값: Pending | Done
   - 사전 코드리뷰 완료 후 `Done`으로 변경
 - **PR 전 리뷰 Findings**: major=0, minor=0
   - 사전 리뷰 최종 결과에 맞게 major/minor 건수를 갱신

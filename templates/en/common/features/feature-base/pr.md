@@ -2,7 +2,8 @@
 
 ## Metadata
 
-- **Status**: Draft | Ready
+- **Status**: -
+  - Values: Draft | Ready
 - **Base**: main
 - **Created**: {YYYY-MM-DD}
 

@@ -10,7 +10,8 @@
 - **기능명**: {기능명}
 - **대상 레포**: {{projectName}}-{component}
 - **작성일**: {YYYY-MM-DD}
-- **상태**: Draft | Review | Approved
+- **상태**: -
+  - 값: Draft | Review | Approved
 
 ---
 

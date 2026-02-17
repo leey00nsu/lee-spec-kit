@@ -2,7 +2,8 @@
 
 ## Metadata
 
-- **Status**: Draft | Ready
+- **Status**: -
+  - Values: Draft | Ready
 - **Title**: {feature-name}
 - **Labels**: enhancement
 - **Created**: {YYYY-MM-DD}

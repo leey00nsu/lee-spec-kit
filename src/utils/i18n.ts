@@ -97,7 +97,7 @@ const I18N: Record<Lang, I18nData> = {
       'doctor.issue.tasksDocStatusUnset':
         'tasks.md의 문서 상태(Doc Status)가 설정되지 않았습니다. (Draft/Review/Approved 중 하나로 설정하세요.)',
       'doctor.issue.tasksDocStatusMissing':
-        'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: Draft | Review | Approved`를 추가하세요.',
+        'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: -`와 `값: Draft | Review | Approved`를 추가하세요.',
       'doctor.issue.duplicateFeatureId': '중복 Feature ID 감지: {id} ({count}개)',
       'doctor.issue.missingFeatureId':
         'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',
@@ -736,7 +736,7 @@ const I18N: Record<Lang, I18nData> = {
       'doctor.issue.tasksDocStatusUnset':
         'tasks.md Doc Status is not set. (Set it to Draft, Review, or Approved.)',
       'doctor.issue.tasksDocStatusMissing':
-        'tasks.md is missing the Doc Status field. Add `- **Doc Status**: Draft | Review | Approved`.',
+        'tasks.md is missing the Doc Status field. Add `- **Doc Status**: -` and `Values: Draft | Review | Approved`.',
       'doctor.issue.duplicateFeatureId': 'Duplicate Feature ID detected: {id} ({count})',
       'doctor.issue.missingFeatureId':
         'Feature folder name is not in F001-... format. (Cannot extract ID)',

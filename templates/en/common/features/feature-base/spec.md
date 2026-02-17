@@ -10,7 +10,8 @@
 - **Feature Name**: {feature-name}
 - **Target Repo**: {{projectName}}-{component}
 - **Created**: {YYYY-MM-DD}
-- **Status**: Draft | Review | Approved
+- **Status**: -
+  - Values: Draft | Review | Approved
 
 ---
 

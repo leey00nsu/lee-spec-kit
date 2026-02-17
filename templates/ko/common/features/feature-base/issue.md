@@ -2,7 +2,8 @@
 
 ## 메타데이터
 
-- **상태**: Draft | Ready
+- **상태**: -
+  - 값: Draft | Ready
 - **제목**: {기능명}
 - **라벨**: enhancement
 - **작성일**: {YYYY-MM-DD}

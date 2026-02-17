@@ -355,8 +355,10 @@ test('github workflow feature template includes issue.md and pr.md drafts', asyn
 
     const issueDoc = await fs.readFile(issueDocPath, 'utf-8');
     const prDoc = await fs.readFile(prDocPath, 'utf-8');
-    assert.match(issueDoc, /\*\*Status\*\*:\s*Draft \| Ready/);
-    assert.match(prDoc, /\*\*Status\*\*:\s*Draft \| Ready/);
+    assert.match(issueDoc, /\*\*Status\*\*:\s*-/);
+    assert.match(issueDoc, /Values:\s*Draft \| Ready/);
+    assert.match(prDoc, /\*\*Status\*\*:\s*-/);
+    assert.match(prDoc, /Values:\s*Draft \| Ready/);
   });
 });
 
@@ -575,4 +577,3 @@ test('Korean localized suggestions are shown for PROMPT_BLOCKED', async () => {
     assert.match(result.stderr, /--non-interactive 없이 같은 명령을 다시 실행하세요/);
   });
 });
-

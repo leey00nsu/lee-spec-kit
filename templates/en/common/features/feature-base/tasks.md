@@ -12,7 +12,8 @@
 
 ## GitHub Issue
 
-- **Doc Status**: Draft | Review | Approved
+- **Doc Status**: -
+  - Values: Draft | Review | Approved
 - **Repo**: {{projectName}}-{component}
 - **Issue**: #{issue-number}
 - **Branch**: `feat/{issue-number}-{feature-name}`
@@ -20,7 +21,8 @@
   - Example: `#123` or PR URL
 - **PR Status**: -
   - Values: Review | Approved
-- **Pre-PR Review**: Pending | Done
+- **Pre-PR Review**: -
+  - Values: Pending | Done
   - Mark `Done` after pre-PR review is completed
 - **Pre-PR Findings**: major=0, minor=0
   - Update with final findings counts from pre-PR review
