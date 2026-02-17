@@ -298,6 +298,10 @@ const ko = {
         '`--merge`를 사용하려면 `--create`, `--pr <url|number>`, 또는 tasks.md의 PR 링크가 필요합니다.',
       'github.checkoutBaseAfterMergeFailed': 'merge 후 {base} 브랜치 checkout에 실패했습니다',
       'github.pullBaseAfterMergeFailed': 'merge 후 {base} 브랜치 최신화에 실패했습니다',
+      'github.postMergeCheckoutWarning':
+        'PR merge는 완료되었지만 `{base}` checkout에 실패했습니다(치명 아님): {detail}',
+      'github.postMergePullWarning':
+        'PR merge는 완료되었지만 `{base}` pull에 실패했습니다(치명 아님): {detail}',
       'github.issueDefaultTitle': '{slug} ({summary})',
       'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} (구현 업데이트)',
       'github.prDefaultTitleNoIssue': 'feat: {slug} (구현 업데이트)',
@@ -312,6 +316,8 @@ const ko = {
         '본문 템플릿을 생성했습니다. 원격으로 이슈를 생성하려면 `--create`를 사용하세요.',
       'github.prTasksSynced': '✅ tasks.md PR 메타데이터를 동기화했습니다.',
       'github.prMerged': '✅ PR merge 완료 (시도 횟수: {attempts})',
+      'github.prAlreadyMergedNotice':
+        'ℹ️  PR이 이미 원격에서 merge된 상태입니다. 로컬/문서 동기화만 이어서 처리합니다.',
       'github.prTemplateGenerated':
         '본문 템플릿을 생성했습니다. 원격으로 PR을 생성하려면 `--create`를 사용하세요.',
       'github.syncCommitWithIssue': 'docs(#{issue}): {folder} PR 메타데이터 동기화',

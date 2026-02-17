@@ -18,6 +18,85 @@ import {
   suggestionOptionByLabel,
 } from './helpers/cli-contract-helpers.mjs';
 
+async function setupMergeGhCli(
+  dir,
+  {
+    mergeCode,
+    mergeStdout = '',
+    mergeStderr = '',
+    state = 'MERGED',
+    mergedAt = '2026-02-17T08:51:35Z',
+    baseRefName = 'main',
+  }
+) {
+  const binDir = path.join(dir, 'fake-merge-gh-bin');
+  const scriptPath = path.join(binDir, 'gh');
+  const cmdScriptPath = path.join(binDir, 'gh.cmd');
+  const configLiteral = JSON.stringify({
+    mergeCode,
+    mergeStdout,
+    mergeStderr,
+    state,
+    mergedAt,
+    baseRefName,
+  });
+
+  await fs.mkdir(binDir, { recursive: true });
+  await fs.writeFile(
+    scriptPath,
+    `#!/usr/bin/env node
+const config = ${configLiteral};
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'merge') {
+  if (config.mergeStdout) process.stdout.write(config.mergeStdout + '\\n');
+  if (config.mergeStderr) process.stderr.write(config.mergeStderr + '\\n');
+  process.exit(config.mergeCode);
+}
+if (args[0] === 'pr' && args[1] === 'view') {
+  const jsonIdx = args.indexOf('--json');
+  const fields = jsonIdx >= 0 ? args[jsonIdx + 1] : '';
+  if (fields === 'state,mergedAt,baseRefName') {
+    console.log(JSON.stringify({
+      state: config.state,
+      mergedAt: config.mergedAt,
+      baseRefName: config.baseRefName,
+    }));
+    process.exit(0);
+  }
+  console.log(JSON.stringify({
+    url: 'https://github.com/acme/repo/pull/77',
+    headRefName: 'feature-branch',
+    baseRefName: config.baseRefName,
+  }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+    'utf-8'
+  );
+  await fs.chmod(scriptPath, 0o755);
+  await fs.writeFile(
+    cmdScriptPath,
+    `@echo off\r\n"${process.execPath}" "%~dp0\\gh" %*\r\n`,
+    'utf-8'
+  );
+  return {
+    env: {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+    },
+  };
+}
+
+async function setupLocalOriginRemote(repoDir) {
+  const remotePath = path.join(repoDir, 'origin.git');
+  const initBare = await runCommand(repoDir, 'git', ['init', '--bare', remotePath]);
+  assert.equal(initBare.code, 0, initBare.stderr || initBare.stdout);
+  const addRemote = await runCommand(repoDir, 'git', ['remote', 'add', 'origin', remotePath]);
+  assert.equal(addRemote.code, 0, addRemote.stderr || addRemote.stdout);
+  const pushMain = await runCommand(repoDir, 'git', ['push', '-u', 'origin', 'HEAD']);
+  assert.equal(pushMain.code, 0, pushMain.stderr || pushMain.stdout);
+}
+
 test('init --non-interactive works with explicit flags without --yes', async () => {
   await withTempDir('lsk-init-noninteractive-', async (dir) => {
     const result = await runCli(dir, [
@@ -1586,5 +1665,110 @@ test('github pr --merge infers PR ref from tasks.md PR link when available', asy
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
+  });
+});
+
+test('github pr --merge treats already-merged remote state as success', async () => {
+  await withTempDir('lsk-github-pr-merge-already-merged-success-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    await setupLocalOriginRemote(dir);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const fakeGh = await setupMergeGhCli(dir, {
+      mergeCode: 1,
+      mergeStderr: 'GraphQL: Pull request is already merged',
+      state: 'MERGED',
+      mergedAt: '2026-02-17T08:51:35Z',
+      baseRefName: 'main',
+    });
+
+    const result = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--merge', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.merged, true);
+    assert.equal(payload.mergeAlreadyMerged, true);
+
+    const after = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(after, /- \*\*PR Status\*\*: Approved/);
+  });
+});
+
+test('github pr --merge keeps success when post-merge checkout fails', async () => {
+  await withTempDir('lsk-github-pr-merge-post-sync-warning-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    await setupLocalOriginRemote(dir);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const fakeGh = await setupMergeGhCli(dir, {
+      mergeCode: 0,
+      state: 'MERGED',
+      mergedAt: '2026-02-17T08:51:35Z',
+      baseRefName: 'definitely-missing-base-branch',
+    });
+
+    const result = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--merge', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.merged, true);
+    assert.equal(Array.isArray(payload.postMergeWarnings), true);
+    assert.equal(payload.postMergeWarnings.length > 0, true);
+    assert.match(payload.postMergeWarnings[0], /checkout/i);
+
+    const after = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(after, /- \*\*PR Status\*\*: Approved/);
   });
 });

@@ -300,6 +300,10 @@ const en = {
         '`--merge` requires `--create`, `--pr <url|number>`, or a PR link in tasks.md.',
       'github.checkoutBaseAfterMergeFailed': 'Failed to checkout {base} after merge',
       'github.pullBaseAfterMergeFailed': 'Failed to update {base} after merge',
+      'github.postMergeCheckoutWarning':
+        'PR merged, but checkout to `{base}` failed (non-fatal): {detail}',
+      'github.postMergePullWarning':
+        'PR merged, but pull for `{base}` failed (non-fatal): {detail}',
       'github.issueDefaultTitle': '{slug} ({summary})',
       'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} (implementation update)',
       'github.prDefaultTitleNoIssue': 'feat: {slug} (implementation update)',
@@ -314,6 +318,8 @@ const en = {
         'Template generated. Add --create to open the issue automatically.',
       'github.prTasksSynced': '✅ tasks.md PR metadata synced.',
       'github.prMerged': '✅ PR merged (attempts: {attempts}).',
+      'github.prAlreadyMergedNotice':
+        'ℹ️  PR was already merged remotely. Continuing with local/docs sync only.',
       'github.prTemplateGenerated': 'Template generated. Add --create to open the PR automatically.',
       'github.syncCommitWithIssue': 'docs(#{issue}): sync PR metadata for {folder}',
       'github.syncCommitNoIssue': 'docs: sync PR metadata for {folder}',

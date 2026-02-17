@@ -73,6 +73,12 @@ interface PrViewMeta {
   baseRefName: string;
 }
 
+interface PrMergeStateMeta {
+  state?: string;
+  mergedAt?: string | null;
+  baseRefName?: string;
+}
+
 type GithubTextKey = Extract<I18nKey<'cli'>, `github.${string}`> extends `github.${infer Key}`
   ? Key
   : never;
@@ -1623,7 +1629,34 @@ function mergePrWithRetry(
   cwd: string,
   retryCount: number,
   lang: Lang
-): { merged: true; attempts: number } {
+): {
+  merged: true;
+  attempts: number;
+  alreadyMerged: boolean;
+  baseRefName?: string;
+} {
+  const tryReadPrMergeState = (): PrMergeStateMeta | null => {
+    const viewed = runProcess(
+      'gh',
+      ['pr', 'view', prRef, '--json', 'state,mergedAt,baseRefName'],
+      cwd
+    );
+    if (viewed.code !== 0) return null;
+    const text = viewed.stdout.trim();
+    if (!text) return null;
+    try {
+      return JSON.parse(text) as PrMergeStateMeta;
+    } catch {
+      return null;
+    }
+  };
+
+  const isMergedState = (meta: PrMergeStateMeta | null): boolean => {
+    if (!meta) return false;
+    if (meta.state?.toUpperCase() === 'MERGED') return true;
+    return !!meta.mergedAt;
+  };
+
   const attempts = Number.isFinite(retryCount) ? Math.max(1, retryCount) : 3;
   let lastError = '';
   for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -1633,10 +1666,25 @@ function mergePrWithRetry(
       cwd
     );
     if (merged.code === 0) {
-      return { merged: true, attempts: attempt };
+      const meta = tryReadPrMergeState();
+      return {
+        merged: true,
+        attempts: attempt,
+        alreadyMerged: false,
+        baseRefName: meta?.baseRefName,
+      };
     }
 
     lastError = (merged.stderr || merged.stdout || '').trim();
+    const mergeState = tryReadPrMergeState();
+    if (isMergedState(mergeState)) {
+      return {
+        merged: true,
+        attempts: attempt,
+        alreadyMerged: true,
+        baseRefName: mergeState?.baseRefName,
+      };
+    }
     if (shouldRefreshHeadBranch(merged.stderr, merged.stdout)) {
       refreshPrHeadBranch(prRef, cwd, lang);
       continue;
@@ -1947,6 +1995,8 @@ export function githubCommand(program: Command): void {
         const retryCount = toRetryCount(options.retry, config.lang);
         let prUrl = options.pr?.trim() || '';
         let mergedAttempts: number | undefined;
+        let mergeAlreadyMerged: boolean | undefined;
+        const postMergeWarnings: string[] = [];
         let syncChanged = false;
         const pushDocsSync = shouldPushDocsSync(config);
 
@@ -2040,19 +2090,7 @@ export function githubCommand(program: Command): void {
             config.lang
           );
           mergedAttempts = merged.attempts;
-
-          runProcessOrThrow(
-            'git',
-            ['checkout', baseBranch],
-            projectGitCwd,
-            tg(config.lang, 'checkoutBaseAfterMergeFailed', { base: baseBranch })
-          );
-          runProcessOrThrow(
-            'git',
-            ['pull', '--rebase', 'origin', baseBranch],
-            projectGitCwd,
-            tg(config.lang, 'pullBaseAfterMergeFailed', { base: baseBranch })
-          );
+          mergeAlreadyMerged = merged.alreadyMerged;
 
           if (prUrl && options.syncTasks !== false) {
             const mergedSync = syncTasksPrMetadata(
@@ -2078,6 +2116,35 @@ export function githubCommand(program: Command): void {
                 message,
                 config.lang,
                 { pushToOrigin: pushDocsSync }
+              );
+            }
+          }
+
+          const mergeBaseBranch = (merged.baseRefName || baseBranch || 'main').trim();
+          const checkoutResult = runProcess(
+            'git',
+            ['checkout', mergeBaseBranch],
+            projectGitCwd
+          );
+          if (checkoutResult.code !== 0) {
+            postMergeWarnings.push(
+              tg(config.lang, 'postMergeCheckoutWarning', {
+                base: mergeBaseBranch,
+                detail: (checkoutResult.stderr || checkoutResult.stdout || '').trim(),
+              })
+            );
+          } else {
+            const pullResult = runProcess(
+              'git',
+              ['pull', '--rebase', 'origin', mergeBaseBranch],
+              projectGitCwd
+            );
+            if (pullResult.code !== 0) {
+              postMergeWarnings.push(
+                tg(config.lang, 'postMergePullWarning', {
+                  base: mergeBaseBranch,
+                  detail: (pullResult.stderr || pullResult.stdout || '').trim(),
+                })
               );
             }
           }
@@ -2107,6 +2174,9 @@ export function githubCommand(program: Command): void {
                 syncChanged,
                 merged: !!options.merge,
                 mergeAttempts: mergedAttempts,
+                mergeAlreadyMerged,
+                postMergeWarnings:
+                  postMergeWarnings.length > 0 ? postMergeWarnings : undefined,
               },
               null,
               2
@@ -2130,6 +2200,12 @@ export function githubCommand(program: Command): void {
           console.log(
             chalk.green(tg(config.lang, 'prMerged', { attempts: mergedAttempts ?? 1 }))
           );
+          if (mergeAlreadyMerged) {
+            console.log(chalk.yellow(tg(config.lang, 'prAlreadyMergedNotice')));
+          }
+          for (const warning of postMergeWarnings) {
+            console.log(chalk.yellow(`⚠️  ${warning}`));
+          }
         } else if (!options.create) {
           console.log(chalk.blue(tg(config.lang, 'prTemplateGenerated')));
         }
