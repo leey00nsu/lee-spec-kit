@@ -47,6 +47,14 @@ test('context --json exposes generic label token policy', async () => {
       '... <LABEL> ...',
     ]);
     assert.equal(payload.checkPolicy.tokenPattern, '^.*\\b([A-Z]+)\\b.*$');
+    assert.deepEqual(payload.checkPolicy.activeCategories, []);
+    assert.equal(Array.isArray(payload.checkPolicy.knownCategories), true);
+    assert.equal(payload.checkPolicy.knownCategories.length > 0, true);
+    assert.deepEqual(payload.checkPolicy.uncategorizedLabels, []);
+    assert.match(
+      payload.checkPolicy.categoryPolicyGuidance,
+      /approval\.mode="category"/
+    );
     assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, true);
     assert.deepEqual(payload.checkPolicy.requiredExplanationFields, [
       'actionOptions[].label',
@@ -101,6 +109,10 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     assert.equal(payload.primaryActionType, primaryActionOption(payload).action.type);
     assert.equal(payload.primaryActionCategory, primaryActionOption(payload).action.category);
     assert.equal(
+      payload.checkPolicy.activeCategories.includes(payload.primaryActionCategory),
+      true
+    );
+    assert.equal(
       payload.primaryActionOperationType,
       primaryActionOption(payload).action.operationType
     );
@@ -143,6 +155,10 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     assert.equal(
       payload.approvalRequest.options[0].actionType,
       primaryActionOption(payload).action.type
+    );
+    assert.equal(
+      payload.approvalRequest.options[0].category,
+      primaryActionOption(payload).action.category
     );
     assert.equal(
       payload.approvalRequest.options[0].operationType,
@@ -193,6 +209,10 @@ test('context --json-compact action options include reply metadata', async () =>
     assert.equal(typeof primary.requiresRequestText, 'boolean');
     assert.equal(typeof primary.replyExample, 'string');
     assert.equal(primary.replyExample.length > 0, true);
+    assert.equal(Array.isArray(payload.checkPolicy.activeCategories), true);
+    assert.equal(payload.checkPolicy.activeCategories.includes(primary.category), true);
+    assert.equal(Array.isArray(payload.checkPolicy.knownCategories), true);
+    assert.equal(Array.isArray(payload.checkPolicy.uncategorizedLabels), true);
   });
 });
 

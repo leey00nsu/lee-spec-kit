@@ -370,6 +370,12 @@ npx lee-spec-kit flow
 # 승인 + 실행 (에이전트 기본 실행 경로)
 npx lee-spec-kit flow F001 --approve A --execute
 
+# 자동 진행: 특정 category가 나오면 멈추고 사용자 승인 대기
+npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update
+
+# 자동 진행 + 새 요청 선반영(user_request_replan 우선 실행)
+npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진행해" --auto-until-category pr_create,code_review,pr_status_update
+
 # 에이전트 파이프라인용 JSON
 npx lee-spec-kit flow --json
 
@@ -385,10 +391,20 @@ npx lee-spec-kit flow --strict
 | `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `app`, `api`, `worker`) |
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
+| `--request <text>` | auto 모드에서 새 사용자 요청을 먼저 반영 (`user_request_replan` 라벨 자동 선택) |
+| `--auto-until-category <categories>` | command 액션을 자동 실행하다가 지정 category 중 하나가 나오면 중지 (쉼표 구분) |
 | `--approve <reply>`| context 라벨 승인 응답 전달 (예: `A`, `A OK`, `A 진행해`) |
 | `--execute`        | 승인한 옵션이 command일 때 실행 (`requiresUserCheck=true`면 티켓 연동, 아니면 티켓 없이 실행) |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
 | `--strict`         | `status --strict`, `doctor --strict`까지 함께 검사 |
+
+자동 게이트 모드 규칙:
+- `--auto-until-category` 사용 시 `<feature-name>`은 필수입니다. (예: `F004`)
+- `--auto-until-category`는 `--approve`, `--execute`와 함께 사용할 수 없습니다.
+- `--request`는 `--auto-until-category`와 함께만 사용할 수 있습니다.
+- 자동 진행은 지정한 category가 등장하면 `gate_reached`로 멈추고, 해당 단계의 승인 문구(`approvalRequest.userFacingLines`)를 그대로 출력합니다.
+- 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
+- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`로 상세 상태를 확인할 수 있습니다.
 
 ### GitHub helper
 
@@ -567,6 +583,10 @@ npx lee-spec-kit update --force
 - `checkPolicy.acceptedTokens`: 허용되는 승인 응답 템플릿 (예: `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
 - `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
 - `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
+- `checkPolicy.activeCategories`: 현재 액션에 실제 등장한 category 목록 (`actionOptions[].category` 기준)
+- `checkPolicy.knownCategories`: CLI가 인식하는 전체 category 목록
+- `checkPolicy.uncategorizedLabels`: category가 비어 있는 라벨 목록 (정상이라면 빈 배열)
+- `checkPolicy.categoryPolicyGuidance`: `approval.mode="category"` 사용 시 category 매칭 기준 안내
 - `checkPolicy.requireExplanationBeforeApproval`: 승인 요청 전에 라벨별 설명을 포함해야 함
 - `checkPolicy.requiredExplanationFields`: 라벨 설명에 사용할 필드 목록 (예: `actionOptions[].detail`)
 - `checkPolicy.contextVersion`: stale context 검증용 스냅샷 해시
@@ -648,7 +668,7 @@ npx lee-spec-kit update --force
 }
 ```
 
-> 사용 가능한 `category` 값은 `context --json-compact`의 `actionOptions[].category`에서 우선 확인하고, 필요 시 `context --json`의 `actions[].category`를 참고하세요.
+> 사용 가능한 `category` 값은 `context --json`/`--json-compact`의 `checkPolicy.activeCategories`(현재), `checkPolicy.knownCategories`(전체), `actionOptions[].category`(라벨별)에서 확인하세요.
 
 ### pr (PR 결과물 정책)
 

@@ -73,6 +73,91 @@ test('flow --json aggregates context/status/doctor', async () => {
   });
 });
 
+test('flow --json auto-until-category stops at gate and exposes approval lines', async () => {
+  await withTempDir('lsk-flow-auto-until-gate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-until-category',
+      'spec_write',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.autoRun?.enabled, true);
+    assert.equal(payload.autoRun?.status, 'gate_reached');
+    assert.equal(payload.autoRun?.reasonCode, 'AUTO_GATE_REACHED');
+    assert.deepEqual(payload.autoRun?.untilCategories, ['spec_write']);
+    assert.equal(payload.autoRun?.gate?.category, 'spec_write');
+    assert.equal(Array.isArray(payload.autoRun?.gate?.userFacingLines), true);
+    assert.equal(payload.autoRun?.gate?.userFacingLines?.length > 0, true);
+    assert.match(payload.autoRun.gate.userFacingLines[0], /^[A-Z]+:\s+/);
+    assert.equal(payload.autoRun?.executions?.length, 0);
+  });
+});
+
+test('flow --json auto-until-category applies --request via user_request_replan first', async () => {
+  await withTempDir('lsk-flow-auto-until-request-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--request',
+      'issue 004를 F004로 승격시켜서 진행해',
+      '--auto-until-category',
+      'spec_write',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.autoRun?.status, 'gate_reached');
+    assert.equal(payload.autoRun?.executions?.length > 0, true);
+    assert.equal(payload.autoRun.executions[0].kind, 'request');
+    assert.equal(payload.autoRun.executions[0].category, 'user_request_replan');
+    assert.equal(payload.autoRun.executions[0].approveStatus, 'approved_selected');
+  });
+});
+
 test('flow --json includes approval result when approve is provided', async () => {
   await withTempDir('lsk-flow-approve-', async (dir) => {
     const initResult = await runCli(dir, [

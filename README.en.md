@@ -351,6 +351,12 @@ npx lee-spec-kit flow
 # approve + execute (recommended agent path)
 npx lee-spec-kit flow F001 --approve A --execute
 
+# auto-run: stop and wait for approval when one of target categories appears
+npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update
+
+# auto-run + apply new request first (runs user_request_replan first)
+npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed" --auto-until-category pr_create,code_review,pr_status_update
+
 # JSON output for automation
 npx lee-spec-kit flow --json
 
@@ -366,10 +372,20 @@ npx lee-spec-kit flow --strict
 | `--component <id>`| Select target component in multi mode (e.g. `app`, `api`, `worker`) |
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
+| `--request <text>` | In auto mode, apply a new user request first (auto-selects `user_request_replan`) |
+| `--auto-until-category <categories>` | Auto-execute command actions until one of target categories appears (comma-separated) |
 | `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
 | `--execute`       | Execute approved option when it is a command (ticket is required only when `requiresUserCheck=true`) |
 | `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
 | `--strict`        | Also run `status --strict` and `doctor --strict` |
+
+Auto gate mode rules:
+- `<feature-name>` is required with `--auto-until-category` (for example `F004`).
+- `--auto-until-category` cannot be combined with `--approve` or `--execute`.
+- `--request` can be used only with `--auto-until-category`.
+- Auto-run stops as `gate_reached` when a target category appears, then prints that step's approval text (`approvalRequest.userFacingLines`).
+- If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
+- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, and `autoRun.executions`.
 
 ### GitHub helpers
 
@@ -516,6 +532,10 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
 - `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
+- `checkPolicy.activeCategories`: categories currently present in actions (from `actionOptions[].category`)
+- `checkPolicy.knownCategories`: full category list recognized by the CLI
+- `checkPolicy.uncategorizedLabels`: labels with missing category (should normally be empty)
+- `checkPolicy.categoryPolicyGuidance`: guidance for matching categories in `approval.mode="category"`
 - `checkPolicy.requireExplanationBeforeApproval`: require label-by-label explanation before asking approval
 - `checkPolicy.requiredExplanationFields`: fields to use for explanation (e.g. `actionOptions[].detail`)
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
@@ -600,7 +620,7 @@ Example:
 }
 ```
 
-> To discover available `category` values, check `actionOptions[].category` in `context --json-compact` first, and use `actions[].category` in `context --json` when needed.
+> Discover category values from `context --json`/`--json-compact` using `checkPolicy.activeCategories` (current), `checkPolicy.knownCategories` (full), and `actionOptions[].category` (per-label).
 
 ### pr (PR artifacts policy)
 

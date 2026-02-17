@@ -20,28 +20,31 @@ export type { Lang } from '../i18n.js';
 
 export type ActionScope = 'project' | 'docs';
 
-export type ActionCategory =
-  | 'feature_folder'
-  | 'spec_write'
-  | 'spec_approve'
-  | 'plan_write'
-  | 'plan_approve'
-  | 'tasks_write'
-  | 'tasks_approve'
-  | 'docs_commit'
-  | 'issue_create'
-  | 'branch_create'
-  | 'task_execute'
-  | 'review_fix_commit'
-  | 'pr_create'
-  | 'pr_metadata_migrate'
-  | 'pre_pr_review'
-  | 'pr_status_update'
-  | 'code_review'
-  | 'worktree_cleanup'
-  | 'user_request_replan'
-  | 'feature_done'
-  | 'fallback';
+export const ACTION_CATEGORIES = [
+  'feature_folder',
+  'spec_write',
+  'spec_approve',
+  'plan_write',
+  'plan_approve',
+  'tasks_write',
+  'tasks_approve',
+  'docs_commit',
+  'issue_create',
+  'branch_create',
+  'task_execute',
+  'review_fix_commit',
+  'pr_create',
+  'pr_metadata_migrate',
+  'pre_pr_review',
+  'pr_status_update',
+  'code_review',
+  'worktree_cleanup',
+  'user_request_replan',
+  'feature_done',
+  'fallback',
+] as const;
+
+export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
 
 export type OperationType = 'local' | 'remote' | 'manual';
 

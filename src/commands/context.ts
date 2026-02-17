@@ -21,6 +21,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import {
+  ACTION_CATEGORIES,
   FeatureContext,
   getStepDefinitions,
   getStepsMap,
@@ -93,6 +94,20 @@ function listLabels(actionOptions: ActionOption[]): string {
 function listSuggestionLabels(suggestionOptions: SuggestionOption[]): string {
   if (suggestionOptions.length === 0) return '-';
   return suggestionOptions.map((o) => o.label).join(', ');
+}
+
+function listActiveCategories(actionOptions: ActionOption[]): string[] {
+  const unique = new Set<string>();
+  for (const option of actionOptions) {
+    if (option.action.category) unique.add(option.action.category);
+  }
+  return Array.from(unique);
+}
+
+function listUncategorizedLabels(actionOptions: ActionOption[]): string[] {
+  return actionOptions
+    .filter((option) => !option.action.category)
+    .map((option) => option.label);
 }
 
 function resolveFeatureRefForApproval(
@@ -707,6 +722,8 @@ async function runContext(
       config.projectType,
       selectedComponent
     );
+    const activeCategories = listActiveCategories(state.actionOptions);
+    const uncategorizedLabels = listUncategorizedLabels(state.actionOptions);
 
     if (options.jsonCompact) {
       const compactResult = {
@@ -753,6 +770,11 @@ async function runContext(
           acceptedTokens: ['<LABEL>', '<LABEL> OK', '<LABEL> ...', '... <LABEL> ...'],
           tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
           validLabels: state.actionOptions.map((o) => o.label),
+          activeCategories,
+          knownCategories: ACTION_CATEGORIES,
+          uncategorizedLabels,
+          categoryPolicyGuidance:
+            'For approval.mode="category", match against `actionOptions[].category`.',
           oneApprovalPerAction: true,
           requireFreshContext: true,
           contextVersion: state.contextVersion,
@@ -824,6 +846,11 @@ async function runContext(
         acceptedTokens: ['<LABEL>', '<LABEL> OK', '<LABEL> ...', '... <LABEL> ...'],
         tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
         validLabels: state.actionOptions.map((o) => o.label),
+        activeCategories,
+        knownCategories: ACTION_CATEGORIES,
+        uncategorizedLabels,
+        categoryPolicyGuidance:
+          'For approval.mode="category", match against `actionOptions[].category`.',
         requireExplanationBeforeApproval: true,
         requiredExplanationFields: [
           'actionOptions[].label',
@@ -858,6 +885,7 @@ async function runContext(
           requiresRequestText: o.requiresRequestText,
           replyExample: o.replyExample,
           actionType: o.action.type,
+          category: o.action.category,
           scope: o.action.type === 'command' ? o.action.scope : undefined,
           cwd: o.action.type === 'command' ? o.action.cwd : undefined,
           cmd: o.action.type === 'command' ? o.action.cmd : undefined,

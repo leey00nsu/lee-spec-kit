@@ -14,6 +14,7 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
+import { ACTION_CATEGORIES } from '../utils/context.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
 
 interface FlowOptions extends ContextSelectionOptions {
@@ -22,6 +23,63 @@ interface FlowOptions extends ContextSelectionOptions {
   execute?: boolean;
   executeStrict?: boolean;
   strict?: boolean;
+  request?: string;
+  autoUntilCategory?: string;
+}
+
+interface AutoRunExecution {
+  kind: 'request' | 'command';
+  iteration: number;
+  contextVersion: string | null;
+  label: string;
+  category?: string;
+  detail: string;
+  approveStatus?: string;
+  executeStatus?: string;
+  executeReasonCode?: string;
+}
+
+interface AutoRunSummary {
+  enabled: true;
+  untilCategories: string[];
+  request?: string;
+  status:
+    | 'gate_reached'
+    | 'manual_required'
+    | 'no_action_options'
+    | 'selection_required'
+    | 'no_progress'
+    | 'request_label_missing'
+    | 'request_failed'
+    | 'execution_failed';
+  reasonCode:
+    | 'AUTO_GATE_REACHED'
+    | 'AUTO_MANUAL_REQUIRED'
+    | 'AUTO_NO_ACTION_OPTIONS'
+    | 'AUTO_SELECTION_REQUIRED'
+    | 'AUTO_NO_PROGRESS'
+    | 'AUTO_REQUEST_LABEL_MISSING'
+    | 'AUTO_REQUEST_FAILED'
+    | 'AUTO_EXECUTION_FAILED';
+  iterations: number;
+  executions: AutoRunExecution[];
+  gate?:
+    | {
+        label: string;
+        category?: string;
+        detail: string;
+        finalPrompt?: string;
+        userFacingLines?: string[];
+      }
+    | null;
+  manual?:
+    | {
+        label: string;
+        category?: string;
+        detail: string;
+      }
+    | null;
+  error?: string;
 }
 
 interface CliRunResult {
@@ -82,6 +140,323 @@ function buildSelectionArgs(
   return args;
 }
 
+function parseAutoUntilCategories(raw: string): string[] {
+  const requested = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (requested.length === 0) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--auto-until-category` requires at least one category.'
+    );
+  }
+  const allowed = new Set<string>(ACTION_CATEGORIES);
+  const invalid = requested.filter((category) => !allowed.has(category));
+  if (invalid.length > 0) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      `Unknown category in --auto-until-category: ${invalid.join(', ')}. Known categories: ${ACTION_CATEGORIES.join(', ')}`
+    );
+  }
+  return requested;
+}
+
+function toAutoReasonCode(status: AutoRunSummary['status']): AutoRunSummary['reasonCode'] {
+  switch (status) {
+    case 'gate_reached':
+      return 'AUTO_GATE_REACHED';
+    case 'manual_required':
+      return 'AUTO_MANUAL_REQUIRED';
+    case 'no_action_options':
+      return 'AUTO_NO_ACTION_OPTIONS';
+    case 'selection_required':
+      return 'AUTO_SELECTION_REQUIRED';
+    case 'no_progress':
+      return 'AUTO_NO_PROGRESS';
+    case 'request_label_missing':
+      return 'AUTO_REQUEST_LABEL_MISSING';
+    case 'request_failed':
+      return 'AUTO_REQUEST_FAILED';
+    case 'execution_failed':
+    default:
+      return 'AUTO_EXECUTION_FAILED';
+  }
+}
+
+async function runAutoUntilCategory(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  featureName: string,
+  selectionOptions: ContextSelectionOptions,
+  untilCategories: string[],
+  requestText: string | undefined
+): Promise<AutoRunSummary> {
+  const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
+  const gateSet = new Set(untilCategories);
+  const executions: AutoRunExecution[] = [];
+  const stagnantLimit = 3;
+  let stagnantCount = 0;
+  let previousSignature: string | null = null;
+  let requestHandled = !requestText;
+  let iterations = 0;
+
+  while (true) {
+    iterations += 1;
+    const state = await resolveContextSelection(config, featureName, selectionOptions);
+    const actionOptions = state.actionOptions;
+    const signature = JSON.stringify({
+      contextVersion: state.contextVersion,
+      actions: actionOptions.map((option) => ({
+        label: option.label,
+        category: option.action.category || null,
+        type: option.action.type,
+        detail: option.detail,
+      })),
+    });
+
+    if (signature === previousSignature) {
+      stagnantCount += 1;
+    } else {
+      stagnantCount = 0;
+      previousSignature = signature;
+    }
+    if (stagnantCount >= stagnantLimit) {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'no_progress',
+        reasonCode: toAutoReasonCode('no_progress'),
+        iterations,
+        executions,
+        gate: null,
+        manual: null,
+        error:
+          'Auto-run stopped because the same context/action set repeated without progress.',
+      };
+    }
+
+    if (state.status !== 'single_matched' || !state.matchedFeature) {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'selection_required',
+        reasonCode: toAutoReasonCode('selection_required'),
+        iterations,
+        executions,
+        gate: null,
+        manual: null,
+        error:
+          'Auto-run requires a single matched feature. Specify the feature explicitly.',
+      };
+    }
+
+    if (actionOptions.length === 0) {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'no_action_options',
+        reasonCode: toAutoReasonCode('no_action_options'),
+        iterations,
+        executions,
+        gate: null,
+        manual: null,
+      };
+    }
+
+    if (!requestHandled) {
+      const requestOption = actionOptions.find(
+        (option) => option.action.category === 'user_request_replan'
+      );
+      if (!requestOption) {
+        return {
+          enabled: true,
+          untilCategories,
+          request: requestText,
+          status: 'request_label_missing',
+          reasonCode: toAutoReasonCode('request_label_missing'),
+          iterations,
+          executions,
+          gate: null,
+          manual: null,
+          error:
+            'The current action options do not include `user_request_replan`; cannot apply --request automatically.',
+        };
+      }
+      const approvalReply = `${requestOption.label}, ${requestText}`;
+      const approveResult = runSelfCliJson(
+        [...contextArgs, '--approve', approvalReply],
+        true
+      ) as
+        | { status?: string; reasonCode?: string; error?: string }
+        | undefined;
+      const approveStatus = approveResult?.status ?? 'unknown';
+      executions.push({
+        kind: 'request',
+        iteration: iterations,
+        contextVersion: state.contextVersion,
+        label: requestOption.label,
+        category: requestOption.action.category,
+        detail: requestOption.detail,
+        approveStatus,
+        executeStatus: 'skipped_instruction',
+        executeReasonCode: approveResult?.reasonCode,
+      });
+      if (approveStatus !== 'approved_selected') {
+        return {
+          enabled: true,
+          untilCategories,
+          request: requestText,
+          status: 'request_failed',
+          reasonCode: toAutoReasonCode('request_failed'),
+          iterations,
+          executions,
+          gate: null,
+          manual: null,
+          error:
+            approveResult?.error ||
+            `Request injection failed with status: ${approveStatus}`,
+        };
+      }
+      requestHandled = true;
+      continue;
+    }
+
+    const gateOption = actionOptions.find((option) =>
+      gateSet.has(option.action.category || '')
+    );
+    if (gateOption) {
+      const contextPayload = runSelfCliJson(contextArgs, true) as
+        | {
+            approvalRequest?: {
+              finalPrompt?: string;
+              userFacingLines?: string[];
+            };
+          }
+        | undefined;
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'gate_reached',
+        reasonCode: toAutoReasonCode('gate_reached'),
+        iterations,
+        executions,
+        gate: {
+          label: gateOption.label,
+          category: gateOption.action.category,
+          detail: gateOption.detail,
+          finalPrompt: contextPayload?.approvalRequest?.finalPrompt,
+          userFacingLines: contextPayload?.approvalRequest?.userFacingLines,
+        },
+        manual: null,
+      };
+    }
+
+    const executable = actionOptions.find((option) => option.action.type === 'command');
+    if (!executable) {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'manual_required',
+        reasonCode: toAutoReasonCode('manual_required'),
+        iterations,
+        executions,
+        gate: null,
+        manual: {
+          label: actionOptions[0].label,
+          category: actionOptions[0].action.category,
+          detail: actionOptions[0].detail,
+        },
+      };
+    }
+
+    const approveResult = runSelfCliJson(
+      [...contextArgs, '--approve', executable.label],
+      true
+    ) as
+      | {
+          status?: string;
+          reasonCode?: string;
+          approvalTicket?: { token?: string };
+          executeRequiresTicket?: boolean;
+          error?: string;
+        }
+      | undefined;
+    const approveStatus = approveResult?.status ?? 'unknown';
+    if (approveStatus !== 'approved_selected') {
+      executions.push({
+        kind: 'command',
+        iteration: iterations,
+        contextVersion: state.contextVersion,
+        label: executable.label,
+        category: executable.action.category,
+        detail: executable.detail,
+        approveStatus,
+        executeStatus: 'skipped',
+        executeReasonCode: approveResult?.reasonCode,
+      });
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'execution_failed',
+        reasonCode: toAutoReasonCode('execution_failed'),
+        iterations,
+        executions,
+        gate: null,
+        manual: null,
+        error:
+          approveResult?.error ||
+          `Auto approval failed for label ${executable.label} (${approveStatus}).`,
+      };
+    }
+
+    const executeArgs = [
+      ...contextArgs,
+      '--approve',
+      executable.label,
+      '--execute',
+    ];
+    if (approveResult?.executeRequiresTicket && approveResult.approvalTicket?.token) {
+      executeArgs.push('--ticket', approveResult.approvalTicket.token);
+    }
+    const executeResult = runSelfCliJson(executeArgs, true) as
+      | { status?: string; reasonCode?: string; error?: string }
+      | undefined;
+    executions.push({
+      kind: 'command',
+      iteration: iterations,
+      contextVersion: state.contextVersion,
+      label: executable.label,
+      category: executable.action.category,
+      detail: executable.detail,
+      approveStatus,
+      executeStatus: executeResult?.status ?? 'unknown',
+      executeReasonCode: executeResult?.reasonCode,
+    });
+    if (executeResult?.status !== 'approved_executed') {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        status: 'execution_failed',
+        reasonCode: toAutoReasonCode('execution_failed'),
+        iterations,
+        executions,
+        gate: null,
+        manual: null,
+        error:
+          executeResult?.error ||
+          `Auto execution failed for label ${executable.label} (${executeResult?.status ?? 'unknown'}).`,
+      };
+    }
+  }
+}
+
 export function flowCommand(program: Command): void {
   program
     .command('flow [feature-name]')
@@ -90,6 +465,14 @@ export function flowCommand(program: Command): void {
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
+    .option(
+      '--request <text>',
+      'Apply a new user request first via user_request_replan when auto mode is enabled'
+    )
+    .option(
+      '--auto-until-category <categories>',
+      'Auto-run command actions until one of categories appears (comma-separated)'
+    )
     .option(
       '--approve <reply>',
       'Approve one labeled context option (examples: A, A OK, A proceed, A 진행해)'
@@ -155,6 +538,30 @@ async function runFlow(
       '`--execute` requires `--approve <reply>`.'
     );
   }
+  if (options.autoUntilCategory && options.approve) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--auto-until-category` cannot be combined with `--approve`.'
+    );
+  }
+  if (options.autoUntilCategory && options.execute) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--auto-until-category` cannot be combined with `--execute`.'
+    );
+  }
+  if (options.request && !options.autoUntilCategory) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--request` requires `--auto-until-category`.'
+    );
+  }
+  if (options.autoUntilCategory && !featureName) {
+    throw createCliError(
+      'CONTEXT_SELECTION_REQUIRED',
+      '`--auto-until-category` requires explicit <feature-name> (e.g. F004).'
+    );
+  }
 
   const selectedComponent = resolveComponentOption(options.component);
   const selectionOptions: ContextSelectionOptions = {
@@ -167,10 +574,19 @@ async function runFlow(
     : '';
 
   const before = await resolveContextSelection(config, featureName, selectionOptions);
-
-  const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
   let approvalResult: unknown = null;
-  if (options.approve) {
+  let autoRun: AutoRunSummary | null = null;
+  const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
+  if (options.autoUntilCategory) {
+    const untilCategories = parseAutoUntilCategories(options.autoUntilCategory);
+    autoRun = await runAutoUntilCategory(
+      config,
+      featureName as string,
+      selectionOptions,
+      untilCategories,
+      options.request?.trim() || undefined
+    );
+  } else if (options.approve) {
     const approveArgs = [...contextArgs, '--approve', options.approve];
     const selected = runSelfCliJson(approveArgs, true);
 
@@ -256,6 +672,7 @@ async function runFlow(
         },
       },
       approval: approvalResult,
+      autoRun,
       statusReport,
       doctorReport,
       strictChecks,
@@ -283,6 +700,13 @@ async function runFlow(
       )
     );
   }
+  if (autoRun) {
+    console.log(
+      chalk.gray(
+        `- Auto: ${autoRun.status} (${autoRun.reasonCode}), iterations ${autoRun.iterations}, executions ${autoRun.executions.length}`
+      )
+    );
+  }
 
   const statusCounts = (statusReport as { counts?: { features?: number } }).counts;
   const doctorCounts = (
@@ -304,6 +728,12 @@ async function runFlow(
   }
 
   console.log();
+  if (autoRun?.status === 'gate_reached' && autoRun.gate?.userFacingLines?.length) {
+    for (const line of autoRun.gate.userFacingLines) {
+      console.log(line);
+    }
+    console.log();
+  }
   if (after.matchedFeature) {
     console.log(
       chalk.blue(
