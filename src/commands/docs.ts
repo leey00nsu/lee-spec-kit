@@ -113,7 +113,8 @@ export function docsCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 
@@ -201,7 +202,8 @@ export function docsCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }

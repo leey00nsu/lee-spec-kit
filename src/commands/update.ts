@@ -51,7 +51,7 @@ export function updateCommand(program: Command): void {
         const lang = config?.lang ?? DEFAULT_LANG;
         if (error instanceof Error && error.message === 'canceled') {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
-          process.exit(0);
+          return;
         }
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
@@ -60,7 +60,8 @@ export function updateCommand(program: Command): void {
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
         printCliErrorSuggestions(suggestions, lang);
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }

@@ -41,7 +41,7 @@ export function configCommand(program: Command): void {
           const config = await getConfig(process.cwd());
           const lang = config?.lang ?? DEFAULT_LANG;
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
-          process.exit(0);
+          return;
         }
         const config = await getConfig(process.cwd());
         const lang = config?.lang ?? DEFAULT_LANG;
@@ -52,7 +52,8 @@ export function configCommand(program: Command): void {
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
         printCliErrorSuggestions(suggestions, lang);
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }

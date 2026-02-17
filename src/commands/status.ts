@@ -51,7 +51,8 @@ export function statusCommand(program: Command): void {
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
         printCliErrorSuggestions(suggestions, lang);
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }

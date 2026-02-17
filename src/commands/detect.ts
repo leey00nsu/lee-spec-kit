@@ -48,7 +48,8 @@ export function detectCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }

@@ -638,7 +638,8 @@ export function doctorCommand(program: Command): void {
               2
             )
           );
-          process.exit(exitCode);
+          process.exitCode = exitCode;
+          return;
         }
 
         console.log();
@@ -672,7 +673,7 @@ export function doctorCommand(program: Command): void {
         if (!hasIssues && infos.length === 0) {
           console.log(chalk.green(tr(lang, 'cli', 'doctor.noIssues')));
           console.log();
-          process.exit(0);
+          return;
         }
 
         if (!hasIssues && infos.length > 0) {
@@ -723,7 +724,8 @@ export function doctorCommand(program: Command): void {
         );
         console.log();
 
-        process.exit(exitCode);
+        process.exitCode = exitCode;
+          return;
       } catch (error) {
         const config = await getConfig(process.cwd());
         const lang = config?.lang ?? DEFAULT_LANG;
@@ -749,7 +751,8 @@ export function doctorCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }
