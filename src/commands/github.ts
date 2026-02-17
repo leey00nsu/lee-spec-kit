@@ -1,4 +1,3 @@
-import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
 import path from 'path';
@@ -18,11 +17,17 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { assertValid, validatePathWithLang } from '../utils/validation.js';
 import {
   getGithubDraftArtifactHeading,
   getGithubDraftRequiredSections,
 } from '../utils/github-draft-contract.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
+import {
+  runGhJson as runGhJsonProcess,
+  runProcess,
+  runProcessOrThrow,
+} from './github/process.js';
 
 interface GithubBaseOptions {
   json?: boolean;
@@ -60,12 +65,6 @@ type PrArtifactMode = 'auto' | 'on' | 'off';
 interface PrArtifactPolicy {
   includeScreenshots: boolean;
   includeMermaid: boolean;
-}
-
-interface ProcessResult {
-  code: number;
-  stdout: string;
-  stderr: string;
 }
 
 interface PrViewMeta {
@@ -167,60 +166,15 @@ function assertRemoteApproval(raw: string | undefined, operation: string, lang: 
   );
 }
 
-function runProcess(
-  bin: string,
-  args: string[],
-  cwd: string
-): ProcessResult {
-  const result = spawnSync(bin, args, {
-    cwd,
-    encoding: 'utf-8',
-    env: {
-      ...process.env,
-      LEE_SPEC_KIT_NO_UPDATE_CHECK: '1',
-      LEE_SPEC_KIT_NO_BANNER: '1',
-    },
-  });
-  return {
-    code: result.status ?? 1,
-    stdout: result.stdout || '',
-    stderr: result.stderr || '',
-  };
-}
-
-function runProcessOrThrow(
-  bin: string,
-  args: string[],
-  cwd: string,
-  failureMessage: string
-): ProcessResult {
-  const result = runProcess(bin, args, cwd);
-  if (result.code !== 0) {
-    const detail = (result.stderr || result.stdout || '').trim();
-    throw createCliError(
-      'EXECUTION_FAILED',
-      `${failureMessage}${detail ? `: ${detail}` : ''}`
-    );
-  }
-  return result;
-}
-
 function runGhJson<T>(args: string[], cwd: string, lang: Lang): T {
-  const result = runProcessOrThrow('gh', args, cwd, tg(lang, 'ghCommandFailed'));
-  const text = result.stdout.trim();
-  if (!text) {
-    throw createCliError('EXECUTION_FAILED', tg(lang, 'ghEmptyJson'));
-  }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw createCliError(
-      'EXECUTION_FAILED',
+  return runGhJsonProcess<T>(args, cwd, {
+    commandFailed: tg(lang, 'ghCommandFailed'),
+    emptyJson: tg(lang, 'ghEmptyJson'),
+    invalidJson: (snippet) =>
       tg(lang, 'ghInvalidJson', {
-        snippet: text.slice(0, 160),
-      })
-    );
-  }
+        snippet,
+      }),
+  });
 }
 
 function ensureSections(
@@ -270,11 +224,17 @@ function toBodyFilePath(
   raw: string | undefined,
   kind: 'issue' | 'pr',
   docsDir: string,
-  component: string
+  component: string,
+  lang: Lang
 ): string {
   const selected =
     raw?.trim() ||
     path.join(os.tmpdir(), buildDefaultBodyFileName(kind, docsDir, component));
+  assertValid(
+    validatePathWithLang(selected, lang),
+    `github.${kind}.bodyFile`,
+    lang
+  );
   return path.resolve(selected);
 }
 
@@ -1621,7 +1581,8 @@ export function githubCommand(program: Command): void {
           options.bodyFile,
           'issue',
           config.docsDir,
-          feature.type
+          feature.type,
+          config.lang
         );
         const explicitBodyFile = (options.bodyFile || '').trim();
         let body = generatedBody;
@@ -1721,7 +1682,8 @@ export function githubCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 
@@ -1796,7 +1758,8 @@ export function githubCommand(program: Command): void {
           options.bodyFile,
           'pr',
           config.docsDir,
-          feature.type
+          feature.type,
+          config.lang
         );
         const explicitBodyFile = (options.bodyFile || '').trim();
         let body = generatedBody;
@@ -2024,7 +1987,8 @@ export function githubCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }

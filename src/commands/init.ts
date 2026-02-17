@@ -22,6 +22,14 @@ import { execFileSync } from 'child_process';
 import { getInitLockPath, withFileLock } from '../utils/lock.js';
 import { getLocalDateString } from '../utils/date.js';
 import { pruneEngineManagedDocs } from '../utils/engine-managed-docs.js';
+import { runGitOrThrow } from '../utils/git-run.js';
+import {
+  getComponentFeaturesReadme,
+  parseComponentProjectRootsOption,
+  parseStandaloneMultiProjectRootJson,
+  validatePromptPathValue,
+  validatePromptUrlValue,
+} from '../utils/init/options.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -57,114 +65,6 @@ interface InitOptions {
   yes?: boolean;
   force?: boolean;
   nonInteractive?: boolean;
-}
-
-function parseStandaloneMultiProjectRootJson(
-  raw: string
-): Record<string, string> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--project-root` for standalone multi must be a JSON object. Example: {"app":"/path/app","api":"/path/api"}'
-    );
-  }
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--project-root` for standalone multi must be a JSON object.'
-    );
-  }
-
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-    const component = key.trim().toLowerCase();
-    const root = typeof value === 'string' ? value.trim() : '';
-    if (!component || !root) {
-      throw createCliError(
-        'INVALID_ARGUMENT',
-        '`--project-root` JSON entries must be non-empty component/path pairs.'
-      );
-    }
-    assertValidComponentId(component);
-    out[component] = root;
-  }
-
-  if (Object.keys(out).length === 0) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--project-root` JSON object must include at least one component path.'
-    );
-  }
-
-  return out;
-}
-
-function parseComponentProjectRootsOption(
-  raw: string | undefined
-): Record<string, string> {
-  if (!raw) return {};
-  const out: Record<string, string> = {};
-  const entries = raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  if (entries.length === 0) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      '`--component-project-roots` must include at least one `component=/path` pair.'
-    );
-  }
-
-  for (const entry of entries) {
-    const index = entry.indexOf('=');
-    if (index <= 0 || index === entry.length - 1) {
-      throw createCliError(
-        'INVALID_ARGUMENT',
-        `Invalid --component-project-roots entry "${entry}". Use \`component=/path\`.`
-      );
-    }
-    const component = entry.slice(0, index).trim().toLowerCase();
-    const root = entry.slice(index + 1).trim();
-    assertValidComponentId(component);
-    if (!root) {
-      throw createCliError(
-        'INVALID_ARGUMENT',
-        `Invalid --component-project-roots entry "${entry}". Path must not be empty.`
-      );
-    }
-    out[component] = root;
-  }
-
-  return out;
-}
-
-function getComponentFeaturesReadme(
-  lang: 'ko' | 'en',
-  component: string
-): string {
-  if (lang === 'ko') {
-    return [
-      `# ${component.toUpperCase()} Features`,
-      '',
-      `이 폴더에 ${component} Feature들이 생성됩니다.`,
-      '',
-      `\`npx lee-spec-kit feature --component ${component} <name>\` 명령어로 새 Feature를 생성하세요.`,
-      '',
-    ].join('\n');
-  }
-  return [
-    `# ${component.toUpperCase()} Features`,
-    '',
-    `Features for component \`${component}\` are created in this folder.`,
-    '',
-    `Use \`npx lee-spec-kit feature --component ${component} <name>\` to create a new Feature.`,
-    '',
-  ].join('\n');
 }
 
 export function initCommand(program: Command): void {
@@ -203,7 +103,7 @@ export function initCommand(program: Command): void {
           console.log(
             chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`)
           );
-          process.exit(0);
+          return;
         }
         const lang = options.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
@@ -213,7 +113,8 @@ export function initCommand(program: Command): void {
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
         printCliErrorSuggestions(suggestions, lang);
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }
@@ -232,9 +133,9 @@ async function runInit(options: InitOptions): Promise<void> {
     typeof options.pushDocs === 'boolean' ? options.pushDocs : undefined;
   let docsRemote: string | undefined = options.docsRemote;
   let projectRoot: string | Record<string, string> | undefined;
-  const componentProjectRoots = parseComponentProjectRootsOption(
-    options.componentProjectRoots
-  );
+  const componentProjectRoots = options.componentProjectRoots
+    ? parseComponentProjectRootsOption(options.componentProjectRoots)
+    : {};
   const targetDir = path.resolve(cwd, options.dir || './docs');
   const skipPrompts = !!options.yes || !!options.nonInteractive;
 
@@ -417,10 +318,7 @@ async function runInit(options: InitOptions): Promise<void> {
                 type: 'text',
                 name: 'componentRoot',
                 message,
-                validate: (value: string) =>
-                  value.trim()
-                    ? true
-                    : tr(lang, 'cli', 'init.validation.enterPath'),
+                validate: (value: string) => validatePromptPathValue(value, lang),
               },
             ],
             {
@@ -440,10 +338,7 @@ async function runInit(options: InitOptions): Promise<void> {
               type: options.projectRoot ? null : 'text',
               name: 'projectRoot',
               message: tr(lang, 'cli', 'init.prompt.projectRepoPath'),
-              validate: (value: string) =>
-                value.trim()
-                  ? true
-                  : tr(lang, 'cli', 'init.validation.enterPath'),
+              validate: (value: string) => validatePromptPathValue(value, lang),
             },
           ],
           {
@@ -497,10 +392,7 @@ async function runInit(options: InitOptions): Promise<void> {
               type: options.docsRemote ? null : 'text',
               name: 'docsRemote',
               message: tr(lang, 'cli', 'init.prompt.remoteUrl'),
-              validate: (value: string) =>
-                value.trim()
-                  ? true
-                  : tr(lang, 'cli', 'init.validation.enterUrl'),
+              validate: (value: string) => validatePromptUrlValue(value, lang),
             },
           ],
           {
@@ -804,17 +696,11 @@ async function initGit(
     // standalone: manage git in docs directory itself
     const gitWorkdir = docsRepo === 'standalone' ? targetDir : cwd;
 
-    const runGit = (args: string[], workdir: string): void => {
-      execFileSync('git', args, { cwd: workdir, stdio: 'ignore' });
-    };
-
     const getCachedStagedFiles = (workdir: string): string[] | null => {
       try {
-        const out = execFileSync('git', ['diff', '--cached', '--name-only'], {
-          cwd: workdir,
-          encoding: 'utf-8',
+        const out = runGitOrThrow(['diff', '--cached', '--name-only'], workdir, {
           stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
+        });
         if (!out) return [];
         return out.split('\n').map((s) => s.trim()).filter(Boolean);
       } catch {
@@ -842,11 +728,9 @@ async function initGit(
     const toRepoRelativePath = (workdir: string, relativePath: string): string => {
       if (relativePath === '.') return '.';
       try {
-        const prefix = execFileSync('git', ['rev-parse', '--show-prefix'], {
-          cwd: workdir,
-          encoding: 'utf-8',
+        const prefix = runGitOrThrow(['rev-parse', '--show-prefix'], workdir, {
           stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
+        });
         const normalizedPrefix = toGitPath(prefix).replace(/\/+$/, '');
         const normalizedPath = toGitPath(relativePath);
         return normalizedPrefix ? `${normalizedPrefix}/${normalizedPath}` : normalizedPath;
@@ -857,13 +741,13 @@ async function initGit(
 
     // Git이 이미 초기화되어 있는지 확인
     try {
-      runGit(['rev-parse', '--is-inside-work-tree'], gitWorkdir);
+      runGitOrThrow(['rev-parse', '--is-inside-work-tree'], gitWorkdir);
       // Git이 이미 있으면 docs만 커밋
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitRepoDetectedCommit')));
     } catch {
       // Git이 없으면 초기화
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitInit')));
-      runGit(['init'], gitWorkdir);
+      runGitOrThrow(['init'], gitWorkdir);
     }
 
     // docs 폴더 스테이징
@@ -901,11 +785,11 @@ async function initGit(
       return;
     }
 
-    runGit(['add', relativePath], gitWorkdir);
+    runGitOrThrow(['add', relativePath], gitWorkdir);
 
     // 커밋
     // pathspec을 사용해 "docs만" 커밋 (다른 staged 변경이 있어도 포함되지 않음)
-    runGit(
+    runGitOrThrow(
       ['commit', '-m', 'init: docs 구조 초기화 (lee-spec-kit)', '--', relativePath],
       gitWorkdir
     );
@@ -913,7 +797,7 @@ async function initGit(
     // standalone + remote 선택 시 origin 추가
     if (docsRepo === 'standalone' && pushDocs && docsRemote) {
       try {
-        runGit(['remote', 'add', 'origin', docsRemote], gitWorkdir);
+        runGitOrThrow(['remote', 'add', 'origin', docsRemote], gitWorkdir);
         console.log(
           chalk.green(tr(lang, 'cli', 'init.log.gitRemoteSet', { remote: docsRemote }))
         );

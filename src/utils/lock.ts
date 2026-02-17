@@ -4,6 +4,7 @@ import os from 'os';
 import { createHash } from 'crypto';
 import { execFileSync } from 'child_process';
 import { createCliError } from './cli-error.js';
+import { sleep } from './async.js';
 
 interface FileLockOptions {
   timeoutMs?: number;
@@ -21,10 +22,6 @@ const DEFAULT_POLL_MS = 150;
 const DEFAULT_STALE_MS = 2 * 60_000;
 const RUNTIME_GIT_DIRNAME = 'lee-spec-kit.runtime';
 const RUNTIME_TEMP_DIRNAME = 'lee-spec-kit-runtime';
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
-}
 
 function toScopeKey(value: string): string {
   return createHash('sha1').update(path.resolve(value)).digest('hex').slice(0, 16);

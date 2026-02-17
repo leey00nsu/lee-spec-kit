@@ -30,6 +30,7 @@ import {
 import { getLocalDateString } from '../utils/date.js';
 import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-template.js';
 import { getTemplatesDir } from '../utils/paths.js';
+import { sleep } from '../utils/async.js';
 
 interface FeatureOptions {
   component?: string;
@@ -87,10 +88,10 @@ export function featureCommand(program: Command): void {
                 reasonCode: 'CANCELED',
               })
             );
-            process.exit(0);
+            return;
           }
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
-          process.exit(0);
+          return;
         }
         const config = await getConfig(process.cwd());
         const lang = config?.lang ?? DEFAULT_LANG;
@@ -105,14 +106,16 @@ export function featureCommand(program: Command): void {
               suggestions,
             })
           );
-          process.exit(1);
+          process.exitCode = 1;
+        return;
         }
         console.error(
           chalk.red(tr(lang, 'cli', 'common.errorLabel')),
           chalk.red(`[${cliError.code}] ${cliError.message}`)
         );
         printCliErrorSuggestions(suggestions, lang);
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }
@@ -308,10 +311,6 @@ async function runFeature(
     },
     { owner: 'feature' }
   );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
 async function waitForConfigAfterInit(
