@@ -7,9 +7,10 @@ import {
   getGitStatusPorcelain,
   getIgnoredGitPaths,
   getTrackedGitPaths,
+  resetContextGitCaches,
   resolveProjectGitCwd,
 } from './git.js';
-import { parseFeature } from './parse.js';
+import { parseFeature, resetContextParseCaches } from './parse.js';
 import { getStepDefinitions } from './steps.js';
 import { FeatureContext } from './types.js';
 
@@ -141,6 +142,11 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
   };
   warnings: string[];
 }> {
+  // Keep cache lifetime within one scan pass so flow before/after re-evaluation
+  // always reflects freshly created branches/worktrees.
+  resetContextGitCaches();
+  resetContextParseCaches();
+
   const features: FeatureContext[] = [];
   const warnings: string[] = [];
   const stepDefinitions = getStepDefinitions(config.lang, config.workflow);

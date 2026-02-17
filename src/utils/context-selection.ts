@@ -149,6 +149,20 @@ function getActionSummary(action: ContextAction): string {
 }
 
 function formatActionSummary(action: ContextAction): string {
+  const formatBranchCreateDetail = (command: string): string => {
+    const worktreeMatch = command.match(/\.worktrees\/([A-Za-z0-9._-]+)/);
+    const branchMatch = command.match(/\bfeat\/([A-Za-z0-9._-]+)/);
+    const worktree = worktreeMatch ? `.worktrees/${worktreeMatch[1]}` : null;
+    const branch = branchMatch ? `feat/${branchMatch[1]}` : null;
+    if (worktree && branch) {
+      return `(${action.scope}) create or reuse worktree ${worktree} for branch ${branch}`;
+    }
+    if (branch) {
+      return `(${action.scope}) create or reuse worktree for branch ${branch}`;
+    }
+    return `(${action.scope}) create or reuse feature branch worktree`;
+  };
+
   const extractCommitMessage = (command: string): string | null => {
     const doubleQuoted = command.match(/git\s+commit\s+-m\s+"((?:\\"|[^"])*)"/);
     if (doubleQuoted) {
@@ -164,6 +178,9 @@ function formatActionSummary(action: ContextAction): string {
   };
 
   if (action.type === 'command') {
+    if (action.category === 'branch_create') {
+      return formatBranchCreateDetail(action.cmd);
+    }
     const commitMessage = extractCommitMessage(action.cmd);
     if (commitMessage) {
       return `(${action.scope}) commit: ${commitMessage}`;

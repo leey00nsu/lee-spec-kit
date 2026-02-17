@@ -148,6 +148,10 @@ interface GitWorktreeEntry {
 
 const GIT_WORKTREE_CACHE = new Map<string, GitWorktreeEntry[]>();
 
+export function resetContextGitCaches(): void {
+  GIT_WORKTREE_CACHE.clear();
+}
+
 function getGitTopLevel(cwd: string): string | null {
   try {
     return execSync('git rev-parse --show-toplevel', {

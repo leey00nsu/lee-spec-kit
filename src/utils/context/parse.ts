@@ -215,6 +215,13 @@ const COMPONENT_STATUS_PATH_CACHE = new Map<string, string[]>();
 const PR_REMOTE_STATUS_CACHE = new Map<string, PrRemoteStatus | null>();
 const FEATURE_WORKTREE_CACHE = new Map<string, string | null>();
 
+export function resetContextParseCaches(): void {
+  PROJECT_DIRTY_STATUS_CACHE.clear();
+  COMPONENT_STATUS_PATH_CACHE.clear();
+  PR_REMOTE_STATUS_CACHE.clear();
+  FEATURE_WORKTREE_CACHE.clear();
+}
+
 function resolveFeatureWorktreePath(
   projectGitCwd: string,
   issueNumber: string,
@@ -764,6 +771,31 @@ export async function parseFeature(
     ]);
     prReviewEvidence = prReviewEvidenceValue?.trim();
     prReviewEvidenceProvided = !isPlaceholderReviewEvidence(prReviewEvidenceValue);
+  }
+
+  // tasks.md is the primary source of issue metadata. Re-resolve feature worktree
+  // after parsing tasks so branch detection reflects newly created worktrees
+  // even when spec.md still has placeholder issue values.
+  if (effectiveProjectGitCwd && issueNumber) {
+    const alreadyExpected = isExpectedFeatureBranch(
+      effectiveProjectBranch,
+      issueNumber,
+      slug,
+      folderName
+    );
+    if (!alreadyExpected) {
+      const worktree = resolveFeatureWorktreePath(
+        effectiveProjectGitCwd,
+        issueNumber,
+        slug,
+        folderName
+      );
+      if (worktree) {
+        effectiveProjectGitCwd = worktree.cwd;
+        effectiveProjectBranch = worktree.branch;
+        effectiveProjectBranchAvailable = true;
+      }
+    }
   }
 
   const issueDocExists = await fs.pathExists(issueDocPath);
