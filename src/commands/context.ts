@@ -126,10 +126,20 @@ function buildFinalApprovalPrompt(
 ): string {
   if (actionOptions.length === 0) return '';
   const labels = listLabels(actionOptions);
-  const example = actionOptions[0]?.label || 'A';
-  return tr(lang, 'cli', 'context.finalLabelPrompt', {
+  const example = actionOptions[0]?.replyExample || `${actionOptions[0]?.label || 'A'} OK`;
+  const requestExamples = actionOptions
+    .filter((option) => option.requiresRequestText)
+    .map((option) => `\`${option.replyExample}\``);
+  if (requestExamples.length === 0) {
+    return tr(lang, 'cli', 'context.finalLabelPrompt', {
+      labels,
+      example,
+    });
+  }
+  return tr(lang, 'cli', 'context.finalLabelPromptWithRequest', {
     labels,
     example,
+    requestExamples: requestExamples.join(', '),
   });
 }
 
@@ -552,6 +562,8 @@ function toCompactActionOption(option: ActionOption): Record<string, unknown> {
     summary: option.summary,
     detail: option.detail,
     approvalPrompt: option.approvalPrompt,
+    requiresRequestText: option.requiresRequestText,
+    replyExample: option.replyExample,
     actionType: option.action.type,
     category: option.action.category,
     operationType: option.action.operationType,
@@ -843,6 +855,8 @@ async function runContext(
           summary: o.summary,
           detail: o.detail,
           approvalPrompt: o.approvalPrompt,
+          requiresRequestText: o.requiresRequestText,
+          replyExample: o.replyExample,
           actionType: o.action.type,
           scope: o.action.type === 'command' ? o.action.scope : undefined,
           cwd: o.action.type === 'command' ? o.action.cwd : undefined,
@@ -1260,7 +1274,10 @@ async function runApprovedOption(
     if (!requestText) {
       throw createCliError(
         'INVALID_APPROVAL',
-        `Label "${parsedLabel}" requires a user request. Use \`${parsedLabel}, <your request>\`.`
+        tr(lang, 'cli', 'cliError.invalidApproval.userRequestRequired', {
+          label: parsedLabel,
+          example: `${parsedLabel}, <your request>`,
+        })
       );
     }
     userRequest = requestText;

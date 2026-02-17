@@ -96,11 +96,39 @@ const ko = {
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.finalLabelPrompt':
-        '현재 선택 가능한 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
+        '현재 선택 가능한 라벨: {labels}. 라벨 토큰 포함 형식으로 응답하세요. (예: `{example}`)',
+      'context.finalLabelPromptWithRequest':
+        '현재 선택 가능한 라벨: {labels}. 라벨 토큰 포함 형식으로 응답하세요. (예: `{example}`) 요청 텍스트가 필요한 라벨은 다음 형식으로 입력하세요: {requestExamples}',
       'context.suggestionHeader': '추천 다음 선택지',
       'context.suggestionCommandHint': '라벨 참고 명령: {command}',
       'context.suggestionFinalPrompt':
         '현재 추천 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
+      'context.actionDetail.featureFolder': 'Feature 폴더와 기본 문서 골격을 준비하세요',
+      'context.actionDetail.specWrite': 'spec.md를 작성/보완하고 상태를 맞추세요',
+      'context.actionDetail.specApprove': 'spec.md를 공유하고 명시적 승인을 요청하세요',
+      'context.actionDetail.planWrite': 'plan.md를 작성/보완하고 상태를 맞추세요',
+      'context.actionDetail.planApprove': 'plan.md를 공유하고 명시적 승인을 요청하세요',
+      'context.actionDetail.tasksWrite':
+        'tasks.md를 작성/보완하고 문서 상태를 정렬하세요',
+      'context.actionDetail.tasksApprove':
+        'tasks.md를 공유하고 진행 승인을 요청하세요',
+      'context.actionDetail.issueCreate': '이슈 메타데이터를 준비/생성/동기화하세요',
+      'context.actionDetail.taskExecute': '현재 태스크 실행 단계를 진행하세요',
+      'context.actionDetail.reviewFixCommit':
+        '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
+      'context.actionDetail.prePrReview':
+        'Pre-PR 리뷰 점검을 수행하고 Findings/Evidence를 기록하세요',
+      'context.actionDetail.prCreate': 'PR을 준비/생성하고 PR 메타데이터를 동기화하세요',
+      'context.actionDetail.prStatusUpdate': 'tasks.md의 PR 상태 필드를 업데이트하세요',
+      'context.actionDetail.codeReview':
+        '리뷰 코멘트를 반영하고 Findings/Evidence를 최신화하세요',
+      'context.actionDetail.prMetadataMigrate':
+        'tasks.md의 PR 필드를 최신 템플릿으로 마이그레이션하세요',
+      'context.actionDetail.userRequestReplan':
+        '새 사용자 요구를 먼저 반영한 뒤 context를 다시 실행하세요',
+      'context.actionDetail.featureDone': '이 Feature의 워크플로우 완료 조건이 충족되었습니다',
+      'context.actionDetail.fallback':
+        '현재 문서/상태를 점검한 뒤 context를 다시 실행하세요',
       'context.suggestion.createFeature': '새 Feature를 생성합니다',
       'context.suggestion.runOnboard': '초기 설정 점검(onboard)을 실행합니다',
       'context.suggestion.showDone': '완료된 Feature 목록을 확인합니다',
@@ -349,6 +377,8 @@ const ko = {
       'cliError.invalidApproval.replyWithValidLabel':
         '유효한 라벨(또는 `<라벨> OK`)만 응답하세요. 예: A',
       'cliError.invalidApproval.oneLabelOnly': '한 번에 라벨 1개만 선택하세요.',
+      'cliError.invalidApproval.userRequestRequired':
+        '라벨 "{label}"은 사용자 요청 텍스트가 필요합니다. `{example}` 형식으로 입력하세요.',
       'cliError.approvalRequired.reRunWithApprove':
         'context 승인 흐름이면 --approve <라벨>과 함께 다시 실행하세요.',
       'cliError.approvalRequired.githubConfirmOk':

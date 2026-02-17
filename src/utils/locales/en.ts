@@ -94,11 +94,38 @@ const en = {
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.finalLabelPrompt':
-        'Available labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
+        'Available labels now: {labels}. Reply with a label-token format. (e.g. `{example}`)',
+      'context.finalLabelPromptWithRequest':
+        'Available labels now: {labels}. Reply with a label-token format. (e.g. `{example}`) Labels that require a request must be replied as: {requestExamples}',
       'context.suggestionHeader': 'Suggested Next Options',
       'context.suggestionCommandHint': 'Reference command: {command}',
       'context.suggestionFinalPrompt':
         'Recommended labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
+      'context.actionDetail.featureFolder': 'Prepare feature folder and baseline docs',
+      'context.actionDetail.specWrite': 'Write or refine spec.md and set status',
+      'context.actionDetail.specApprove': 'Share spec.md and request explicit approval',
+      'context.actionDetail.planWrite': 'Write or refine plan.md and set status',
+      'context.actionDetail.planApprove': 'Share plan.md and request explicit approval',
+      'context.actionDetail.tasksWrite': 'Write or refine tasks.md and align document status',
+      'context.actionDetail.tasksApprove': 'Share tasks.md and request progress approval',
+      'context.actionDetail.issueCreate': 'Prepare and create/update issue metadata',
+      'context.actionDetail.taskExecute': 'Proceed with the current task execution step',
+      'context.actionDetail.reviewFixCommit':
+        'Create a review-fix commit with resolved feedback summary',
+      'context.actionDetail.prePrReview':
+        'Complete pre-PR review checks and record findings/evidence',
+      'context.actionDetail.prCreate': 'Prepare or create PR and sync PR metadata',
+      'context.actionDetail.prStatusUpdate': 'Update PR status fields in tasks.md',
+      'context.actionDetail.codeReview':
+        'Address review comments and sync findings/evidence',
+      'context.actionDetail.prMetadataMigrate':
+        'Migrate tasks.md PR fields to the latest template',
+      'context.actionDetail.userRequestReplan':
+        'Handle the new user request first and re-run context',
+      'context.actionDetail.featureDone':
+        'All workflow checks are complete for this feature',
+      'context.actionDetail.fallback':
+        'Re-check context after verifying current docs/status',
       'context.suggestion.createFeature': 'Create a new feature',
       'context.suggestion.runOnboard': 'Run onboarding checks',
       'context.suggestion.showDone': 'Show completed features',
@@ -360,6 +387,8 @@ const en = {
       'cliError.invalidApproval.replyWithValidLabel':
         'Reply with a valid label only (or "<label> OK"), e.g. A.',
       'cliError.invalidApproval.oneLabelOnly': 'Use one label at a time.',
+      'cliError.invalidApproval.userRequestRequired':
+        'Label "{label}" requires a user request. Use `{example}`.',
       'cliError.approvalRequired.reRunWithApprove':
         'For context approval flow, re-run with --approve <label>.',
       'cliError.approvalRequired.githubConfirmOk':

@@ -8,6 +8,7 @@ import {
   scanFeatures,
 } from './context/index.js';
 import { resolveComponentOption } from './context/component-option.js';
+import { tr } from './i18n.js';
 
 export type ContextStatus =
   | 'no_features'
@@ -36,6 +37,8 @@ export interface ActionOption {
   summary: string;
   detail: string;
   approvalPrompt: string;
+  requiresRequestText: boolean;
+  replyExample: string;
   action: ContextAction;
 }
 
@@ -75,6 +78,25 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
 ]);
 
 const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
+const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
+  feature_folder: 'context.actionDetail.featureFolder',
+  spec_write: 'context.actionDetail.specWrite',
+  spec_approve: 'context.actionDetail.specApprove',
+  plan_write: 'context.actionDetail.planWrite',
+  plan_approve: 'context.actionDetail.planApprove',
+  tasks_write: 'context.actionDetail.tasksWrite',
+  tasks_approve: 'context.actionDetail.tasksApprove',
+  issue_create: 'context.actionDetail.issueCreate',
+  task_execute: 'context.actionDetail.taskExecute',
+  review_fix_commit: 'context.actionDetail.reviewFixCommit',
+  pr_create: 'context.actionDetail.prCreate',
+  pr_status_update: 'context.actionDetail.prStatusUpdate',
+  code_review: 'context.actionDetail.codeReview',
+  pr_metadata_migrate: 'context.actionDetail.prMetadataMigrate',
+  user_request_replan: 'context.actionDetail.userRequestReplan',
+  feature_done: 'context.actionDetail.featureDone',
+  fallback: 'context.actionDetail.fallback',
+};
 
 function getActionLabel(index: number): string {
   let n = index + 1;
@@ -144,7 +166,14 @@ function getActionSummary(action: ContextAction): string {
   return action.message;
 }
 
-function formatActionSummary(action: ContextAction): string {
+function toOneLine(text: string): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  if (normalized.length <= 160) return normalized;
+  return `${normalized.slice(0, 157).trimEnd()}...`;
+}
+
+function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
   const formatBranchCreateDetail = (command: string): string => {
     const worktreeMatch = command.match(/\.worktrees\/([A-Za-z0-9._-]+)/);
     const branchMatch = command.match(/\bfeat\/([A-Za-z0-9._-]+)/);
@@ -191,19 +220,30 @@ function formatActionSummary(action: ContextAction): string {
     }
     return `(${action.scope}) ${action.cmd}`;
   }
-  return action.message;
+  const detailKey = action.category ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category] : undefined;
+  if (detailKey) {
+    const localized = tr(lang, 'cli', detailKey);
+    if (localized !== `cli.${detailKey}`) return localized;
+  }
+  return toOneLine(action.message);
 }
 
-function toActionOptions(actions: ContextAction[]): ActionOption[] {
+function toActionOptions(actions: ContextAction[], lang: 'ko' | 'en'): ActionOption[] {
   return actions.map((action, index) => {
     const label = getActionLabel(index);
     const summary = getActionSummary(action);
-    const detail = formatActionSummary(action);
+    const detail = buildActionDetail(action, lang);
+    const requiresRequestText = action.category === 'user_request_replan';
+    const replyExample = requiresRequestText
+      ? `${label}, <your request>`
+      : `${label} OK`;
     return {
       label,
       summary,
       detail,
       approvalPrompt: `${label}: ${detail}`,
+      requiresRequestText,
+      replyExample,
       action,
     };
   });
@@ -376,7 +416,7 @@ export async function resolveContextSelection(
   );
   const matchedFeature = targetFeatures.length === 1 ? targetFeatures[0] : null;
   const actions = annotateActions(matchedFeature?.actions ?? []);
-  const actionOptions = toActionOptions(actions);
+  const actionOptions = toActionOptions(actions, config.lang);
   const contextVersion = getContextVersion(matchedFeature, actionOptions);
 
   return {

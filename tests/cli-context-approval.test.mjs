@@ -90,6 +90,8 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     assert.equal(typeof primaryActionOption(payload).detail, 'string');
     assert.equal(primaryActionOption(payload).detail.length > 0, true);
     assert.equal(typeof primaryActionOption(payload).approvalPrompt, 'string');
+    assert.equal(typeof primaryActionOption(payload).requiresRequestText, 'boolean');
+    assert.equal(typeof primaryActionOption(payload).replyExample, 'string');
     assert.match(primaryActionOption(payload).approvalPrompt, /^[A-Z]+:\s+/);
     assert.equal(
       primaryActionOption(payload).approvalPrompt,
@@ -131,6 +133,14 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
     );
     assert.equal(payload.approvalRequest.options[0].detail, primaryActionOption(payload).detail);
     assert.equal(
+      payload.approvalRequest.options[0].requiresRequestText,
+      primaryActionOption(payload).requiresRequestText
+    );
+    assert.equal(
+      payload.approvalRequest.options[0].replyExample,
+      primaryActionOption(payload).replyExample
+    );
+    assert.equal(
       payload.approvalRequest.options[0].actionType,
       primaryActionOption(payload).action.type
     );
@@ -152,6 +162,37 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
         primaryActionOption(payload).action.scope
       );
     }
+  });
+});
+
+test('context --json-compact action options include reply metadata', async () => {
+  await withTempDir('lsk-context-json-compact-reply-metadata-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json-compact']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    const primary = primaryActionOption(payload);
+    assert.equal(typeof primary.requiresRequestText, 'boolean');
+    assert.equal(typeof primary.replyExample, 'string');
+    assert.equal(primary.replyExample.length > 0, true);
   });
 });
 
@@ -257,6 +298,12 @@ test('context --approve captures user request text for user_request_replan label
       (option) => option.action.category === 'user_request_replan'
     );
     assert.equal(Boolean(replanOption), true);
+    assert.equal(replanOption.requiresRequestText, true);
+    assert.equal(replanOption.replyExample, `${replanOption.label}, <your request>`);
+    assert.match(
+      contextPayload.approvalRequest.finalPrompt,
+      new RegExp(`${replanOption.label}, <your request>`)
+    );
 
     const requestText = 'API error response format should be unified';
     const approve = await runCli(dir, [
