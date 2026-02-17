@@ -6,6 +6,9 @@ export interface PrRemoteStatus {
   source: 'gh';
   available: boolean;
   reviewDecision?: string;
+  state?: string;
+  mergedAt?: string;
+  isMerged: boolean;
   mergeStateStatus?: string;
   isDraft: boolean;
   hasBlockingReview: boolean;

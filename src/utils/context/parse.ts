@@ -317,7 +317,7 @@ function resolvePrRemoteStatus(
         'view',
         prRef,
         '--json',
-        'reviewDecision,mergeStateStatus,isDraft,statusCheckRollup',
+        'state,mergedAt,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup',
       ],
       {
         cwd: projectGitCwd,
@@ -333,6 +333,12 @@ function resolvePrRemoteStatus(
     }
 
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const state = toUpperToken(parsed.state);
+    const mergedAt =
+      typeof parsed.mergedAt === 'string' && parsed.mergedAt.trim().length > 0
+        ? parsed.mergedAt.trim()
+        : undefined;
+    const isMerged = state === 'MERGED' || !!mergedAt;
     const reviewDecision = toUpperToken(parsed.reviewDecision);
     const mergeStateStatus = toUpperToken(parsed.mergeStateStatus);
     const isDraft = parsed.isDraft === true;
@@ -351,12 +357,15 @@ function resolvePrRemoteStatus(
     const remote: PrRemoteStatus = {
       source: 'gh',
       available: true,
+      state,
+      mergedAt,
+      isMerged,
       reviewDecision,
       mergeStateStatus,
       isDraft,
       hasBlockingReview:
         reviewDecision === 'CHANGES_REQUESTED' || reviewDecision === 'REVIEW_REQUIRED',
-      mergeBlocked: isDraft || isMergeBlockedState(mergeStateStatus),
+      mergeBlocked: !isMerged && (isDraft || isMergeBlockedState(mergeStateStatus)),
       failingChecks,
       pendingChecks,
     };

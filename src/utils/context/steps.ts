@@ -1310,6 +1310,16 @@ export function getStepDefinitions(
             ];
           }
           if (f.pr.status === 'Review') {
+            if (f.pr.remote?.available && f.pr.remote.isMerged) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'pr_status_update',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewMergedSyncStatus'),
+                },
+              ];
+            }
             if (!f.docs.prReviewFindingsFieldExists) {
               return [
                 {

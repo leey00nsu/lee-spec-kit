@@ -565,6 +565,8 @@ const I18N: Record<Lang, I18nData> = {
         'PR 생성은 필수 2단계입니다: (1) PR 본문 템플릿 생성/보완 + 사용자 승인(OK), (2) PR 생성 + tasks.md PR 링크 기록. 위 순서를 모두 완료하세요.',
       prFillStatus:
         'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
+      prReviewMergedSyncStatus:
+        '원격 PR이 이미 머지되었습니다. tasks.md의 PR 상태를 Approved로 업데이트하세요. (PR/리뷰 근거 필드도 최신 상태로 확인)',
       prResolveReview:
         '리뷰 코멘트를 해결하는 동안 PR 상태는 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. 머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewResolve:
@@ -1217,6 +1219,8 @@ const I18N: Record<Lang, I18nData> = {
         'PR creation is a required 2-step sequence: (1) generate/refine PR body template + explicit user OK, (2) create PR + record PR link in tasks.md. Complete both in order.',
       prFillStatus:
         'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
+      prReviewMergedSyncStatus:
+        'The remote PR is already merged. Update PR Status in tasks.md to Approved. (Also verify PR/review evidence fields are up to date.)',
       prResolveReview:
         'Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Once ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prReviewResolve:
