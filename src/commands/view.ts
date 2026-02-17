@@ -14,16 +14,10 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
+import { resolveComponentOption } from '../utils/context/component-option.js';
 
 interface ViewOptions extends ContextSelectionOptions {
   json?: boolean;
-}
-
-function resolveComponentOption(
-  options: Pick<ViewOptions, 'component'>
-): string | undefined {
-  const component = (options.component || '').trim().toLowerCase();
-  return component || undefined;
 }
 
 export function viewCommand(program: Command): void {
@@ -76,7 +70,7 @@ async function runView(
     );
   }
 
-  const selectedComponent = resolveComponentOption(options);
+  const selectedComponent = resolveComponentOption(options.component);
   const state = await resolveContextSelection(config, featureName, {
     component: selectedComponent,
     all: options.all,

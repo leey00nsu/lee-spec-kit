@@ -22,6 +22,7 @@ import {
   getGithubDraftArtifactHeading,
   getGithubDraftRequiredSections,
 } from '../utils/github-draft-contract.js';
+import { resolveComponentOption } from '../utils/context/component-option.js';
 
 interface GithubBaseOptions {
   json?: boolean;
@@ -217,13 +218,6 @@ function detectGithubCliLangSync(cwd: string): Lang {
   }
 
   return DEFAULT_LANG;
-}
-
-function resolveComponentOption(
-  options: Pick<GithubBaseOptions, 'component'>
-): string | undefined {
-  const component = (options.component || '').trim().toLowerCase();
-  return component || undefined;
 }
 
 function parseLabels(raw: string | undefined, lang: Lang): string[] {
@@ -1663,7 +1657,7 @@ export function githubCommand(program: Command): void {
     )
     .action(async (featureName: string | undefined, options: GithubIssueOptions) => {
       try {
-        const selectedComponent = resolveComponentOption(options);
+        const selectedComponent = resolveComponentOption(options.component);
         const { config, feature } = await resolveFeatureOrThrow(featureName, {
           component: selectedComponent,
         }, commandLang);
@@ -1834,7 +1828,7 @@ export function githubCommand(program: Command): void {
     .option('--commit-sync', tg(commandLang, 'optPrCommitSync'))
     .action(async (featureName: string | undefined, options: GithubPrOptions) => {
       try {
-        const selectedComponent = resolveComponentOption(options);
+        const selectedComponent = resolveComponentOption(options.component);
         const { config, feature } = await resolveFeatureOrThrow(featureName, {
           component: selectedComponent,
         }, commandLang);

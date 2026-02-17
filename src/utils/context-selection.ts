@@ -7,6 +7,7 @@ import {
   OperationType,
   scanFeatures,
 } from './context/index.js';
+import { resolveComponentOption } from './context/component-option.js';
 
 export type ContextStatus =
   | 'no_features'
@@ -74,11 +75,6 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
 ]);
 
 const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
-
-function resolveComponentOption(options: ContextSelectionOptions): string | undefined {
-  const component = (options.component || '').trim().toLowerCase();
-  return component || undefined;
-}
 
 function getActionLabel(index: number): string {
   let n = index + 1;
@@ -296,7 +292,7 @@ export async function resolveContextSelection(
   options: ContextSelectionOptions
 ): Promise<ContextSelectionState> {
   const { features, branches, warnings } = await scanFeatures(config);
-  const selectedComponent = resolveComponentOption(options);
+  const selectedComponent = resolveComponentOption(options.component);
   const scopedFeatures = selectedComponent
     ? features.filter((f) => f.type === selectedComponent)
     : features;

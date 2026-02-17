@@ -14,6 +14,7 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
+import { resolveComponentOption } from '../utils/context/component-option.js';
 
 interface FlowOptions extends ContextSelectionOptions {
   json?: boolean;
@@ -21,13 +22,6 @@ interface FlowOptions extends ContextSelectionOptions {
   execute?: boolean;
   executeStrict?: boolean;
   strict?: boolean;
-}
-
-function resolveComponentOption(
-  options: Pick<FlowOptions, 'component'>
-): string | undefined {
-  const component = (options.component || '').trim().toLowerCase();
-  return component || undefined;
 }
 
 interface CliRunResult {
@@ -161,7 +155,7 @@ async function runFlow(
     );
   }
 
-  const selectedComponent = resolveComponentOption(options);
+  const selectedComponent = resolveComponentOption(options.component);
   const selectionOptions: ContextSelectionOptions = {
     component: selectedComponent,
     all: options.all,
