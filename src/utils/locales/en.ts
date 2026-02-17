@@ -124,7 +124,7 @@ const en = {
       'context.list.addPrePrFindings': 'Add/fill Pre-PR Findings',
       'context.list.addPrePrEvidence': 'Add Pre-PR Evidence',
       'context.list.addPrReviewFindings': 'Add/fill PR Review Findings',
-      'context.list.addPrReviewEvidence': 'Add PR Review Evidence',
+      'context.list.addPrReviewEvidence': 'Add PR Review Evidence summary',
       'context.list.resolvePrePrMajorFindings':
         'Resolve major pre-PR findings ({count})',
       'context.list.resolvePrePrMinorFindings':
@@ -543,7 +543,7 @@ const en = {
       prReviewEvidenceFieldMissing:
         'tasks.md is missing the `PR Review Evidence` field. Add `- **PR Review Evidence**: -` and continue. (CHECK required)',
       prReviewEvidenceMissing:
-        'tasks.md `PR Review Evidence` is empty or placeholder. Record concrete evidence for resolved/aligned review comments. (CHECK required)',
+        'tasks.md `PR Review Evidence` is empty/placeholder or missing summary format. Record evidence as `summary: ...` (or `요약: ...`) for resolved/aligned review comments. (CHECK required)',
       prCreate:
         'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
       prCreatePrepareFromDoc:
@@ -634,7 +634,7 @@ const en = {
       workflowPrReviewFindingsMissing:
         'In review stage, `PR Review Findings` is missing or invalid. (Use `major=0, minor=0` format.)',
       workflowPrReviewEvidenceMissing:
-        'In review stage, `PR Review Evidence` is empty. (Record evidence for review comment handling.)',
+        'In review stage, `PR Review Evidence` is empty/placeholder or missing summary format. (Use `summary: ...` or `요약: ...`.)',
       workflowPrRemoteChangesRequested:
         'Remote PR shows changes requested or additional review required. Address comments, push, then re-check.',
       workflowPrRemoteChecksFailing:

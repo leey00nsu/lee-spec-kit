@@ -153,6 +153,13 @@ function isPlaceholderReviewEvidence(value: string | undefined): boolean {
   );
 }
 
+function hasStructuredReviewSummary(value: string | undefined): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^(?:summary|요약)\s*[:：]\s*\S.+$/i.test(trimmed);
+}
+
 function parseIssueNumber(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const match = value.match(/#?(\d+)/);
@@ -770,7 +777,9 @@ export async function parseFeature(
       'PR Review Evidence',
     ]);
     prReviewEvidence = prReviewEvidenceValue?.trim();
-    prReviewEvidenceProvided = !isPlaceholderReviewEvidence(prReviewEvidenceValue);
+    prReviewEvidenceProvided =
+      !isPlaceholderReviewEvidence(prReviewEvidenceValue) &&
+      hasStructuredReviewSummary(prReviewEvidenceValue);
   }
 
   // tasks.md is the primary source of issue metadata. Re-resolve feature worktree

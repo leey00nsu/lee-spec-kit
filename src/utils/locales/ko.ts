@@ -126,7 +126,7 @@ const ko = {
       'context.list.addPrePrFindings': 'Pre-PR Findings 필드/값 보완',
       'context.list.addPrePrEvidence': 'Pre-PR Evidence 근거 추가',
       'context.list.addPrReviewFindings': 'PR 리뷰 Findings 필드/값 보완',
-      'context.list.addPrReviewEvidence': 'PR 리뷰 Evidence 근거 추가',
+      'context.list.addPrReviewEvidence': 'PR 리뷰 Evidence 요약 추가',
       'context.list.resolvePrePrMajorFindings':
         'Pre-PR 주요 Findings 해소 필요 ({count}건)',
       'context.list.resolvePrePrMinorFindings':
@@ -526,7 +526,7 @@ const ko = {
       prReviewEvidenceFieldMissing:
         'tasks.md에 `PR 리뷰 Evidence` 필드가 없습니다. `- **PR 리뷰 Evidence**: -` 항목을 추가하고 다시 진행하세요. (확인 필요)',
       prReviewEvidenceMissing:
-        'tasks.md의 `PR 리뷰 Evidence`가 비어있거나 placeholder입니다. 실제로 해결/합의한 리뷰 코멘트 근거(링크/로그/문서)를 기록하세요. (확인 필요)',
+        'tasks.md의 `PR 리뷰 Evidence`가 비어있거나 placeholder이거나 요약 형식이 없습니다. 해결/합의한 리뷰 코멘트 근거를 `요약: ...`(또는 `summary: ...`) 형식으로 기록하세요. (확인 필요)',
       prCreate:
         'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
       prCreatePrepareFromDoc:
@@ -618,7 +618,7 @@ const ko = {
       workflowPrReviewFindingsMissing:
         '리뷰 단계에서 `PR 리뷰 Findings`가 없거나 형식이 올바르지 않습니다. (`major=0, minor=0` 형식)',
       workflowPrReviewEvidenceMissing:
-        '리뷰 단계에서 `PR 리뷰 Evidence`가 비어있습니다. (리뷰 코멘트 처리 근거를 기록하세요.)',
+        '리뷰 단계에서 `PR 리뷰 Evidence`가 비어있거나 placeholder이거나 요약 형식이 없습니다. (`요약: ...` 또는 `summary: ...` 형식으로 기록)',
       workflowPrRemoteChangesRequested:
         '원격 PR에서 변경 요청 또는 추가 리뷰가 감지되었습니다. 코멘트 반영 후 push하고 다시 확인하세요.',
       workflowPrRemoteChecksFailing:
