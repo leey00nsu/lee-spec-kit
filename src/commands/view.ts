@@ -179,17 +179,19 @@ async function runView(
   console.log(`- State: ${stateLabel}`);
   console.log(`- Progress: ${completion}`);
   console.log(`- Step: ${f.currentStep}`);
-  console.log(`- Next: ${f.nextAction}`);
+  const nextSummary =
+    state.actionOptions.length > 0 ? state.actionOptions[0].detail : f.nextAction;
+  console.log(`- Next: ${nextSummary}`);
 
   if (state.actionOptions.length > 0) {
     console.log();
     console.log(chalk.green('Atomic options:'));
     for (const option of state.actionOptions) {
-      if (option.action.type === 'command') {
-        console.log(`  ${option.label}. (${option.action.scope}) ${option.action.cmd}`);
-      } else {
-        console.log(`  ${option.label}. ${option.action.message}`);
-      }
+      const lang = config.lang ?? DEFAULT_LANG;
+      const requiresCheck = option.action.requiresUserCheck
+        ? tr(lang, 'cli', 'context.checkRequired')
+        : '';
+      console.log(`  ${option.label}. ${requiresCheck}${option.detail}`);
     }
     console.log(
       chalk.gray(

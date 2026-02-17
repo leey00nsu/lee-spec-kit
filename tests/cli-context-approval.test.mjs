@@ -260,6 +260,58 @@ test('context text output ends with current label reminder and execution hint', 
   });
 });
 
+test('context text output summarizes docs commit action instead of raw shell command', async () => {
+  await withTempDir('lsk-context-text-commit-summary-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const context = await runCli(dir, ['context', 'F001-alpha']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    assert.match(context.stdout, /A\.\s+\[CHECK required\]\s+\(docs\)\s+commit:/);
+    assert.doesNotMatch(context.stdout, /git commit -m/);
+  });
+});
+
 test('context pre-PR review step is enforced before PR creation and exposes policy', async () => {
   await withTempDir('lsk-context-pre-pr-review-', async (dir) => {
     const initResult = await runCli(dir, [

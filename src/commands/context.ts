@@ -539,13 +539,6 @@ function printSuggestionOptions(
   }
 }
 
-function formatActionSummary(action: ActionOption['action']): string {
-  if (action.type === 'command') {
-    return `(${action.scope}) ${action.cmd}`;
-  }
-  return action.message;
-}
-
 function buildRequiredDocHints(actionOptions: ActionOption[]): RequiredDocHint[] {
   const ids = getRecommendedDocIdsForCategories(
     actionOptions.map((option) => option.action.category)
@@ -1404,14 +1397,12 @@ async function runContext(
   const actionOptions = state.actionOptions;
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
-  actionOptions.forEach(({ label, action }) => {
-    if (action.type === 'command') {
-      console.log(
-        `   ${label}. (${action.scope}) ${checkTag(action.requiresUserCheck)}${action.cmd}`
-      );
-      if (action.scope === 'docs') hasDocsCommand = true;
-    } else {
-      console.log(`   ${label}. ${checkTag(action.requiresUserCheck)}${action.message}`);
+  actionOptions.forEach((option) => {
+    const requiresCheck = option.action.requiresUserCheck;
+    const detail = option.detail;
+    console.log(`   ${option.label}. ${checkTag(requiresCheck)}${detail}`);
+    if (option.action.type === 'command' && option.action.scope === 'docs') {
+      hasDocsCommand = true;
     }
   });
   if (hasDocsCommand) {
@@ -1582,7 +1573,7 @@ async function runApprovedOption(
 
     console.log();
     console.log(chalk.green(`✅ Approved option: ${parsedLabel}`));
-    console.log(chalk.gray(`   - Action: ${formatActionSummary(selectedAction)}`));
+    console.log(chalk.gray(`   - Action: ${freshSelected.detail}`));
     if (selectedAction.type === 'command') {
       const selectedComponent = selectionOptions.component || '';
       let executeCommand = buildApprovalCommand(
