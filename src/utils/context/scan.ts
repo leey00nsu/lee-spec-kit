@@ -1,7 +1,7 @@
 import path from 'path';
-import { glob } from 'glob';
 import { ProjectConfig } from '../config.js';
 import { resolveProjectComponents } from '../components.js';
+import { listSubdirectories } from '../fs-walk.js';
 import {
   getCurrentBranch,
   getGitStatusPorcelain,
@@ -19,6 +19,13 @@ interface DocsFeatureGitMeta {
   docsHasUncommittedChanges: boolean;
   docsEverCommitted: boolean;
   docsGitUnavailable: boolean;
+}
+
+async function listFeatureDirs(rootDir: string): Promise<string[]> {
+  const dirs = await listSubdirectories(rootDir);
+  return dirs.filter(
+    (value) => path.basename(value).trim().toLowerCase() !== 'feature-base'
+  );
 }
 
 function normalizeRelPath(value: string): string {
@@ -176,20 +183,15 @@ export async function scanFeatures(config: ProjectConfig): Promise<{
   const componentFeatureDirs = new Map<string, string[]>();
 
   if (config.projectType === 'single') {
-    const featureDirs = await glob('features/*/', {
-      cwd: config.docsDir,
-      absolute: true,
-      ignore: ['**/feature-base/**'],
-    });
+    const featureDirs = await listFeatureDirs(path.join(config.docsDir, 'features'));
     componentFeatureDirs.set('single', featureDirs);
     allFeatureDirs.push(...featureDirs);
   } else {
     const components = resolveProjectComponents(config.projectType, config.components);
     for (const component of components) {
-      const componentDirs = await glob(`features/${component}/*/`, {
-        cwd: config.docsDir,
-        absolute: true,
-      });
+      const componentDirs = await listFeatureDirs(
+        path.join(config.docsDir, 'features', component)
+      );
       componentFeatureDirs.set(component, componentDirs);
       allFeatureDirs.push(...componentDirs);
     }

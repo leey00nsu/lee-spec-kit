@@ -1,5 +1,5 @@
-import fs from "fs-extra";
-import { glob } from "glob";
+import fs from 'fs-extra';
+import { walkFiles } from './fs-walk.js';
 
 export async function copyTemplates(src: string, dest: string): Promise<void> {
   await fs.copy(src, dest, {
@@ -10,7 +10,7 @@ export async function copyTemplates(src: string, dest: string): Promise<void> {
 
 export function applyReplacements(
   content: string,
-  replacements: Record<string, string>,
+  replacements: Record<string, string>
 ): string {
   // Avoid overlap issues (e.g. "{{projectName}}" vs "{{projectName}}-{component}")
   // by applying longer keys first.
@@ -24,24 +24,24 @@ export function applyReplacements(
 
 export async function replaceInFiles(
   dir: string,
-  replacements: Record<string, string>,
+  replacements: Record<string, string>
 ): Promise<void> {
-  const files = await glob("**/*.md", { cwd: dir, absolute: true });
+  const files = await walkFiles(dir, { extensions: ['.md'] });
 
   for (const file of files) {
-    let content = await fs.readFile(file, "utf-8");
+    let content = await fs.readFile(file, 'utf-8');
     content = applyReplacements(content, replacements);
 
-    await fs.writeFile(file, content, "utf-8");
+    await fs.writeFile(file, content, 'utf-8');
   }
 
   // .sh 파일도 치환
-  const shFiles = await glob("**/*.sh", { cwd: dir, absolute: true });
+  const shFiles = await walkFiles(dir, { extensions: ['.sh'] });
 
   for (const file of shFiles) {
-    let content = await fs.readFile(file, "utf-8");
+    let content = await fs.readFile(file, 'utf-8');
     content = applyReplacements(content, replacements);
 
-    await fs.writeFile(file, content, "utf-8");
+    await fs.writeFile(file, content, 'utf-8');
   }
 }

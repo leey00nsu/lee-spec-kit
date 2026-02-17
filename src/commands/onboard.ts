@@ -1,12 +1,12 @@
-import { execFileSync } from 'child_process';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
-import { glob } from 'glob';
 import { getConfig } from '../utils/config.js';
 import { resolveProjectComponents } from '../utils/components.js';
 import { resolveProjectGitCwd } from '../utils/context/git.js';
+import { listSubdirectories, walkFiles } from '../utils/fs-walk.js';
+import { runGitCapture } from '../utils/git-run.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { resolveWorkflowPolicy } from '../utils/workflow.js';
 import {
@@ -58,28 +58,16 @@ function toSlug(value: string): string {
     .replace(/^-+|-+$/g, '') || 'project';
 }
 
-function runGit(args: string[], cwd: string): string | undefined {
-  try {
-    return execFileSync('git', args, {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
-  } catch {
-    return undefined;
-  }
-}
-
 function isGitRepo(cwd: string): boolean {
-  return runGit(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
+  return runGitCapture(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
 }
 
 function hasHeadCommit(cwd: string): boolean {
-  return !!runGit(['rev-parse', '--verify', 'HEAD'], cwd);
+  return !!runGitCapture(['rev-parse', '--verify', 'HEAD'], cwd);
 }
 
 function getOriginUrl(cwd: string): string | undefined {
-  const out = runGit(['remote', 'get-url', 'origin'], cwd);
+  const out = runGitCapture(['remote', 'get-url', 'origin'], cwd);
   return out || undefined;
 }
 
@@ -111,29 +99,30 @@ async function countFeatureDirs(
   docsDir: string,
   projectType: 'single' | 'multi'
 ): Promise<number> {
-  const pattern = projectType === 'single' ? 'features/*/' : 'features/*/*/';
-  const dirs = await glob(pattern, {
-    cwd: docsDir,
-    absolute: false,
-    ignore: ['**/feature-base/**'],
-  });
-  return dirs
-    .map((value) => value.replace(/\\/g, '/').replace(/\/+$/, ''))
-    .filter((value) => {
-      const base = path.posix.basename(value);
-      return !!base && base !== 'feature-base';
-    }).length;
+  const featuresRoot = path.join(docsDir, 'features');
+  if (projectType === 'single') {
+    const dirs = await listSubdirectories(featuresRoot);
+    return dirs.filter((value) => path.basename(value) !== 'feature-base').length;
+  }
+
+  const components = await listSubdirectories(featuresRoot);
+  let total = 0;
+  for (const componentDir of components) {
+    const componentName = path.basename(componentDir).trim().toLowerCase();
+    if (!componentName || componentName === 'feature-base') continue;
+    const dirs = await listSubdirectories(componentDir);
+    total += dirs.filter((value) => path.basename(value) !== 'feature-base').length;
+  }
+  return total;
 }
 
 async function hasUserPrdFile(prdDir: string): Promise<boolean> {
   if (!(await fs.pathExists(prdDir))) return false;
-  const files = await glob('**/*.md', {
-    cwd: prdDir,
-    nodir: true,
-    absolute: false,
-    ignore: ['**/node_modules/**'],
+  const files = await walkFiles(prdDir, {
+    extensions: ['.md'],
+    ignoreDirs: ['node_modules'],
   });
-  return files.some((relativePath) => path.basename(relativePath).toLowerCase() !== 'readme.md');
+  return files.some((absolutePath) => path.basename(absolutePath).toLowerCase() !== 'readme.md');
 }
 
 function finalizeChecks(checks: OnboardCheck[]): OnboardResult {
@@ -250,7 +239,7 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
       });
     }
 
-    const docsDirty = runGit(['status', '--porcelain=v1'], docsDir);
+    const docsDirty = runGitCapture(['status', '--porcelain=v1'], docsDir);
     if (docsDirty === undefined) {
       checks.push({
         id: 'docs_worktree',
@@ -542,7 +531,8 @@ export function onboardCommand(program: Command): void {
           );
           printCliErrorSuggestions(suggestions, lang);
         }
-        process.exit(1);
+        process.exitCode = 1;
+        return;
       }
     });
 }
