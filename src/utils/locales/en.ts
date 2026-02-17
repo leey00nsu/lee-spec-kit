@@ -485,9 +485,9 @@ const en = {
       projectCommitUpdate:
         'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files changed in this task with git add [files], then run again." && exit 1 || git commit -m "feat({folderName}): {commitTopic}")',
       reviewFixCommitIssueGuidance:
-        'Commit PR review fixes. The commit message must summarize review comments resolved in this commit, not reuse a task title. Example: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files that implement review fixes with git add [files], then run again." && exit 1 || git commit -m "fix(#{issueNumber}): <review-fix-summary>")` (replace `<review-fix-summary>` with what this commit actually resolves).',
+        'Commit PR review fixes. Stage only review-fix files, then commit with `fix(#{issueNumber}): <review-fix-summary>`. `<review-fix-summary>` must describe review comments resolved in this commit (do not reuse task titles).',
       reviewFixCommitGuidance:
-        'Commit PR review fixes. The commit message must summarize review comments resolved in this commit, not reuse a task title. Example: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "No staged files. Stage only files that implement review fixes with git add [files], then run again." && exit 1 || git commit -m "fix(review): <review-fix-summary>")` (replace `<review-fix-summary>` with what this commit actually resolves).',
+        'Commit PR review fixes. Stage only review-fix files, then commit with `fix(review): <review-fix-summary>`. `<review-fix-summary>` must describe review comments resolved in this commit (do not reuse task titles).',
       standaloneNeedsProjectRoot:
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:

@@ -468,9 +468,9 @@ const ko = {
       projectCommitUpdate:
         'cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 이번 태스크에서 수정한 파일만 선택해 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "feat({folderName}): {commitTopic}")',
       reviewFixCommitIssueGuidance:
-        'PR 리뷰 수정 커밋을 진행하세요. 커밋 메시지는 해결한 리뷰 지적사항을 요약해야 하며, 태스크 제목을 재사용하지 마세요. 예: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 리뷰 수정 반영 파일만 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "fix(#{issueNumber}): <review-fix-summary>")` (`<review-fix-summary>`는 이번 커밋에서 실제로 해결한 리뷰 항목으로 직접 작성)',
+        'PR 리뷰 수정 커밋을 진행하세요. 리뷰 반영 파일만 스테이징한 뒤 `fix(#{issueNumber}): <review-fix-summary>` 형식으로 커밋하세요. `<review-fix-summary>`에는 이번 커밋에서 실제로 해결한 리뷰 항목 요약을 작성하세요. (태스크 제목 재사용 금지)',
       reviewFixCommitGuidance:
-        'PR 리뷰 수정 커밋을 진행하세요. 커밋 메시지는 해결한 리뷰 지적사항을 요약해야 하며, 태스크 제목을 재사용하지 마세요. 예: `cd "{projectGitCwd}" && (git diff --cached --quiet && echo "스테이징된 파일이 없습니다. 리뷰 수정 반영 파일만 git add [files] 후 다시 실행하세요." && exit 1 || git commit -m "fix(review): <review-fix-summary>")` (`<review-fix-summary>`는 이번 커밋에서 실제로 해결한 리뷰 항목으로 직접 작성)',
+        'PR 리뷰 수정 커밋을 진행하세요. 리뷰 반영 파일만 스테이징한 뒤 `fix(review): <review-fix-summary>` 형식으로 커밋하세요. `<review-fix-summary>`에는 이번 커밋에서 실제로 해결한 리뷰 항목 요약을 작성하세요. (태스크 제목 재사용 금지)',
       standaloneNeedsProjectRoot:
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
