@@ -154,6 +154,125 @@ function parseLabels(raw: string | undefined, lang: Lang): string[] {
   return [...new Set(labels)];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractDraftMetadataValue(content: string, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const re = new RegExp(
+      `^\\s*-\\s*\\*\\*${escapeRegExp(key)}\\*\\*\\s*:\\s*(.*?)\\s*$`,
+      'mi'
+    );
+    const match = content.match(re);
+    if (!match) continue;
+    const value = match[1].trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function sanitizeDraftMetadataValue(raw: string | undefined): string | undefined {
+  const value = (raw || '').trim();
+  if (!value || value === '-') return undefined;
+  if (/^\{[^}]+\}$/.test(value)) return undefined;
+  if (/^\(.+\)$/.test(value)) return undefined;
+  return value;
+}
+
+function parseWorkflowDraftStatus(raw: string | undefined): 'draft' | 'ready' | undefined {
+  const value = (raw || '').trim();
+  if (!value) return undefined;
+  const matched = value.match(/\b(Draft|Ready)\b/i)?.[1]?.toLowerCase();
+  if (matched === 'draft' || matched === 'ready') return matched;
+  return undefined;
+}
+
+interface WorkflowDraftMetadata {
+  status?: 'draft' | 'ready';
+  title?: string;
+  labels?: string;
+}
+
+function parseWorkflowDraftMetadata(content: string): WorkflowDraftMetadata {
+  const status = parseWorkflowDraftStatus(
+    extractDraftMetadataValue(content, ['Status', '상태'])
+  );
+  const title = sanitizeDraftMetadataValue(
+    extractDraftMetadataValue(content, ['Title', '제목', 'PR Title', 'PR 제목'])
+  );
+  const labels = sanitizeDraftMetadataValue(
+    extractDraftMetadataValue(content, ['Labels', '라벨'])
+  );
+  return {
+    status,
+    title,
+    labels,
+  };
+}
+
+interface PreparedGithubBody {
+  body: string;
+  bodyFile: string;
+  source: 'generated' | 'explicit' | 'workflow-ready';
+  draftMetadata?: WorkflowDraftMetadata;
+}
+
+async function prepareGithubBody(
+  params: {
+    create?: boolean;
+    explicitBodyFile: string;
+    defaultBodyFile: string;
+    workflowDraftPath: string;
+    generatedBody: string;
+    requiredSections: string[];
+    kindLabel: string;
+    lang: Lang;
+  }
+): Promise<PreparedGithubBody> {
+  const {
+    create,
+    explicitBodyFile,
+    defaultBodyFile,
+    workflowDraftPath,
+    generatedBody,
+    requiredSections,
+    kindLabel,
+    lang,
+  } = params;
+
+  if (create && explicitBodyFile && (await fs.pathExists(defaultBodyFile))) {
+    const body = await fs.readFile(defaultBodyFile, 'utf-8');
+    ensureSections(body, requiredSections, kindLabel, lang);
+    return {
+      body,
+      bodyFile: defaultBodyFile,
+      source: 'explicit',
+    };
+  }
+
+  if (create && !explicitBodyFile && (await fs.pathExists(workflowDraftPath))) {
+    const body = await fs.readFile(workflowDraftPath, 'utf-8');
+    const draftMetadata = parseWorkflowDraftMetadata(body);
+    if (draftMetadata.status === 'ready') {
+      return {
+        body,
+        bodyFile: workflowDraftPath,
+        source: 'workflow-ready',
+        draftMetadata,
+      };
+    }
+  }
+
+  await fs.ensureDir(path.dirname(defaultBodyFile));
+  await fs.writeFile(defaultBodyFile, generatedBody, 'utf-8');
+  return {
+    body: generatedBody,
+    bodyFile: defaultBodyFile,
+    source: 'generated',
+  };
+}
+
 function hasExplicitRemoteApproval(raw: string | undefined): boolean {
   return (raw || '').trim().toUpperCase() === 'OK';
 }
@@ -386,6 +505,8 @@ function getFeatureDocPaths(feature: FeatureContext): {
   specPath: string;
   planPath: string;
   tasksPath: string;
+  issuePath: string;
+  prPath: string;
 } {
   const featurePathFromDocs = feature.docs.featurePathFromDocs;
   return {
@@ -393,6 +514,8 @@ function getFeatureDocPaths(feature: FeatureContext): {
     specPath: `${featurePathFromDocs}/spec.md`,
     planPath: `${featurePathFromDocs}/plan.md`,
     tasksPath: `${featurePathFromDocs}/tasks.md`,
+    issuePath: `${featurePathFromDocs}/issue.md`,
+    prPath: `${featurePathFromDocs}/pr.md`,
   };
 }
 
@@ -1543,7 +1666,8 @@ export function githubCommand(program: Command): void {
           component: selectedComponent,
         }, commandLang);
 
-        const labels = parseLabels(options.labels, config.lang);
+        const optionLabels = (options.labels || '').trim();
+        const generatedLabels = parseLabels(optionLabels || undefined, config.lang);
         const paths = getFeatureDocPaths(feature);
         ensureDocsExist(
           config.docsDir,
@@ -1555,18 +1679,16 @@ export function githubCommand(program: Command): void {
         const tasksContent = await fs.readFile(path.join(config.docsDir, paths.tasksPath), 'utf-8');
         const overview = resolveOverviewFromSpec(specContent, feature, config.lang);
 
-        const title =
-          options.title?.trim() ||
-          tg(config.lang, 'issueDefaultTitle', {
-            slug: feature.slug,
-            summary: resolveIssueTitleSummary(overview, feature, config.lang),
-          });
+        const defaultTitle = tg(config.lang, 'issueDefaultTitle', {
+          slug: feature.slug,
+          summary: resolveIssueTitleSummary(overview, feature, config.lang),
+        });
         const generatedBody = buildIssueBody(
           specContent,
           planContent,
           tasksContent,
           overview,
-          labels,
+          generatedLabels,
           paths,
           config.lang
         );
@@ -1577,7 +1699,7 @@ export function githubCommand(program: Command): void {
           config.lang
         );
 
-        const bodyFile = toBodyFilePath(
+        const defaultBodyFile = toBodyFilePath(
           options.bodyFile,
           'issue',
           config.docsDir,
@@ -1585,19 +1707,31 @@ export function githubCommand(program: Command): void {
           config.lang
         );
         const explicitBodyFile = (options.bodyFile || '').trim();
-        let body = generatedBody;
-        if (options.create && explicitBodyFile && (await fs.pathExists(bodyFile))) {
-          body = await fs.readFile(bodyFile, 'utf-8');
-          ensureSections(
-            body,
-            getRequiredIssueSections(config.lang),
-            tg(config.lang, 'kindIssue'),
-            config.lang
-          );
-        } else {
-          await fs.ensureDir(path.dirname(bodyFile));
-          await fs.writeFile(bodyFile, generatedBody, 'utf-8');
-        }
+        const preparedBody = await prepareGithubBody({
+          create: options.create,
+          explicitBodyFile,
+          defaultBodyFile,
+          workflowDraftPath: path.join(config.docsDir, paths.issuePath),
+          generatedBody,
+          requiredSections: getRequiredIssueSections(config.lang),
+          kindLabel: tg(config.lang, 'kindIssue'),
+          lang: config.lang,
+        });
+        const body = preparedBody.body;
+        const bodyFile = preparedBody.bodyFile;
+        const title =
+          options.title?.trim() ||
+          (preparedBody.source === 'workflow-ready'
+            ? preparedBody.draftMetadata?.title
+            : undefined) ||
+          defaultTitle;
+        const labels = parseLabels(
+          optionLabels ||
+            (preparedBody.source === 'workflow-ready'
+              ? preparedBody.draftMetadata?.labels
+              : undefined),
+          config.lang
+        );
 
         let issueUrl: string | undefined;
         if (options.create) {
@@ -1716,7 +1850,8 @@ export function githubCommand(program: Command): void {
           component: selectedComponent,
         }, commandLang);
 
-        const labels = parseLabels(options.labels, config.lang);
+        const optionLabels = (options.labels || '').trim();
+        const generatedLabels = parseLabels(optionLabels || undefined, config.lang);
         const paths = getFeatureDocPaths(feature);
         ensureDocsExist(config.docsDir, [paths.specPath, paths.tasksPath], config.lang);
         const specContent = await fs.readFile(path.join(config.docsDir, paths.specPath), 'utf-8');
@@ -1735,7 +1870,6 @@ export function githubCommand(program: Command): void {
           : tg(config.lang, 'prDefaultTitleNoIssue', {
               slug: feature.slug,
             });
-        const title = options.title?.trim() || defaultTitle;
         const artifactPolicy = resolvePrArtifactPolicy(config, options);
         const generatedBody = buildPrBody(
           feature,
@@ -1754,7 +1888,7 @@ export function githubCommand(program: Command): void {
           config.lang
         );
 
-        const bodyFile = toBodyFilePath(
+        const defaultBodyFile = toBodyFilePath(
           options.bodyFile,
           'pr',
           config.docsDir,
@@ -1762,19 +1896,32 @@ export function githubCommand(program: Command): void {
           config.lang
         );
         const explicitBodyFile = (options.bodyFile || '').trim();
-        let body = generatedBody;
-        if (options.create && explicitBodyFile && (await fs.pathExists(bodyFile))) {
-          body = await fs.readFile(bodyFile, 'utf-8');
-          ensureSections(
-            body,
-            getRequiredPrSections(config.lang),
-            tg(config.lang, 'kindPr'),
-            config.lang
-          );
-        } else {
-          await fs.ensureDir(path.dirname(bodyFile));
-          await fs.writeFile(bodyFile, generatedBody, 'utf-8');
-        }
+        const preparedBody = await prepareGithubBody({
+          create: options.create,
+          explicitBodyFile,
+          defaultBodyFile,
+          workflowDraftPath: path.join(config.docsDir, paths.prPath),
+          generatedBody,
+          requiredSections: getRequiredPrSections(config.lang),
+          kindLabel: tg(config.lang, 'kindPr'),
+          lang: config.lang,
+        });
+        const body = preparedBody.body;
+        const bodyFile = preparedBody.bodyFile;
+        const title =
+          options.title?.trim() ||
+          (preparedBody.source === 'workflow-ready'
+            ? preparedBody.draftMetadata?.title
+            : undefined) ||
+          defaultTitle;
+        const labels = parseLabels(
+          optionLabels ||
+            (preparedBody.source === 'workflow-ready'
+              ? preparedBody.draftMetadata?.labels
+              : undefined),
+          config.lang
+        );
+        const baseBranch = options.base || 'main';
 
         const retryCount = toRetryCount(options.retry, config.lang);
         let prUrl = options.pr?.trim() || '';
@@ -1799,7 +1946,7 @@ export function githubCommand(program: Command): void {
             '--body-file',
             bodyFile,
             '--base',
-            options.base || 'main',
+            baseBranch,
             '--assignee',
             options.assignee?.trim() || '@me',
           ];
@@ -1873,7 +2020,6 @@ export function githubCommand(program: Command): void {
           );
           mergedAttempts = merged.attempts;
 
-          const baseBranch = options.base || 'main';
           runProcessOrThrow(
             'git',
             ['checkout', baseBranch],

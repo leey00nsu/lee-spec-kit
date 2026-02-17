@@ -395,6 +395,86 @@ test('github issue --create succeeds with --confirm OK', async () => {
   });
 });
 
+test('github issue --create uses Ready issue.md when --body-file is omitted', async () => {
+  await withTempDir('lsk-github-issue-create-from-ready-doc-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const issueDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'issue.md');
+    const issueDoc = `# Issue Draft: alpha
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: issue.md title should be used
+- **Labels**: enhancement,bug
+- **Created**: 2026-02-17
+
+## Overview
+
+issue.md custom overview should be used as-is.
+
+## Goals
+
+- [ ] goal from issue.md
+
+## Completion Criteria
+
+- [ ] criterion from issue.md
+
+## Related Docs
+
+- Spec: \`docs/features/F001-alpha/spec.md\`
+- Plan: \`docs/features/F001-alpha/plan.md\`
+- Tasks: \`docs/features/F001-alpha/tasks.md\`
+`;
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      ['github', 'issue', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'ISSUE_CREATED');
+    assert.equal(
+      await normalizePathForCompare(payload.bodyFile),
+      await normalizePathForCompare(issueDocPath)
+    );
+    assert.equal(payload.title, 'issue.md title should be used');
+    assert.deepEqual(payload.labels, ['enhancement', 'bug']);
+    assert.match(payload.body, /issue\.md custom overview should be used as-is\./);
+    assert.doesNotMatch(payload.body, /## Labels/);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      new RegExp(
+        `--body-file ${String(payload.bodyFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
+    );
+  });
+});
+
 test('github issue default title uses overview summary instead of docs-update suffix', async () => {
   await withTempDir('lsk-github-issue-default-title-summary-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -966,6 +1046,91 @@ test('github pr --create runs gh from standalone project root', async () => {
     );
     const expectedCwd = await normalizePathForCompare(projectRoot);
     assert.deepEqual([...new Set(normalizedInvocations)], [expectedCwd]);
+  });
+});
+
+test('github pr --create uses Ready pr.md when --body-file is omitted', async () => {
+  await withTempDir('lsk-github-pr-create-from-ready-doc-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const prDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md');
+    const prDoc = `# PR Draft: alpha
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: pr.md title should be used
+- **Base**: main
+- **Created**: 2026-02-17
+
+## Overview
+
+pr.md custom overview should be used as-is.
+
+## Changes
+
+- [ ] change from pr.md
+
+## Tests
+
+- [ ] test from pr.md
+
+## Architecture Diagram
+
+\`\`\`mermaid
+flowchart TD
+  A[Input] --> B[Output]
+\`\`\`
+
+## Related Docs
+
+- Spec: \`docs/features/F001-alpha/spec.md\`
+- Tasks: \`docs/features/F001-alpha/tasks.md\`
+`;
+    await fs.writeFile(prDocPath, prDoc, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
+    assert.equal(
+      await normalizePathForCompare(payload.bodyFile),
+      await normalizePathForCompare(prDocPath)
+    );
+    assert.equal(payload.title, 'pr.md title should be used');
+    assert.match(payload.body, /pr\.md custom overview should be used as-is\./);
+    assert.doesNotMatch(payload.body, /^### Tests Run$/m);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      new RegExp(
+        `--body-file ${String(payload.bodyFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
+    );
   });
 });
 
