@@ -18,7 +18,7 @@ import {
   validateWorkflowModeWithLang,
   assertValid,
 } from '../utils/validation.js';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { getInitLockPath, withFileLock } from '../utils/lock.js';
 import { getLocalDateString } from '../utils/date.js';
 import { pruneEngineManagedDocs } from '../utils/engine-managed-docs.js';
@@ -32,7 +32,7 @@ import {
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
   try {
-    execSync('git rev-parse --is-inside-work-tree', {
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
       cwd,
       stdio: 'ignore',
     });

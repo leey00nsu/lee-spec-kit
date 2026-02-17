@@ -1,11 +1,11 @@
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { ProjectConfig } from '../config.js';
 import { DEFAULT_LANG, Lang, tr } from '../i18n.js';
 
 export function getCurrentBranch(cwd: string): string {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', {
+    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -19,12 +19,13 @@ export function getGitStatusPorcelain(
   cwd: string,
   relativePaths: string[]
 ): string | undefined {
+  const normalizedPaths = toUniqueNormalizedPaths(relativePaths);
   try {
-    const args =
-      relativePaths.length > 0
-        ? ` -- ${relativePaths.map((p) => `"${p}"`).join(' ')}`
-        : '';
-    return execSync(`git status --porcelain=v1${args}`, {
+    const args = ['status', '--porcelain=v1'];
+    if (normalizedPaths.length > 0) {
+      args.push('--', ...normalizedPaths);
+    }
+    return execFileSync('git', args, {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -110,12 +111,18 @@ export function getLastCommitForPath(
   cwd: string,
   relativePath: string
 ): string | undefined {
+  const normalizedPath = normalizeInputPath(relativePath);
+  if (!normalizedPath) return undefined;
   try {
-    const out = execSync(`git rev-list -n 1 HEAD -- "${relativePath}"`, {
+    const out = execFileSync(
+      'git',
+      ['rev-list', '-n', '1', 'HEAD', '--', normalizedPath],
+      {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
+      }
+    ).trim();
     return out || undefined;
   } catch {
     return undefined;
@@ -154,7 +161,7 @@ export function resetContextGitCaches(): void {
 
 function getGitTopLevel(cwd: string): string | null {
   try {
-    return execSync('git rev-parse --show-toplevel', {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
       cwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
