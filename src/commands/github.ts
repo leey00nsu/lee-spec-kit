@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { DEFAULT_LANG, Lang, tr } from '../utils/i18n.js';
+import { DEFAULT_LANG, I18nKey, Lang, tr } from '../utils/i18n.js';
 import { getConfig } from '../utils/config.js';
 import {
   ContextSelectionOptions,
@@ -74,96 +74,17 @@ interface PrViewMeta {
   baseRefName: string;
 }
 
-type GithubTextKey =
-  | 'approvalRequired'
-  | 'checkoutBaseAfterMergeFailed'
-  | 'checkoutHeadFailed'
-  | 'cmdGithubDescription'
-  | 'cmdIssueDescription'
-  | 'cmdPrDescription'
-  | 'commitSyncFailed'
-  | 'createIssueFailed'
-  | 'createLocalHeadFailed'
-  | 'createPrFailed'
-  | 'detectBranchFailed'
-  | 'docsMissing'
-  | 'featureSelectFailed'
-  | 'fetchPrBranchesFailed'
-  | 'ghCommandFailed'
-  | 'ghEmptyJson'
-  | 'ghInvalidJson'
-  | 'inspectFileStatusFailed'
-  | 'inspectWorktreeFailed'
-  | 'issueCreated'
-  | 'issueDefaultTitle'
-  | 'issueHeader'
-  | 'issueTemplateGenerated'
-  | 'kindIssue'
-  | 'kindPr'
-  | 'labelBodyFile'
-  | 'labelFeature'
-  | 'labelLabels'
-  | 'labelPr'
-  | 'labelsRequired'
-  | 'mergeRequiresPr'
-  | 'mergeRetryFailed'
-  | 'multipleFeaturesMatched'
-  | 'noFeatures'
-  | 'operationIssueCreate'
-  | 'operationPrCreate'
-  | 'operationPrMerge'
-  | 'optComponent'
-  | 'optIssueAssignee'
-  | 'optIssueBodyFile'
-  | 'optIssueConfirm'
-  | 'optIssueCreate'
-  | 'optIssueTitle'
-  | 'optJson'
-  | 'optLabels'
-  | 'optPrAssignee'
-  | 'optPrBase'
-  | 'optPrBodyFile'
-  | 'optPrCommitSync'
-  | 'optPrConfirm'
-  | 'optPrCreate'
-  | 'optPrMerge'
-  | 'optPrNoSyncTasks'
-  | 'optPrRef'
-  | 'optPrRetry'
-  | 'optPrScreenshots'
-  | 'optPrMermaid'
-  | 'optPrTitle'
-  | 'prDefaultTitleNoIssue'
-  | 'prDefaultTitleWithIssue'
-  | 'prHeader'
-  | 'prMerged'
-  | 'prTasksSynced'
-  | 'prTemplateGenerated'
-  | 'pullBaseAfterMergeFailed'
-  | 'pushRebasedHeadFailed'
-  | 'pushSyncFailed'
-  | 'rebaseHeadFailed'
-  | 'restoreBranchFailed'
-  | 'retryInvalid'
-  | 'sectionsMissing'
-  | 'stageFileFailed'
-  | 'syncCommitNoIssue'
-  | 'syncCommitWithIssue'
-  | 'artifactModeInvalid'
-  | 'prScreenshotsSectionMissing'
-  | 'prScreenshotImageMissing'
-  | 'prMermaidSectionMissing'
-  | 'prMermaidBlockMissing'
-  | 'tasksNotFound'
-  | 'todoPlaceholdersRemain'
-  | 'worktreeNotClean';
+type GithubTextKey = Extract<I18nKey<'cli'>, `github.${string}`> extends `github.${infer Key}`
+  ? Key
+  : never;
 
 function tg(
   lang: Lang,
   key: GithubTextKey,
   vars: Record<string, string | number | undefined> = {}
 ): string {
-  return tr(lang, 'cli', `github.${key}`, vars);
+  const fullKey = `github.${key}` as I18nKey<'cli'>;
+  return tr(lang, 'cli', fullKey, vars);
 }
 
 function detectGithubCliLangSync(cwd: string): Lang {

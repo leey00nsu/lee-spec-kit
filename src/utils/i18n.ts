@@ -21,7 +21,7 @@ export function formatTemplate(
   });
 }
 
-const I18N: Record<Lang, I18nData> = {
+const I18N = {
   ko: {
     cli: {
       'common.errorLabel': '오류:',
@@ -1320,8 +1320,17 @@ const I18N: Record<Lang, I18nData> = {
         'Implementation is done but minor pre-PR findings remain ({count}) while `minorPolicy=block`.',
     },
   },
-};
+} as const satisfies Record<Lang, I18nData>;
 
+type DefaultLocale = (typeof I18N)[typeof DEFAULT_LANG];
+export type I18nKey<C extends I18nCategory> = keyof DefaultLocale[C] & string;
+
+export function tr<C extends I18nCategory>(
+  lang: Lang,
+  category: C,
+  key: I18nKey<C>,
+  vars?: Record<string, string | number | undefined>
+): string;
 export function tr(
   lang: Lang,
   category: I18nCategory,
