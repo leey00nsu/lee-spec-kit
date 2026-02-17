@@ -29,10 +29,15 @@ export interface CliSuggestion {
 export class CliError extends Error {
   readonly code: CliReasonCode;
 
-  constructor(code: CliReasonCode, message: string) {
-    super(message);
+  constructor(
+    code: CliReasonCode,
+    message: string,
+    options?: { cause?: unknown; stack?: string }
+  ) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'CliError';
     this.code = code;
+    if (options?.stack) this.stack = options.stack;
   }
 }
 
@@ -45,8 +50,13 @@ export function toCliError(
   fallbackCode: CliReasonCode = 'UNKNOWN_ERROR'
 ): CliError {
   if (error instanceof CliError) return error;
-  if (error instanceof Error) return new CliError(fallbackCode, error.message);
-  return new CliError(fallbackCode, String(error));
+  if (error instanceof Error) {
+    return new CliError(fallbackCode, error.message, {
+      cause: error,
+      stack: error.stack,
+    });
+  }
+  return new CliError(fallbackCode, String(error), { cause: error });
 }
 
 type SuggestionSeed = {
