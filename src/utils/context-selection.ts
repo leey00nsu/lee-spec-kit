@@ -75,6 +75,7 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
   'branch_create',
   'task_execute',
   'review_fix_commit',
+  'worktree_cleanup',
 ]);
 
 const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
@@ -92,6 +93,7 @@ const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
   pr_create: 'context.actionDetail.prCreate',
   pr_status_update: 'context.actionDetail.prStatusUpdate',
   code_review: 'context.actionDetail.codeReview',
+  worktree_cleanup: 'context.actionDetail.worktreeCleanup',
   pr_metadata_migrate: 'context.actionDetail.prMetadataMigrate',
   user_request_replan: 'context.actionDetail.userRequestReplan',
   feature_done: 'context.actionDetail.featureDone',
@@ -149,6 +151,7 @@ function getActionSummary(action: ContextAction): string {
   if (action.category === 'pre_pr_review') return 'Run pre-PR self review';
   if (action.category === 'pr_status_update') return 'Update PR status';
   if (action.category === 'code_review') return 'Process code review feedback';
+  if (action.category === 'worktree_cleanup') return 'Clean up feature worktree';
   if (action.category === 'user_request_replan') return 'Handle a new user request first';
   if (action.category === 'task_execute') return 'Proceed with task execution';
   if (action.category === 'review_fix_commit') return 'Commit review feedback fixes';
@@ -213,6 +216,9 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
       if (/\bgit\s+push\b/i.test(action.cmd)) {
         return `(${action.scope}) push review-fix commits`;
       }
+    }
+    if (action.category === 'worktree_cleanup') {
+      return `(${action.scope}) ${tr(lang, 'cli', 'context.actionDetail.worktreeCleanup')}`;
     }
     const commitMessage = extractCommitMessage(action.cmd);
     if (commitMessage) {

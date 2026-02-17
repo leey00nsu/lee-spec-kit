@@ -118,6 +118,8 @@ const en = {
       'context.actionDetail.prStatusUpdate': 'Update PR status fields in tasks.md',
       'context.actionDetail.codeReview':
         'Address review comments and sync findings/evidence',
+      'context.actionDetail.worktreeCleanup':
+        'remove the feature worktree and prune stale worktree entries',
       'context.actionDetail.prMetadataMigrate':
         'Migrate tasks.md PR fields to the latest template',
       'context.actionDetail.userRequestReplan':
@@ -521,6 +523,8 @@ const en = {
         'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
       createBranch:
         'cd "{projectGitCwd}" && mkdir -p .worktrees && (git worktree add ".worktrees/feat-{issueNumber}-{slug}" "feat/{issueNumber}-{slug}" || git worktree add -b "feat/{issueNumber}-{slug}" ".worktrees/feat-{issueNumber}-{slug}") && echo "worktree: {projectGitCwd}/.worktrees/feat-{issueNumber}-{slug}"',
+      worktreeCleanupCommand:
+        'cd "{projectGitCwd}" && git worktree remove "{worktreePath}" && git worktree prune',
       tasksAllDoneButNoChecklist:
         'Create the completion checklist. Add verification items to the tasks.md "Completion Criteria" section, then mark satisfied items as [x] after user confirmation. Record final approval (OK) as well.',
       tasksAllDoneButChecklist:

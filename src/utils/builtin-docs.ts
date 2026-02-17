@@ -112,6 +112,7 @@ const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
   pr_create: ['create-pr', 'pr-doc', 'git-workflow'],
   pr_status_update: ['create-pr'],
   code_review: ['create-pr'],
+  worktree_cleanup: ['git-workflow'],
   user_request_replan: ['agents', 'execute-task'],
 };
 

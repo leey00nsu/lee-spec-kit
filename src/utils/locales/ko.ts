@@ -122,6 +122,8 @@ const ko = {
       'context.actionDetail.prStatusUpdate': 'tasks.md의 PR 상태 필드를 업데이트하세요',
       'context.actionDetail.codeReview':
         '리뷰 코멘트를 반영하고 Findings/Evidence를 최신화하세요',
+      'context.actionDetail.worktreeCleanup':
+        'feature worktree를 제거하고 stale worktree 엔트리를 정리하세요',
       'context.actionDetail.prMetadataMigrate':
         'tasks.md의 PR 필드를 최신 템플릿으로 마이그레이션하세요',
       'context.actionDetail.userRequestReplan':
@@ -505,6 +507,8 @@ const ko = {
         'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
       createBranch:
         'cd "{projectGitCwd}" && mkdir -p .worktrees && (git worktree add ".worktrees/feat-{issueNumber}-{slug}" "feat/{issueNumber}-{slug}" || git worktree add -b "feat/{issueNumber}-{slug}" ".worktrees/feat-{issueNumber}-{slug}") && echo "worktree: {projectGitCwd}/.worktrees/feat-{issueNumber}-{slug}"',
+      worktreeCleanupCommand:
+        'cd "{projectGitCwd}" && git worktree remove "{worktreePath}" && git worktree prune',
       tasksAllDoneButNoChecklist:
         '완료 조건 체크리스트를 작성하세요. tasks.md의 "완료 조건" 섹션에 검증 항목을 추가하고, 사용자와 확인 후 충족 항목을 [x]로 체크하세요. 최종 승인(OK)도 반영하세요.',
       tasksAllDoneButChecklist:

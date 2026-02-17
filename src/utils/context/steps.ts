@@ -183,6 +183,22 @@ function resolveProjectCommitTopic(feature: FeatureState): string {
   return toShellSafeCommitTopic(topic);
 }
 
+function resolveManagedWorktreeCleanupPaths(
+  projectGitCwd: string | undefined
+): { projectRoot: string; worktreePath: string } | null {
+  if (!projectGitCwd) return null;
+  const normalized = path.resolve(projectGitCwd);
+  const marker = `${path.sep}.worktrees${path.sep}`;
+  const markerIndex = normalized.lastIndexOf(marker);
+  if (markerIndex <= 0) return null;
+  const projectRoot = normalized.slice(0, markerIndex);
+  if (!projectRoot) return null;
+  return {
+    projectRoot,
+    worktreePath: normalized,
+  };
+}
+
 interface TaskCommitGateCheck {
   pass: boolean;
   reason?:
@@ -1457,13 +1473,32 @@ export function getStepDefinitions(
       },
       current: {
         when: (f) => isFeatureDone(f, workflowPolicy, prePrReviewPolicy),
-        actions: () => [
-          {
-            type: 'instruction',
-            category: 'feature_done',
-            message: tr(lang, 'messages', 'featureDone'),
-          },
-        ],
+        actions: (f) => {
+          const actions: NextAction[] = [
+            {
+              type: 'instruction',
+              category: 'feature_done',
+              message: tr(lang, 'messages', 'featureDone'),
+            },
+          ];
+          const cleanupPaths = resolveManagedWorktreeCleanupPaths(
+            f.git.projectGitCwd
+          );
+          if (cleanupPaths) {
+            actions.push({
+              type: 'command',
+              category: 'worktree_cleanup',
+              requiresUserCheck: true,
+              scope: 'project',
+              cwd: cleanupPaths.projectRoot,
+              cmd: tr(lang, 'messages', 'worktreeCleanupCommand', {
+                projectGitCwd: cleanupPaths.projectRoot,
+                worktreePath: cleanupPaths.worktreePath,
+              }),
+            });
+          }
+          return actions;
+        },
       },
     },
   ];

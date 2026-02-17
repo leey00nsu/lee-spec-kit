@@ -1785,6 +1785,131 @@ test('context uses review-fix commit guidance when project is dirty during PR re
   });
 });
 
+test('context featureDone step exposes and executes worktree cleanup option for managed worktrees', async () => {
+  await withTempDir('lsk-context-feature-done-worktree-cleanup-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    let spec = await fs.readFile(specPath, 'utf-8');
+    spec = spec.replace('- **Issue Number**: #', '- **Issue Number**: 123');
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: 123');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: sync issue number for worktree cleanup test',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const worktreeRelativePath = path.join('.worktrees', 'feat-123-alpha');
+    const worktreePath = path.join(dir, worktreeRelativePath);
+    const addWorktree = await runCommand(dir, 'git', [
+      'worktree',
+      'add',
+      '-b',
+      'feat/123-alpha',
+      worktreeRelativePath,
+    ]);
+    assert.equal(addWorktree.code, 0, addWorktree.stderr || addWorktree.stdout);
+    assert.equal(await pathExists(worktreePath), true);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 15);
+    const cleanupOption = payload.actionOptions.find(
+      (option) => option.action.category === 'worktree_cleanup'
+    );
+    assert.equal(Boolean(cleanupOption), true);
+    assert.equal(cleanupOption.action.type, 'command');
+    assert.equal(cleanupOption.action.scope, 'project');
+    assert.match(cleanupOption.detail, /worktree/i);
+    assert.match(cleanupOption.action.cmd, /git worktree remove/);
+
+    const expectedRoot = await normalizePathForCompare(dir);
+    const actualRoot = await normalizePathForCompare(cleanupOption.action.cwd);
+    assert.equal(actualRoot, expectedRoot);
+
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      cleanupOption.label,
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.action.category, 'worktree_cleanup');
+    assert.equal(typeof approvePayload?.approvalTicket?.token, 'string');
+
+    const execute = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      cleanupOption.label,
+      '--execute',
+      '--ticket',
+      approvePayload.approvalTicket.token,
+      '--json',
+    ]);
+    assert.equal(execute.code, 0, execute.stderr || execute.stdout);
+    assert.equal(await pathExists(worktreePath), false);
+
+    const refreshed = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(refreshed.code, 0, refreshed.stderr || refreshed.stdout);
+    const refreshedPayload = JSON.parse(refreshed.stdout.trim());
+    assert.equal(
+      refreshedPayload.actionOptions.some(
+        (option) => option.action.category === 'worktree_cleanup'
+      ),
+      false
+    );
+  });
+});
+
 test('status --json marks workflow completion as WORKFLOW_DONE', async () => {
   await withTempDir('lsk-status-workflow-done-', async (dir) => {
     const initResult = await runCli(dir, [
