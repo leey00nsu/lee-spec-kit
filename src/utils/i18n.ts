@@ -504,7 +504,7 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         '완료 조건 체크리스트의 남은 항목을 진행하세요. 현재 진행: ({checked}/{total}) 사용자와 확인 후 충족 항목을 [x]로 체크하고 최종 승인(OK)을 반영하세요.',
       finishDoingTask:
-        '현재 DOING/REVIEW 태스크를 완료합니다: "{title}" ({done}/{total}) 결과/검증 공유 + 승인(`A` 또는 `A OK` 형식) 후 DONE 처리',
+        '현재 DOING/REVIEW 태스크를 수행하세요: "{title}" ({done}/{total}) 완료 시 결과/검증을 공유하고 승인(`A` 또는 `A OK` 형식)을 받은 뒤 DONE 처리',
       startNextTodoTask:
         '다음 TODO 태스크를 시작합니다: "{title}" ({done}/{total}) 승인(`A` 또는 `A OK` 형식) 후 DOING 처리',
       checkTaskStatuses:
@@ -1162,7 +1162,7 @@ const I18N: Record<Lang, I18nData> = {
       tasksAllDoneButChecklist:
         'Proceed with remaining completion checklist items. Current progress: ({checked}/{total}) Mark items as [x] only after user confirmation and real verification. Record final approval (OK) as well.',
       finishDoingTask:
-        'Finish the current DOING/REVIEW task: "{title}" ({done}/{total}) Share outcome/verification + get OK before marking DONE',
+        'Continue working on the current DOING/REVIEW task: "{title}" ({done}/{total}) After it is complete, share outcome/verification and get approval before marking DONE',
       startNextTodoTask:
         'Start the next TODO task: "{title}" ({done}/{total}) Get approval (`A` or `A OK`) before marking DOING',
       checkTaskStatuses:

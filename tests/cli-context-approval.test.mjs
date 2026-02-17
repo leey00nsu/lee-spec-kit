@@ -312,6 +312,92 @@ test('context text output summarizes docs commit action instead of raw shell com
   });
 });
 
+test('context active DOING task keeps a single focused option and accepts plain affirmative approval', async () => {
+  await withTempDir('lsk-context-active-doing-focus-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const tasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [DOING][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] done
+`;
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 10);
+    assert.equal(payload.actionOptions.length, 1);
+    assert.equal(primaryActionOption(payload).label, 'A');
+    assert.equal(primaryActionOption(payload).action.category, 'task_execute');
+    assert.equal(
+      payload.actionOptions.some(
+        (option) => option.action.category === 'user_request_replan'
+      ),
+      false
+    );
+
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      '수행하세요',
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.status, 'approved_selected');
+    assert.equal(approvePayload.label, 'A');
+  });
+});
+
 test('context pre-PR review step is enforced before PR creation and exposes policy', async () => {
   await withTempDir('lsk-context-pre-pr-review-', async (dir) => {
     const initResult = await runCli(dir, [
