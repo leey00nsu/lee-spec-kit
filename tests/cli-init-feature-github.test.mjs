@@ -475,6 +475,80 @@ issue.md custom overview should be used as-is.
   });
 });
 
+test('github issue --create accepts issue.md via explicit --body-file', async () => {
+  await withTempDir('lsk-github-issue-create-explicit-ready-doc-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const issueDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'issue.md');
+    const issueDoc = `# Issue Draft: alpha
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: explicit body-file issue.md title
+- **Labels**: enhancement,bug
+- **Created**: 2026-02-17
+
+## Overview
+
+explicit issue.md body-file overview
+
+## Goals
+
+- [ ] goal
+
+## Completion Criteria
+
+- [ ] criterion
+
+## Related Docs
+
+- Spec: \`docs/features/F001-alpha/spec.md\`
+- Plan: \`docs/features/F001-alpha/plan.md\`
+- Tasks: \`docs/features/F001-alpha/tasks.md\`
+`;
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'issue',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        issueDocPath,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'ISSUE_CREATED');
+  });
+});
+
 test('github issue default title uses overview summary instead of docs-update suffix', async () => {
   await withTempDir('lsk-github-issue-default-title-summary-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1131,6 +1205,86 @@ flowchart TD
         `--body-file ${String(payload.bodyFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
       )
     );
+  });
+});
+
+test('github pr --create accepts pr.md via explicit --body-file', async () => {
+  await withTempDir('lsk-github-pr-create-explicit-ready-doc-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const prDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md');
+    const prDoc = `# PR Draft: alpha
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: explicit body-file pr.md title
+- **Base**: main
+- **Created**: 2026-02-17
+
+## Overview
+
+explicit pr.md body-file overview
+
+## Changes
+
+- [ ] change
+
+## Tests
+
+- [ ] test
+
+## Architecture Diagram
+
+\`\`\`mermaid
+flowchart TD
+  A[Input] --> B[Output]
+\`\`\`
+
+## Related Docs
+
+- Spec: \`docs/features/F001-alpha/spec.md\`
+- Tasks: \`docs/features/F001-alpha/tasks.md\`
+`;
+    await fs.writeFile(prDocPath, prDoc, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        prDocPath,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
   });
 });
 

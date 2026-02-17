@@ -255,6 +255,7 @@ async function prepareGithubBody(
     const body = await fs.readFile(workflowDraftPath, 'utf-8');
     const draftMetadata = parseWorkflowDraftMetadata(body);
     if (draftMetadata.status === 'ready') {
+      ensureSections(body, requiredSections, kindLabel, lang);
       return {
         body,
         bodyFile: workflowDraftPath,
@@ -302,9 +303,29 @@ function ensureSections(
   kind: string,
   lang: Lang
 ): void {
+  const hasHeading = (sectionHeading: string): boolean => {
+    const re = new RegExp(`^##\\s+${escapeRegExp(sectionHeading)}\\s*$`, 'm');
+    return re.test(body);
+  };
+  const hasMetadataField = (field: string): boolean => {
+    const re = new RegExp(`^\\s*-\\s*\\*\\*${escapeRegExp(field)}\\*\\*\\s*:`, 'm');
+    return re.test(body);
+  };
+  const hasRequiredSection = (section: string): boolean => {
+    if (hasHeading(section)) return true;
+
+    const normalized = section.trim().toLowerCase();
+    if (normalized === 'related documents') return hasHeading('Related Docs');
+    if (normalized === 'related docs') return hasHeading('Related Documents');
+    if (normalized === 'labels' || normalized === '라벨') {
+      return hasMetadataField('Labels') || hasMetadataField('라벨');
+    }
+
+    return false;
+  };
+
   const missing = sections.filter((section) => {
-    const re = new RegExp(`^##\\s+${section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm');
-    return !re.test(body);
+    return !hasRequiredSection(section);
   });
   if (missing.length > 0) {
     throw createCliError(
