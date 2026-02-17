@@ -969,6 +969,73 @@ test('github pr --create runs gh from standalone project root', async () => {
   });
 });
 
+test('github pr --create --commit-sync skips docs push when standalone pushDocs=false', async () => {
+  await withTempDir('lsk-github-pr-standalone-no-docs-push-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs-repo');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRoot, { recursive: true });
+
+    const initResult = await runCli(docsRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      projectRoot,
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(docsRoot, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.docsRepo, 'standalone');
+    assert.equal(config.pushDocs, false);
+
+    const featureResult = await runCli(docsRoot, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(docsRoot, 'tmp-pr-body.md');
+    await writePrBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const createResult = await runCli(
+      docsRoot,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--commit-sync',
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(createResult.code, 0, createResult.stderr || createResult.stdout);
+    const payload = JSON.parse(createResult.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
+
+    const docsGitRoot = path.join(docsRoot, 'docs');
+    const remoteList = await runCommand(docsGitRoot, 'git', ['remote']);
+    assert.equal(remoteList.code, 0, remoteList.stderr || remoteList.stdout);
+    assert.equal(remoteList.stdout.trim(), '');
+  });
+});
+
 test('github pr --create blocks TODO placeholders even with approval', async () => {
   await withTempDir('lsk-github-pr-todo-block-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1157,5 +1224,48 @@ test('github pr --merge requires --confirm OK and does not mutate tasks.md', asy
 
     const after = await fs.readFile(tasksPath, 'utf-8');
     assert.equal(after, before);
+  });
+});
+
+test('github pr --merge infers PR ref from tasks.md PR link when available', async () => {
+  await withTempDir('lsk-github-pr-merge-infer-pr-ref-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const before = await fs.readFile(tasksPath, 'utf-8');
+    const withPrLink = before.replace(
+      '- **PR**: -',
+      '- **PR**: https://github.com/acme/repo/pull/77'
+    );
+    await fs.writeFile(tasksPath, withPrLink, 'utf-8');
+
+    const result = await runCli(dir, [
+      'github',
+      'pr',
+      'F001-alpha',
+      '--merge',
+      '--json',
+    ]);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'APPROVAL_REQUIRED');
   });
 });

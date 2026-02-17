@@ -499,6 +499,13 @@ function resolveGithubDocsCwd(
   return config.docsDir;
 }
 
+function shouldPushDocsSync(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>
+): boolean {
+  if (config.docsRepo !== 'standalone') return true;
+  return config.pushDocs === true;
+}
+
 function getFeatureDocPaths(feature: FeatureContext): {
   featurePathFromDocs: string;
   specPath: string;
@@ -1497,7 +1504,8 @@ function commitAndPushPath(
   cwd: string,
   absPath: string,
   message: string,
-  lang: Lang
+  lang: Lang,
+  options?: { pushToOrigin?: boolean }
 ): void {
   const relativePath = path.relative(cwd, absPath) || absPath;
   const status = runProcessOrThrow(
@@ -1510,6 +1518,8 @@ function commitAndPushPath(
 
   runProcessOrThrow('git', ['add', '--', relativePath], cwd, tg(lang, 'stageFileFailed'));
   runProcessOrThrow('git', ['commit', '-m', message], cwd, tg(lang, 'commitSyncFailed'));
+
+  if (options?.pushToOrigin === false) return;
 
   const branch = gitCurrentBranch(cwd, lang);
   runProcessOrThrow(
@@ -1892,6 +1902,7 @@ export function githubCommand(program: Command): void {
         let prUrl = options.pr?.trim() || '';
         let mergedAttempts: number | undefined;
         let syncChanged = false;
+        const pushDocsSync = shouldPushDocsSync(config);
 
         if (options.create) {
           const projectGitCwd = resolveGithubProjectCwd(config, feature);
@@ -1924,6 +1935,10 @@ export function githubCommand(program: Command): void {
             tg(config.lang, 'createPrFailed')
           );
           prUrl = created.stdout.trim();
+        }
+
+        if (!prUrl && options.merge) {
+          prUrl = (feature.pr.link || '').trim();
         }
 
         if (!prUrl && options.merge) {
@@ -1964,7 +1979,8 @@ export function githubCommand(program: Command): void {
               docsGitCwd,
               synced.path,
               message,
-              config.lang
+              config.lang,
+              { pushToOrigin: pushDocsSync }
             );
           }
         }
@@ -2015,7 +2031,8 @@ export function githubCommand(program: Command): void {
                 docsGitCwd,
                 mergedSync.path,
                 message,
-                config.lang
+                config.lang,
+                { pushToOrigin: pushDocsSync }
               );
             }
           }

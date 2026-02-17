@@ -289,7 +289,7 @@ const I18N: Record<Lang, I18nData> = {
       'github.createIssueFailed': 'GitHub issue 생성에 실패했습니다',
       'github.createPrFailed': 'GitHub PR 생성에 실패했습니다',
       'github.mergeRequiresPr':
-        '`--merge`를 사용하려면 `--create` 또는 `--pr <url|number>`가 필요합니다.',
+        '`--merge`를 사용하려면 `--create`, `--pr <url|number>`, 또는 tasks.md의 PR 링크가 필요합니다.',
       'github.checkoutBaseAfterMergeFailed': 'merge 후 {base} 브랜치 checkout에 실패했습니다',
       'github.pullBaseAfterMergeFailed': 'merge 후 {base} 브랜치 최신화에 실패했습니다',
       'github.issueDefaultTitle': '{slug} ({summary})',
@@ -570,7 +570,7 @@ const I18N: Record<Lang, I18nData> = {
       prReviewResolve:
         '리뷰 코멘트를 먼저 확인/분석한 뒤 필요한 수정 작업을 진행하세요. 진행 중에는 PR 상태를 Review로 유지하세요. 리뷰 수정 커밋 메시지는 태스크명이 아니라 실제로 해결한 리뷰 지적사항 요약으로 작성하세요. `PR 리뷰 Findings/Evidence`를 최신으로 기록하고, 커밋 후 원격 반영(push)도 사용자 승인(OK)을 받은 뒤 진행하세요.',
       prReviewPush:
-        '리뷰 수정 커밋을 원격 PR 브랜치에 반영하려면 사용자 승인(OK) 후 `cd "{projectGitCwd}" && git push`를 실행하세요.',
+        'cd "{projectGitCwd}" && git push',
       prReviewRemoteBlocked:
         '원격 PR 상태를 확인한 결과 아직 머지 준비가 되지 않았습니다: {reasons}. 리뷰 코멘트/체크 상태를 정리한 뒤 다시 확인하세요.',
       prReviewRemoteReasonChangesRequested:
@@ -583,6 +583,8 @@ const I18N: Record<Lang, I18nData> = {
         '머지 상태가 `{status}`로 차단되어 있습니다',
       prReviewMerge:
         '머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+      prReviewMergeCommand:
+        'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
       prRequestReview:
         '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 설정/유지하세요.',
       userRequestReplan:
@@ -924,7 +926,8 @@ const I18N: Record<Lang, I18nData> = {
       'github.operationPrMerge': 'GitHub PR merge',
       'github.createIssueFailed': 'Failed to create GitHub issue',
       'github.createPrFailed': 'Failed to create GitHub PR',
-      'github.mergeRequiresPr': '`--merge` requires `--create` or `--pr <url|number>`.',
+      'github.mergeRequiresPr':
+        '`--merge` requires `--create`, `--pr <url|number>`, or a PR link in tasks.md.',
       'github.checkoutBaseAfterMergeFailed': 'Failed to checkout {base} after merge',
       'github.pullBaseAfterMergeFailed': 'Failed to update {base} after merge',
       'github.issueDefaultTitle': '{slug} ({summary})',
@@ -1219,7 +1222,7 @@ const I18N: Record<Lang, I18nData> = {
       prReviewResolve:
         'First review/analyze the PR comments, then apply the required fixes. Keep PR Status as Review while addressing comments. For review-fix commits, use commit messages that summarize resolved review feedback (not task titles). Keep `PR Review Findings/Evidence` updated, then run push only after explicit user OK.',
       prReviewPush:
-        'To reflect review-fix commits on the PR head branch, get explicit user OK and run `cd "{projectGitCwd}" && git push`.',
+        'cd "{projectGitCwd}" && git push',
       prReviewRemoteBlocked:
         'Remote PR checks indicate this PR is not ready to merge yet: {reasons}. Resolve review comments/check statuses, then re-check.',
       prReviewRemoteReasonChangesRequested:
@@ -1232,6 +1235,8 @@ const I18N: Record<Lang, I18nData> = {
         'merge state is blocked (`{status}`)',
       prReviewMerge:
         'When ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
+      prReviewMergeCommand:
+        'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
       prRequestReview: 'Request review and set/keep PR Status as Review.',
       userRequestReplan:
         'You can pause this step and handle a newly requested user requirement first. Summarize it, add it to tasks.md or split it into a separate Feature, then align document statuses and rerun context.',

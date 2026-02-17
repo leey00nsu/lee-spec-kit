@@ -927,6 +927,14 @@ test('context code_review step keeps Review status and guides merge command', as
       ),
       true
     );
+    const mergeOption = payload.actionOptions.find(
+      (option) =>
+        option.action.type === 'command' &&
+        option.action.category === 'code_review' &&
+        /github pr F001 --merge --confirm OK/.test(option.action.cmd || '')
+    );
+    assert.equal(Boolean(mergeOption), true);
+    assert.equal(mergeOption.action.scope, 'docs');
     assert.match(primaryActionOption(payload).action.message, /addressing comments|리뷰 코멘트/);
     assert.doesNotMatch(primaryActionOption(payload).action.message, /Review → Approved/);
   });

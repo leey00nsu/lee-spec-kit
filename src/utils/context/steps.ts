@@ -1384,19 +1384,37 @@ export function getStepDefinitions(
               });
             }
 
-            actions.push({
-              type: 'instruction',
-              category: 'code_review',
-              requiresUserCheck: true,
-              message:
-                remoteBlockReasons.length > 0
-                  ? tr(lang, 'messages', 'prReviewRemoteBlocked', {
-                      reasons: remoteBlockReasons.join('; '),
-                    })
-                  : tr(lang, 'messages', 'prReviewMerge', {
-                      featureRef: f.id || f.folderName,
-                    }),
-            });
+            if (remoteBlockReasons.length > 0) {
+              actions.push({
+                type: 'instruction',
+                category: 'code_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prReviewRemoteBlocked', {
+                  reasons: remoteBlockReasons.join('; '),
+                }),
+              });
+            } else if (f.git.docsGitCwd) {
+              actions.push({
+                type: 'command',
+                category: 'code_review',
+                requiresUserCheck: true,
+                operationType: 'remote',
+                scope: 'docs',
+                cwd: f.git.docsGitCwd,
+                cmd: tr(lang, 'messages', 'prReviewMergeCommand', {
+                  featureRef: f.id || f.folderName,
+                }),
+              });
+            } else {
+              actions.push({
+                type: 'instruction',
+                category: 'code_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prReviewMerge', {
+                  featureRef: f.id || f.folderName,
+                }),
+              });
+            }
 
             return actions;
           }
