@@ -910,7 +910,33 @@ test('context code_review step keeps Review status and guides merge command', as
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
-    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    const fakeBinDir = path.join(dir, 'docs', '.fake-bin');
+    await fs.mkdir(fakeBinDir, { recursive: true });
+    const fakeGhScriptPath = path.join(fakeBinDir, 'gh');
+    await fs.writeFile(
+      fakeGhScriptPath,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify({
+    state: 'OPEN',
+    mergedAt: null,
+    reviewDecision: '',
+    mergeStateStatus: 'CLEAN',
+    isDraft: false,
+    statusCheckRollup: [],
+  }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+      'utf-8'
+    );
+    await fs.chmod(fakeGhScriptPath, 0o755);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json'], {
+      PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
+    });
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const payload = JSON.parse(context.stdout.trim());
 
@@ -930,7 +956,7 @@ test('context code_review step keeps Review status and guides merge command', as
       (option) =>
         option.action.type === 'command' &&
         option.action.category === 'code_review' &&
-        /github pr F001 --merge --confirm OK/.test(option.action.cmd || '')
+        /--merge --confirm OK/.test(option.action.cmd || '')
     );
     assert.equal(Boolean(mergeOption), true);
     assert.equal(mergeOption.action.scope, 'docs');
@@ -1061,6 +1087,241 @@ process.exit(0);
     assert.equal(
       payload.actionOptions.some((option) =>
         /git push|--merge --confirm OK/.test(option?.action?.cmd || '')
+      ),
+      false
+    );
+  });
+});
+
+test('context code_review step blocks merge guidance when remote PR is closed without merge', async () => {
+  await withTempDir('lsk-context-code-review-closed-pr-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace(
+      '- **PR Status**: Review',
+      '- **PR Status**: Review\n- **PR Review Findings**: major=0, minor=0\n- **PR Review Evidence**: closed'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare closed-pr review case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const fakeBinDir = path.join(dir, 'docs', '.fake-bin');
+    await fs.mkdir(fakeBinDir, { recursive: true });
+    const fakeGhScriptPath = path.join(fakeBinDir, 'gh');
+    await fs.writeFile(
+      fakeGhScriptPath,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify({
+    state: 'CLOSED',
+    mergedAt: null,
+    reviewDecision: '',
+    mergeStateStatus: 'UNKNOWN',
+    isDraft: false,
+    statusCheckRollup: [],
+  }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+      'utf-8'
+    );
+    await fs.chmod(fakeGhScriptPath, 0o755);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json'], {
+      PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
+    });
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 14);
+    assert.equal(primaryActionOption(payload).action.category, 'code_review');
+    assert.equal(primaryActionOption(payload).action.type, 'instruction');
+    assert.match(primaryActionOption(payload).action.message, /review\/analyze|review/i);
+    const blocked = payload.actionOptions.find(
+      (option) =>
+        option.action.type === 'instruction' &&
+        option.action.category === 'code_review' &&
+        /closed without merge|닫혀 있습니다/i.test(option.action.message || '')
+    );
+    assert.equal(Boolean(blocked), true);
+    assert.equal(
+      payload.actionOptions.some((option) =>
+        /--merge --confirm OK/.test(option?.action?.cmd || '')
+      ),
+      false
+    );
+  });
+});
+
+test('context code_review step hides merge guidance when remote status is unavailable', async () => {
+  await withTempDir('lsk-context-code-review-remote-unavailable-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace(
+      '- **PR Status**: Review',
+      '- **PR Status**: Review\n- **PR Review Findings**: major=0, minor=0\n- **PR Review Evidence**: unknown'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare remote-unavailable review case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const fakeBinDir = path.join(dir, 'docs', '.fake-bin');
+    await fs.mkdir(fakeBinDir, { recursive: true });
+    const fakeGhScriptPath = path.join(fakeBinDir, 'gh');
+    await fs.writeFile(
+      fakeGhScriptPath,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  process.exit(1);
+}
+process.exit(0);
+`,
+      'utf-8'
+    );
+    await fs.chmod(fakeGhScriptPath, 0o755);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json'], {
+      PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
+    });
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 14);
+    assert.equal(primaryActionOption(payload).action.category, 'code_review');
+    assert.equal(primaryActionOption(payload).action.type, 'instruction');
+    const blocked = payload.actionOptions.find(
+      (option) =>
+        option.action.type === 'instruction' &&
+        option.action.category === 'code_review' &&
+        /could not be verified|확인하지 못했습니다/i.test(option.action.message || '')
+    );
+    assert.equal(Boolean(blocked), true);
+    assert.equal(
+      payload.actionOptions.some((option) =>
+        /--merge --confirm OK/.test(option?.action?.cmd || '')
       ),
       false
     );

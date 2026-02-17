@@ -127,6 +127,9 @@ function getPrReviewRemoteBlockReasons(feature: FeatureState, lang: Lang): strin
   if (!remote || !remote.available) return [];
 
   const reasons: string[] = [];
+  if (remote.state === 'CLOSED' && !remote.isMerged) {
+    reasons.push(tr(lang, 'messages', 'prReviewRemoteReasonClosed'));
+  }
   if (remote.hasBlockingReview) {
     reasons.push(tr(lang, 'messages', 'prReviewRemoteReasonChangesRequested'));
   }
@@ -1365,6 +1368,10 @@ export function getStepDefinitions(
             }
 
             const remoteBlockReasons = getPrReviewRemoteBlockReasons(f, lang);
+            const remoteUnavailable =
+              workflowPolicy.mode === 'github' &&
+              !!f.pr.link &&
+              (!f.pr.remote || !f.pr.remote.available);
             const actions: NextAction[] = [
               {
                 type: 'instruction',
@@ -1394,13 +1401,17 @@ export function getStepDefinitions(
               });
             }
 
-            if (remoteBlockReasons.length > 0) {
+            if (remoteBlockReasons.length > 0 || remoteUnavailable) {
+              const reasons = [...remoteBlockReasons];
+              if (remoteUnavailable) {
+                reasons.push(tr(lang, 'messages', 'prReviewRemoteReasonUnavailable'));
+              }
               actions.push({
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
                 message: tr(lang, 'messages', 'prReviewRemoteBlocked', {
-                  reasons: remoteBlockReasons.join('; '),
+                  reasons: reasons.join('; '),
                 }),
               });
             } else if (f.git.docsGitCwd) {

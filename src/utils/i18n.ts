@@ -577,12 +577,16 @@ const I18N: Record<Lang, I18nData> = {
         '원격 PR 상태를 확인한 결과 아직 머지 준비가 되지 않았습니다: {reasons}. 리뷰 코멘트/체크 상태를 정리한 뒤 다시 확인하세요.',
       prReviewRemoteReasonChangesRequested:
         '리뷰 승인 상태가 변경 요청 또는 추가 리뷰 필요 상태입니다',
+      prReviewRemoteReasonClosed:
+        'PR이 머지되지 않은 채 닫혀 있습니다 (reopen 또는 새 PR 필요)',
       prReviewRemoteReasonChecksFailing:
         '실패한 체크가 {count}건 있습니다',
       prReviewRemoteReasonChecksPending:
         '대기 중인 체크가 {count}건 있습니다',
       prReviewRemoteReasonMergeBlocked:
         '머지 상태가 `{status}`로 차단되어 있습니다',
+      prReviewRemoteReasonUnavailable:
+        '원격 PR 상태를 확인하지 못했습니다 (gh 인증/네트워크/권한 확인 필요)',
       prReviewMerge:
         '머지 준비가 되면 사용자 승인(OK) 후 `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`를 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewMergeCommand:
@@ -1231,12 +1235,16 @@ const I18N: Record<Lang, I18nData> = {
         'Remote PR checks indicate this PR is not ready to merge yet: {reasons}. Resolve review comments/check statuses, then re-check.',
       prReviewRemoteReasonChangesRequested:
         'review decision is changes requested or additional review required',
+      prReviewRemoteReasonClosed:
+        'PR is closed without merge (reopen or create a new PR)',
       prReviewRemoteReasonChecksFailing:
         '{count} failing check(s) detected',
       prReviewRemoteReasonChecksPending:
         '{count} pending check(s) detected',
       prReviewRemoteReasonMergeBlocked:
         'merge state is blocked (`{status}`)',
+      prReviewRemoteReasonUnavailable:
+        'remote PR status could not be verified (check gh auth/network/permissions)',
       prReviewMerge:
         'When ready to merge, get explicit user OK and run `npx lee-spec-kit github pr {featureRef} --merge --confirm OK`. (On success, PR Status is synced to Approved.)',
       prReviewMergeCommand:
