@@ -229,6 +229,94 @@ test('context --approve accepts natural language replies that include a label to
   });
 });
 
+test('context --approve captures user request text for user_request_replan label', async () => {
+  await withTempDir('lsk-context-approve-replan-request-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    const replanOption = contextPayload.actionOptions.find(
+      (option) => option.action.category === 'user_request_replan'
+    );
+    assert.equal(Boolean(replanOption), true);
+
+    const requestText = 'API error response format should be unified';
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      `${replanOption.label}, ${requestText}`,
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.status, 'approved_selected');
+    assert.equal(approvePayload.label, replanOption.label);
+    assert.equal(approvePayload.action.category, 'user_request_replan');
+    assert.equal(approvePayload.userRequest, requestText);
+  });
+});
+
+test('context --approve rejects user_request_replan label without request text', async () => {
+  await withTempDir('lsk-context-approve-replan-empty-request-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    const replanOption = contextPayload.actionOptions.find(
+      (option) => option.action.category === 'user_request_replan'
+    );
+    assert.equal(Boolean(replanOption), true);
+
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      replanOption.label,
+      '--json',
+    ]);
+    assert.equal(approve.code, 1);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.reasonCode, 'INVALID_APPROVAL');
+  });
+});
+
 test('context text output ends with current label reminder and execution hint', async () => {
   await withTempDir('lsk-context-final-label-reminder-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -312,7 +400,7 @@ test('context text output summarizes docs commit action instead of raw shell com
   });
 });
 
-test('context active DOING task keeps a single focused option and accepts plain affirmative approval', async () => {
+test('context active DOING task still exposes user_request_replan option', async () => {
   await withTempDir('lsk-context-active-doing-focus-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -374,21 +462,21 @@ test('context active DOING task keeps a single focused option and accepts plain 
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const payload = JSON.parse(context.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 10);
-    assert.equal(payload.actionOptions.length, 1);
+    assert.equal(payload.actionOptions.length >= 2, true);
     assert.equal(primaryActionOption(payload).label, 'A');
     assert.equal(primaryActionOption(payload).action.category, 'task_execute');
     assert.equal(
       payload.actionOptions.some(
         (option) => option.action.category === 'user_request_replan'
       ),
-      false
+      true
     );
 
     const approve = await runCli(dir, [
       'context',
       'F001-alpha',
       '--approve',
-      '수행하세요',
+      'A 수행하세요',
       '--json',
     ]);
     assert.equal(approve.code, 0, approve.stderr || approve.stdout);

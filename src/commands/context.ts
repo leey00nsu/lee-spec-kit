@@ -33,7 +33,7 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
-import { parseApprovalLabel } from '../utils/context/approval-reply.js';
+import { parseApprovalReply } from '../utils/context/approval-reply.js';
 import {
   consumeApprovalTicket,
   issueApprovalTicket,
@@ -1195,6 +1195,7 @@ async function runApprovedOption(
   const ticketToken = (options.ticket || '').trim();
   const jsonMode = !!options.json || !!options.jsonCompact;
   let parsedLabel: string | null = null;
+  let userRequest: string | undefined;
 
   if (state.status !== 'single_matched' || !state.matchedFeature) {
     throw createCliError(
@@ -1207,10 +1208,11 @@ async function runApprovedOption(
     throw createCliError('NO_ACTION_OPTIONS', 'No action options to approve.');
   }
 
-  parsedLabel = parseApprovalLabel(
+  const parsedApproval = parseApprovalReply(
     approval,
     state.actionOptions.map((o) => o.label)
   );
+  parsedLabel = parsedApproval?.label ?? null;
   if (!parsedLabel) {
     throw createCliError(
       'INVALID_APPROVAL',
@@ -1253,6 +1255,16 @@ async function runApprovedOption(
   }
 
   const selectedAction = freshSelected.action;
+  if (selectedAction.category === 'user_request_replan') {
+    const requestText = parsedApproval?.requestText?.trim();
+    if (!requestText) {
+      throw createCliError(
+        'INVALID_APPROVAL',
+        `Label "${parsedLabel}" requires a user request. Use \`${parsedLabel}, <your request>\`.`
+      );
+    }
+    userRequest = requestText;
+  }
   const executeRequiresTicket = !!selectedAction.requiresUserCheck;
   const actionHash = toApprovalActionHash({
     label: freshSelected.label,
@@ -1278,6 +1290,7 @@ async function runApprovedOption(
             feature: freshState.matchedFeature?.folderName ?? null,
             label: parsedLabel,
             action: selectedAction,
+            userRequest,
             contextVersion: freshState.contextVersion,
             executable: selectedAction.type === 'command',
             executeRequiresTicket,
@@ -1304,6 +1317,9 @@ async function runApprovedOption(
     console.log();
     console.log(chalk.green(`✅ Approved option: ${parsedLabel}`));
     console.log(chalk.gray(`   - Action: ${freshSelected.detail}`));
+    if (userRequest) {
+      console.log(chalk.gray(`   - User request: ${userRequest}`));
+    }
     if (selectedAction.type === 'command') {
       const selectedComponent = selectionOptions.component || '';
       let executeCommand = buildApprovalCommand(
@@ -1363,6 +1379,7 @@ async function runApprovedOption(
             feature: freshState.matchedFeature?.folderName ?? null,
             label: parsedLabel,
             action: selectedAction,
+            userRequest,
             contextVersion: freshState.contextVersion,
             executed: false,
             reason: 'instruction_only',
@@ -1376,6 +1393,9 @@ async function runApprovedOption(
 
     console.log();
     console.log(chalk.yellow(`⚠️  Approved label ${parsedLabel} is instruction-only.`));
+    if (userRequest) {
+      console.log(chalk.gray(`   User request: ${userRequest}`));
+    }
     console.log(chalk.gray(`   ${selectedAction.message}`));
     console.log();
     return;
@@ -1409,6 +1429,7 @@ async function runApprovedOption(
             feature: freshState.matchedFeature?.folderName ?? null,
             label: parsedLabel,
             action: selectedAction,
+            userRequest,
             contextVersion: freshState.contextVersion,
             executed: true,
             stdout: execResult.stdout?.trim() || undefined,

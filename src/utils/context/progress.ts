@@ -58,17 +58,8 @@ function applyApprovalPolicy(
 
 function withUserRequestReplanOption(
   actions: NextAction[],
-  lang: Lang,
-  feature: FeatureState,
-  step: number
+  lang: Lang
 ): NextAction[] {
-  // While a task is actively in progress, keep options focused on execution.
-  // Showing "handle new requirement first" at this point confuses users and
-  // often causes accidental detours.
-  if (step === 10 && feature.activeTask) {
-    return actions;
-  }
-
   if (actions.some((action) => action.category === 'user_request_replan')) {
     return actions;
   }
@@ -99,9 +90,7 @@ export function resolveFeatureProgress(
     if (definition.current.when(feature)) {
       const currentActions = withUserRequestReplanOption(
         definition.current.actions(feature),
-        lang,
-        feature,
-        definition.step
+        lang
       );
       const actions = applyApprovalPolicy(
         definition.step,
