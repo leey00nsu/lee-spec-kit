@@ -88,7 +88,6 @@ const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
   tasks_write: 'context.actionDetail.tasksWrite',
   tasks_approve: 'context.actionDetail.tasksApprove',
   issue_create: 'context.actionDetail.issueCreate',
-  task_execute: 'context.actionDetail.taskExecute',
   review_fix_commit: 'context.actionDetail.reviewFixCommit',
   pr_create: 'context.actionDetail.prCreate',
   pr_status_update: 'context.actionDetail.prStatusUpdate',
@@ -183,12 +182,21 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
     const worktree = worktreeMatch ? `.worktrees/${worktreeMatch[1]}` : null;
     const branch = branchMatch ? `feat/${branchMatch[1]}` : null;
     if (worktree && branch) {
-      return `(${action.scope}) create or reuse worktree ${worktree} for branch ${branch}`;
+      return tr(lang, 'cli', 'context.commandDetail.branchCreateWithWorktree', {
+        scope: action.scope,
+        worktree,
+        branch,
+      });
     }
     if (branch) {
-      return `(${action.scope}) create or reuse worktree for branch ${branch}`;
+      return tr(lang, 'cli', 'context.commandDetail.branchCreateWithBranch', {
+        scope: action.scope,
+        branch,
+      });
     }
-    return `(${action.scope}) create or reuse feature branch worktree`;
+    return tr(lang, 'cli', 'context.commandDetail.branchCreateGeneric', {
+      scope: action.scope,
+    });
   };
 
   const extractCommitMessage = (command: string): string | null => {
@@ -211,10 +219,14 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
     }
     if (action.category === 'code_review') {
       if (/--merge\s+--confirm\s+OK/.test(action.cmd)) {
-        return `(${action.scope}) merge PR after explicit OK`;
+        return tr(lang, 'cli', 'context.commandDetail.codeReviewMergeAfterOk', {
+          scope: action.scope,
+        });
       }
       if (/\bgit\s+push\b/i.test(action.cmd)) {
-        return `(${action.scope}) push review-fix commits`;
+        return tr(lang, 'cli', 'context.commandDetail.codeReviewPushFix', {
+          scope: action.scope,
+        });
       }
     }
     if (action.category === 'worktree_cleanup') {
@@ -225,6 +237,9 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
       return `(${action.scope}) commit: ${commitMessage}`;
     }
     return `(${action.scope}) ${action.cmd}`;
+  }
+  if (action.category === 'task_execute') {
+    return toOneLine(action.message);
   }
   const detailKey = action.category ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category] : undefined;
   if (detailKey) {

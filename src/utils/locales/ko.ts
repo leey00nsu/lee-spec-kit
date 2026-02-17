@@ -103,34 +103,47 @@ const ko = {
       'context.suggestionCommandHint': '라벨 참고 명령: {command}',
       'context.suggestionFinalPrompt':
         '현재 추천 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
+      'context.commandDetail.branchCreateWithWorktree':
+        '({scope}) worktree {worktree}를 사용해 브랜치 {branch}를 생성하거나 재사용하세요',
+      'context.commandDetail.branchCreateWithBranch':
+        '({scope}) 브랜치 {branch}용 worktree를 생성하거나 재사용하세요',
+      'context.commandDetail.branchCreateGeneric':
+        '({scope}) feature 브랜치용 worktree를 생성하거나 재사용하세요',
+      'context.commandDetail.codeReviewMergeAfterOk':
+        '({scope}) 명시적 승인 후 PR을 머지하세요',
+      'context.commandDetail.codeReviewPushFix':
+        '({scope}) 리뷰 수정 커밋을 push하세요',
       'context.actionDetail.featureFolder': 'Feature 폴더와 기본 문서 골격을 준비하세요',
       'context.actionDetail.specWrite': 'spec.md를 작성/보완하고 상태를 맞추세요',
-      'context.actionDetail.specApprove': 'spec.md를 공유하고 명시적 승인을 요청하세요',
+      'context.actionDetail.specApprove': 'spec.md를 승인합니다',
       'context.actionDetail.planWrite': 'plan.md를 작성/보완하고 상태를 맞추세요',
-      'context.actionDetail.planApprove': 'plan.md를 공유하고 명시적 승인을 요청하세요',
+      'context.actionDetail.planApprove': 'plan.md를 승인합니다',
       'context.actionDetail.tasksWrite':
         'tasks.md를 작성/보완하고 문서 상태를 정렬하세요',
-      'context.actionDetail.tasksApprove':
-        'tasks.md를 공유하고 진행 승인을 요청하세요',
-      'context.actionDetail.issueCreate': '이슈 메타데이터를 준비/생성/동기화하세요',
-      'context.actionDetail.taskExecute': '현재 태스크 실행 단계를 진행하세요',
+      'context.actionDetail.tasksApprove': 'tasks.md를 승인합니다',
+      'context.actionDetail.issueCreate':
+        '이슈를 생성하고 tasks.md의 이슈 정보를 맞추세요',
+      'context.actionDetail.taskExecute': '현재 태스크를 진행하세요',
       'context.actionDetail.reviewFixCommit':
         '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
       'context.actionDetail.prePrReview':
-        'Pre-PR 리뷰 점검을 수행하고 Findings/Evidence를 기록하세요',
-      'context.actionDetail.prCreate': 'PR을 준비/생성하고 PR 메타데이터를 동기화하세요',
-      'context.actionDetail.prStatusUpdate': 'tasks.md의 PR 상태 필드를 업데이트하세요',
+        'PR 전 리뷰를 수행하고 결과를 기록하세요',
+      'context.actionDetail.prCreate':
+        'PR을 생성하고 tasks.md의 PR 정보를 맞추세요',
+      'context.actionDetail.prStatusUpdate':
+        'tasks.md의 PR 상태를 최신으로 업데이트하세요',
       'context.actionDetail.codeReview':
-        '리뷰 코멘트를 반영하고 Findings/Evidence를 최신화하세요',
+        '코드 리뷰 지적사항을 반영하고 PR 리뷰 정보를 업데이트하세요',
       'context.actionDetail.worktreeCleanup':
-        'feature worktree를 제거하고 stale worktree 엔트리를 정리하세요',
+        '완료된 feature worktree를 정리하세요',
       'context.actionDetail.prMetadataMigrate':
-        'tasks.md의 PR 필드를 최신 템플릿으로 마이그레이션하세요',
+        'tasks.md의 PR 항목 형식을 최신 템플릿으로 업데이트하세요',
       'context.actionDetail.userRequestReplan':
         '새 사용자 요구를 먼저 반영한 뒤 context를 다시 실행하세요',
-      'context.actionDetail.featureDone': '이 Feature의 워크플로우 완료 조건이 충족되었습니다',
+      'context.actionDetail.featureDone':
+        '이 Feature의 완료 조건이 모두 충족되었습니다',
       'context.actionDetail.fallback':
-        '현재 문서/상태를 점검한 뒤 context를 다시 실행하세요',
+        '현재 상태를 확인한 뒤 context를 다시 실행하세요',
       'context.suggestion.createFeature': '새 Feature를 생성합니다',
       'context.suggestion.runOnboard': '초기 설정 점검(onboard)을 실행합니다',
       'context.suggestion.showDone': '완료된 Feature 목록을 확인합니다',

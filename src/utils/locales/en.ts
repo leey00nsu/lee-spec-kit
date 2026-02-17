@@ -101,33 +101,45 @@ const en = {
       'context.suggestionCommandHint': 'Reference command: {command}',
       'context.suggestionFinalPrompt':
         'Recommended labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
+      'context.commandDetail.branchCreateWithWorktree':
+        '({scope}) create or reuse worktree {worktree} for branch {branch}',
+      'context.commandDetail.branchCreateWithBranch':
+        '({scope}) create or reuse worktree for branch {branch}',
+      'context.commandDetail.branchCreateGeneric':
+        '({scope}) create or reuse feature branch worktree',
+      'context.commandDetail.codeReviewMergeAfterOk':
+        '({scope}) merge PR after explicit OK',
+      'context.commandDetail.codeReviewPushFix':
+        '({scope}) push review-fix commits',
       'context.actionDetail.featureFolder': 'Prepare feature folder and baseline docs',
       'context.actionDetail.specWrite': 'Write or refine spec.md and set status',
-      'context.actionDetail.specApprove': 'Share spec.md and request explicit approval',
+      'context.actionDetail.specApprove': 'Approve spec.md',
       'context.actionDetail.planWrite': 'Write or refine plan.md and set status',
-      'context.actionDetail.planApprove': 'Share plan.md and request explicit approval',
+      'context.actionDetail.planApprove': 'Approve plan.md',
       'context.actionDetail.tasksWrite': 'Write or refine tasks.md and align document status',
-      'context.actionDetail.tasksApprove': 'Share tasks.md and request progress approval',
-      'context.actionDetail.issueCreate': 'Prepare and create/update issue metadata',
-      'context.actionDetail.taskExecute': 'Proceed with the current task execution step',
+      'context.actionDetail.tasksApprove': 'Approve tasks.md',
+      'context.actionDetail.issueCreate':
+        'Create the issue and sync issue fields in tasks.md',
+      'context.actionDetail.taskExecute': 'Proceed with the current task',
       'context.actionDetail.reviewFixCommit':
         'Create a review-fix commit with resolved feedback summary',
       'context.actionDetail.prePrReview':
-        'Complete pre-PR review checks and record findings/evidence',
-      'context.actionDetail.prCreate': 'Prepare or create PR and sync PR metadata',
-      'context.actionDetail.prStatusUpdate': 'Update PR status fields in tasks.md',
+        'Run pre-PR review and record results',
+      'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
+      'context.actionDetail.prStatusUpdate':
+        'Sync PR status in tasks.md with remote status',
       'context.actionDetail.codeReview':
-        'Address review comments and sync findings/evidence',
+        'Address review feedback and update PR review fields',
       'context.actionDetail.worktreeCleanup':
-        'remove the feature worktree and prune stale worktree entries',
+        'Clean up the completed feature worktree',
       'context.actionDetail.prMetadataMigrate':
-        'Migrate tasks.md PR fields to the latest template',
+        'Update tasks.md PR fields to the latest template format',
       'context.actionDetail.userRequestReplan':
         'Handle the new user request first and re-run context',
       'context.actionDetail.featureDone':
-        'All workflow checks are complete for this feature',
+        'All completion checks are satisfied for this feature',
       'context.actionDetail.fallback':
-        'Re-check context after verifying current docs/status',
+        'Verify current status and re-run context',
       'context.suggestion.createFeature': 'Create a new feature',
       'context.suggestion.runOnboard': 'Run onboarding checks',
       'context.suggestion.showDone': 'Show completed features',
