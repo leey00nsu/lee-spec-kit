@@ -20,7 +20,11 @@ npx lee-spec-kit context
 Execute exactly one option from `👉 Next Options (Atomic)` as printed by the CLI.
 
 - If the CLI points to an active task, focus on that task only.
-- Treat the task state/approval rules in `tasks.md` **"Task Rules"** as SSOT (e.g. when OK is required for `[TODO]→[DOING]`, `[DOING]→[DONE]`).
+- Treat task state transitions in `tasks.md` **"Task Rules"** as SSOT.
+- Treat `approvalRequest.required` from `context --json` as SSOT for approval waiting.
+  - `false`: continue without label approval.
+  - `true`: wait for label-token approval (`A`, `A OK`) before execution.
+- If `context --json` exposes `autoRun.available=true`, you may use `autoRun.command` to continue automatically until approval-required categories are reached.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow user-facing response format (including the final status/label block in every reply) from `agents.md` **"Label Response Contract (SSOT)"**.
 - For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
@@ -62,7 +66,7 @@ Use the feature’s `decisions.md` template format as final SSOT. (Context/Const
 ### Step 3.5: Commit per task (important)
 
 - Complete **only one task at a time** (do not batch-finish multiple tasks in one commit).
-- After you share the outcome/verification and get approval (OK), mark the task `[DONE]` (and update any checklist items), then create commits (code commit + docs commit) so each task has its own history.
+- After you share the outcome/verification, mark the task `[DONE]` (and update any checklist items). If approval is required (`approvalRequest.required=true`), wait for OK first. Then create commits (code commit + docs commit) so each task has its own history.
 - In `tasks.md` test logs, keep one entry per test command and update its date/result on reruns (do not keep appending duplicates). Use `YYYY-MM-DD` in local date.
 - If `context` shows `[CHECK required]`, for commits/push/merge, **share the commit message + included files and wait for explicit OK** before running the commands.
 - Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user and get **final approval (OK)**, then check it (especially the **Final user approval (OK) received** item).

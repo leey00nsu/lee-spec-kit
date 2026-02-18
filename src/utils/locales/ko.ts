@@ -103,6 +103,12 @@ const ko = {
       'context.suggestionCommandHint': '라벨 참고 명령: {command}',
       'context.suggestionFinalPrompt':
         '현재 추천 라벨: {labels}. 응답은 라벨 토큰 포함 형식으로 해주세요. (예: {example}, `A 진행해`)',
+      'context.autoRunUnavailable':
+        '현재 컨텍스트에서는 자동 실행을 사용할 수 없습니다.',
+      'context.autoRunSummary':
+        'config 기준으로 승인 필요 카테고리 전까지 연속 실행하세요: {categories}',
+      'context.autoRunCommandHint':
+        '자동 실행 명령(config 게이트): {command}',
       'context.commandDetail.branchCreateWithWorktree':
         '({scope}) worktree {worktree}를 사용해 브랜치 {branch}를 생성하거나 재사용하세요',
       'context.commandDetail.branchCreateWithBranch':
@@ -533,9 +539,9 @@ const ko = {
       tasksAllDoneButChecklist:
         '완료 조건 체크리스트의 남은 항목을 진행하세요. 현재 진행: ({checked}/{total}) 사용자와 확인 후 충족 항목을 [x]로 체크하고 최종 승인(OK)을 반영하세요.',
       finishDoingTask:
-        '현재 DOING/REVIEW 태스크를 수행하세요: "{title}" ({done}/{total}) 완료 시 결과/검증을 공유하고 승인(`A` 또는 `A OK` 형식)을 받은 뒤 DONE 처리',
+        '현재 DOING/REVIEW 태스크를 수행하세요: "{title}" ({done}/{total}) 완료 시 결과/검증을 공유하고 DONE 처리',
       startNextTodoTask:
-        '다음 TODO 태스크를 시작합니다: "{title}" ({done}/{total}) 승인(`A` 또는 `A OK` 형식) 후 DOING 처리',
+        '다음 TODO 태스크를 시작합니다: "{title}" ({done}/{total}) 작업을 시작하면 DOING 처리',
       checkTaskStatuses:
         '태스크 상태를 확인하세요. ({done}/{total})',
       taskCommitGateStrictBlock:

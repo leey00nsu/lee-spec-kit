@@ -101,6 +101,12 @@ const en = {
       'context.suggestionCommandHint': 'Reference command: {command}',
       'context.suggestionFinalPrompt':
         'Recommended labels now: {labels}. Please reply with a format that includes a label token. (e.g. {example}, `A proceed`)',
+      'context.autoRunUnavailable':
+        'Auto-run is not available in the current context.',
+      'context.autoRunSummary':
+        'Run continuously by config until approval-required categories appear: {categories}',
+      'context.autoRunCommandHint':
+        'Auto-run command (config-based gate): {command}',
       'context.commandDetail.branchCreateWithWorktree':
         '({scope}) create or reuse worktree {worktree} for branch {branch}',
       'context.commandDetail.branchCreateWithBranch':
@@ -548,9 +554,9 @@ const en = {
       tasksAllDoneButChecklist:
         'Proceed with remaining completion checklist items. Current progress: ({checked}/{total}) Mark items as [x] only after user confirmation and real verification. Record final approval (OK) as well.',
       finishDoingTask:
-        'Continue working on the current DOING/REVIEW task: "{title}" ({done}/{total}) After it is complete, share outcome/verification and get approval before marking DONE',
+        'Continue working on the current DOING/REVIEW task: "{title}" ({done}/{total}) After it is complete, share outcome/verification and mark it DONE',
       startNextTodoTask:
-        'Start the next TODO task: "{title}" ({done}/{total}) Get approval (`A` or `A OK`) before marking DOING',
+        'Start the next TODO task: "{title}" ({done}/{total}) Mark it DOING when you begin work',
       checkTaskStatuses:
         'Check task statuses. ({done}/{total})',
       taskCommitGateStrictBlock:

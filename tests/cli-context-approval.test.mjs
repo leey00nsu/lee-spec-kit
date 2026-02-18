@@ -60,6 +60,8 @@ test('context --json exposes generic label token policy', async () => {
     assert.deepEqual(payload.checkPolicy.checkRequiredCategories, []);
     assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, false);
     assert.deepEqual(payload.checkPolicy.requiredExplanationFields, []);
+    assert.equal(payload.autoRun?.available, false);
+    assert.equal(payload.autoRun?.reasonCode, 'NOT_SINGLE_MATCHED');
   });
 });
 

@@ -22,7 +22,9 @@ npx lee-spec-kit context
 CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단일 옵션**을 수행합니다.
 
 - **[DOING] 상태인 태스크가 있다면**: 해당 태스크를 최우선으로 완료하세요.
-- 태스크 상태 전환/승인 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다. (예: `[TODO]→[DOING]`, `[DOING]→[DONE]` 시점의 OK)
+- 태스크 상태 전환 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다.
+- 승인 대기 여부는 `context --json`의 `approvalRequest.required`를 SSOT로 따릅니다. `false`면 라벨 승인 없이 진행하고, `true`면 라벨 규칙(`A`, `A OK`)으로 승인 후 진행합니다.
+- `context --json`에 `autoRun.available=true`가 있으면 `autoRun.command`를 사용해 승인 필요 카테고리 전까지 자동 진행할 수 있습니다.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷(매 응답 말미의 상태/라벨 표시 포함)은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다.
 - 승인된 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
@@ -58,7 +60,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 
 #### 3-2) 태스크/체크리스트 업데이트 + 커밋
 
-1. 작업이 끝나면 결과/검증을 사용자에게 공유해 승인(OK)을 받은 뒤, 해당 태스크의 상태를 `[DONE]`으로 변경하고 `Acceptance/Checklist` 항목을 `[x]`로 체크합니다.
+1. 작업이 끝나면 결과/검증을 공유하고, 승인 대기(`approvalRequest.required=true`) 상태라면 승인(OK) 후 `[DONE]`으로 변경합니다. 이후 `Acceptance/Checklist` 항목을 `[x]`로 체크합니다.
 2. **한 번에 하나의 태스크만** `[DONE]` 처리합니다. (태스크 2개 이상을 한 번에 완료/커밋으로 묶지 않기)
 3. `tasks.md`의 테스트 실행 기록은 명령어별 1개 행만 유지하고, 같은 명령어 재실행 시 날짜/결과를 갱신합니다. (중복 누적 금지, 날짜 형식: 로컬 `YYYY-MM-DD`)
 4. 커밋을 생성합니다 (코드 커밋 + 문서 커밋). 태스크 단위로 커밋이 남아야 합니다.

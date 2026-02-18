@@ -1521,7 +1521,18 @@ test('context --execute-strict fails for instruction-only approved option', asyn
 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.approval = { mode: 'category', default: 'skip' };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: [
+        'spec_approve',
+        'plan_approve',
+        'tasks_approve',
+        'pr_create',
+        'code_review',
+        'pr_status_update',
+      ],
+    };
     await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
@@ -1721,7 +1732,18 @@ test('context --execute can run without ticket when approval policy skips check'
 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.approval = { mode: 'category', default: 'skip' };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: [
+        'spec_approve',
+        'plan_approve',
+        'tasks_approve',
+        'pr_create',
+        'code_review',
+        'pr_status_update',
+      ],
+    };
     await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
@@ -1736,6 +1758,20 @@ test('context --execute can run without ticket when approval policy skips check'
     assert.deepEqual(contextPayload.approvalRequest?.userFacingLines, []);
     assert.equal(contextPayload.checkPolicy?.approvalRequired, false);
     assert.deepEqual(contextPayload.checkPolicy?.checkRequiredLabels, []);
+    assert.equal(contextPayload.autoRun?.available, true);
+    assert.equal(contextPayload.autoRun?.reasonCode, 'AVAILABLE');
+    assert.deepEqual(contextPayload.autoRun?.untilCategories, [
+      'spec_approve',
+      'plan_approve',
+      'tasks_approve',
+      'pr_create',
+      'code_review',
+      'pr_status_update',
+    ]);
+    assert.match(
+      contextPayload.autoRun?.command || '',
+      /flow F001-alpha --auto-until-category spec_approve,plan_approve,tasks_approve,pr_create,code_review,pr_status_update/
+    );
 
     const approveOnly = await runCli(dir, [
       'context',

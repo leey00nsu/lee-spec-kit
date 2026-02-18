@@ -72,6 +72,26 @@ interface SuggestionOption {
   command: string;
 }
 
+type ApprovalConfig = NonNullable<Awaited<ReturnType<typeof getConfig>>>['approval'];
+
+type AutoRunReasonCode =
+  | 'AVAILABLE'
+  | 'NOT_SINGLE_MATCHED'
+  | 'NO_ACTION_OPTIONS'
+  | 'APPROVAL_REQUIRED'
+  | 'APPROVAL_MODE_NOT_CATEGORY'
+  | 'DEFAULT_NOT_SKIP'
+  | 'NO_REQUIRE_CHECK_CATEGORIES';
+
+interface AutoRunPlan {
+  available: boolean;
+  reasonCode: AutoRunReasonCode;
+  summary: string;
+  command: string;
+  untilCategories: string[];
+  unknownCategories: string[];
+}
+
 async function resolveContextState(
   config: Awaited<ReturnType<typeof getConfig>>,
   featureName: string | undefined,
@@ -169,6 +189,96 @@ function buildSuggestionFinalPrompt(
     labels,
     example,
   });
+}
+
+function normalizeCategoryToken(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  return normalized;
+}
+
+function resolveAutoRunCategories(approval: ApprovalConfig): {
+  untilCategories: string[];
+  unknownCategories: string[];
+} {
+  const known = new Set<string>(ACTION_CATEGORIES);
+  const unique = new Set<string>();
+  const unknown = new Set<string>();
+  for (const raw of approval?.requireCheckCategories ?? approval?.requireOkCategories ?? []) {
+    const normalized = normalizeCategoryToken(raw);
+    if (!normalized) continue;
+    if (known.has(normalized)) {
+      unique.add(normalized);
+    } else {
+      unknown.add(normalized);
+    }
+  }
+  return {
+    untilCategories: Array.from(unique),
+    unknownCategories: Array.from(unknown),
+  };
+}
+
+function buildAutoRunCommand(
+  state: ResolvedContextState,
+  featureName: string | undefined,
+  selectedComponent: string,
+  untilCategories: string[]
+): string {
+  if (untilCategories.length === 0) return '';
+  const featureRef = resolveFeatureRefForApproval(state, featureName);
+  const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
+  return `npx lee-spec-kit flow ${featureRef}${componentArg} --auto-until-category ${untilCategories.join(',')}`;
+}
+
+function resolveAutoRunPlan(
+  lang: 'ko' | 'en',
+  state: ResolvedContextState,
+  featureName: string | undefined,
+  selectedComponent: string,
+  approval: ApprovalConfig,
+  approvalRequired: boolean
+): AutoRunPlan {
+  const base = (reasonCode: AutoRunReasonCode, untilCategories: string[] = [], unknownCategories: string[] = []): AutoRunPlan => ({
+    available: false,
+    reasonCode,
+    summary: tr(lang, 'cli', 'context.autoRunUnavailable'),
+    command: '',
+    untilCategories,
+    unknownCategories,
+  });
+
+  if (state.status !== 'single_matched') return base('NOT_SINGLE_MATCHED');
+  if (state.actionOptions.length === 0) return base('NO_ACTION_OPTIONS');
+  if (approvalRequired) return base('APPROVAL_REQUIRED');
+
+  const mode = approval?.mode ?? 'builtin';
+  if (mode !== 'category') return base('APPROVAL_MODE_NOT_CATEGORY');
+
+  const defaultPolicy = approval?.default ?? 'keep';
+  if (defaultPolicy !== 'skip') return base('DEFAULT_NOT_SKIP');
+
+  const { untilCategories, unknownCategories } = resolveAutoRunCategories(approval);
+  if (untilCategories.length === 0) {
+    return base('NO_REQUIRE_CHECK_CATEGORIES', [], unknownCategories);
+  }
+
+  return {
+    available: true,
+    reasonCode: 'AVAILABLE',
+    summary: tr(lang, 'cli', 'context.autoRunSummary', {
+      categories: untilCategories.join(', '),
+    }),
+    command: buildAutoRunCommand(
+      state,
+      featureName,
+      selectedComponent,
+      untilCategories
+    ),
+    untilCategories,
+    unknownCategories,
+  };
 }
 
 function toSuggestionLabel(index: number): string {
@@ -685,6 +795,34 @@ async function runContext(
     selectedComponent
   );
   const suggestionFinalPrompt = buildSuggestionFinalPrompt(lang, suggestionOptions);
+  const checkRequiredLabels = state.actionOptions
+    .filter((option) => !!option.action.requiresUserCheck)
+    .map((option) => option.label);
+  const checkRequiredCategories = [
+    ...new Set(
+      state.actionOptions
+        .filter((option) => !!option.action.requiresUserCheck)
+        .map((option) => option.action.category || 'uncategorized')
+    ),
+  ];
+  const approvalRequired = checkRequiredLabels.length > 0;
+  const finalApprovalPrompt = approvalRequired
+    ? buildFinalApprovalPrompt(lang, state.actionOptions)
+    : '';
+  const approvalUserFacingLines = approvalRequired
+    ? [
+        ...state.actionOptions.map((o) => o.approvalPrompt),
+        finalApprovalPrompt,
+      ].filter((line) => line.length > 0)
+    : [];
+  const autoRunPlan = resolveAutoRunPlan(
+    lang,
+    state,
+    featureName,
+    selectedComponent,
+    config.approval,
+    approvalRequired
+  );
 
   if (options.approve || options.execute) {
     await runApprovedOption(
@@ -703,26 +841,6 @@ async function runContext(
   // 2. 결과 출력 (JSON)
   if (jsonMode) {
     const primaryAction = state.actionOptions[0] ?? null;
-    const checkRequiredLabels = state.actionOptions
-      .filter((option) => !!option.action.requiresUserCheck)
-      .map((option) => option.label);
-    const checkRequiredCategories = [
-      ...new Set(
-        state.actionOptions
-          .filter((option) => !!option.action.requiresUserCheck)
-          .map((option) => option.action.category || 'uncategorized')
-      ),
-    ];
-    const approvalRequired = checkRequiredLabels.length > 0;
-    const finalApprovalPrompt = approvalRequired
-      ? buildFinalApprovalPrompt(lang, state.actionOptions)
-      : '';
-    const approvalUserFacingLines = approvalRequired
-      ? [
-          ...state.actionOptions.map((o) => o.approvalPrompt),
-          finalApprovalPrompt,
-        ].filter((line) => line.length > 0)
-      : [];
     const approveCommand = buildApprovalCommand(
       state,
       featureName,
@@ -800,6 +918,14 @@ async function runContext(
           requireFreshContext: true,
           contextVersion: state.contextVersion,
           config: config.approval ?? { mode: 'builtin' },
+        },
+        autoRun: {
+          available: autoRunPlan.available,
+          reasonCode: autoRunPlan.reasonCode,
+          summary: autoRunPlan.summary,
+          command: autoRunPlan.command,
+          untilCategories: autoRunPlan.untilCategories,
+          unknownCategories: autoRunPlan.unknownCategories,
         },
         approvalRequest: {
           required: approvalRequired,
@@ -887,6 +1013,16 @@ async function runContext(
         requireFreshContext: true,
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
+      },
+      autoRun: {
+        available: autoRunPlan.available,
+        reasonCode: autoRunPlan.reasonCode,
+        summary: autoRunPlan.summary,
+        command: autoRunPlan.command,
+        untilCategories: autoRunPlan.untilCategories,
+        unknownCategories: autoRunPlan.unknownCategories,
+        guidance:
+          'Use auto-run only when `autoRun.available=true`. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
       },
       approvalRequest: {
         guidance:
@@ -1134,7 +1270,7 @@ async function runContext(
     requiresUserCheck
       ? chalk.yellow(tr(lang, 'cli', 'context.checkRequired'))
       : '';
-  const hasCheckAction = (f.actions || []).some((a) => !!a.requiresUserCheck);
+  const hasCheckAction = approvalRequired;
 
   console.log(
     `🔹 Feature: ${chalk.bold(f.folderName)} ${config.projectType === 'multi' ? chalk.cyan(`(${f.type})`) : ''}`
@@ -1214,8 +1350,17 @@ async function runContext(
       );
     }
   }
+  if (autoRunPlan.available) {
+    console.log(chalk.gray(`   ↳ ${autoRunPlan.summary}`));
+    console.log(
+      chalk.gray(
+        `   ↳ ${tr(lang, 'cli', 'context.autoRunCommandHint', {
+          command: autoRunPlan.command,
+        })}`
+      )
+    );
+  }
   if (actionOptions.length > 0 && hasCheckAction) {
-    const finalApprovalPrompt = buildFinalApprovalPrompt(lang, actionOptions);
     const approveCommand = buildApprovalCommand(
       state,
       featureName,
