@@ -78,16 +78,6 @@ export interface ProjectConfig {
        * - builtin-checklist: pre-PR baseline checklist in create-pr doc
        */
       fallback?: 'builtin-checklist';
-      /**
-       * When true (default), major findings should be addressed before PR creation.
-       */
-      blockOnFindings?: boolean;
-      /**
-       * How to handle minor findings.
-       * - warn (default): allow PR creation after sharing minor risks
-       * - block: require resolving/alignment before PR creation
-       */
-      minorPolicy?: 'warn' | 'block';
     };
     /**
      * Auto-run policy used by `flow` helper shortcuts.

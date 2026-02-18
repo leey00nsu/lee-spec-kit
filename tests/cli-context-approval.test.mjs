@@ -791,8 +791,6 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.equal(payload.prePrReviewPolicy.enabled, true);
     assert.deepEqual(payload.prePrReviewPolicy.skills, ['code-review-excellence']);
     assert.equal(payload.prePrReviewPolicy.fallback, 'builtin-checklist');
-    assert.equal(payload.prePrReviewPolicy.blockOnFindings, true);
-    assert.equal(payload.prePrReviewPolicy.minorPolicy, 'warn');
   });
 });
 
@@ -824,7 +822,6 @@ test('context pre-PR review requires evidence before PR step when review is mark
       requireReview: true,
       prePrReview: {
         skills: ['code-review-excellence'],
-        blockOnFindings: true,
       },
     };
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
@@ -904,7 +901,6 @@ test('context pre-PR review requires decision before PR step when review is mark
       requireReview: true,
       prePrReview: {
         skills: ['code-review-excellence'],
-        blockOnFindings: true,
       },
     };
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
@@ -984,7 +980,6 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
       requireReview: true,
       prePrReview: {
         skills: ['code-review-excellence'],
-        blockOnFindings: true,
       },
     };
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
@@ -1070,8 +1065,6 @@ test('context pre-PR review ignores findings policy when evidence and decision a
       requireReview: true,
       prePrReview: {
         skills: ['code-review-excellence'],
-        blockOnFindings: true,
-        minorPolicy: 'block',
       },
     };
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');

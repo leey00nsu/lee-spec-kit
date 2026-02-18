@@ -303,8 +303,6 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
-    assert.equal(config.workflow?.prePrReview?.blockOnFindings, true);
-    assert.equal(config.workflow?.prePrReview?.minorPolicy, 'warn');
     assert.equal(config.approval?.mode, 'builtin');
     assert.equal(config.pr?.screenshots?.upload, false);
   });
@@ -372,7 +370,6 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
       'code-review-excellence',
     ]);
-    assert.equal(nextConfig.workflow?.prePrReview?.minorPolicy, 'warn');
     assert.equal(nextConfig.pr?.screenshots?.upload, false);
     assert.equal(nextConfig.approval?.mode, 'builtin');
   });
@@ -441,7 +438,6 @@ test('update keeps explicit config values and only fills missing keys', async ()
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
     assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'custom-handoff');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, ['custom-skill']);
-    assert.equal(nextConfig.workflow?.prePrReview?.minorPolicy, 'warn');
     assert.equal(nextConfig.pr?.screenshots?.upload, true);
     assert.equal(nextConfig.approval?.mode, 'steps');
     assert.deepEqual(nextConfig.approval?.requireCheckSteps, [10]);

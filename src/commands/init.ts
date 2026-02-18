@@ -641,7 +641,6 @@ async function runInit(options: InitOptions): Promise<void> {
           },
           prePrReview: {
             skills: ['code-review-excellence'],
-            minorPolicy: 'warn',
           },
         },
         pr: {

@@ -11,14 +11,11 @@ export interface WorkflowPolicy {
 export type CodeDirtyScopePolicy = 'repo' | 'component';
 export type TaskCommitGatePolicy = 'off' | 'warn' | 'strict';
 export type PrePrReviewFallbackPolicy = 'builtin-checklist';
-export type PrePrReviewMinorPolicy = 'warn' | 'block';
 
 export interface PrePrReviewPolicy {
   enabled: boolean;
   skills: string[];
   fallback: PrePrReviewFallbackPolicy;
-  blockOnFindings: boolean;
-  minorPolicy: PrePrReviewMinorPolicy;
 }
 
 const DEFAULT_PRE_PR_REVIEW_SKILLS = ['code-review-excellence'];
@@ -130,11 +127,5 @@ export function resolvePrePrReviewPolicy(
       configured?.fallback === 'builtin-checklist'
         ? configured.fallback
         : 'builtin-checklist',
-    blockOnFindings:
-      typeof configured?.blockOnFindings === 'boolean'
-        ? configured.blockOnFindings
-        : true,
-    minorPolicy:
-      configured?.minorPolicy === 'block' ? 'block' : 'warn',
   };
 }
