@@ -17,6 +17,8 @@ import {
 import { ACTION_CATEGORIES } from '../utils/context.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
 
+type LoadedConfig = NonNullable<Awaited<ReturnType<typeof getConfig>>>;
+
 interface FlowOptions extends ContextSelectionOptions {
   json?: boolean;
   approve?: string;
@@ -25,6 +27,7 @@ interface FlowOptions extends ContextSelectionOptions {
   strict?: boolean;
   request?: string;
   autoUntilCategory?: string;
+  autoPreset?: string;
 }
 
 interface AutoRunExecution {
@@ -43,6 +46,8 @@ interface AutoRunSummary {
   enabled: true;
   untilCategories: string[];
   request?: string;
+  preset?: string | null;
+  source?: string | null;
   status:
     | 'gate_reached'
     | 'manual_required'
@@ -80,6 +85,21 @@ interface AutoRunSummary {
       }
     | null;
   error?: string;
+}
+
+const BUILTIN_AUTO_PRESETS: Record<string, string[]> = {
+  'pr-handoff': ['pr_create', 'code_review', 'pr_status_update'],
+};
+
+interface AutoPresetResolution {
+  preset: string;
+  categories: string[];
+}
+
+interface AutoModeResolution {
+  untilCategories: string[];
+  preset: string | null;
+  source: string;
 }
 
 interface CliRunResult {
@@ -140,26 +160,136 @@ function buildSelectionArgs(
   return args;
 }
 
-function parseAutoUntilCategories(raw: string): string[] {
-  const requested = raw
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
+function normalizeAutoCategories(values: string[], sourceLabel: string): string[] {
+  const requested = values.map((value) => value.trim()).filter(Boolean);
   if (requested.length === 0) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--auto-until-category` requires at least one category.'
+      `${sourceLabel} requires at least one category.`
     );
   }
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const category of requested) {
+    if (seen.has(category)) continue;
+    seen.add(category);
+    deduped.push(category);
+  }
   const allowed = new Set<string>(ACTION_CATEGORIES);
-  const invalid = requested.filter((category) => !allowed.has(category));
+  const invalid = deduped.filter((category) => !allowed.has(category));
   if (invalid.length > 0) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      `Unknown category in --auto-until-category: ${invalid.join(', ')}. Known categories: ${ACTION_CATEGORIES.join(', ')}`
+      `Unknown category in ${sourceLabel}: ${invalid.join(', ')}. Known categories: ${ACTION_CATEGORIES.join(', ')}`
     );
   }
-  return requested;
+  return deduped;
+}
+
+function parseAutoUntilCategories(raw: string): string[] {
+  return normalizeAutoCategories(raw.split(','), '`--auto-until-category`');
+}
+
+function normalizePresetName(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+function resolveConfiguredPresetMap(config: LoadedConfig): Map<string, string[]> {
+  const presets = new Map<string, string[]>();
+  for (const [name, categories] of Object.entries(BUILTIN_AUTO_PRESETS)) {
+    presets.set(name, normalizeAutoCategories(categories, `builtin preset "${name}"`));
+  }
+  const configuredPresets = config.workflow?.auto?.presets;
+  if (!configuredPresets || typeof configuredPresets !== 'object') return presets;
+  for (const [rawName, rawCategories] of Object.entries(configuredPresets)) {
+    const name = normalizePresetName(rawName);
+    if (!name) continue;
+    if (!Array.isArray(rawCategories)) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `workflow.auto.presets.${name} must be a string array of categories.`
+      );
+    }
+    presets.set(
+      name,
+      normalizeAutoCategories(
+        rawCategories.map((value) => String(value || '')),
+        `workflow.auto.presets.${name}`
+      )
+    );
+  }
+  return presets;
+}
+
+function resolvePresetCategories(
+  config: LoadedConfig,
+  rawPresetName: string
+): AutoPresetResolution {
+  const presetName = normalizePresetName(rawPresetName);
+  if (!presetName) {
+    throw createCliError('INVALID_ARGUMENT', '`--auto-preset` requires a preset name.');
+  }
+  const presetMap = resolveConfiguredPresetMap(config);
+  const categories = presetMap.get(presetName);
+  if (!categories) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      `Unknown auto preset: ${presetName}. Known presets: ${[...presetMap.keys()].sort().join(', ')}`
+    );
+  }
+  return {
+    preset: presetName,
+    categories,
+  };
+}
+
+function resolveConfigDefaultAutoMode(config: LoadedConfig): AutoModeResolution | null {
+  const autoPolicy = config.workflow?.auto;
+  if (!autoPolicy) return null;
+  if (Array.isArray(autoPolicy.defaultUntilCategories) && autoPolicy.defaultUntilCategories.length > 0) {
+    return {
+      untilCategories: normalizeAutoCategories(
+        autoPolicy.defaultUntilCategories.map((value) => String(value || '')),
+        'workflow.auto.defaultUntilCategories'
+      ),
+      preset: null,
+      source: 'config:workflow.auto.defaultUntilCategories',
+    };
+  }
+  const defaultPreset = normalizePresetName(autoPolicy.defaultPreset || '');
+  if (!defaultPreset) return null;
+  const resolved = resolvePresetCategories(config, defaultPreset);
+  return {
+    untilCategories: resolved.categories,
+    preset: resolved.preset,
+    source: 'config:workflow.auto.defaultPreset',
+  };
+}
+
+function resolveAutoMode(
+  config: LoadedConfig,
+  options: FlowOptions,
+  requestText: string | undefined
+): AutoModeResolution | null {
+  if (options.autoUntilCategory) {
+    return {
+      untilCategories: parseAutoUntilCategories(options.autoUntilCategory),
+      preset: null,
+      source: 'flag:--auto-until-category',
+    };
+  }
+  if (options.autoPreset) {
+    const resolved = resolvePresetCategories(config, options.autoPreset);
+    return {
+      untilCategories: resolved.categories,
+      preset: resolved.preset,
+      source: 'flag:--auto-preset',
+    };
+  }
+  if (requestText) {
+    return resolveConfigDefaultAutoMode(config);
+  }
+  return null;
 }
 
 function toAutoReasonCode(status: AutoRunSummary['status']): AutoRunSummary['reasonCode'] {
@@ -185,11 +315,12 @@ function toAutoReasonCode(status: AutoRunSummary['status']): AutoRunSummary['rea
 }
 
 async function runAutoUntilCategory(
-  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  config: LoadedConfig,
   featureName: string,
   selectionOptions: ContextSelectionOptions,
   untilCategories: string[],
-  requestText: string | undefined
+  requestText: string | undefined,
+  metadata?: { preset?: string | null; source?: string | null }
 ): Promise<AutoRunSummary> {
   const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
   const gateSet = new Set(untilCategories);
@@ -225,6 +356,8 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
         status: 'no_progress',
         reasonCode: toAutoReasonCode('no_progress'),
         iterations,
@@ -241,6 +374,8 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
         status: 'selection_required',
         reasonCode: toAutoReasonCode('selection_required'),
         iterations,
@@ -257,6 +392,8 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
         status: 'no_action_options',
         reasonCode: toAutoReasonCode('no_action_options'),
         iterations,
@@ -275,6 +412,8 @@ async function runAutoUntilCategory(
           enabled: true,
           untilCategories,
           request: requestText,
+          preset: metadata?.preset ?? null,
+          source: metadata?.source ?? null,
           status: 'request_label_missing',
           reasonCode: toAutoReasonCode('request_label_missing'),
           iterations,
@@ -309,6 +448,8 @@ async function runAutoUntilCategory(
           enabled: true,
           untilCategories,
           request: requestText,
+          preset: metadata?.preset ?? null,
+          source: metadata?.source ?? null,
           status: 'request_failed',
           reasonCode: toAutoReasonCode('request_failed'),
           iterations,
@@ -340,6 +481,8 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
         status: 'gate_reached',
         reasonCode: toAutoReasonCode('gate_reached'),
         iterations,
@@ -361,6 +504,8 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
         status: 'manual_required',
         reasonCode: toAutoReasonCode('manual_required'),
         iterations,
@@ -403,6 +548,8 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
         status: 'execution_failed',
         reasonCode: toAutoReasonCode('execution_failed'),
         iterations,
@@ -468,6 +615,10 @@ export function flowCommand(program: Command): void {
     .option(
       '--request <text>',
       'Apply a new user request first via user_request_replan when auto mode is enabled'
+    )
+    .option(
+      '--auto-preset <name>',
+      'Auto-run command actions using a named preset (example: pr-handoff)'
     )
     .option(
       '--auto-until-category <categories>',
@@ -538,28 +689,36 @@ async function runFlow(
       '`--execute` requires `--approve <reply>`.'
     );
   }
-  if (options.autoUntilCategory && options.approve) {
+  const requestText = options.request?.trim() || undefined;
+  if (options.autoPreset && options.autoUntilCategory) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--auto-until-category` cannot be combined with `--approve`.'
+      '`--auto-preset` cannot be combined with `--auto-until-category`.'
     );
   }
-  if (options.autoUntilCategory && options.execute) {
+  const autoMode = resolveAutoMode(config, options, requestText);
+  if (autoMode && options.approve) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--auto-until-category` cannot be combined with `--execute`.'
+      'Auto mode cannot be combined with `--approve`.'
     );
   }
-  if (options.request && !options.autoUntilCategory) {
+  if (autoMode && options.execute) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--request` requires `--auto-until-category`.'
+      'Auto mode cannot be combined with `--execute`.'
     );
   }
-  if (options.autoUntilCategory && !featureName) {
+  if (requestText && !autoMode) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--request` requires auto mode. Use `--auto-until-category`, `--auto-preset`, or configure `workflow.auto.defaultPreset`.'
+    );
+  }
+  if (autoMode && !featureName) {
     throw createCliError(
       'CONTEXT_SELECTION_REQUIRED',
-      '`--auto-until-category` requires explicit <feature-name> (e.g. F004).'
+      'Auto mode requires explicit <feature-name> (e.g. F004).'
     );
   }
 
@@ -577,14 +736,14 @@ async function runFlow(
   let approvalResult: unknown = null;
   let autoRun: AutoRunSummary | null = null;
   const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
-  if (options.autoUntilCategory) {
-    const untilCategories = parseAutoUntilCategories(options.autoUntilCategory);
+  if (autoMode) {
     autoRun = await runAutoUntilCategory(
       config,
       featureName as string,
       selectionOptions,
-      untilCategories,
-      options.request?.trim() || undefined
+      autoMode.untilCategories,
+      requestText,
+      { preset: autoMode.preset, source: autoMode.source }
     );
   } else if (options.approve) {
     const approveArgs = [...contextArgs, '--approve', options.approve];
@@ -701,9 +860,10 @@ async function runFlow(
     );
   }
   if (autoRun) {
+    const presetSuffix = autoRun.preset ? `, preset ${autoRun.preset}` : '';
     console.log(
       chalk.gray(
-        `- Auto: ${autoRun.status} (${autoRun.reasonCode}), iterations ${autoRun.iterations}, executions ${autoRun.executions.length}`
+        `- Auto: ${autoRun.status} (${autoRun.reasonCode}), iterations ${autoRun.iterations}, executions ${autoRun.executions.length}${presetSuffix}`
       )
     );
   }
@@ -732,6 +892,7 @@ async function runFlow(
     for (const line of autoRun.gate.userFacingLines) {
       console.log(line);
     }
+    console.log(chalk.gray('Auto gate reached. Reply with one of the labels shown above (example: A OK).'));
     console.log();
   }
   if (after.matchedFeature) {

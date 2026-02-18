@@ -373,8 +373,14 @@ npx lee-spec-kit flow F001 --approve A --execute
 # 자동 진행: 특정 category가 나오면 멈추고 사용자 승인 대기
 npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update
 
+# 자동 진행: preset 사용
+npx lee-spec-kit flow F004 --auto-preset pr-handoff
+
 # 자동 진행 + 새 요청 선반영(user_request_replan 우선 실행)
 npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진행해" --auto-until-category pr_create,code_review,pr_status_update
+
+# 기본 preset 설정 시 더 짧게 실행 가능
+npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진행해"
 
 # 에이전트 파이프라인용 JSON
 npx lee-spec-kit flow --json
@@ -392,6 +398,7 @@ npx lee-spec-kit flow --strict
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
 | `--request <text>` | auto 모드에서 새 사용자 요청을 먼저 반영 (`user_request_replan` 라벨 자동 선택) |
+| `--auto-preset <name>` | 이름 기반 auto preset 사용 (기본 제공: `pr-handoff`) |
 | `--auto-until-category <categories>` | command 액션을 자동 실행하다가 지정 category 중 하나가 나오면 중지 (쉼표 구분) |
 | `--approve <reply>`| context 라벨 승인 응답 전달 (예: `A`, `A OK`, `A 진행해`) |
 | `--execute`        | 승인한 옵션이 command일 때 실행 (`requiresUserCheck=true`면 티켓 연동, 아니면 티켓 없이 실행) |
@@ -399,9 +406,10 @@ npx lee-spec-kit flow --strict
 | `--strict`         | `status --strict`, `doctor --strict`까지 함께 검사 |
 
 자동 게이트 모드 규칙:
-- `--auto-until-category` 사용 시 `<feature-name>`은 필수입니다. (예: `F004`)
-- `--auto-until-category`는 `--approve`, `--execute`와 함께 사용할 수 없습니다.
-- `--request`는 `--auto-until-category`와 함께만 사용할 수 있습니다.
+- auto 모드(`--auto-until-category`/`--auto-preset`) 사용 시 `<feature-name>`은 필수입니다. (예: `F004`)
+- auto 모드(`--auto-until-category`/`--auto-preset`)는 `--approve`, `--execute`와 함께 사용할 수 없습니다.
+- `--request`는 auto 모드와 함께 사용해야 합니다.
+  - 예외적으로 `workflow.auto.defaultPreset`이 설정되어 있으면 `--request`만으로도 auto 모드가 활성화됩니다.
 - 자동 진행은 지정한 category가 등장하면 `gate_reached`로 멈추고, 해당 단계의 승인 문구(`approvalRequest.userFacingLines`)를 그대로 출력합니다.
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
 - JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`로 상세 상태를 확인할 수 있습니다.
@@ -618,6 +626,11 @@ npx lee-spec-kit update --force
     - 상세 기준은 `docs get create-pr --json`의 `Pre-PR 기본 체크리스트` 섹션을 단일 기준으로 사용
   - `blockOnFindings` (선택): 주요 이슈 발견 시 PR 생성 전 해결/합의를 요구할지 여부 (기본: `true`)
   - `minorPolicy` (선택): minor 이슈 정책 (`warn` | `block`, 기본: `warn`)
+- `workflow.auto`:
+  - `defaultPreset` (선택): `flow --request "<요청>"` 실행 시 기본으로 사용할 auto preset 이름 (기본: `"pr-handoff"`)
+  - `defaultUntilCategories` (선택): 기본 gate category 목록 (설정 시 `defaultPreset`보다 우선)
+  - `presets` (선택): 사용자 정의 preset 맵
+    - 예: `"my-handoff": ["pr_create", "code_review"]`
 
 예시:
 
@@ -627,6 +640,12 @@ npx lee-spec-kit update --force
     "mode": "github",
     "codeDirtyScope": "auto",
     "taskCommitGate": "warn",
+    "auto": {
+      "defaultPreset": "pr-handoff",
+      "presets": {
+        "my-handoff": ["pr_create", "code_review", "pr_status_update"]
+      }
+    },
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",

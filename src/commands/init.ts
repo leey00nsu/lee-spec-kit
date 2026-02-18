@@ -636,6 +636,9 @@ async function runInit(options: InitOptions): Promise<void> {
           mode: workflowMode,
           codeDirtyScope: 'auto',
           taskCommitGate: 'warn',
+          auto: {
+            defaultPreset: 'pr-handoff',
+          },
           prePrReview: {
             skills: ['code-review-excellence'],
             minorPolicy: 'warn',

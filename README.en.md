@@ -354,8 +354,14 @@ npx lee-spec-kit flow F001 --approve A --execute
 # auto-run: stop and wait for approval when one of target categories appears
 npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update
 
+# auto-run using preset
+npx lee-spec-kit flow F004 --auto-preset pr-handoff
+
 # auto-run + apply new request first (runs user_request_replan first)
 npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed" --auto-until-category pr_create,code_review,pr_status_update
+
+# with default preset configured, request-only auto mode is available
+npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed"
 
 # JSON output for automation
 npx lee-spec-kit flow --json
@@ -373,6 +379,7 @@ npx lee-spec-kit flow --strict
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
 | `--request <text>` | In auto mode, apply a new user request first (auto-selects `user_request_replan`) |
+| `--auto-preset <name>` | Use a named auto preset (builtin: `pr-handoff`) |
 | `--auto-until-category <categories>` | Auto-execute command actions until one of target categories appears (comma-separated) |
 | `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
 | `--execute`       | Execute approved option when it is a command (ticket is required only when `requiresUserCheck=true`) |
@@ -380,9 +387,10 @@ npx lee-spec-kit flow --strict
 | `--strict`        | Also run `status --strict` and `doctor --strict` |
 
 Auto gate mode rules:
-- `<feature-name>` is required with `--auto-until-category` (for example `F004`).
-- `--auto-until-category` cannot be combined with `--approve` or `--execute`.
-- `--request` can be used only with `--auto-until-category`.
+- `<feature-name>` is required with auto mode (`--auto-until-category` / `--auto-preset`) (for example `F004`).
+- Auto mode (`--auto-until-category` / `--auto-preset`) cannot be combined with `--approve` or `--execute`.
+- `--request` requires auto mode.
+  - Exception: if `workflow.auto.defaultPreset` is configured, `--request` alone enables auto mode.
 - Auto-run stops as `gate_reached` when a target category appears, then prints that step's approval text (`approvalRequest.userFacingLines`).
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
 - In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, and `autoRun.executions`.
@@ -570,6 +578,11 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
     - Use the `Pre-PR Baseline Checklist` section in `docs get create-pr --json` as the single source of truth
   - `blockOnFindings` (optional): require major findings to be resolved/aligned before PR creation (default: `true`)
   - `minorPolicy` (optional): minor findings policy (`warn` | `block`, default: `warn`)
+- `workflow.auto`:
+  - `defaultPreset` (optional): default auto preset used by `flow --request "<text>"` (default: `"pr-handoff"`)
+  - `defaultUntilCategories` (optional): default gate categories (takes precedence over `defaultPreset`)
+  - `presets` (optional): custom preset map
+    - Example: `"my-handoff": ["pr_create", "code_review"]`
 
 Example:
 
@@ -579,6 +592,12 @@ Example:
     "mode": "github",
     "codeDirtyScope": "auto",
     "taskCommitGate": "warn",
+    "auto": {
+      "defaultPreset": "pr-handoff",
+      "presets": {
+        "my-handoff": ["pr_create", "code_review", "pr_status_update"]
+      }
+    },
     "prePrReview": {
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",

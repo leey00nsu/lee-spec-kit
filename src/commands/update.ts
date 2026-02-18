@@ -256,6 +256,12 @@ async function backfillMissingConfigDefaults(
   setIfMissing(workflow, 'mode', 'github', 'workflow.mode');
   setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');
   setIfMissing(workflow, 'taskCommitGate', 'warn', 'workflow.taskCommitGate');
+  if (!isPlainObject(workflow.auto)) {
+    workflow.auto = {};
+    changedPaths.push('workflow.auto');
+  }
+  const workflowAuto = workflow.auto as Record<string, unknown>;
+  setIfMissing(workflowAuto, 'defaultPreset', 'pr-handoff', 'workflow.auto.defaultPreset');
 
   if (!isPlainObject(workflow.prePrReview)) {
     workflow.prePrReview = {};

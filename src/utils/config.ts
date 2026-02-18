@@ -89,6 +89,24 @@ export interface ProjectConfig {
        */
       minorPolicy?: 'warn' | 'block';
     };
+    /**
+     * Auto-run policy used by `flow` helper shortcuts.
+     */
+    auto?: {
+      /**
+       * Default preset name used when `flow --request` is provided without
+       * explicit auto category/preset flags.
+       */
+      defaultPreset?: string;
+      /**
+       * Optional explicit default categories used before `defaultPreset`.
+       */
+      defaultUntilCategories?: string[];
+      /**
+       * Optional custom preset map. Key is preset name, value is category list.
+       */
+      presets?: Record<string, string[]>;
+    };
   };
   approval?: {
     /**

@@ -158,6 +158,120 @@ test('flow --json auto-until-category applies --request via user_request_replan 
   });
 });
 
+test('flow --json auto-preset pr-handoff resolves categories and enters auto mode', async () => {
+  await withTempDir('lsk-flow-auto-preset-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-preset',
+      'pr-handoff',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.autoRun?.enabled, true);
+    assert.equal(payload.autoRun?.preset, 'pr-handoff');
+    assert.equal(payload.autoRun?.source, 'flag:--auto-preset');
+    assert.deepEqual(payload.autoRun?.untilCategories, [
+      'pr_create',
+      'code_review',
+      'pr_status_update',
+    ]);
+  });
+});
+
+test('flow --json --request uses workflow.auto.defaultPreset when no auto flag is provided', async () => {
+  await withTempDir('lsk-flow-auto-default-preset-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--request',
+      'issue 004를 F004로 승격시켜서 진행해',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.autoRun?.enabled, true);
+    assert.equal(payload.autoRun?.preset, 'pr-handoff');
+    assert.equal(payload.autoRun?.source, 'config:workflow.auto.defaultPreset');
+    assert.notEqual(payload.autoRun?.status, 'request_label_missing');
+  });
+});
+
+test('flow rejects unknown --auto-preset values', async () => {
+  await withTempDir('lsk-flow-auto-preset-unknown-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-preset',
+      'unknown-preset',
+      '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'INVALID_ARGUMENT');
+    assert.match(payload.error, /Unknown auto preset/i);
+  });
+});
+
 test('flow --json includes approval result when approve is provided', async () => {
   await withTempDir('lsk-flow-approve-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -467,7 +581,7 @@ test(
 }
 );
 
-test('init writes workflow.codeDirtyScope=auto and warn taskCommitGate for new projects', async () => {
+test('init writes workflow.codeDirtyScope=auto, warn taskCommitGate, and default auto preset', async () => {
   await withTempDir('lsk-init-dirty-scope-auto-', async (dir) => {
     const result = await runCli(dir, [
       'init',
@@ -489,6 +603,7 @@ test('init writes workflow.codeDirtyScope=auto and warn taskCommitGate for new p
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.taskCommitGate, 'warn');
+    assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
   });
 });
 

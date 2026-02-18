@@ -301,6 +301,7 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(config.workflow?.taskCommitGate, 'warn');
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
+    assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
     assert.equal(config.workflow?.prePrReview?.blockOnFindings, true);
     assert.equal(config.workflow?.prePrReview?.minorPolicy, 'warn');
@@ -346,6 +347,7 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     delete config.workflow?.taskCommitGate;
     delete config.workflow?.codeDirtyScope;
+    delete config.workflow?.auto;
     delete config.workflow?.prePrReview;
     delete config.pr;
     delete config.approval;
@@ -366,6 +368,7 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
     assert.equal(nextConfig.workflow?.codeDirtyScope, 'auto');
+    assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
       'code-review-excellence',
     ]);
@@ -414,6 +417,7 @@ test('update keeps explicit config values and only fills missing keys', async ()
     config.workflow.mode = 'local';
     config.workflow.codeDirtyScope = 'repo';
     config.workflow.taskCommitGate = 'warn';
+    config.workflow.auto = { defaultPreset: 'custom-handoff' };
     config.workflow.prePrReview = { skills: ['custom-skill'] };
     config.pr = { screenshots: { upload: true } };
     config.approval = { mode: 'steps', requireCheckSteps: [10] };
@@ -435,6 +439,7 @@ test('update keeps explicit config values and only fills missing keys', async ()
     assert.equal(nextConfig.workflow?.mode, 'local');
     assert.equal(nextConfig.workflow?.codeDirtyScope, 'repo');
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
+    assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'custom-handoff');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, ['custom-skill']);
     assert.equal(nextConfig.workflow?.prePrReview?.minorPolicy, 'warn');
     assert.equal(nextConfig.pr?.screenshots?.upload, true);
