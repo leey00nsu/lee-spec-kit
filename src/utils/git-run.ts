@@ -14,9 +14,11 @@ export function runGitOrThrow(
     cwd,
     encoding,
     stdio,
-  });
+  }) as string | Buffer | null;
 
-  return out.trim();
+  if (typeof out === 'string') return out.trim();
+  if (Buffer.isBuffer(out)) return out.toString(encoding).trim();
+  return '';
 }
 
 export function runGitCapture(args: string[], cwd: string): string | undefined {

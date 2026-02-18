@@ -55,12 +55,11 @@ test('context --json exposes generic label token policy', async () => {
       payload.checkPolicy.categoryPolicyGuidance,
       /approval\.mode="category"/
     );
-    assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, true);
-    assert.deepEqual(payload.checkPolicy.requiredExplanationFields, [
-      'actionOptions[].label',
-      'actionOptions[].detail',
-      'actionOptions[].approvalPrompt',
-    ]);
+    assert.equal(payload.checkPolicy.approvalRequired, false);
+    assert.deepEqual(payload.checkPolicy.checkRequiredLabels, []);
+    assert.deepEqual(payload.checkPolicy.checkRequiredCategories, []);
+    assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, false);
+    assert.deepEqual(payload.checkPolicy.requiredExplanationFields, []);
   });
 });
 

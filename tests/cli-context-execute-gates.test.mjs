@@ -1727,6 +1727,16 @@ test('context --execute can run without ticket when approval policy skips check'
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    assert.equal(contextPayload.approvalRequest?.required, false);
+    assert.deepEqual(contextPayload.approvalRequest?.labels, []);
+    assert.equal(contextPayload.approvalRequest?.finalPrompt, '');
+    assert.deepEqual(contextPayload.approvalRequest?.userFacingLines, []);
+    assert.equal(contextPayload.checkPolicy?.approvalRequired, false);
+    assert.deepEqual(contextPayload.checkPolicy?.checkRequiredLabels, []);
+
     const approveOnly = await runCli(dir, [
       'context',
       'F001-alpha',

@@ -703,7 +703,26 @@ async function runContext(
   // 2. 결과 출력 (JSON)
   if (jsonMode) {
     const primaryAction = state.actionOptions[0] ?? null;
-    const finalApprovalPrompt = buildFinalApprovalPrompt(lang, state.actionOptions);
+    const checkRequiredLabels = state.actionOptions
+      .filter((option) => !!option.action.requiresUserCheck)
+      .map((option) => option.label);
+    const checkRequiredCategories = [
+      ...new Set(
+        state.actionOptions
+          .filter((option) => !!option.action.requiresUserCheck)
+          .map((option) => option.action.category || 'uncategorized')
+      ),
+    ];
+    const approvalRequired = checkRequiredLabels.length > 0;
+    const finalApprovalPrompt = approvalRequired
+      ? buildFinalApprovalPrompt(lang, state.actionOptions)
+      : '';
+    const approvalUserFacingLines = approvalRequired
+      ? [
+          ...state.actionOptions.map((o) => o.approvalPrompt),
+          finalApprovalPrompt,
+        ].filter((line) => line.length > 0)
+      : [];
     const approveCommand = buildApprovalCommand(
       state,
       featureName,
@@ -772,20 +791,21 @@ async function runContext(
           activeCategories,
           knownCategories: ACTION_CATEGORIES,
           uncategorizedLabels,
+          checkRequiredLabels,
+          checkRequiredCategories,
+          approvalRequired,
           categoryPolicyGuidance:
             'For approval.mode="category", match against `actionOptions[].category`.',
-          oneApprovalPerAction: true,
+          oneApprovalPerAction: approvalRequired,
           requireFreshContext: true,
           contextVersion: state.contextVersion,
           config: config.approval ?? { mode: 'builtin' },
         },
         approvalRequest: {
+          required: approvalRequired,
           finalPrompt: finalApprovalPrompt,
-          userFacingLines: [
-            ...state.actionOptions.map((o) => o.approvalPrompt),
-            finalApprovalPrompt,
-          ].filter((line) => line.length > 0),
-          labels: state.actionOptions.map((o) => o.label),
+          userFacingLines: approvalUserFacingLines,
+          labels: approvalRequired ? state.actionOptions.map((o) => o.label) : [],
           approveCommand,
           executeCommand,
           executeRequiresTicket:
@@ -848,17 +868,22 @@ async function runContext(
         activeCategories,
         knownCategories: ACTION_CATEGORIES,
         uncategorizedLabels,
+        checkRequiredLabels,
+        checkRequiredCategories,
+        approvalRequired,
         categoryPolicyGuidance:
           'For approval.mode="category", match against `actionOptions[].category`.',
-        requireExplanationBeforeApproval: true,
-        requiredExplanationFields: [
-          'actionOptions[].label',
-          'actionOptions[].detail',
-          'actionOptions[].approvalPrompt',
-        ],
+        requireExplanationBeforeApproval: approvalRequired,
+        requiredExplanationFields: approvalRequired
+          ? [
+              'actionOptions[].label',
+              'actionOptions[].detail',
+              'actionOptions[].approvalPrompt',
+            ]
+          : [],
         recommendation:
           'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed.',
-        oneApprovalPerAction: true,
+        oneApprovalPerAction: approvalRequired,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
@@ -866,12 +891,10 @@ async function runContext(
       approvalRequest: {
         guidance:
           'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`.',
+        required: approvalRequired,
         finalPrompt: finalApprovalPrompt,
-        userFacingLines: [
-          ...state.actionOptions.map((o) => o.approvalPrompt),
-          finalApprovalPrompt,
-        ].filter((line) => line.length > 0),
-        labels: state.actionOptions.map((o) => o.label),
+        userFacingLines: approvalUserFacingLines,
+        labels: approvalRequired ? state.actionOptions.map((o) => o.label) : [],
         approveCommand,
         executeCommand,
         executeRequiresTicket:
@@ -1191,7 +1214,7 @@ async function runContext(
       );
     }
   }
-  if (actionOptions.length > 0) {
+  if (actionOptions.length > 0 && hasCheckAction) {
     const finalApprovalPrompt = buildFinalApprovalPrompt(lang, actionOptions);
     const approveCommand = buildApprovalCommand(
       state,
@@ -1338,7 +1361,7 @@ async function runApprovedOption(
             contextVersion: freshState.contextVersion,
             executable: selectedAction.type === 'command',
             executeRequiresTicket,
-            oneApprovalPerAction: true,
+            oneApprovalPerAction: executeRequiresTicket,
             approvalTicket: ticket
               ? {
                   token: ticket.token,
