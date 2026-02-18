@@ -25,6 +25,9 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
   - `false`: continue without label approval.
   - `true`: wait for label-token approval (`A`, `A OK`) before execution.
 - If `context --json` exposes `autoRun.available=true`, you may use `autoRun.command` to continue automatically until approval-required categories are reached.
+- For long-running auto execution, start with `flow <feature> --auto-... --start-auto --json` and prefer `autoRun.run.resumeCommand` (`flow --resume <RUN_ID>`) after interruption/compression.
+- If auto execution stops, treat `autoRun.resume` from `flow --json` as SSOT. After interruption/compression, resume with `autoRun.resume.flowCommand`; if needed, check current state first with `autoRun.resume.contextCommand`.
+- Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json` and report whether `approvalRequest.required` is now true.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow user-facing response format (including the final status/label block in every reply) from `agents.md` **"Label Response Contract (SSOT)"**.
 - For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.

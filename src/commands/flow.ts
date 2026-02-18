@@ -16,6 +16,13 @@ import {
 } from '../utils/context-selection.js';
 import { ACTION_CATEGORIES } from '../utils/context.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
+import {
+  createFlowRunRecord,
+  getFlowRunRecord,
+  type FlowRunRecord,
+  type FlowRunStatus,
+  updateFlowRunRecord,
+} from '../utils/flow-run.js';
 
 type LoadedConfig = NonNullable<Awaited<ReturnType<typeof getConfig>>>;
 
@@ -28,6 +35,8 @@ interface FlowOptions extends ContextSelectionOptions {
   request?: string;
   autoUntilCategory?: string;
   autoPreset?: string;
+  startAuto?: boolean;
+  resume?: string;
 }
 
 interface AutoRunExecution {
@@ -42,12 +51,28 @@ interface AutoRunExecution {
   executeReasonCode?: string;
 }
 
+interface AutoRunResume {
+  flowArgs: string[];
+  flowCommand: string;
+  contextArgs: string[];
+  contextCommand: string;
+  requiresFreshContext: true;
+  requestPending: boolean;
+}
+
 interface AutoRunSummary {
   enabled: true;
   untilCategories: string[];
   request?: string;
   preset?: string | null;
   source?: string | null;
+  resume: AutoRunResume;
+  run?: {
+    runId: string;
+    mode: 'started' | 'resumed';
+    status: FlowRunStatus;
+    resumeCommand: string;
+  };
   status:
     | 'gate_reached'
     | 'manual_required'
@@ -106,6 +131,43 @@ interface CliRunResult {
   code: number;
   stdout: string;
   stderr: string;
+}
+
+function shellEscape(arg: string): string {
+  if (/^[A-Za-z0-9_./:@%-]+$/.test(arg)) return arg;
+  return `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+function toLeeSpecKitCommand(args: string[]): string {
+  return ['npx', 'lee-spec-kit', ...args].map((arg) => shellEscape(arg)).join(' ');
+}
+
+function buildResumeRunCommand(runId: string): string {
+  return toLeeSpecKitCommand(['flow', '--resume', runId]);
+}
+
+function buildAutoResume(
+  featureName: string,
+  selectionOptions: ContextSelectionOptions,
+  untilCategories: string[],
+  requestText: string | undefined,
+  requestPending: boolean
+): AutoRunResume {
+  const selectionArgs = buildSelectionArgs(featureName, selectionOptions);
+  const flowArgs = ['flow', ...selectionArgs];
+  if (requestPending && requestText) {
+    flowArgs.push('--request', requestText);
+  }
+  flowArgs.push('--auto-until-category', untilCategories.join(','));
+  const contextArgs = ['context', ...selectionArgs];
+  return {
+    flowArgs,
+    flowCommand: toLeeSpecKitCommand(flowArgs),
+    contextArgs,
+    contextCommand: toLeeSpecKitCommand(contextArgs),
+    requiresFreshContext: true,
+    requestPending,
+  };
 }
 
 function runSelfCli(args: string[]): CliRunResult {
@@ -325,6 +387,23 @@ function isAutoRunFailureStatus(status: AutoRunSummary['status']): boolean {
   );
 }
 
+function toFlowRunStatus(status: AutoRunSummary['status']): FlowRunStatus {
+  switch (status) {
+    case 'gate_reached':
+    case 'manual_required':
+      return 'paused';
+    case 'no_action_options':
+      return 'completed';
+    case 'selection_required':
+    case 'no_progress':
+    case 'request_label_missing':
+    case 'request_failed':
+    case 'execution_failed':
+    default:
+      return 'failed';
+  }
+}
+
 async function runAutoUntilCategory(
   config: LoadedConfig,
   featureName: string,
@@ -343,6 +422,13 @@ async function runAutoUntilCategory(
   let iterations = 0;
 
   while (true) {
+    const resume = buildAutoResume(
+      featureName,
+      selectionOptions,
+      untilCategories,
+      requestText,
+      !requestHandled
+    );
     iterations += 1;
     const state = await resolveContextSelection(config, featureName, selectionOptions);
     const actionOptions = state.actionOptions;
@@ -369,6 +455,7 @@ async function runAutoUntilCategory(
         request: requestText,
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
+        resume,
         status: 'no_progress',
         reasonCode: toAutoReasonCode('no_progress'),
         iterations,
@@ -387,6 +474,7 @@ async function runAutoUntilCategory(
         request: requestText,
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
+        resume,
         status: 'selection_required',
         reasonCode: toAutoReasonCode('selection_required'),
         iterations,
@@ -405,6 +493,7 @@ async function runAutoUntilCategory(
         request: requestText,
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
+        resume,
         status: 'no_action_options',
         reasonCode: toAutoReasonCode('no_action_options'),
         iterations,
@@ -425,6 +514,7 @@ async function runAutoUntilCategory(
           request: requestText,
           preset: metadata?.preset ?? null,
           source: metadata?.source ?? null,
+          resume,
           status: 'request_label_missing',
           reasonCode: toAutoReasonCode('request_label_missing'),
           iterations,
@@ -461,6 +551,7 @@ async function runAutoUntilCategory(
           request: requestText,
           preset: metadata?.preset ?? null,
           source: metadata?.source ?? null,
+          resume,
           status: 'request_failed',
           reasonCode: toAutoReasonCode('request_failed'),
           iterations,
@@ -494,6 +585,7 @@ async function runAutoUntilCategory(
         request: requestText,
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
+        resume,
         status: 'gate_reached',
         reasonCode: toAutoReasonCode('gate_reached'),
         iterations,
@@ -517,6 +609,7 @@ async function runAutoUntilCategory(
         request: requestText,
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
+        resume,
         status: 'manual_required',
         reasonCode: toAutoReasonCode('manual_required'),
         iterations,
@@ -561,6 +654,7 @@ async function runAutoUntilCategory(
         request: requestText,
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
+        resume,
         status: 'execution_failed',
         reasonCode: toAutoReasonCode('execution_failed'),
         iterations,
@@ -601,6 +695,9 @@ async function runAutoUntilCategory(
         enabled: true,
         untilCategories,
         request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
+        resume,
         status: 'execution_failed',
         reasonCode: toAutoReasonCode('execution_failed'),
         iterations,
@@ -634,6 +731,14 @@ export function flowCommand(program: Command): void {
     .option(
       '--auto-until-category <categories>',
       'Auto-run command actions until one of categories appears (comma-separated)'
+    )
+    .option(
+      '--start-auto',
+      'Persist auto-run checkpoint and emit resumable run id in JSON output'
+    )
+    .option(
+      '--resume <run-id>',
+      'Resume previously started auto-run checkpoint by run id'
     )
     .option(
       '--approve <reply>',
@@ -700,14 +805,83 @@ async function runFlow(
       '`--execute` requires `--approve <reply>`.'
     );
   }
-  const requestText = options.request?.trim() || undefined;
+  const resumeRunId = (options.resume || '').trim() || undefined;
+  if (options.startAuto && resumeRunId) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--start-auto` cannot be combined with `--resume`.'
+    );
+  }
+  if (resumeRunId) {
+    if (featureName) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        '`--resume` cannot be combined with <feature-name>.'
+      );
+    }
+    if (options.autoPreset || options.autoUntilCategory || options.request) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        '`--resume` cannot be combined with `--auto-*` or `--request`.'
+      );
+    }
+    if (options.component || options.all || options.done) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        '`--resume` cannot be combined with `--component`, `--all`, or `--done`.'
+      );
+    }
+  }
+
+  let requestText = options.request?.trim() || undefined;
   if (options.autoPreset && options.autoUntilCategory) {
     throw createCliError(
       'INVALID_ARGUMENT',
       '`--auto-preset` cannot be combined with `--auto-until-category`.'
     );
   }
-  const autoMode = resolveAutoMode(config, options, requestText);
+  let resolvedFeatureName = featureName;
+  let selectedComponent = resolveComponentOption(options.component);
+  const selectionOptions: ContextSelectionOptions = {
+    component: selectedComponent,
+    all: options.all,
+    done: options.done,
+  };
+  let autoMode = resolveAutoMode(config, options, requestText);
+  let flowRunRecord: FlowRunRecord | null = null;
+  let flowRunMode: 'started' | 'resumed' | null = null;
+  if (resumeRunId) {
+    flowRunRecord = await getFlowRunRecord(process.cwd(), resumeRunId);
+    if (flowRunRecord.status === 'completed') {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `Flow run ${resumeRunId} is already completed.`
+      );
+    }
+    resolvedFeatureName = flowRunRecord.featureName;
+    selectedComponent = resolveComponentOption(flowRunRecord.selection.component);
+    selectionOptions.component = selectedComponent;
+    selectionOptions.all = !!flowRunRecord.selection.all;
+    selectionOptions.done = !!flowRunRecord.selection.done;
+    requestText = flowRunRecord.auto.requestPending
+      ? flowRunRecord.auto.requestText?.trim() || undefined
+      : undefined;
+    autoMode = {
+      untilCategories: [...flowRunRecord.auto.untilCategories],
+      preset: flowRunRecord.auto.preset ?? null,
+      source: `resume:${resumeRunId}`,
+    };
+    flowRunMode = 'resumed';
+    flowRunRecord = await updateFlowRunRecord(
+      process.cwd(),
+      resumeRunId,
+      (current) => ({
+        ...current,
+        status: 'running',
+      })
+    );
+  }
+
   if (autoMode && options.approve) {
     throw createCliError(
       'INVALID_ARGUMENT',
@@ -727,30 +901,52 @@ async function runFlow(
     );
   }
   if (autoMode && !featureName) {
+    if (!resolvedFeatureName) {
+      throw createCliError(
+        'CONTEXT_SELECTION_REQUIRED',
+        'Auto mode requires explicit <feature-name> (e.g. F004).'
+      );
+    }
+  }
+
+  if (options.startAuto && !autoMode) {
     throw createCliError(
-      'CONTEXT_SELECTION_REQUIRED',
-      'Auto mode requires explicit <feature-name> (e.g. F004).'
+      'INVALID_ARGUMENT',
+      '`--start-auto` requires auto mode (`--auto-until-category` or `--auto-preset`).'
     );
   }
 
-  const selectedComponent = resolveComponentOption(options.component);
-  const selectionOptions: ContextSelectionOptions = {
-    component: selectedComponent,
-    all: options.all,
-    done: options.done,
-  };
+  if (options.startAuto && autoMode && !flowRunRecord && resolvedFeatureName) {
+    flowRunRecord = await createFlowRunRecord(process.cwd(), {
+      featureName: resolvedFeatureName,
+      selection: {
+        component: selectedComponent || undefined,
+        all: !!selectionOptions.all,
+        done: !!selectionOptions.done,
+      },
+      auto: {
+        untilCategories: [...autoMode.untilCategories],
+        requestText,
+        requestPending: !!requestText,
+        preset: autoMode.preset ?? null,
+        source: autoMode.source,
+      },
+    });
+    flowRunMode = 'started';
+  }
+
   const componentHint = selectedComponent
     ? ` --component ${selectedComponent}`
     : '';
 
-  const before = await resolveContextSelection(config, featureName, selectionOptions);
+  const before = await resolveContextSelection(config, resolvedFeatureName, selectionOptions);
   let approvalResult: unknown = null;
   let autoRun: AutoRunSummary | null = null;
-  const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
+  const contextArgs = ['context', ...buildSelectionArgs(resolvedFeatureName, selectionOptions)];
   if (autoMode) {
     autoRun = await runAutoUntilCategory(
       config,
-      featureName as string,
+      resolvedFeatureName as string,
       selectionOptions,
       autoMode.untilCategories,
       requestText,
@@ -790,7 +986,32 @@ async function runFlow(
     }
   }
 
-  const after = await resolveContextSelection(config, featureName, selectionOptions);
+  if (autoRun && flowRunRecord && flowRunMode) {
+    const runStatus = toFlowRunStatus(autoRun.status);
+    flowRunRecord = await updateFlowRunRecord(
+      process.cwd(),
+      flowRunRecord.runId,
+      (current) => ({
+        ...current,
+        status: runStatus,
+        auto: {
+          ...current.auto,
+          requestPending: autoRun.resume.requestPending,
+        },
+        lastAutoStatus: autoRun.status,
+        lastReasonCode: autoRun.reasonCode,
+        lastError: autoRun.error,
+      })
+    );
+    autoRun.run = {
+      runId: flowRunRecord.runId,
+      mode: flowRunMode,
+      status: flowRunRecord.status,
+      resumeCommand: buildResumeRunCommand(flowRunRecord.runId),
+    };
+  }
+
+  const after = await resolveContextSelection(config, resolvedFeatureName, selectionOptions);
   const statusReport = runSelfCliJson(['status']);
   const doctorReport = runSelfCliJson(['doctor']);
 
@@ -883,6 +1104,15 @@ async function runFlow(
         `- Auto: ${autoRun.status} (${autoRun.reasonCode}), iterations ${autoRun.iterations}, executions ${autoRun.executions.length}${presetSuffix}`
       )
     );
+    console.log(chalk.gray(`- Auto resume: ${autoRun.resume.flowCommand}`));
+    if (autoRun.run) {
+      console.log(
+        chalk.gray(
+          `- Auto run: ${autoRun.run.mode} ${autoRun.run.runId} (${autoRun.run.status})`
+        )
+      );
+      console.log(chalk.gray(`- Resume with: ${autoRun.run.resumeCommand}`));
+    }
   }
 
   const statusCounts = (statusReport as { counts?: { features?: number } }).counts;

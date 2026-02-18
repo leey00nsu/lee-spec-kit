@@ -114,6 +114,16 @@ test('flow --json auto-until-category stops at gate and exposes approval lines',
     assert.equal(payload.autoRun?.gate?.userFacingLines?.length > 0, true);
     assert.match(payload.autoRun.gate.userFacingLines[0], /^[A-Z]+:\s+/);
     assert.equal(payload.autoRun?.executions?.length, 0);
+    assert.equal(payload.autoRun?.resume?.requiresFreshContext, true);
+    assert.equal(payload.autoRun?.resume?.requestPending, false);
+    assert.match(
+      payload.autoRun?.resume?.flowCommand || '',
+      /npx lee-spec-kit flow F001-alpha --auto-until-category spec_write/
+    );
+    assert.match(
+      payload.autoRun?.resume?.contextCommand || '',
+      /npx lee-spec-kit context F001-alpha/
+    );
   });
 });
 
@@ -158,6 +168,98 @@ test('flow --json auto-until-category applies --request via user_request_replan 
   });
 });
 
+test('flow --json --start-auto emits resumable run metadata', async () => {
+  await withTempDir('lsk-flow-auto-start-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-until-category',
+      'spec_write',
+      '--start-auto',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.autoRun?.run?.mode, 'started');
+    assert.equal(payload.autoRun?.run?.status, 'paused');
+    assert.equal(typeof payload.autoRun?.run?.runId, 'string');
+    assert.equal((payload.autoRun?.run?.runId || '').length > 0, true);
+    assert.match(
+      payload.autoRun?.run?.resumeCommand || '',
+      /npx lee-spec-kit flow --resume [A-Za-z0-9_-]+/
+    );
+  });
+});
+
+test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
+  await withTempDir('lsk-flow-auto-resume-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const first = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-until-category',
+      'spec_write',
+      '--start-auto',
+      '--json',
+    ]);
+    assert.equal(first.code, 0, first.stderr || first.stdout);
+    const firstPayload = JSON.parse(first.stdout.trim());
+    const runId = firstPayload.autoRun?.run?.runId || '';
+    assert.equal(typeof runId, 'string');
+    assert.equal(runId.length > 0, true);
+
+    const resumed = await runCli(dir, [
+      'flow',
+      '--resume',
+      runId,
+      '--json',
+    ]);
+    assert.equal(resumed.code, 0, resumed.stderr || resumed.stdout);
+    const resumedPayload = JSON.parse(resumed.stdout.trim());
+    assert.equal(resumedPayload.autoRun?.run?.mode, 'resumed');
+    assert.equal(resumedPayload.autoRun?.run?.runId, runId);
+    assert.equal(resumedPayload.autoRun?.status, 'gate_reached');
+    assert.deepEqual(resumedPayload.autoRun?.untilCategories, ['spec_write']);
+  });
+});
+
 test('flow --json auto-preset pr-handoff resolves categories and enters auto mode', async () => {
   await withTempDir('lsk-flow-auto-preset-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -199,6 +301,12 @@ test('flow --json auto-preset pr-handoff resolves categories and enters auto mod
       'code_review',
       'pr_status_update',
     ]);
+    assert.equal(payload.autoRun?.resume?.requiresFreshContext, true);
+    assert.equal(payload.autoRun?.resume?.requestPending, false);
+    assert.match(
+      payload.autoRun?.resume?.flowCommand || '',
+      /--auto-until-category '?pr_create,code_review,pr_status_update'?/
+    );
   });
 });
 
@@ -239,6 +347,8 @@ test('flow --json --request uses workflow.auto.defaultPreset when no auto flag i
     assert.equal(payload.autoRun?.preset, 'pr-handoff');
     assert.equal(payload.autoRun?.source, 'config:workflow.auto.defaultPreset');
     assert.notEqual(payload.autoRun?.status, 'request_label_missing');
+    assert.equal(payload.autoRun?.resume?.requestPending, false);
+    assert.doesNotMatch(payload.autoRun?.resume?.flowCommand || '', /--request/);
   });
 });
 

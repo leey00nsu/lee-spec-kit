@@ -363,6 +363,10 @@ npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed" --a
 # with default preset configured, request-only auto mode is available
 npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed"
 
+# long-running auto: create checkpoint + resume
+npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json
+npx lee-spec-kit flow --resume <RUN_ID> --json
+
 # JSON output for automation
 npx lee-spec-kit flow --json
 
@@ -381,6 +385,8 @@ npx lee-spec-kit flow --strict
 | `--request <text>` | In auto mode, apply a new user request first (auto-selects `user_request_replan`) |
 | `--auto-preset <name>` | Use a named auto preset (builtin: `pr-handoff`) |
 | `--auto-until-category <categories>` | Auto-execute command actions until one of target categories appears (comma-separated) |
+| `--start-auto`     | Persist auto checkpoint (run id) and include resume metadata (`autoRun.run`) in JSON |
+| `--resume <run-id>`| Resume stored auto checkpoint by run id |
 | `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
 | `--execute`       | Execute approved option when it is a command (ticket is required only when `requiresUserCheck=true`) |
 | `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
@@ -391,9 +397,18 @@ Auto gate mode rules:
 - Auto mode (`--auto-until-category` / `--auto-preset`) cannot be combined with `--approve` or `--execute`.
 - `--request` requires auto mode.
   - Exception: if `workflow.auto.defaultPreset` is configured, `--request` alone enables auto mode.
+- `--resume <run-id>` cannot be combined with `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, or `--request`. (It uses settings from the stored checkpoint.)
 - Auto-run stops as `gate_reached` when a target category appears, then prints that step's approval text (`approvalRequest.userFacingLines`).
+- If the current action set is instruction-only (no executable command), auto-run may stop with `AUTO_MANUAL_REQUIRED`. This is an automation boundary, not a CLI crash.
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
-- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, and `autoRun.executions`.
+- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, and `autoRun.resume`.
+- With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
+
+Agent resume rules (recommended):
+- When `flow --json` returns `autoRun.enabled=true`, resume with `autoRun.resume.flowCommand` after interruption/compression.
+- If you need a fresh checkpoint before resuming, run `autoRun.resume.contextCommand` first.
+- If `context --json` returns `approvalRequest.required=true`, stop immediately and report to the user.
+- When `--start-auto` is used, prefer `autoRun.run.resumeCommand` (`flow --resume <runId>`) as the first resume path.
 
 ### GitHub helpers
 

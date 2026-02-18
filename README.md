@@ -382,6 +382,10 @@ npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진�
 # 기본 preset 설정 시 더 짧게 실행 가능
 npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진행해"
 
+# 장시간 자동 진행: run 체크포인트 생성 + 재개
+npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json
+npx lee-spec-kit flow --resume <RUN_ID> --json
+
 # 에이전트 파이프라인용 JSON
 npx lee-spec-kit flow --json
 
@@ -400,6 +404,8 @@ npx lee-spec-kit flow --strict
 | `--request <text>` | auto 모드에서 새 사용자 요청을 먼저 반영 (`user_request_replan` 라벨 자동 선택) |
 | `--auto-preset <name>` | 이름 기반 auto preset 사용 (기본 제공: `pr-handoff`) |
 | `--auto-until-category <categories>` | command 액션을 자동 실행하다가 지정 category 중 하나가 나오면 중지 (쉼표 구분) |
+| `--start-auto`     | auto 실행 체크포인트(run id) 저장 후 JSON에 재개 정보(`autoRun.run`)를 함께 출력 |
+| `--resume <run-id>` | 저장된 auto 실행 체크포인트를 run id로 재개 |
 | `--approve <reply>`| context 라벨 승인 응답 전달 (예: `A`, `A OK`, `A 진행해`) |
 | `--execute`        | 승인한 옵션이 command일 때 실행 (`requiresUserCheck=true`면 티켓 연동, 아니면 티켓 없이 실행) |
 | `--execute-strict` | `--execute`와 함께 사용 시 instruction-only 옵션이면 실패 |
@@ -410,9 +416,18 @@ npx lee-spec-kit flow --strict
 - auto 모드(`--auto-until-category`/`--auto-preset`)는 `--approve`, `--execute`와 함께 사용할 수 없습니다.
 - `--request`는 auto 모드와 함께 사용해야 합니다.
   - 예외적으로 `workflow.auto.defaultPreset`이 설정되어 있으면 `--request`만으로도 auto 모드가 활성화됩니다.
+- `--resume <run-id>`는 `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, `--request`와 함께 사용할 수 없습니다. (체크포인트에 저장된 설정을 사용)
 - 자동 진행은 지정한 category가 등장하면 `gate_reached`로 멈추고, 해당 단계의 승인 문구(`approvalRequest.userFacingLines`)를 그대로 출력합니다.
+- 현재 액션이 instruction-only라 command 자동 실행이 불가능하면 `AUTO_MANUAL_REQUIRED`로 멈출 수 있습니다. (CLI 오류가 아니라 자동화 경계 도달 상태)
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
-- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`로 상세 상태를 확인할 수 있습니다.
+- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
+- `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
+
+에이전트 재개 규칙(권장):
+- `flow --json` 결과에 `autoRun.enabled=true`가 있으면, 중단/압축 후에도 `autoRun.resume.flowCommand`를 그대로 재실행해 이어갑니다.
+- 재개 전 현재 지점 확인이 필요하면 `autoRun.resume.contextCommand`를 먼저 실행합니다.
+- `context --json` 확인 결과 `approvalRequest.required=true`면 즉시 멈추고 사용자에게 보고합니다.
+- `--start-auto`를 사용하는 경우에는 `autoRun.run.resumeCommand`(`flow --resume <runId>`)를 우선 재개 경로로 사용합니다.
 
 ### GitHub helper
 
