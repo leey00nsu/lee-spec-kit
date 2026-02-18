@@ -42,7 +42,7 @@ Use `issue.md` status (`Draft | Ready`) as the actual workflow state.
 
 > 🚨 **User Approval Required**
 
-Share the `issue.md` draft and wait for explicit approval (OK):
+Share the `issue.md` draft and wait for label approval (`A` or `A OK`):
 
 - Title
 - Full body draft (from `issue.md`)

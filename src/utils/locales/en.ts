@@ -572,9 +572,9 @@ const en = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
       issueCreateAndWrite:
-        'Generate the issue body template, refine goals/completion criteria, get explicit user OK, create the issue, then update issue number in tasks.md and prepare a docs commit.',
+        'Generate the issue body template, refine goals/completion criteria, get label approval (`A` or `A OK`), create the issue, then update issue number in tasks.md and prepare a docs commit.',
       issuePrepareFromDoc:
-        'Use `issue.md` to refine issue title/body/labels draft, get explicit user OK, then set status to `Ready`.',
+        'Use `issue.md` to refine issue title/body/labels draft, get label approval (`A` or `A OK`), then set status to `Ready`.',
       issueCreateFromDoc:
         'When `issue.md` status is `Ready`, create the GitHub Issue and sync the created issue number into `tasks.md`.',
       docsCommitIssueUpdate:

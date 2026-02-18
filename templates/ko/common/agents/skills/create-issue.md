@@ -42,7 +42,7 @@ npx lee-spec-kit github issue F001 --json
 
 > 🚨 **사용자 확인 필수**
 
-`issue.md` 초안 기준으로 다음 내용을 공유하고 명시적 승인(OK) 대기:
+`issue.md` 초안 기준으로 다음 내용을 공유하고 라벨 승인(`A` 또는 `A OK`) 대기:
 
 - 제목
 - 본문 전체 초안 (`issue.md` 기준)

@@ -142,7 +142,7 @@ const ko = {
       'context.actionDetail.issueCreate':
         '이슈를 생성하고 tasks.md의 이슈 정보를 맞추세요',
       'context.actionDetail.issueCreateAndWrite':
-        '이슈 초안을 보완하고 승인(OK) 후 이슈를 생성해 번호를 동기화하세요',
+        '이슈 초안을 보완하고 라벨 승인(`A` 또는 `A OK`) 후 이슈를 생성해 번호를 동기화하세요',
       'context.actionDetail.issueCreatePrepareFromDoc':
         'issue.md 초안을 보완하고 상태를 Ready로 설정하세요',
       'context.actionDetail.issueCreateFromDoc':
@@ -558,9 +558,9 @@ const ko = {
       docsCommitPlanning:
         'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
       issueCreateAndWrite:
-        '이슈 본문 템플릿을 생성해 목표/완료 기준을 검토·보완하고, 사용자 승인(OK) 후 이슈를 생성하세요. 이후 tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
+        '이슈 본문 템플릿을 생성해 목표/완료 기준을 검토·보완하고, 라벨 승인(`A` 또는 `A OK`) 후 이슈를 생성하세요. 이후 tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
       issuePrepareFromDoc:
-        '`issue.md`를 기준으로 이슈 제목/본문/라벨 초안을 보완하고 사용자 승인(OK)을 받아 상태를 `Ready`로 변경하세요.',
+        '`issue.md`를 기준으로 이슈 제목/본문/라벨 초안을 보완하고 라벨 승인(`A` 또는 `A OK`)을 받아 상태를 `Ready`로 변경하세요.',
       issueCreateFromDoc:
         '`issue.md` 상태가 `Ready`이면 GitHub Issue를 생성하고, 생성된 이슈 번호를 `tasks.md`에 반영하세요.',
       docsCommitIssueUpdate:
