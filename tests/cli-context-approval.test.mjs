@@ -788,9 +788,21 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.equal(payload.matchedFeature.docs.prePrReviewFieldExists, true);
     assert.equal(payload.matchedFeature.prePrReview.status, 'Pending');
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.match(
+      primaryActionOption(payload).action.cmd,
+      /pre-pr-review.*F001-alpha/
+    );
     assert.equal(payload.prePrReviewPolicy.enabled, true);
     assert.deepEqual(payload.prePrReviewPolicy.skills, ['code-review-excellence']);
     assert.equal(payload.prePrReviewPolicy.fallback, 'builtin-checklist');
+    assert.equal(payload.prePrReviewPolicy.evidenceMode, 'path_required');
+    assert.equal(payload.prePrReviewPolicy.findings, 'required');
+    assert.deepEqual(payload.prePrReviewPolicy.decisionEnum, [
+      'approve',
+      'changes_requested',
+      'blocked',
+    ]);
   });
 });
 
@@ -869,7 +881,8 @@ test('context pre-PR review requires evidence before PR step when review is mark
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.match(primaryActionOption(payload).detail, /Pre-PR Evidence/i);
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.match(primaryActionOption(payload).action.cmd, /pre-pr-review.*F001-alpha/);
   });
 });
 
@@ -948,7 +961,8 @@ test('context pre-PR review requires decision before PR step when review is mark
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.match(primaryActionOption(payload).detail, /Pre-PR Decision/i);
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.match(primaryActionOption(payload).action.cmd, /pre-pr-review.*F001-alpha/);
   });
 });
 
@@ -989,10 +1003,18 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
     await setFeatureAsDone(dir, 'F001-alpha');
 
     const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const reportPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'pre-pr-review.md'
+    );
+    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=9, minor=9\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: proceed after documenting review trade-offs'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=0, minor=1\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: approve - baseline checklist completed'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1037,8 +1059,95 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
   });
 });
 
-test('context pre-PR review ignores findings policy when evidence and decision are provided', async () => {
-  await withTempDir('lsk-context-pre-pr-findings-policy-ignored-', async (dir) => {
+test('context pre-PR review allows optional findings policy when decision is approve', async () => {
+  await withTempDir('lsk-context-pre-pr-findings-optional-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+        findings: 'optional',
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const reportPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'pre-pr-review.md'
+    );
+    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: approve - findings are optional in this policy'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: allow optional pre-pr findings with approve decision',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 13);
+    assert.equal(primaryActionOption(payload).action.category, 'pr_create');
+  });
+});
+
+test('context pre-PR review blocks PR step when decision outcome is not approve', async () => {
+  await withTempDir('lsk-context-pre-pr-decision-not-approved-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -1074,10 +1183,18 @@ test('context pre-PR review ignores findings policy when evidence and decision a
     await setFeatureAsDone(dir, 'F001-alpha');
 
     const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const reportPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'pre-pr-review.md'
+    );
+    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=3, minor=7\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: major/minor counts are informational only'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=1, minor=0\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: changes_requested - fix blocking findings'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1103,15 +1220,15 @@ test('context pre-PR review ignores findings policy when evidence and decision a
     const docsCommit = await runCommand(docsGitRoot, 'git', [
       'commit',
       '-m',
-      'docs: keep pre-pr findings as informational only',
+      'docs: keep pre-pr decision as changes_requested',
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
     const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
     assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.matchedFeature.currentStep, 13);
-    assert.equal(primaryActionOption(payload).action.category, 'pr_create');
+    assert.equal(payload.matchedFeature.currentStep, 12);
+    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
   });
 });
 

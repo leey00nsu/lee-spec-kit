@@ -87,6 +87,8 @@ export interface PrePrReviewFindings {
   minor: number;
 }
 
+export type PrePrDecisionOutcome = 'approve' | 'changes_requested' | 'blocked';
+
 export interface PrReviewFindings {
   major: number;
   minor: number;
@@ -129,9 +131,11 @@ export interface FeatureState {
   prePrReview: {
     status?: PrePrReviewStatus;
     findings?: PrePrReviewFindings;
+    findingsProvided: boolean;
     evidence?: string;
     evidenceProvided: boolean;
     decision?: string;
+    decisionOutcome?: PrePrDecisionOutcome;
     decisionProvided: boolean;
   };
   prReview: {

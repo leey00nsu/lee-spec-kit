@@ -303,6 +303,13 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
+    assert.equal(config.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.equal(config.workflow?.prePrReview?.findings, 'required');
+    assert.deepEqual(config.workflow?.prePrReview?.decisionEnum, [
+      'approve',
+      'changes_requested',
+      'blocked',
+    ]);
     assert.equal(config.approval?.mode, 'builtin');
     assert.equal(config.pr?.screenshots?.upload, false);
   });
@@ -369,6 +376,13 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
       'code-review-excellence',
+    ]);
+    assert.equal(nextConfig.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.equal(nextConfig.workflow?.prePrReview?.findings, 'required');
+    assert.deepEqual(nextConfig.workflow?.prePrReview?.decisionEnum, [
+      'approve',
+      'changes_requested',
+      'blocked',
     ]);
     assert.equal(nextConfig.pr?.screenshots?.upload, false);
     assert.equal(nextConfig.approval?.mode, 'builtin');
@@ -438,6 +452,14 @@ test('update keeps explicit config values and only fills missing keys', async ()
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
     assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'custom-handoff');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, ['custom-skill']);
+    assert.equal(nextConfig.workflow?.prePrReview?.fallback, 'builtin-checklist');
+    assert.equal(nextConfig.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.equal(nextConfig.workflow?.prePrReview?.findings, 'required');
+    assert.deepEqual(nextConfig.workflow?.prePrReview?.decisionEnum, [
+      'approve',
+      'changes_requested',
+      'blocked',
+    ]);
     assert.equal(nextConfig.pr?.screenshots?.upload, true);
     assert.equal(nextConfig.approval?.mode, 'steps');
     assert.deepEqual(nextConfig.approval?.requireCheckSteps, [10]);
@@ -1518,6 +1540,118 @@ test('context --execute-strict fails for instruction-only approved option', asyn
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'EXECUTION_NOT_COMMAND');
+  });
+});
+
+test('context executes pre_pr_review command and records review evidence', async () => {
+  await withTempDir('lsk-context-execute-pre-pr-review-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Pending'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare pre-pr review command execution',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    assert.equal(contextPayload.matchedFeature.currentStep, 12);
+    assert.equal(primaryActionOption(contextPayload).action.category, 'pre_pr_review');
+    assert.equal(primaryActionOption(contextPayload).action.type, 'command');
+
+    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
+    const execute = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--ticket',
+      ticket,
+      '--json',
+    ]);
+    assert.equal(execute.code, 0, execute.stderr || execute.stdout);
+    const executePayload = JSON.parse(execute.stdout.trim());
+    assert.equal(executePayload.status, 'approved_executed');
+
+    const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(tasksAfter, /\*\*Pre-PR Review\*\*:\s*Done/);
+    assert.match(tasksAfter, /\*\*Pre-PR Findings\*\*:\s*major=\d+,\s*minor=\d+/);
+    assert.match(
+      tasksAfter,
+      /\*\*Pre-PR Evidence\*\*:\s*docs\/features\/F001-alpha\/pre-pr-review\.md/
+    );
+    assert.match(tasksAfter, /\*\*Pre-PR Decision\*\*:\s*decision:\s*approve\b/);
+
+    const reportPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'pre-pr-review.md'
+    );
+    assert.equal(await pathExists(reportPath), true);
   });
 });
 

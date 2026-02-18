@@ -24,10 +24,13 @@
 - **Pre-PR Review**: -
   - Values: Pending | Done
   - Mark `Done` after pre-PR review is completed
+- **Pre-PR Findings**: -
+  - Format: `major=<n>, minor=<n>`
 - **Pre-PR Evidence**: -
-  - Example: review note link, log path, or docs path
+  - Example: review report doc path (must exist)
 - **Pre-PR Decision**: -
-  - Record your key review decision as `decision: ...` (or `결정: ...`)
+  - Format: `decision: approve|changes_requested|blocked ...` (or `결정: ...`)
+  - PR creation requires final decision `approve`
   - Follow `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline
 - **PR Review Evidence**: -
   - Example: resolved/aligned comment link, verification log, or docs path

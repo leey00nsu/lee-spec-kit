@@ -22,9 +22,10 @@ Always run this checklist in Pre-PR review. Treat it as the minimum baseline, th
 2. Inspect regression, exception handling, critical/security risks, side effects, user flow impact, and release readiness.
 3. Check maintainability: split oversized functions/files when needed, reuse/integrate existing code where appropriate, and remove obsolete code.
 4. Run related test/verification commands (or explicitly record why they were not run).
-5. Update `Pre-PR Evidence` with concrete proof (review links, logs, or doc paths).
-6. Update `Pre-PR Decision` as `decision: ...` (or `결정: ...`) to capture key review decisions.
-7. Set `Pre-PR Review` to `Done` only after the checklist is completed.
+5. Run `npx lee-spec-kit pre-pr-review <feature-ref>` to generate review evidence and sync `Pre-PR Findings/Evidence/Decision`.
+6. `Pre-PR Evidence` should point to a real existing path. (default: `workflow.prePrReview.evidenceMode=path_required`)
+7. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
+8. Ensure the final decision is `approve` before moving to PR creation.
 
 ---
 

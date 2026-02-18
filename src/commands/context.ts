@@ -427,6 +427,13 @@ function getListLabel(
     }
     if (
       prePrReviewPolicy.enabled &&
+      prePrReviewPolicy.findings === 'required' &&
+      (!f.docs.prePrFindingsFieldExists || !f.prePrReview.findingsProvided)
+    ) {
+      return tr(lang, 'cli', 'context.list.addPrePrFindings');
+    }
+    if (
+      prePrReviewPolicy.enabled &&
       (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided)
     ) {
       return tr(lang, 'cli', 'context.list.addPrePrEvidence');
@@ -436,6 +443,9 @@ function getListLabel(
       (!f.docs.prePrDecisionFieldExists || !f.prePrReview.decisionProvided)
     ) {
       return tr(lang, 'cli', 'context.list.addPrePrDecision');
+    }
+    if (prePrReviewPolicy.enabled && f.prePrReview.decisionOutcome !== 'approve') {
+      return tr(lang, 'cli', 'context.list.resolvePrePrDecision');
     }
     if (workflowPolicy.requirePr && !f.pr.link) {
       return tr(lang, 'cli', 'context.list.recordPrLink');
@@ -511,7 +521,9 @@ function toCompactFeature(
     prePrReview: {
       status: feature.prePrReview.status,
       findings: feature.prePrReview.findings,
+      findingsProvided: feature.prePrReview.findingsProvided,
       evidenceProvided: feature.prePrReview.evidenceProvided,
+      decisionOutcome: feature.prePrReview.decisionOutcome,
       decisionProvided: feature.prePrReview.decisionProvided,
     },
     prReview: {

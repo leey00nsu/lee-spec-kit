@@ -17,6 +17,7 @@ import {
   FeatureContext,
   FeatureState,
   Lang,
+  PrePrDecisionOutcome,
   PrePrReviewFindings,
   PrePrReviewStatus,
   PrReviewFindings,
@@ -165,6 +166,75 @@ function hasStructuredReviewDecision(value: string | undefined): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
   return /^(?:decision|결정)\s*[:：]\s*\S.+$/i.test(trimmed);
+}
+
+function parsePrePrDecisionOutcome(
+  value: string | undefined
+): PrePrDecisionOutcome | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const structured = trimmed.match(/^(?:decision|결정)\s*[:：]\s*(.+)$/i);
+  if (!structured) return undefined;
+
+  const payload = structured[1].trim().toLowerCase();
+  const normalized = payload
+    .split(/[,\s-]+/)[0]
+    ?.replace(/[^a-z_]/g, '');
+  if (!normalized) return undefined;
+
+  if (normalized === 'approve' || normalized === 'approved') {
+    return 'approve';
+  }
+  if (
+    normalized === 'changes_requested' ||
+    normalized === 'changes' ||
+    normalized === 'change'
+  ) {
+    return 'changes_requested';
+  }
+  if (normalized === 'blocked' || normalized === 'block') {
+    return 'blocked';
+  }
+  return undefined;
+}
+
+function resolveEvidencePathValue(value: string): string {
+  const trimmed = value.trim();
+  const mdLink = trimmed.match(/\(([^)]+)\)/);
+  if (mdLink && mdLink[1]) return mdLink[1].trim();
+  return trimmed.split(/\s+/)[0] || '';
+}
+
+async function isPrePrEvidenceProvided(
+  rawValue: string | undefined,
+  policy: ReturnType<typeof resolvePrePrReviewPolicy>,
+  context: {
+    featurePath: string;
+    docsDir: string;
+  }
+): Promise<boolean> {
+  if (isPlaceholderReviewEvidence(rawValue)) return false;
+  if (policy.evidenceMode !== 'path_required') return true;
+  if (!rawValue) return false;
+
+  const evidencePath = resolveEvidencePathValue(rawValue);
+  if (!evidencePath) return false;
+  if (/^https?:\/\//i.test(evidencePath)) return false;
+
+  const candidates = new Set<string>();
+  if (path.isAbsolute(evidencePath)) {
+    candidates.add(path.resolve(evidencePath));
+  } else {
+    candidates.add(path.resolve(context.featurePath, evidencePath));
+    candidates.add(path.resolve(context.docsDir, evidencePath));
+    candidates.add(path.resolve(path.dirname(context.docsDir), evidencePath));
+  }
+
+  for (const candidate of candidates) {
+    if (await fs.pathExists(candidate)) return true;
+  }
+  return false;
 }
 
 function parseIssueNumber(value: string | undefined): string | undefined {
@@ -569,12 +639,15 @@ function isPrePrReviewSatisfied(
   feature: {
     docs: {
       prePrReviewFieldExists: boolean;
+      prePrFindingsFieldExists: boolean;
       prePrEvidenceFieldExists: boolean;
       prePrDecisionFieldExists: boolean;
     };
     prePrReview: {
       status?: PrePrReviewStatus;
+      findingsProvided: boolean;
       evidenceProvided: boolean;
+      decisionOutcome?: PrePrDecisionOutcome;
       decisionProvided: boolean;
     };
   },
@@ -591,9 +664,18 @@ function isPrePrReviewSatisfied(
     return false;
   }
   if (
+    policy.findings === 'required' &&
+    (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findingsProvided)
+  ) {
+    return false;
+  }
+  if (
     !feature.docs.prePrDecisionFieldExists ||
     !feature.prePrReview.decisionProvided
   ) {
+    return false;
+  }
+  if (feature.prePrReview.decisionOutcome !== 'approve') {
     return false;
   }
   return true;
@@ -696,9 +778,11 @@ export async function parseFeature(
   let completionChecklist: CompletionChecklistSummary | undefined;
   let prePrReviewStatus: PrePrReviewStatus | undefined;
   let prePrFindings: PrePrReviewFindings | undefined;
+  let prePrFindingsProvided = false;
   let prePrEvidence: string | undefined;
   let prePrEvidenceProvided = false;
   let prePrDecision: string | undefined;
+  let prePrDecisionOutcome: PrePrDecisionOutcome | undefined;
   let prePrDecisionProvided = false;
   let prReviewFindings: PrReviewFindings | undefined;
   let prReviewEvidence: string | undefined;
@@ -781,6 +865,7 @@ export async function parseFeature(
       'Pre-PR Findings',
     ]);
     prePrFindings = parseReviewFindings(prePrFindingsValue);
+    prePrFindingsProvided = !!prePrFindings;
 
     const prePrEvidenceValue = extractFirstSpecValue(content, [
       'PR 전 리뷰 Evidence',
@@ -791,7 +876,11 @@ export async function parseFeature(
       'Pre-PR Evidence',
     ]);
     prePrEvidence = prePrEvidenceValue?.trim();
-    prePrEvidenceProvided = !isPlaceholderReviewEvidence(prePrEvidenceValue);
+    prePrEvidenceProvided = await isPrePrEvidenceProvided(
+      prePrEvidenceValue,
+      prePrReviewPolicy,
+      { featurePath, docsDir: context.docsDir }
+    );
 
     const prePrDecisionValue = extractFirstSpecValue(content, [
       'PR 전 리뷰 Decision',
@@ -802,9 +891,12 @@ export async function parseFeature(
       'Pre-PR Decision',
     ]);
     prePrDecision = prePrDecisionValue?.trim();
+    prePrDecisionOutcome = parsePrePrDecisionOutcome(prePrDecisionValue);
     prePrDecisionProvided =
       !isPlaceholderReviewEvidence(prePrDecisionValue) &&
-      hasStructuredReviewDecision(prePrDecisionValue);
+      hasStructuredReviewDecision(prePrDecisionValue) &&
+      !!prePrDecisionOutcome &&
+      prePrReviewPolicy.decisionEnum.includes(prePrDecisionOutcome);
 
     const prReviewFindingsValue = extractFirstSpecValue(content, [
       'PR 리뷰 Findings',
@@ -1035,6 +1127,14 @@ export async function parseFeature(
   if (tasksExists && prePrReviewPolicy.enabled && !prePrReviewFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrReviewField'));
   }
+  if (
+    tasksExists &&
+    prePrReviewPolicy.enabled &&
+    prePrReviewPolicy.findings === 'required' &&
+    !prePrFindingsFieldExists
+  ) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrFindingsField'));
+  }
   if (tasksExists && prePrReviewPolicy.enabled && !prePrEvidenceFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrEvidenceField'));
   }
@@ -1098,12 +1198,15 @@ export async function parseFeature(
       {
         docs: {
           prePrReviewFieldExists,
+          prePrFindingsFieldExists,
           prePrEvidenceFieldExists,
           prePrDecisionFieldExists,
         },
         prePrReview: {
           status: prePrReviewStatus,
+          findingsProvided: prePrFindingsProvided,
           evidenceProvided: prePrEvidenceProvided,
+          decisionOutcome: prePrDecisionOutcome,
           decisionProvided: prePrDecisionProvided,
         },
       },
@@ -1148,10 +1251,21 @@ export async function parseFeature(
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewMissing'));
       } else if (prePrReviewStatus !== 'Done') {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewNotDone'));
+      } else if (
+        prePrReviewPolicy.findings === 'required' &&
+        (!prePrFindingsFieldExists || !prePrFindingsProvided)
+      ) {
+        warnings.push(tr(lang, 'warnings', 'workflowPrePrFindingsMissing'));
       } else if (!prePrEvidenceFieldExists || !prePrEvidenceProvided) {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrEvidenceMissing'));
       } else if (!prePrDecisionFieldExists || !prePrDecisionProvided) {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrDecisionMissing'));
+      } else if (prePrDecisionOutcome !== 'approve') {
+        warnings.push(
+          tr(lang, 'warnings', 'workflowPrePrDecisionNotApproved', {
+            outcome: prePrDecisionOutcome || '-',
+          })
+        );
       }
     }
   }
@@ -1178,9 +1292,11 @@ export async function parseFeature(
     prePrReview: {
       status: prePrReviewStatus,
       findings: prePrFindings,
+      findingsProvided: prePrFindingsProvided,
       evidence: prePrEvidence,
       evidenceProvided: prePrEvidenceProvided,
       decision: prePrDecision,
+      decisionOutcome: prePrDecisionOutcome,
       decisionProvided: prePrDecisionProvided,
     },
     prReview: {

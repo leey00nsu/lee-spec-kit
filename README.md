@@ -624,6 +624,11 @@ npx lee-spec-kit update --force
   - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
   - `fallback` (선택): 기본 베이스라인 정책 (기본: `"builtin-checklist"`)
     - 상세 기준은 `docs get create-pr --json`의 `Pre-PR 기본 체크리스트` 섹션을 단일 기준으로 사용
+  - `evidenceMode` (선택): Evidence 검증 방식 (`"path_required"` | `"any"`, 기본: `"path_required"`)
+    - `path_required`: 실제 존재하는 로컬 경로만 인정
+  - `findings` (선택): Findings 필수 여부 (`"required"` | `"optional"`, 기본: `"required"`)
+  - `decisionEnum` (선택): 허용 Decision 값 목록 (기본: `["approve","changes_requested","blocked"]`)
+    - PR 단계로 진행하려면 최종 Decision이 `approve`여야 함
 - `workflow.auto`:
   - `defaultPreset` (선택): `flow --request "<요청>"` 실행 시 기본으로 사용할 auto preset 이름 (기본: `"pr-handoff"`)
   - `defaultUntilCategories` (선택): 기본 gate category 목록 (설정 시 `defaultPreset`보다 우선)
@@ -646,7 +651,10 @@ npx lee-spec-kit update --force
     },
     "prePrReview": {
       "skills": ["code-review-excellence"],
-      "fallback": "builtin-checklist"
+      "fallback": "builtin-checklist",
+      "evidenceMode": "path_required",
+      "findings": "required",
+      "decisionEnum": ["approve", "changes_requested", "blocked"]
     }
   }
 }

@@ -11,14 +11,28 @@ export interface WorkflowPolicy {
 export type CodeDirtyScopePolicy = 'repo' | 'component';
 export type TaskCommitGatePolicy = 'off' | 'warn' | 'strict';
 export type PrePrReviewFallbackPolicy = 'builtin-checklist';
+export type PrePrEvidenceMode = 'any' | 'path_required';
+export type PrePrFindingsPolicy = 'optional' | 'required';
+export type PrePrDecisionOutcome =
+  | 'approve'
+  | 'changes_requested'
+  | 'blocked';
 
 export interface PrePrReviewPolicy {
   enabled: boolean;
   skills: string[];
   fallback: PrePrReviewFallbackPolicy;
+  evidenceMode: PrePrEvidenceMode;
+  findings: PrePrFindingsPolicy;
+  decisionEnum: PrePrDecisionOutcome[];
 }
 
 const DEFAULT_PRE_PR_REVIEW_SKILLS = ['code-review-excellence'];
+const DEFAULT_PRE_PR_DECISION_ENUM: PrePrDecisionOutcome[] = [
+  'approve',
+  'changes_requested',
+  'blocked',
+];
 
 export function resolveWorkflowPolicy(
   workflow?: ProjectConfig['workflow']
@@ -106,12 +120,37 @@ function normalizeSkillList(input: unknown): string[] {
   return [...deduped];
 }
 
+function normalizeDecisionEnumList(input: unknown): PrePrDecisionOutcome[] {
+  if (!Array.isArray(input)) return [];
+  const deduped = new Set<PrePrDecisionOutcome>();
+  for (const raw of input) {
+    const value = String(raw || '').trim().toLowerCase();
+    if (!value) continue;
+    if (value === 'approve') {
+      deduped.add('approve');
+      continue;
+    }
+    if (value === 'changes_requested') {
+      deduped.add('changes_requested');
+      continue;
+    }
+    if (value === 'blocked') {
+      deduped.add('blocked');
+      continue;
+    }
+  }
+  return [...deduped];
+}
+
 export function resolvePrePrReviewPolicy(
   workflow?: ProjectConfig['workflow']
 ): PrePrReviewPolicy {
   const workflowPolicy = resolveWorkflowPolicy(workflow);
   const configured = workflow?.prePrReview;
   const configuredSkills = normalizeSkillList(configured?.skills);
+  const configuredDecisionEnum = normalizeDecisionEnumList(
+    configured?.decisionEnum
+  );
   const configuredEnabled =
     typeof configured?.enabled === 'boolean'
       ? configured.enabled
@@ -127,5 +166,12 @@ export function resolvePrePrReviewPolicy(
       configured?.fallback === 'builtin-checklist'
         ? configured.fallback
         : 'builtin-checklist',
+    evidenceMode:
+      configured?.evidenceMode === 'any' ? 'any' : 'path_required',
+    findings: configured?.findings === 'optional' ? 'optional' : 'required',
+    decisionEnum:
+      configuredDecisionEnum.length > 0
+        ? configuredDecisionEnum
+        : DEFAULT_PRE_PR_DECISION_ENUM,
   };
 }

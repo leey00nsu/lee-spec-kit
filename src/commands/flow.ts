@@ -314,6 +314,17 @@ function toAutoReasonCode(status: AutoRunSummary['status']): AutoRunSummary['rea
   }
 }
 
+function isAutoRunFailureStatus(status: AutoRunSummary['status']): boolean {
+  return (
+    status === 'manual_required' ||
+    status === 'selection_required' ||
+    status === 'no_progress' ||
+    status === 'request_label_missing' ||
+    status === 'request_failed' ||
+    status === 'execution_failed'
+  );
+}
+
 async function runAutoUntilCategory(
   config: LoadedConfig,
   featureName: string,
@@ -807,9 +818,12 @@ async function runFlow(
   }
 
   if (options.json) {
+    const autoRunFailed = !!(autoRun && isAutoRunFailureStatus(autoRun.status));
     const payload = {
-      status: 'ok',
-      reasonCode: 'FLOW_SUMMARY',
+      status: autoRunFailed ? 'error' : 'ok',
+      reasonCode: autoRunFailed
+        ? autoRun?.reasonCode || 'AUTO_EXECUTION_FAILED'
+        : 'FLOW_SUMMARY',
       context: {
         before: {
           status: before.status,
@@ -840,6 +854,9 @@ async function runFlow(
         : `npx lee-spec-kit context${componentHint}`,
     };
     console.log(JSON.stringify(payload, null, 2));
+    if (autoRunFailed) {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -894,6 +911,9 @@ async function runFlow(
     }
     console.log(chalk.gray('Auto gate reached. Reply with one of the labels shown above (example: A OK).'));
     console.log();
+  }
+  if (autoRun && isAutoRunFailureStatus(autoRun.status)) {
+    process.exitCode = 1;
   }
   if (after.matchedFeature) {
     console.log(

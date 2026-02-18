@@ -63,9 +63,18 @@ function isPrePrReviewSatisfied(
     return false;
   }
   if (
+    prePrReviewPolicy.findings === 'required' &&
+    (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findingsProvided)
+  ) {
+    return false;
+  }
+  if (
     !feature.docs.prePrDecisionFieldExists ||
     !feature.prePrReview.decisionProvided
   ) {
+    return false;
+  }
+  if (feature.prePrReview.decisionOutcome !== 'approve') {
     return false;
   }
   return true;
@@ -92,10 +101,6 @@ function isFeatureDone(
     (!workflowPolicy.requireReview || feature.pr.status === 'Approved') &&
     isPrePrReviewSatisfied(feature, prePrReviewPolicy)
   );
-}
-
-function formatSkillList(skills: string[]): string {
-  return skills.join(', ');
 }
 
 function getPrReviewRemoteBlockReasons(feature: FeatureState, lang: Lang): string[] {
@@ -135,6 +140,20 @@ function getPrReviewRemoteBlockReasons(feature: FeatureState, lang: Lang): strin
 
 function normalizeCommitTopicText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function toShellArg(value: string): string {
+  return `"${value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, '\\$')
+    .replace(/`/g, '\\`')}"`;
+}
+
+function buildSelfCliCommand(args: string[]): string {
+  const entry = process.argv[1] || 'dist/index.js';
+  const base = [process.execPath, entry, '--no-banner', ...args];
+  return base.map((arg) => toShellArg(arg)).join(' ');
 }
 
 function toShellSafeCommitTopic(value: string): string {
@@ -1083,74 +1102,19 @@ export function getStepDefinitions(
               },
             ];
           }
-          if (f.prePrReview.status !== 'Done') {
-            if (!prePrReviewPolicy.skills.length) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'pre_pr_review',
-                  requiresUserCheck: true,
-                  message: tr(lang, 'messages', 'prePrReviewRun', {
-                    skills: 'code-review-excellence',
-                    fallback: prePrReviewPolicy.fallback,
-                  }),
-                },
-              ];
-            }
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewRun', {
-                  skills: formatSkillList(prePrReviewPolicy.skills),
-                  fallback: prePrReviewPolicy.fallback,
-                }),
-              },
-            ];
-          }
-          if (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewEvidenceMissing'),
-              },
-            ];
-          }
-          if (!f.docs.prePrDecisionFieldExists || !f.prePrReview.decisionProvided) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewDecisionMissing'),
-              },
-            ];
-          }
-          if (!prePrReviewPolicy.skills.length) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewRun', {
-                  skills: 'code-review-excellence',
-                  fallback: prePrReviewPolicy.fallback,
-                }),
-              },
-            ];
+          const commandArgs = ['pre-pr-review', f.folderName];
+          if (f.type && f.type !== 'single') {
+            commandArgs.push('--component', f.type);
           }
           return [
             {
-              type: 'instruction',
+              type: 'command',
               category: 'pre_pr_review',
+              operationType: 'local',
               requiresUserCheck: true,
-              message: tr(lang, 'messages', 'prePrReviewRun', {
-                skills: formatSkillList(prePrReviewPolicy.skills),
-                fallback: prePrReviewPolicy.fallback,
-              }),
+              scope: 'docs',
+              cwd: f.git.docsGitCwd,
+              cmd: buildSelfCliCommand(commandArgs),
             },
           ];
         },

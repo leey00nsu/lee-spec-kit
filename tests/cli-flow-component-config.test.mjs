@@ -186,9 +186,12 @@ test('flow --json auto-preset pr-handoff resolves categories and enters auto mod
       'pr-handoff',
       '--json',
     ]);
-    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
     assert.equal(payload.autoRun?.enabled, true);
+    assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.preset, 'pr-handoff');
     assert.equal(payload.autoRun?.source, 'flag:--auto-preset');
     assert.deepEqual(payload.autoRun?.untilCategories, [
@@ -227,8 +230,11 @@ test('flow --json --request uses workflow.auto.defaultPreset when no auto flag i
       'issue 004를 F004로 승격시켜서 진행해',
       '--json',
     ]);
-    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.enabled, true);
     assert.equal(payload.autoRun?.preset, 'pr-handoff');
     assert.equal(payload.autoRun?.source, 'config:workflow.auto.defaultPreset');
@@ -604,6 +610,14 @@ test('init writes workflow.codeDirtyScope=auto, warn taskCommitGate, and default
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.taskCommitGate, 'warn');
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
+    assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
+    assert.equal(config.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.equal(config.workflow?.prePrReview?.findings, 'required');
+    assert.deepEqual(config.workflow?.prePrReview?.decisionEnum, [
+      'approve',
+      'changes_requested',
+      'blocked',
+    ]);
   });
 });
 

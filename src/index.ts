@@ -14,6 +14,7 @@ import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
 import { onboardCommand } from './commands/onboard.js';
+import { prePrReviewCommand } from './commands/pre-pr-review.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -93,5 +94,6 @@ githubCommand(program);
 docsCommand(program);
 detectCommand(program);
 onboardCommand(program);
+prePrReviewCommand(program);
 
 await program.parseAsync();

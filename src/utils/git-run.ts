@@ -16,9 +16,7 @@ export function runGitOrThrow(
     stdio,
   });
 
-  if (typeof out === 'string') return out.trim();
-  if (Buffer.isBuffer(out)) return out.toString(encoding).trim();
-  return '';
+  return out.trim();
 }
 
 export function runGitCapture(args: string[], cwd: string): string | undefined {

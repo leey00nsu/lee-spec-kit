@@ -164,8 +164,10 @@ const en = {
       'context.list.recordPrLink': 'Record PR link',
       'context.list.addPrePrReviewField': 'Add Pre-PR Review field',
       'context.list.completePrePrReview': 'Complete Pre-PR review',
+      'context.list.addPrePrFindings': 'Record Pre-PR Findings',
       'context.list.addPrePrEvidence': 'Add Pre-PR Evidence',
       'context.list.addPrePrDecision': 'Add Pre-PR Decision',
+      'context.list.resolvePrePrDecision': 'Resolve Pre-PR decision to approve',
       'context.list.addPrReviewEvidence': 'Add PR Review Evidence summary',
       'context.list.addPrReviewDecision': 'Add PR Review Decision',
       'context.list.setPrStatus': 'Set PR Status',
@@ -646,6 +648,8 @@ const en = {
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       legacyTasksPrePrReviewField:
         'Legacy tasks.md format detected. Add `Pre-PR Review` before PR steps. (`- **Pre-PR Review**: Pending | Done`)',
+      legacyTasksPrePrFindingsField:
+        'Legacy tasks.md format detected. Add `Pre-PR Findings` before PR steps. (`- **Pre-PR Findings**: major=0, minor=0`)',
       legacyTasksPrePrEvidenceField:
         'Legacy tasks.md format detected. Add `Pre-PR Evidence` before PR steps.',
       legacyTasksPrePrDecisionField:
@@ -682,10 +686,14 @@ const en = {
         'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
       workflowPrePrReviewNotDone:
         'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
+      workflowPrePrFindingsMissing:
+        'Implementation is done but `Pre-PR Findings` is missing/invalid. (Use `major=<n>, minor=<n>`.)',
       workflowPrePrEvidenceMissing:
-        'Implementation is done but `Pre-PR Evidence` is empty. (Record review evidence.)',
+        'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Record a real existing path when path_required policy is enabled.)',
       workflowPrePrDecisionMissing:
-        'Implementation is done but `Pre-PR Decision` is empty/invalid. (Use `decision: ...` or `결정: ...`.)',
+        'Implementation is done but `Pre-PR Decision` is empty/invalid. (Use `decision: approve|changes_requested|blocked ...`.)',
+      workflowPrePrDecisionNotApproved:
+        'Implementation is done but `Pre-PR Decision` is `{outcome}`. Resolve findings and re-run pre-PR review until decision becomes `approve`.',
     },
   } as const;
 

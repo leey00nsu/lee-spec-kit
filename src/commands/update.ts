@@ -222,6 +222,23 @@ function normalizeSkillList(raw: unknown): string[] {
   return [...deduped];
 }
 
+function normalizeDecisionEnumList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const deduped = new Set<string>();
+  for (const item of raw) {
+    const value = String(item || '').trim().toLowerCase();
+    if (!value) continue;
+    if (
+      value === 'approve' ||
+      value === 'changes_requested' ||
+      value === 'blocked'
+    ) {
+      deduped.add(value);
+    }
+  }
+  return [...deduped];
+}
+
 async function backfillMissingConfigDefaults(
   docsDir: string
 ): Promise<ConfigBackfillResult> {
@@ -284,6 +301,50 @@ async function backfillMissingConfigDefaults(
     }
   }
   setIfMissing(prePrReview, 'fallback', 'builtin-checklist', 'workflow.prePrReview.fallback');
+  setIfMissing(
+    prePrReview,
+    'evidenceMode',
+    'path_required',
+    'workflow.prePrReview.evidenceMode'
+  );
+  if (
+    prePrReview.evidenceMode !== undefined &&
+    prePrReview.evidenceMode !== 'path_required' &&
+    prePrReview.evidenceMode !== 'any'
+  ) {
+    prePrReview.evidenceMode = 'path_required';
+    changedPaths.push('workflow.prePrReview.evidenceMode');
+  }
+  setIfMissing(
+    prePrReview,
+    'findings',
+    'required',
+    'workflow.prePrReview.findings'
+  );
+  if (
+    prePrReview.findings !== undefined &&
+    prePrReview.findings !== 'required' &&
+    prePrReview.findings !== 'optional'
+  ) {
+    prePrReview.findings = 'required';
+    changedPaths.push('workflow.prePrReview.findings');
+  }
+  if (prePrReview.decisionEnum === undefined) {
+    prePrReview.decisionEnum = ['approve', 'changes_requested', 'blocked'];
+    changedPaths.push('workflow.prePrReview.decisionEnum');
+  } else {
+    const normalizedDecisionEnum = normalizeDecisionEnumList(prePrReview.decisionEnum);
+    if (normalizedDecisionEnum.length === 0) {
+      prePrReview.decisionEnum = ['approve', 'changes_requested', 'blocked'];
+      changedPaths.push('workflow.prePrReview.decisionEnum');
+    } else if (
+      JSON.stringify(normalizedDecisionEnum) !==
+      JSON.stringify(prePrReview.decisionEnum)
+    ) {
+      prePrReview.decisionEnum = normalizedDecisionEnum;
+      changedPaths.push('workflow.prePrReview.decisionEnum');
+    }
+  }
 
   if (!isPlainObject(raw.pr)) {
     raw.pr = {};

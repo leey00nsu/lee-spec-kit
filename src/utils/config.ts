@@ -78,6 +78,22 @@ export interface ProjectConfig {
        * - builtin-checklist: pre-PR baseline checklist in create-pr doc
        */
       fallback?: 'builtin-checklist';
+      /**
+       * Evidence validation policy.
+       * - any: any non-placeholder value
+       * - path_required: require a local file path that exists
+       */
+      evidenceMode?: 'any' | 'path_required';
+      /**
+       * Findings field policy.
+       * - optional: findings are informational
+       * - required: findings line must be present and valid (major/minor)
+       */
+      findings?: 'optional' | 'required';
+      /**
+       * Allowed decision outcomes recorded in `Pre-PR Decision`.
+       */
+      decisionEnum?: Array<'approve' | 'changes_requested' | 'blocked'>;
     };
     /**
      * Auto-run policy used by `flow` helper shortcuts.

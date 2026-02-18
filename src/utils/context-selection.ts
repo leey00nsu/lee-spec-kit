@@ -173,21 +173,27 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
     const branchMatch = command.match(/\bfeat\/([A-Za-z0-9._-]+)/);
     const worktree = worktreeMatch ? `.worktrees/${worktreeMatch[1]}` : null;
     const branch = branchMatch ? `feat/${branchMatch[1]}` : null;
+    if (action.type !== 'command') {
+      return tr(lang, 'cli', 'context.commandDetail.branchCreateGeneric', {
+        scope: 'project',
+      });
+    }
+    const scope = action.scope;
     if (worktree && branch) {
       return tr(lang, 'cli', 'context.commandDetail.branchCreateWithWorktree', {
-        scope: action.scope,
+        scope,
         worktree,
         branch,
       });
     }
     if (branch) {
       return tr(lang, 'cli', 'context.commandDetail.branchCreateWithBranch', {
-        scope: action.scope,
+        scope,
         branch,
       });
     }
     return tr(lang, 'cli', 'context.commandDetail.branchCreateGeneric', {
-      scope: action.scope,
+      scope,
     });
   };
 

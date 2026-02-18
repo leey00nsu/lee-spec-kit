@@ -24,10 +24,13 @@
 - **PR 전 리뷰**: -
   - 값: Pending | Done
   - 사전 코드리뷰 완료 후 `Done`으로 변경
+- **PR 전 리뷰 Findings**: -
+  - 형식: `major=<n>, minor=<n>`
 - **PR 전 리뷰 Evidence**: -
-  - 예: 리뷰 노트 링크, 로그 경로, 문서 경로
+  - 예: 리뷰 리포트 문서 경로(실제 존재 경로)
 - **PR 전 리뷰 Decision**: -
-  - 핵심 판단 근거를 `결정: ...`(또는 `decision: ...`) 형식으로 기록
+  - 형식: `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`)
+  - PR 생성 전 최종 통과 기준은 `approve`
   - 기본 베이스라인으로 `agents/skills/create-pr.md`(`Pre-PR 기본 체크리스트`) 기준을 따르세요
 - **PR 리뷰 Evidence**: -
   - 예: 해결/합의한 코멘트 링크, 검증 로그, 관련 문서 경로

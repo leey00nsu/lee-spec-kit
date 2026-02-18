@@ -42,13 +42,22 @@ export function tr(
   lang: Lang,
   category: I18nCategory,
   key: string,
+  vars?: Record<string, string | number | undefined>
+): string;
+export function tr(
+  lang: Lang,
+  category: I18nCategory,
+  key: string,
   vars: Record<string, string | number | undefined> = {}
 ): string {
   const safeLang = normalizeLang(lang);
+  const safeCategory = I18N[safeLang]?.[category] as Record<string, string> | undefined;
+  const defaultCategory = I18N[DEFAULT_LANG]?.[category] as Record<string, string> | undefined;
+  const koCategory = I18N.ko?.[category] as Record<string, string> | undefined;
   const template =
-    I18N[safeLang]?.[category]?.[key] ??
-    I18N[DEFAULT_LANG]?.[category]?.[key] ??
-    I18N.ko?.[category]?.[key] ??
+    safeCategory?.[key] ??
+    defaultCategory?.[key] ??
+    koCategory?.[key] ??
     `${category}.${key}`;
   return formatTemplate(template, vars);
 }
