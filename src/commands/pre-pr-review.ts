@@ -136,6 +136,12 @@ function buildReportContent(input: {
 - **Skills**: ${skills}
 - **Decision**: ${input.decision}
 - **Summary**: ${input.note}
+- **Findings**:
+  - TODO: <file:line | severity: low|medium|high | fix: required|optional | note: ...> OR 0 findings
+- **Residual Risks**:
+  - TODO: residual risk assessment after review
+- **Tests Run**:
+  - TODO: commands/results verified during pre-PR review
 - **Evidence**:
   - TODO: review comments/paths/tests verified during pre-PR review
 - **Trace**: pre-pr-review command executed and synced with tasks.md

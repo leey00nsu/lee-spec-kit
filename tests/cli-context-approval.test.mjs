@@ -23,7 +23,7 @@ function buildStructuredPrePrEvidence(options = {}) {
     findings = [
       'src/app/store.ts:88 | severity: medium | fix: required | note: guard stale snapshot write',
     ],
-    residualRisks = ['none'],
+    residualRisks = ['no residual risks found in reviewed scope'],
     testsRun = ['pnpm test --filter app (pass)'],
   } = options;
   const findingsLines = findings.map((item) => `  - ${item}`).join('\n');

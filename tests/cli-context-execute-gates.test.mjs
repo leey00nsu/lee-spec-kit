@@ -1661,6 +1661,51 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.equal(await pathExists(reportPath), true);
     const decisions = await fs.readFile(reportPath, 'utf-8');
     assert.match(decisions, /Pre-PR Review Log/i);
+
+    // Default pre-pr-review template is intentionally incomplete.
+    // It should not pass the pre-PR gate until findings/residual risks/tests are filled.
+    const contextAfterExecute = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(
+      contextAfterExecute.code,
+      0,
+      contextAfterExecute.stderr || contextAfterExecute.stdout
+    );
+    const contextAfterExecutePayload = JSON.parse(contextAfterExecute.stdout.trim());
+    assert.equal(contextAfterExecutePayload.matchedFeature.currentStep, 11);
+    assert.equal(
+      primaryActionOption(contextAfterExecutePayload).action.category,
+      'docs_commit'
+    );
+
+    const docsSyncTicket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
+    const docsSyncExecute = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      'A',
+      '--execute',
+      '--ticket',
+      docsSyncTicket,
+      '--json',
+    ]);
+    assert.equal(
+      docsSyncExecute.code,
+      0,
+      docsSyncExecute.stderr || docsSyncExecute.stdout
+    );
+
+    const contextAfterDocsSync = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(
+      contextAfterDocsSync.code,
+      0,
+      contextAfterDocsSync.stderr || contextAfterDocsSync.stdout
+    );
+    const contextAfterDocsSyncPayload = JSON.parse(contextAfterDocsSync.stdout.trim());
+    assert.equal(contextAfterDocsSyncPayload.matchedFeature.currentStep, 12);
+    assert.equal(
+      primaryActionOption(contextAfterDocsSyncPayload).action.category,
+      'pre_pr_review'
+    );
   });
 });
 

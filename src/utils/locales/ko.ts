@@ -608,7 +608,7 @@ const ko = {
       prePrReviewFieldMissing:
         'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
       prePrReviewEvidenceMissing:
-        'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)의 `Summary`/`Decision`을 기록하세요. (확인 필요)',
+        'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`/`Tests Run`을 기록하세요. (확인 필요)',
       prePrReviewDecisionMissing:
         'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
       prePrReviewRun:
@@ -724,7 +724,7 @@ const ko = {
       workflowPrePrReviewNotDone:
         '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
       workflowPrePrEvidenceMissing:
-        '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (`Pre-PR Review Log`/`PR 전 리뷰 로그`의 `Summary`/`Decision`이 있는 실제 경로를 기록하세요.)',
+        '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (`Pre-PR Review Log`/`PR 전 리뷰 로그`에 placeholder가 아닌 `Summary`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`/`Tests Run`이 있는 실제 경로를 기록하세요.)',
       workflowPrePrDecisionMissing:
         '완료 상태이지만 `PR 전 리뷰 Decision`이 비어있거나 형식이 올바르지 않습니다. (`decision: approve|changes_requested|blocked ...` 형식)',
       workflowPrePrDecisionNotApproved:

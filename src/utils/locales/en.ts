@@ -622,7 +622,7 @@ const en = {
       prePrReviewFieldMissing:
         'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
       prePrReviewEvidenceMissing:
-        'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary` and `Decision`. (CHECK required)',
+        'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Decision`, `Findings` (or explicit `0 findings`), `Residual Risks`, and `Tests Run`. (CHECK required)',
       prePrReviewDecisionMissing:
         'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
       prePrReviewRun:
@@ -737,7 +737,7 @@ const en = {
       workflowPrePrReviewNotDone:
         'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
       workflowPrePrEvidenceMissing:
-        'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Point to an existing file and include `Pre-PR Review Log` with non-placeholder `Summary` and `Decision`.)',
+        'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Point to an existing file and include `Pre-PR Review Log` with non-placeholder `Summary`, `Decision`, `Findings` (or explicit `0 findings`), `Residual Risks`, and `Tests Run`.)',
       workflowPrePrDecisionMissing:
         'Implementation is done but `Pre-PR Decision` is empty/invalid. (Use `decision: approve|changes_requested|blocked ...`.)',
       workflowPrePrDecisionNotApproved:

@@ -271,18 +271,82 @@ function hasReviewLogQuality(
   return false;
 }
 
+function isExplicitZeroFindingsEntry(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return false;
+  return (
+    /^0+\s*findings?\b/.test(trimmed) ||
+    /^no\s+findings?\b/.test(trimmed) ||
+    /^findings?\s*[:：]\s*0+\b/.test(trimmed) ||
+    /^지적\s*사항?\s*[:：]?\s*0+\b/.test(trimmed) ||
+    /^지적\s*없음\b/.test(trimmed)
+  );
+}
+
+function hasPrePrReviewLogQuality(content: string): boolean {
+  const sections = splitReviewLogSections(content, PRE_PR_REVIEW_LOG_HEADER);
+  for (const section of sections) {
+    const summaryEntries = collectStructuredReviewEntries(section, [
+      'Summary',
+      '요약',
+      'Note',
+      '노트',
+    ]);
+    if (!hasValidReviewLogEntries(summaryEntries)) continue;
+
+    const decisionEntries = collectStructuredReviewEntries(section, [
+      'Decision',
+      '결정',
+    ]);
+    if (!hasValidReviewLogEntries(decisionEntries)) continue;
+
+    const findingsEntries = collectStructuredReviewEntries(section, [
+      'Findings',
+      '지적사항',
+      '지적 사항',
+    ]);
+    const hasActionableFindings = findingsEntries
+      .map((entry) => entry.trim())
+      .some(
+        (entry) =>
+          entry.length > 0 &&
+          !isReviewDraftPlaceholder(entry) &&
+          !isPlaceholderReviewEvidence(entry) &&
+          /\S+:\d+/.test(entry)
+      );
+    const hasExplicitZeroFindings = findingsEntries.some((entry) =>
+      isExplicitZeroFindingsEntry(entry)
+    );
+    if (!hasActionableFindings && !hasExplicitZeroFindings) continue;
+
+    const residualRiskEntries = collectStructuredReviewEntries(section, [
+      'Residual Risks',
+      'Residual Risk',
+      '잔여 리스크',
+      '잔여 위험',
+    ]);
+    if (!hasValidReviewLogEntries(residualRiskEntries)) continue;
+
+    const testsRunEntries = collectStructuredReviewEntries(section, [
+      'Tests Run',
+      'Test Run',
+      '실행 테스트',
+      '테스트 실행',
+    ]);
+    if (!hasValidReviewLogEntries(testsRunEntries)) continue;
+
+    return true;
+  }
+  return false;
+}
+
 const PRE_PR_REVIEW_LOG_HEADER = /^##\s+(?:Pre-PR Review Log|PR 전 리뷰 로그)\b.*$/gim;
 const PR_REVIEW_LOG_HEADER = /^##\s+(?:PR Review Log|PR 리뷰 로그)\b.*$/gim;
 
 async function hasPrePrReviewLogEvidence(candidatePath: string): Promise<boolean> {
   try {
     const content = await fs.readFile(candidatePath, 'utf-8');
-    return hasReviewLogQuality(
-      content,
-      PRE_PR_REVIEW_LOG_HEADER,
-      ['Summary', '요약', 'Note', '노트'],
-      ['Decision', '결정']
-    );
+    return hasPrePrReviewLogQuality(content);
   } catch {
     return false;
   }
