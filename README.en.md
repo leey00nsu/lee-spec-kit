@@ -365,11 +365,12 @@ npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed" --a
 npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed"
 
 # long-running auto: create checkpoint + resume
-npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json
-npx lee-spec-kit flow --resume <RUN_ID> --json
+npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json-compact
+npx lee-spec-kit flow --resume <RUN_ID> --json-compact
 
 # JSON output for automation
 npx lee-spec-kit flow --json
+npx lee-spec-kit flow --json-compact
 
 # strict checks (optional)
 npx lee-spec-kit flow --strict
@@ -380,6 +381,7 @@ npx lee-spec-kit flow --strict
 | Option            | Description |
 | ----------------- | ----------- |
 | `--json`          | JSON output for agents |
+| `--json-compact`  | Compact JSON output for agents (implies `--json`, reduced duplication) |
 | `--component <id>`| Select target component in multi mode (e.g. `app`, `api`, `worker`) |
 | `--all`           | Include completed features when auto-detecting |
 | `--done`          | Show completed (workflow-done) features only |
@@ -408,9 +410,9 @@ Auto gate mode rules:
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
 
 Agent resume rules (recommended):
-- When `flow --json` returns `autoRun.enabled=true`, resume with `autoRun.resume.flowCommand` after interruption/compression.
+- When `flow --json-compact` (or `flow --json`) returns `autoRun.enabled=true`, resume with `autoRun.resume.flowCommand` after interruption/compression.
 - If you need a fresh checkpoint before resuming, run `autoRun.resume.contextCommand` first.
-- If `context --json` returns `approvalRequest.required=true`, stop immediately and report to the user.
+- If `context --json-compact` (or `context --json`) returns `approvalRequest.required=true`, stop immediately and report to the user.
 - When `--start-auto` is used, prefer `autoRun.run.resumeCommand` (`flow --resume <runId>`) as the first resume path.
 
 ### GitHub helpers

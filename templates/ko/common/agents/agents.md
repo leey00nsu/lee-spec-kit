@@ -33,8 +33,8 @@
 ## 🧾 라벨 응답 계약 (SSOT)
 
 - 사용자에게 보내는 **모든 응답의 마지막**에 현재 상태 + 선택 가능한 라벨을 표시합니다.
-- 기준 데이터는 최신 `npx lee-spec-kit context --json-compact`를 기본으로 사용하고, 상세 필드가 필요할 때만 `context --json`(또는 `flow --json`)을 사용합니다.
-- `flow --json`의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
+- 기준 데이터는 최신 `npx lee-spec-kit context --json-compact`를 기본으로 사용하고, 상세 필드가 필요할 때만 `context --json` 또는 `flow --json`을 사용합니다. (`flow`는 기본적으로 `--json-compact` 우선)
+- `flow --json-compact`(또는 `flow --json`)의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
 - `AUTO_MANUAL_REQUIRED`는 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
 - 라벨 설명은 `actionOptions[].detail` 또는 command `cmd`를 **원문 그대로** 사용합니다. (요약/의역 금지)
 - 사용자가 다른 질문을 하더라도, 실행 가능한 라벨이 있으면 응답 마지막에 동일 블록을 다시 표시합니다.

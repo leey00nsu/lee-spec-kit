@@ -33,8 +33,8 @@ Prohibited:
 ## 🧾 Label Response Contract (SSOT)
 
 - End **every user-facing reply** with current status + available labels.
-- Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required).
-- When using auto results from `flow --json`, treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
+- Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
+- When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
 - Use `actionOptions[].detail` or command `cmd` **verbatim**. Do not paraphrase.
 - Even when the user asks something else, append the same label block at the end if executable labels exist.

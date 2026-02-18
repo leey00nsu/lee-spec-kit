@@ -10,6 +10,8 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import {
+  type ActionOption,
+  type ContextSelectionState,
   ContextSelectionOptions,
   resolveContextSelection,
   toReasonCode,
@@ -28,6 +30,7 @@ type LoadedConfig = NonNullable<Awaited<ReturnType<typeof getConfig>>>;
 
 interface FlowOptions extends ContextSelectionOptions {
   json?: boolean;
+  jsonCompact?: boolean;
   approve?: string;
   execute?: boolean;
   executeStrict?: boolean;
@@ -123,6 +126,33 @@ interface AgentOrchestrationPolicy {
   subAgentResponsibilities: string[];
   pauseAndReportWhen: string[];
   preferredResumeCommand: string | null;
+}
+
+interface CompactFlowFeatureSummary {
+  ref: string;
+  id?: string;
+  slug: string;
+  type: string;
+  issueNumber?: string;
+  specStatus?: string;
+  planStatus?: string;
+  tasksDocStatus?: string;
+  currentStep: number;
+  completion: {
+    implementationDone: boolean;
+    workflowDone: boolean;
+  };
+  tasks?: {
+    total: number;
+    todo: number;
+    doing: number;
+    done: number;
+  };
+  completionChecklist?: {
+    total: number;
+    checked: number;
+  };
+  warnings: string[];
 }
 
 const LONG_RUNNING_DELEGATION_CATEGORIES = [
@@ -457,6 +487,142 @@ function buildAgentOrchestrationPolicy(
   };
 }
 
+function getFeatureRef(
+  feature: Pick<ContextSelectionState['features'][number], 'folderName'>
+): string {
+  return feature.folderName;
+}
+
+function toCompactFlowFeature(
+  feature: ContextSelectionState['matchedFeature']
+): CompactFlowFeatureSummary | null {
+  if (!feature) return null;
+  return {
+    ref: getFeatureRef(feature),
+    id: feature.id,
+    slug: feature.slug,
+    type: feature.type,
+    issueNumber: feature.issueNumber,
+    specStatus: feature.specStatus,
+    planStatus: feature.planStatus,
+    tasksDocStatus: feature.tasksDocStatus,
+    currentStep: feature.currentStep,
+    completion: {
+      implementationDone: feature.completion.implementationDone,
+      workflowDone: feature.completion.workflowDone,
+    },
+    tasks: feature.tasks,
+    completionChecklist: feature.completionChecklist,
+    warnings: feature.warnings,
+  };
+}
+
+function toCompactFlowActionOption(option: ActionOption): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    label: option.label,
+    summary: option.summary,
+    detail: option.detail,
+    approvalPrompt: option.approvalPrompt,
+    requiresRequestText: option.requiresRequestText,
+    replyExample: option.replyExample,
+    actionType: option.action.type,
+    category: option.action.category,
+    operationType: option.action.operationType,
+    requiresUserCheck: !!option.action.requiresUserCheck,
+  };
+
+  if (option.action.type === 'command') {
+    base.scope = option.action.scope;
+    base.cwd = option.action.cwd;
+    base.cmd = option.action.cmd;
+    return base;
+  }
+  base.message = option.action.message;
+  return base;
+}
+
+function toCompactFlowContextSnapshot(state: ContextSelectionState): Record<string, unknown> {
+  const primaryAction = state.actionOptions[0] ?? null;
+  return {
+    status: state.status,
+    reasonCode: toReasonCode(state.status),
+    selectionMode: state.selectionMode,
+    selectionFallback: state.selectionFallback,
+    branches: state.branches,
+    warnings: state.warnings,
+    contextVersion: state.contextVersion,
+    matchedFeature: toCompactFlowFeature(state.matchedFeature),
+    candidateRefs:
+      state.targetFeatures.length > 1
+        ? state.targetFeatures.map((feature) => getFeatureRef(feature))
+        : [],
+    completedCandidateRefs:
+      state.selectionMode === 'open'
+        ? state.doneFeatures.map((feature) => getFeatureRef(feature))
+        : [],
+    openCandidateRefs:
+      state.selectionMode === 'open'
+        ? state.openFeatures.map((feature) => getFeatureRef(feature))
+        : [],
+    inProgressCandidateRefs:
+      state.selectionMode === 'open'
+        ? state.inProgressFeatures.map((feature) => getFeatureRef(feature))
+        : [],
+    readyToCloseCandidateRefs:
+      state.selectionMode === 'open'
+        ? state.readyToCloseFeatures.map((feature) => getFeatureRef(feature))
+        : [],
+    actionOptions: state.actionOptions.map((option) =>
+      toCompactFlowActionOption(option)
+    ),
+    primaryActionLabel: primaryAction?.label ?? null,
+    primaryActionType: primaryAction?.action.type ?? null,
+    primaryActionCategory: primaryAction?.action.category ?? null,
+    primaryActionOperationType: primaryAction?.action.operationType ?? null,
+  };
+}
+
+function toCompactAutoRun(autoRun: AutoRunSummary | null): Record<string, unknown> | null {
+  if (!autoRun) return null;
+  const lastExecution =
+    autoRun.executions.length > 0
+      ? autoRun.executions[autoRun.executions.length - 1]
+      : null;
+  return {
+    enabled: autoRun.enabled,
+    status: autoRun.status,
+    reasonCode: autoRun.reasonCode,
+    untilCategories: autoRun.untilCategories,
+    request: autoRun.request,
+    preset: autoRun.preset ?? null,
+    source: autoRun.source ?? null,
+    iterations: autoRun.iterations,
+    executionCount: autoRun.executions.length,
+    lastExecution,
+    gate: autoRun.gate ?? null,
+    manual: autoRun.manual ?? null,
+    resume: autoRun.resume,
+    run: autoRun.run ?? null,
+    error: autoRun.error ?? null,
+  };
+}
+
+function toCompactStatusReport(report: unknown): Record<string, unknown> | null {
+  if (!report || typeof report !== 'object') return null;
+  const payload = report as {
+    status?: string;
+    reasonCode?: string;
+    counts?: unknown;
+    recommendation?: unknown;
+  };
+  return {
+    status: payload.status ?? null,
+    reasonCode: payload.reasonCode ?? null,
+    counts: payload.counts ?? null,
+    recommendation: payload.recommendation ?? null,
+  };
+}
+
 async function runAutoUntilCategory(
   config: LoadedConfig,
   featureName: string,
@@ -770,6 +936,10 @@ export function flowCommand(program: Command): void {
     .command('flow [feature-name]')
     .description('Run combined workflow checks (context + status + doctor)')
     .option('--json', 'Output in JSON format for agents')
+    .option(
+      '--json-compact',
+      'Output compact JSON for agents (implies --json, reduced duplication)'
+    )
     .option('--component <component>', 'Component name for multi projects')
     .option('--all', 'Include completed features when auto-detecting')
     .option('--done', 'Show completed (workflow-done) features only')
@@ -811,7 +981,7 @@ export function flowCommand(program: Command): void {
         const lang = config?.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
-        if (options.json) {
+        if (options.json || options.jsonCompact) {
           console.log(
             JSON.stringify({
               status: 'error',
@@ -1091,14 +1261,44 @@ async function runFlow(
     }
   }
 
-  if (options.json) {
+  const jsonMode = !!options.json || !!options.jsonCompact;
+  if (jsonMode) {
     const autoRunFailed = !!(autoRun && isAutoRunFailureStatus(autoRun.status));
     const agentOrchestration = buildAgentOrchestrationPolicy(autoRun);
+    const status = autoRunFailed ? 'error' : 'ok';
+    const reasonCode = autoRunFailed
+      ? autoRun?.reasonCode || 'AUTO_EXECUTION_FAILED'
+      : 'FLOW_SUMMARY';
+
+    if (options.jsonCompact) {
+      const compactPayload = {
+        schema: 'flow.v2.compact',
+        status,
+        reasonCode,
+        context: {
+          before: toCompactFlowContextSnapshot(before),
+          after: toCompactFlowContextSnapshot(after),
+        },
+        approval: approvalResult,
+        autoRun: toCompactAutoRun(autoRun),
+        agentOrchestration,
+        statusReport: toCompactStatusReport(statusReport),
+        doctorReport: toCompactStatusReport(doctorReport),
+        strictChecks,
+        suggestion: after.matchedFeature
+          ? `npx lee-spec-kit context ${after.matchedFeature.folderName}${componentHint}`
+          : `npx lee-spec-kit context${componentHint}`,
+      };
+      console.log(JSON.stringify(compactPayload, null, 2));
+      if (autoRunFailed) {
+        process.exitCode = 1;
+      }
+      return;
+    }
+
     const payload = {
-      status: autoRunFailed ? 'error' : 'ok',
-      reasonCode: autoRunFailed
-        ? autoRun?.reasonCode || 'AUTO_EXECUTION_FAILED'
-        : 'FLOW_SUMMARY',
+      status,
+      reasonCode,
       context: {
         before: {
           status: before.status,

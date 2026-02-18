@@ -27,8 +27,8 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 선택적 서브 에이전트 실행**입니다. 짧은 단계(spec/plan/tasks 승인, 이슈/PR 메타 동기화 등)는 메인 에이전트가 직접 처리하고, 장시간 루프(`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run)는 서브 에이전트에 위임합니다.
 - 단, 서브 에이전트를 사용할 수 없는 환경이면 메인 에이전트가 같은 규칙/게이트를 유지한 채 직접 실행합니다. (동작 강등: 위임만 생략)
 - `context --json-compact`에 `autoRun.available=true`가 있으면 `autoRun.command`를 사용해 승인 필요 카테고리 전까지 자동 진행할 수 있습니다.
-- 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다.
-- auto 실행이 중단되면 `flow --json`의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.
+- 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json-compact`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다. (상세 디버깅 필드가 필요할 때만 `--json`)
+- auto 실행이 중단되면 `flow --json-compact`(또는 `flow --json`)의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.
 - `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷(매 응답 말미의 상태/라벨 표시 포함)은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다.

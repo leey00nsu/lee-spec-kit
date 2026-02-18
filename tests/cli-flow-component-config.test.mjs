@@ -99,6 +99,43 @@ test('flow --json aggregates context/status/doctor', async () => {
   });
 });
 
+test('flow --json-compact returns reduced payload for agents', async () => {
+  await withTempDir('lsk-flow-json-compact-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['flow', 'F001-alpha', '--json-compact']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.schema, 'flow.v2.compact');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.context?.before?.matchedFeature?.ref, 'F001-alpha');
+    assert.equal(payload.context?.before?.matchedFeature?.path, undefined);
+    assert.equal(payload.context?.before?.matchedFeature?.git, undefined);
+    assert.equal(Array.isArray(payload.context?.before?.actionOptions), true);
+    assert.equal(payload.context?.before?.actionOptions?.[0]?.action, undefined);
+    assert.equal(typeof payload.statusReport?.status, 'string');
+    assert.equal(typeof payload.doctorReport?.status, 'string');
+  });
+});
+
 test('flow --json auto-until-category stops at gate and exposes approval lines', async () => {
   await withTempDir('lsk-flow-auto-until-gate-', async (dir) => {
     const initResult = await runCli(dir, [

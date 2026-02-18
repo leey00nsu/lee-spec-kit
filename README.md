@@ -384,11 +384,12 @@ npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진�
 npx lee-spec-kit flow F004 --request "issue 004를 F004로 승격시켜서 진행해"
 
 # 장시간 자동 진행: run 체크포인트 생성 + 재개
-npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json
-npx lee-spec-kit flow --resume <RUN_ID> --json
+npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json-compact
+npx lee-spec-kit flow --resume <RUN_ID> --json-compact
 
 # 에이전트 파이프라인용 JSON
 npx lee-spec-kit flow --json
+npx lee-spec-kit flow --json-compact
 
 # 엄격 검사(선택)
 npx lee-spec-kit flow --strict
@@ -399,6 +400,7 @@ npx lee-spec-kit flow --strict
 | 옵션               | 설명 |
 | ------------------ | ---- |
 | `--json`           | 에이전트용 JSON 출력 |
+| `--json-compact`   | 에이전트용 압축 JSON 출력 (`--json` 포함, 중복 필드 최소화) |
 | `--component <id>` | multi에서 대상 컴포넌트 지정 (예: `app`, `api`, `worker`) |
 | `--all`            | 자동 감지 실패 시 완료된 Feature까지 포함해서 표시 |
 | `--done`           | 완료(workflow-done) Feature만 표시 |
@@ -427,9 +429,9 @@ npx lee-spec-kit flow --strict
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
 
 에이전트 재개 규칙(권장):
-- `flow --json` 결과에 `autoRun.enabled=true`가 있으면, 중단/압축 후에도 `autoRun.resume.flowCommand`를 그대로 재실행해 이어갑니다.
+- `flow --json-compact`(또는 `flow --json`) 결과에 `autoRun.enabled=true`가 있으면, 중단/압축 후에도 `autoRun.resume.flowCommand`를 그대로 재실행해 이어갑니다.
 - 재개 전 현재 지점 확인이 필요하면 `autoRun.resume.contextCommand`를 먼저 실행합니다.
-- `context --json` 확인 결과 `approvalRequest.required=true`면 즉시 멈추고 사용자에게 보고합니다.
+- `context --json-compact`(또는 `context --json`) 확인 결과 `approvalRequest.required=true`면 즉시 멈추고 사용자에게 보고합니다.
 - `--start-auto`를 사용하는 경우에는 `autoRun.run.resumeCommand`(`flow --resume <runId>`)를 우선 재개 경로로 사용합니다.
 
 ### GitHub helper
