@@ -21,15 +21,15 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 
 - If the CLI points to an active task, focus on that task only.
 - Treat task state transitions in `tasks.md` **"Task Rules"** as SSOT.
-- Treat `approvalRequest.required` from `context --json` as SSOT for approval waiting.
+- Treat `approvalRequest.required` from `context --json-compact` as SSOT for approval waiting (`--json` only when full-detail debugging fields are required).
   - `false`: continue without label approval.
   - `true`: wait for label-token approval (`A`, `A OK`) before execution.
 - Default execution model is **main-agent orchestration + selective sub-agent execution**. Keep short steps (spec/plan/tasks approvals, issue/PR metadata sync) in the main agent, and delegate long-running loops (`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run) to a sub-agent.
 - If sub-agent execution is unavailable, the main agent must run the same loop directly with the same approval/gate rules (degrade by skipping delegation only).
-- If `context --json` exposes `autoRun.available=true`, you may use `autoRun.command` to continue automatically until approval-required categories are reached.
+- If `context --json-compact` exposes `autoRun.available=true`, you may use `autoRun.command` to continue automatically until approval-required categories are reached.
 - For long-running auto execution, start with `flow <feature> --auto-... --start-auto --json` and prefer `autoRun.run.resumeCommand` (`flow --resume <RUN_ID>`) after interruption/compression.
 - If auto execution stops, treat `autoRun.resume` from `flow --json` as SSOT. After interruption/compression, resume with `autoRun.resume.flowCommand`; if needed, check current state first with `autoRun.resume.contextCommand`.
-- Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json` and report whether `approvalRequest.required` is now true.
+- Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json-compact` and report whether `approvalRequest.required` is now true.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow user-facing response format (including the final status/label block in every reply) from `agents.md` **"Label Response Contract (SSOT)"**.
 - For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.

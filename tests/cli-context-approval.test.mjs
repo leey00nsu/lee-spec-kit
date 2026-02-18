@@ -103,7 +103,7 @@ test('context --json exposes generic label token policy', async () => {
     );
     assert.equal(Array.isArray(payload.agentOrchestration?.resumePriority), true);
     assert.equal(
-      payload.agentOrchestration?.resumePriority?.includes('context --json'),
+      payload.agentOrchestration?.resumePriority?.includes('context --json-compact'),
       true
     );
     assert.equal(payload.autoRun?.available, false);

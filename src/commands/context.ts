@@ -163,7 +163,7 @@ function buildAgentOrchestrationPolicy(
     resumePriority: [
       'flow --resume <RUN_ID>',
       'autoRun.resume.flowCommand',
-      'context --json',
+      'context --json-compact',
     ],
   };
 }
