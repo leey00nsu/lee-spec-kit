@@ -149,6 +149,12 @@ export interface ProjectConfig {
      * @deprecated Use skipCheckCategories instead.
      */
     skipOkCategories?: string[];
+    /**
+     * task_execute approval phase policy.
+     * - both (default): require checks for both TODO->DOING and DOING->DONE phases.
+     * - start_only: require checks only for TODO->DOING phase.
+     */
+    taskExecuteCheck?: 'both' | 'start_only';
   };
 }
 

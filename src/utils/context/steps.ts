@@ -852,6 +852,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'task_execute',
                 requiresUserCheck: true,
+                taskExecutePhase: 'complete',
                 message: tr(lang, 'messages', 'finishDoingTask', {
                   title: f.activeTask.title,
                   done: f.tasks.done,
@@ -938,6 +939,7 @@ export function getStepDefinitions(
                     type: 'instruction',
                     category: 'task_execute',
                     requiresUserCheck: true,
+                    taskExecutePhase: 'start',
                     message: `${tr(lang, 'messages', 'startNextTodoTask', {
                       title: f.nextTodoTask.title,
                       done: f.tasks.done,
@@ -955,6 +957,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'task_execute',
                 requiresUserCheck: true,
+                taskExecutePhase: 'start',
                 message: tr(lang, 'messages', 'startNextTodoTask', {
                   title: f.nextTodoTask.title,
                   done: f.tasks.done,

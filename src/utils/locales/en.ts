@@ -88,15 +88,15 @@ const en = {
       'context.tipShowDone': 'Show done only',
       'context.checkRequired': '[CHECK required] ',
       'context.checkPolicyHint':
-        'ℹ️  Check user-approval policy once at session start (or right after context compression/reset); re-check only when policy/config changes or the user explicitly requests refresh. (includes git push/merge and merge commits). If you see [CHECK required], wait for a reply that includes a label token (e.g. `A`, `A OK`, `A proceed`) before proceeding (config: approval can override)',
+        'ℹ️  Check user-approval policy once at session start (or right after context compression/reset); re-check only when policy/config changes or the user explicitly requests refresh. (includes git push/merge and merge commits). If you see [CHECK required], wait for a reply that follows label-token rules (`A`, `A OK`, `A proceed`) before proceeding (config: approval can override)',
       'context.actionOptionHint':
-        'Approval reply format: include a label token (e.g. `A`, `A OK`, `A proceed`)',
+        'Label reply rules: answer as `A`, `A OK`, or `A proceed`',
       'context.actionExplainHint':
         'Before requesting approval, explain what each label will run/change with a one-line summary.',
       'context.finalLabelPrompt':
-        'Available labels now: {labels}. Reply with a label-token format. (e.g. `{example}`)',
+        'Available labels now: {labels}. Reply using label-token rules (`A`, `A OK`, `A proceed`). (e.g. `{example}`)',
       'context.finalLabelPromptWithRequest':
-        'Available labels now: {labels}. Reply with a label-token format. (e.g. `{example}`) Labels that require a request must be replied as: {requestExamples}',
+        'Available labels now: {labels}. Reply using label-token rules (`A`, `A OK`, `A proceed`). (e.g. `{example}`) Labels that require a request must be replied as: {requestExamples}',
       'context.suggestionHeader': 'Suggested Next Options',
       'context.suggestionCommandHint': 'Reference command: {command}',
       'context.suggestionFinalPrompt':
@@ -111,6 +111,8 @@ const en = {
         '({scope}) merge PR after explicit OK',
       'context.commandDetail.codeReviewPushFix':
         '({scope}) push review-fix commits',
+      'context.actionSummary.runDocsCommand': 'Run docs command',
+      'context.actionSummary.runProjectCommand': 'Run project command',
       'context.actionDetail.featureFolder': 'Prepare feature folder and baseline docs',
       'context.actionDetail.specWrite': 'Write or refine spec.md and set status',
       'context.actionDetail.specApprove': 'Approve spec.md',

@@ -668,6 +668,9 @@ npx lee-spec-kit update --force
 - `requireCheckCategories` (`category`만): 확인을 **항상** 요구할 category 목록 (예: `["pr_create"]`, `["*"]`)
 - `skipCheckCategories` (`category`만): 확인을 **절대** 요구하지 않을 category 목록 (예: `["docs_commit"]`, `["*"]`)
 - `requireCheckSteps` (`steps`만): 확인이 필요한 step 번호 목록 (예: `[3, 5, 12]`)
+- `taskExecuteCheck` (선택): `task_execute` 확인 정책 (`both` | `start_only`, 기본: `both`)
+  - `both`: TODO→DOING, DOING→DONE 모두 승인 필요
+  - `start_only`: TODO→DOING만 승인 필요, DOING→DONE은 기본 승인 생략
 
 #### category 예시
 

@@ -1258,7 +1258,7 @@ async function runApprovedOption(
   if (!parsedLabel) {
     throw createCliError(
       'INVALID_APPROVAL',
-      'Invalid approval reply. Include a valid label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`).'
+      tr(lang, 'cli', 'cliError.invalidApproval.replyWithValidLabel')
     );
   }
 

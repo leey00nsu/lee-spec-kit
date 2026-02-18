@@ -90,15 +90,15 @@ const ko = {
       'context.tipShowDone': '완료만 보기',
       'context.checkRequired': '[확인 필요] ',
       'context.checkPolicyHint':
-        'ℹ️  사용자 확인 정책은 세션 시작(또는 context 압축/리셋 직후)에 1회 확인하고, 이후에는 정책/설정 변경 또는 사용자 새로고침 요청 시에만 재확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 사용자에게 라벨 토큰이 포함된 응답(예: `A`, `A OK`, `A 진행해`)을 받은 뒤 진행 (config: approval로 조정 가능)',
+        'ℹ️  사용자 확인 정책은 세션 시작(또는 context 압축/리셋 직후)에 1회 확인하고, 이후에는 정책/설정 변경 또는 사용자 새로고침 요청 시에만 재확인하세요. (git push/merge/merge commit 포함) [확인 필요]가 있으면 라벨 토큰 규칙(`A`, `A OK`, `A 진행해`)에 맞는 응답을 받은 뒤 진행하세요. (config: approval로 조정 가능)',
       'context.actionOptionHint':
-        '승인 응답 형식: 라벨 토큰 포함 (예: `A`, `A OK`, `A 진행해`)',
+        '라벨 응답 규칙: `A`, `A OK`, `A 진행해` 중 하나의 형식으로 응답',
       'context.actionExplainHint':
         '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
       'context.finalLabelPrompt':
-        '현재 선택 가능한 라벨: {labels}. 라벨 토큰 포함 형식으로 응답하세요. (예: `{example}`)',
+        '현재 선택 가능한 라벨: {labels}. 라벨 응답 규칙(`A`, `A OK`, `A 진행해`)으로 응답하세요. (예: `{example}`)',
       'context.finalLabelPromptWithRequest':
-        '현재 선택 가능한 라벨: {labels}. 라벨 토큰 포함 형식으로 응답하세요. (예: `{example}`) 요청 텍스트가 필요한 라벨은 다음 형식으로 입력하세요: {requestExamples}',
+        '현재 선택 가능한 라벨: {labels}. 라벨 응답 규칙(`A`, `A OK`, `A 진행해`)으로 응답하세요. (예: `{example}`) 요청 텍스트가 필요한 라벨은 다음 형식으로 입력하세요: {requestExamples}',
       'context.suggestionHeader': '추천 다음 선택지',
       'context.suggestionCommandHint': '라벨 참고 명령: {command}',
       'context.suggestionFinalPrompt':
@@ -113,6 +113,8 @@ const ko = {
         '({scope}) 명시적 승인 후 PR을 머지하세요',
       'context.commandDetail.codeReviewPushFix':
         '({scope}) 리뷰 수정 커밋을 push하세요',
+      'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
+      'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
       'context.actionDetail.featureFolder': 'Feature 폴더와 기본 문서 골격을 준비하세요',
       'context.actionDetail.specWrite': 'spec.md를 작성/보완하고 상태를 맞추세요',
       'context.actionDetail.specApprove': 'spec.md를 승인합니다',

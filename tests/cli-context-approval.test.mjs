@@ -181,6 +181,39 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
   });
 });
 
+test('context summaries are localized in ko mode (no English fallback summaries)', async () => {
+  await withTempDir('lsk-context-summary-localized-ko-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    const replan = payload.actionOptions.find(
+      (option) => option.action.category === 'user_request_replan'
+    );
+    assert.equal(typeof replan?.summary, 'string');
+    assert.match(replan.summary, /새 사용자 요구/);
+    assert.doesNotMatch(replan.summary, /Handle a new user request first/);
+  });
+});
+
 test('context --json-compact action options include reply metadata', async () => {
   await withTempDir('lsk-context-json-compact-reply-metadata-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -550,6 +583,130 @@ test('context active DOING task still exposes user_request_replan option', async
     const approvePayload = JSON.parse(approve.stdout.trim());
     assert.equal(approvePayload.status, 'approved_selected');
     assert.equal(approvePayload.label, 'A');
+  });
+});
+
+test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval but keeps TODO->DOING approval', async () => {
+  await withTempDir('lsk-context-task-execute-start-only-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = config.approval || {};
+    config.approval.mode = 'builtin';
+    config.approval.taskExecuteCheck = 'start_only';
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const todoTasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [TODO][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] done
+`;
+    await fs.writeFile(tasksPath, todoTasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const initialAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(initialAdd.code, 0, initialAdd.stderr || initialAdd.stdout);
+    const initialCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare task execute start-only approval test',
+    ]);
+    assert.equal(initialCommit.code, 0, initialCommit.stderr || initialCommit.stdout);
+
+    const startContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(startContext.code, 0, startContext.stderr || startContext.stdout);
+    const startPayload = JSON.parse(startContext.stdout.trim());
+    assert.equal(primaryActionOption(startPayload).action.category, 'task_execute');
+    assert.equal(primaryActionOption(startPayload).action.taskExecutePhase, 'start');
+    assert.equal(primaryActionOption(startPayload).action.requiresUserCheck, true);
+
+    const doingTasks = todoTasks.replace(
+      '- [TODO][P1] T-F001-alpha-01 implement alpha shell',
+      '- [DOING][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, doingTasks, 'utf-8');
+    const doingAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(doingAdd.code, 0, doingAdd.stderr || doingAdd.stdout);
+    const doingCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: mark task as doing for finish step',
+    ]);
+    assert.equal(doingCommit.code, 0, doingCommit.stderr || doingCommit.stdout);
+
+    const finishContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(finishContext.code, 0, finishContext.stderr || finishContext.stdout);
+    const finishPayload = JSON.parse(finishContext.stdout.trim());
+    assert.equal(primaryActionOption(finishPayload).action.category, 'task_execute');
+    assert.equal(primaryActionOption(finishPayload).action.taskExecutePhase, 'complete');
+    assert.equal(primaryActionOption(finishPayload).action.requiresUserCheck, false);
   });
 });
 

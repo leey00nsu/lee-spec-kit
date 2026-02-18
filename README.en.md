@@ -620,6 +620,9 @@ Example:
 - `requireCheckCategories` (`category` only): categories that **always** require CHECK (e.g. `["pr_create"]`, `["*"]`)
 - `skipCheckCategories` (`category` only): categories that **never** require CHECK (e.g. `["docs_commit"]`, `["*"]`)
 - `requireCheckSteps` (`steps` only): step numbers that require CHECK (e.g. `[3, 5, 12]`)
+- `taskExecuteCheck` (optional): `task_execute` approval policy (`both` | `start_only`, default: `both`)
+  - `both`: require approval for both TODO→DOING and DOING→DONE transitions
+  - `start_only`: require approval only for TODO→DOING, skip default approval for DOING→DONE
 
 #### category examples
 

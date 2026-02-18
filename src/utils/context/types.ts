@@ -47,6 +47,7 @@ export const ACTION_CATEGORIES = [
 export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
 
 export type OperationType = 'local' | 'remote' | 'manual';
+export type TaskExecutePhase = 'start' | 'complete';
 
 export type NextAction =
   | {
@@ -57,6 +58,7 @@ export type NextAction =
       requiresUserCheck?: boolean;
       category?: ActionCategory;
       operationType?: OperationType;
+      taskExecutePhase?: TaskExecutePhase;
     }
   | {
       type: 'instruction';
@@ -64,6 +66,7 @@ export type NextAction =
       requiresUserCheck?: boolean;
       category?: ActionCategory;
       operationType?: OperationType;
+      taskExecutePhase?: TaskExecutePhase;
     };
 
 export interface TaskRef {

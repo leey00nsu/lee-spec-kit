@@ -142,30 +142,22 @@ function annotateActions(actions: FeatureContext['actions']): ContextAction[] {
   return actions.map((action) => annotateActionOperationType(action));
 }
 
-function getActionSummary(action: ContextAction): string {
-  if (action.category === 'docs_commit') return 'Commit docs updates';
-  if (action.category === 'issue_create') return 'Create and record issue';
-  if (action.category === 'branch_create') return 'Create feature branch';
-  if (action.category === 'pr_create') return 'Create PR and record link';
-  if (action.category === 'pre_pr_review') return 'Run pre-PR self review';
-  if (action.category === 'pr_status_update') return 'Update PR status';
-  if (action.category === 'code_review') return 'Process code review feedback';
-  if (action.category === 'worktree_cleanup') return 'Clean up feature worktree';
-  if (action.category === 'user_request_replan') return 'Handle a new user request first';
-  if (action.category === 'task_execute') return 'Proceed with task execution';
-  if (action.category === 'review_fix_commit') return 'Commit review feedback fixes';
-  if (action.category === 'feature_done') return 'Feature is complete';
-  if (action.category === 'spec_approve') return 'Request spec approval';
-  if (action.category === 'plan_approve') return 'Request plan approval';
-  if (action.category === 'tasks_approve') return 'Request tasks approval';
-  if (action.category === 'pr_metadata_migrate') return 'Update tasks.md to latest PR fields';
-  if (action.category === 'fallback') return 'Re-check context and rerun';
-  if (action.type === 'command') {
-    return action.scope === 'docs'
-      ? 'Run docs command'
-      : 'Run project command';
+function getActionSummary(action: ContextAction, lang: 'ko' | 'en'): string {
+  const detailKey = action.category ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category] : undefined;
+  if (detailKey) {
+    const localized = tr(lang, 'cli', detailKey);
+    if (localized !== `cli.${detailKey}`) return localized;
   }
-  return action.message;
+  if (action.type === 'command') {
+    return tr(
+      lang,
+      'cli',
+      action.scope === 'docs'
+        ? 'context.actionSummary.runDocsCommand'
+        : 'context.actionSummary.runProjectCommand'
+    );
+  }
+  return toOneLine(action.message);
 }
 
 function toOneLine(text: string): string {
@@ -252,7 +244,7 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
 function toActionOptions(actions: ContextAction[], lang: 'ko' | 'en'): ActionOption[] {
   return actions.map((action, index) => {
     const label = getActionLabel(index);
-    const summary = getActionSummary(action);
+    const summary = getActionSummary(action, lang);
     const detail = buildActionDetail(action, lang);
     const requiresRequestText = action.category === 'user_request_replan';
     const replyExample = requiresRequestText

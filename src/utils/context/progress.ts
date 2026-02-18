@@ -11,9 +11,30 @@ function applyApprovalPolicy(
   actions: NextAction[],
   approval?: ProjectConfig['approval']
 ): NextAction[] {
-  if (!approval) return actions;
+  const taskExecuteCheckPolicy = approval?.taskExecuteCheck === 'start_only'
+    ? 'start_only'
+    : 'both';
+  if (!approval) {
+    return actions.map((action) => ({
+      ...action,
+      requiresUserCheck: applyTaskExecutePhaseCheck(
+        action,
+        Boolean(action.requiresUserCheck),
+        taskExecuteCheckPolicy
+      ),
+    }));
+  }
   const mode = approval.mode ?? 'builtin';
-  if (mode === 'builtin') return actions;
+  if (mode === 'builtin') {
+    return actions.map((action) => ({
+      ...action,
+      requiresUserCheck: applyTaskExecutePhaseCheck(
+        action,
+        Boolean(action.requiresUserCheck),
+        taskExecuteCheckPolicy
+      ),
+    }));
+  }
 
   if (mode === 'steps') {
     const required = new Set(
@@ -40,9 +61,11 @@ function applyApprovalPolicy(
   return actions.map((a) => {
     const builtin = Boolean(a.requiresUserCheck);
     const category = normalizeApprovalToken(a.category ?? 'uncategorized');
+    const explicitlyRequired =
+      requiredCategories.has('*') || requiredCategories.has(category);
 
     let requiresUserCheck = builtin;
-    if (requiredCategories.has('*') || requiredCategories.has(category)) {
+    if (explicitlyRequired) {
       requiresUserCheck = true;
     } else if (skippedCategories.has('*') || skippedCategories.has(category)) {
       requiresUserCheck = false;
@@ -52,8 +75,29 @@ function applyApprovalPolicy(
       requiresUserCheck = false;
     }
 
-    return { ...a, requiresUserCheck };
+    return {
+      ...a,
+      requiresUserCheck: applyTaskExecutePhaseCheck(
+        a,
+        requiresUserCheck,
+        taskExecuteCheckPolicy,
+        explicitlyRequired
+      ),
+    };
   });
+}
+
+function applyTaskExecutePhaseCheck(
+  action: NextAction,
+  requiresUserCheck: boolean,
+  policy: 'both' | 'start_only',
+  explicitlyRequired = false
+): boolean {
+  if (policy !== 'start_only') return requiresUserCheck;
+  if (action.category !== 'task_execute') return requiresUserCheck;
+  if (action.taskExecutePhase !== 'complete') return requiresUserCheck;
+  if (explicitlyRequired) return requiresUserCheck;
+  return false;
 }
 
 function withUserRequestReplanOption(
