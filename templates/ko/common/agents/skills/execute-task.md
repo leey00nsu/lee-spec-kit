@@ -26,6 +26,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 승인 대기 여부는 `context --json-compact`의 `approvalRequest.required`를 SSOT로 따릅니다. (`--json`은 상세 디버깅이 필요할 때만 사용) `false`면 라벨 승인 없이 진행하고, `true`면 라벨 규칙(`A`, `A OK`)으로 승인 후 진행합니다.
 - 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 선택적 서브 에이전트 실행**입니다. 짧은 단계(spec/plan/tasks 승인, 이슈/PR 메타 동기화 등)는 메인 에이전트가 직접 처리하고, 장시간 루프(`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run)는 서브 에이전트에 위임합니다.
 - `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
+- `agentOrchestration.autoRunShouldDelegate=true`면 auto 루프(`autoRun.command`, `flow --auto-*`)를 서브 에이전트에 위임합니다.
 - 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다. fallback 실행 전에는 사유를 사용자에게 한 줄로 먼저 알립니다.
 - `context --json-compact`에 `autoRun.available=true`가 있으면 `autoRun.command`를 사용해 승인 필요 카테고리 전까지 자동 진행할 수 있습니다.
 - 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json-compact`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다. (상세 디버깅 필드가 필요할 때만 `--json`)

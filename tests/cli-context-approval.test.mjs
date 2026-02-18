@@ -132,6 +132,10 @@ test('context --json exposes generic label token policy', async () => {
       'boolean'
     );
     assert.equal(
+      typeof payload.agentOrchestration?.autoRunShouldDelegate,
+      'boolean'
+    );
+    assert.equal(
       payload.agentOrchestration?.currentActionCategory === null ||
         typeof payload.agentOrchestration?.currentActionCategory === 'string',
       true
@@ -150,6 +154,95 @@ test('context --json exposes generic label token policy', async () => {
     );
     assert.equal(payload.autoRun?.available, false);
     assert.equal(payload.autoRun?.reasonCode, 'NOT_SINGLE_MATCHED');
+  });
+});
+
+test('context --json does not force command delegation for branch_create when auto-run is available', async () => {
+  await withTempDir('lsk-context-branch-create-delegation-signal-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['tasks_approve', 'pr_create'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(/- \*\*Issue\*\*:[^\n]*/u, '- **Issue**: #3');
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare branch-create delegation signal test',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(payload.autoRun?.available, true);
+    assert.equal(payload.agentOrchestration?.currentActionCategory, 'branch_create');
+    assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, false);
+    assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, true);
   });
 });
 

@@ -42,6 +42,7 @@
 - 사용자 입력에 유효 라벨이 없으면 실행하지 말고 라벨 선택을 다시 요청합니다.
 - 승인된 command 옵션 실행은 `flow --approve <LABEL> --execute` 1회 호출을 기본으로 하며, `context --approve`와 `context --execute --ticket`를 턴/세션 사이로 분리하지 않습니다.
 - `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
+- `agentOrchestration.autoRunShouldDelegate=true`면 auto 루프(`autoRun.command`, `flow --auto-*`)를 서브 에이전트에 위임합니다.
 - 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다.
 - fallback을 사용할 때는 메인 실행 전에 fallback 사유를 사용자에게 한 줄로 먼저 알립니다.
 

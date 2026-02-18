@@ -100,6 +100,7 @@ interface AgentOrchestrationPolicy {
   fallbackToMainAgentWhenSubAgentUnavailable: true;
   longRunningCategories: string[];
   currentActionShouldDelegate: boolean;
+  autoRunShouldDelegate: boolean;
   currentActionCategory: string | null;
   mainAgentResponsibilities: string[];
   subAgentResponsibilities: string[];
@@ -115,14 +116,11 @@ const LONG_RUNNING_DELEGATION_CATEGORIES = [
 ] as const;
 
 function shouldDelegateCurrentAction(
-  actionOptions: ActionOption[],
-  autoRunAvailable: boolean
+  actionOptions: ActionOption[]
 ): { shouldDelegate: boolean; category: string | null } {
   const primaryCategory = actionOptions[0]?.action?.category || null;
   const longRunningSet = new Set<string>(LONG_RUNNING_DELEGATION_CATEGORIES);
-  const shouldDelegate =
-    autoRunAvailable ||
-    (!!primaryCategory && longRunningSet.has(primaryCategory));
+  const shouldDelegate = !!primaryCategory && longRunningSet.has(primaryCategory);
   return {
     shouldDelegate,
     category: primaryCategory,
@@ -133,7 +131,7 @@ function buildAgentOrchestrationPolicy(
   actionOptions: ActionOption[],
   autoRunAvailable: boolean
 ): AgentOrchestrationPolicy {
-  const delegation = shouldDelegateCurrentAction(actionOptions, autoRunAvailable);
+  const delegation = shouldDelegateCurrentAction(actionOptions);
   return {
     mode: 'main_orchestrates_subagent_execution',
     delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
@@ -142,6 +140,7 @@ function buildAgentOrchestrationPolicy(
     fallbackToMainAgentWhenSubAgentUnavailable: true,
     longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
     currentActionShouldDelegate: delegation.shouldDelegate,
+    autoRunShouldDelegate: autoRunAvailable,
     currentActionCategory: delegation.category,
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
@@ -1393,10 +1392,7 @@ async function runContext(
 
   const actionOptions = state.actionOptions;
   const hasCommandOption = actionOptions.some((option) => option.action.type === 'command');
-  const longRunningDelegation = shouldDelegateCurrentAction(
-    actionOptions,
-    autoRunPlan.available
-  );
+  const longRunningDelegation = shouldDelegateCurrentAction(actionOptions);
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
   actionOptions.forEach((option) => {
