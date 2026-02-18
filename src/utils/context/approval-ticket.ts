@@ -41,7 +41,9 @@ function getApprovalSessionId(): string {
     ''
   ).trim();
   if (terminalSession) return terminalSession;
-  return `ppid:${process.ppid}`;
+  // Do not bind tickets to transient wrapper PIDs (for example, npx),
+  // because split approve/execute commands can run with different parent PIDs.
+  return '';
 }
 
 function getApprovalTicketPaths(
@@ -225,7 +227,7 @@ export async function consumeApprovalTicket(
         );
       }
 
-      if (record.sessionId !== sessionId) {
+      if (record.sessionId && record.sessionId !== sessionId) {
         throw createCliError(
           'INVALID_APPROVAL',
           'Approval ticket session mismatch. Re-run `context` in the current session and approve again.'

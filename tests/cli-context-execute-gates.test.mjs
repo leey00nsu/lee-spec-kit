@@ -1860,6 +1860,115 @@ test('context tickets are one-time use for execute', async () => {
   });
 });
 
+test('context tickets enforce explicit session binding when provided', async () => {
+  await withTempDir('lsk-context-ticket-explicit-session-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'require' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A', {
+      LEE_SPEC_KIT_SESSION_ID: 'session-A',
+    });
+    const execute = await runCli(
+      dir,
+      [
+        'context',
+        'F001-alpha',
+        '--approve',
+        'A',
+        '--execute',
+        '--ticket',
+        ticket,
+        '--json',
+      ],
+      { LEE_SPEC_KIT_SESSION_ID: 'session-B' }
+    );
+    assert.equal(execute.code, 1);
+    const payload = JSON.parse(execute.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'INVALID_APPROVAL');
+  });
+});
+
+test('context tickets without stable session binding can execute after approval', async () => {
+  await withTempDir('lsk-context-ticket-no-stable-session-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'category', default: 'require' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const noStableSessionEnv = {
+      LEE_SPEC_KIT_SESSION_ID: '',
+      TERM_SESSION_ID: '',
+      WT_SESSION: '',
+      TMUX_PANE: '',
+    };
+    const ticket = await issueApprovalTicket(
+      dir,
+      'F001-alpha',
+      'A',
+      noStableSessionEnv
+    );
+    const execute = await runCli(
+      dir,
+      [
+        'context',
+        'F001-alpha',
+        '--approve',
+        'A',
+        '--execute',
+        '--ticket',
+        ticket,
+        '--json',
+      ],
+      { LEE_SPEC_KIT_SESSION_ID: 'session-different' }
+    );
+    assert.equal(execute.code, 0, execute.stderr || execute.stdout);
+    const payload = JSON.parse(execute.stdout.trim());
+    assert.equal(payload.status, 'approved_instruction');
+    assert.equal(payload.reasonCode, 'INSTRUCTION_ONLY');
+  });
+});
+
 test('context non-json output works for single matched feature', async () => {
   await withTempDir('lsk-context-nonjson-single-', async (dir) => {
     const initResult = await runCli(dir, [
