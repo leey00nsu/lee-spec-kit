@@ -135,7 +135,9 @@ function buildReportContent(input: {
 - **Baseline**: ${input.fallback}
 - **Skills**: ${skills}
 - **Decision**: ${input.decision}
-- **Note**: ${input.note}
+- **Summary**: ${input.note}
+- **Evidence**:
+  - TODO: review comments/paths/tests verified during pre-PR review
 - **Trace**: pre-pr-review command executed and synced with tasks.md
 `;
 }

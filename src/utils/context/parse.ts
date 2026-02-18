@@ -186,21 +186,130 @@ function resolveEvidencePathValue(value: string): string {
   return trimmed.split(/\s+/)[0] || '';
 }
 
-async function isPrePrEvidenceProvided(
-  rawValue: string | undefined,
-  policy: ReturnType<typeof resolvePrePrReviewPolicy>,
-  context: {
-    featurePath: string;
-    docsDir: string;
-  }
-): Promise<boolean> {
-  if (isPlaceholderReviewEvidence(rawValue)) return false;
-  if (policy.evidenceMode !== 'path_required') return true;
-  if (!rawValue) return false;
+function splitReviewLogSections(content: string, headerRegex: RegExp): string[] {
+  const normalizedHeaderRegex = new RegExp(headerRegex.source, headerRegex.flags);
+  const matches = [...content.matchAll(normalizedHeaderRegex)];
+  if (matches.length === 0) return [];
 
+  const sections: string[] = [];
+  for (let i = 0; i < matches.length; i += 1) {
+    const start = matches[i].index ?? 0;
+    const end = i + 1 < matches.length ? (matches[i + 1].index ?? content.length) : content.length;
+    sections.push(content.slice(start, end));
+  }
+  return sections;
+}
+
+function collectStructuredReviewEntries(section: string, keys: string[]): string[] {
+  const lines = section.split('\n');
+  const escaped = keys.map((key) => escapeRegExp(key));
+  const fieldRegex = new RegExp(
+    `^\\s*-\\s*\\*\\*(?:${escaped.join('|')})\\*\\*\\s*:\\s*(.*)$`,
+    'i'
+  );
+  const entries: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = lines[i].match(fieldRegex);
+    if (!match) continue;
+
+    const inlineValue = (match[1] || '').trim();
+    if (inlineValue) entries.push(inlineValue);
+
+    let cursor = i + 1;
+    while (cursor < lines.length) {
+      const line = lines[cursor];
+      if (/^\s*-\s*\*\*.+\*\*\s*:/.test(line)) break;
+      if (/^\s*##\s+/.test(line)) break;
+
+      const nestedBullet = line.match(/^\s{2,}-\s+(.+)\s*$/);
+      if (nestedBullet && nestedBullet[1]) {
+        entries.push(nestedBullet[1].trim());
+      }
+      cursor += 1;
+    }
+    break;
+  }
+
+  return entries.filter((entry) => entry.length > 0);
+}
+
+function isReviewDraftPlaceholder(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  return /^(?:-|#)?\s*(?:tbd|todo|pending|fill(?:\s+in)?|template|example|미정|작성|기입|n\/a|na)\b/i.test(
+    trimmed
+  );
+}
+
+function hasValidReviewLogEntries(entries: string[]): boolean {
+  return entries
+    .map((entry) => entry.trim())
+    .some(
+      (entry) =>
+        entry.length > 0 &&
+        !isReviewDraftPlaceholder(entry) &&
+        !isPlaceholderReviewEvidence(entry)
+    );
+}
+
+function hasReviewLogQuality(
+  content: string,
+  headerRegex: RegExp,
+  summaryKeys: string[],
+  decisionKeys: string[]
+): boolean {
+  const sections = splitReviewLogSections(content, headerRegex);
+  for (const section of sections) {
+    const summaryEntries = collectStructuredReviewEntries(section, summaryKeys);
+    if (!hasValidReviewLogEntries(summaryEntries)) continue;
+    const decisionEntries = collectStructuredReviewEntries(section, decisionKeys);
+    if (!hasValidReviewLogEntries(decisionEntries)) continue;
+
+    return true;
+  }
+  return false;
+}
+
+const PRE_PR_REVIEW_LOG_HEADER = /^##\s+(?:Pre-PR Review Log|PR 전 리뷰 로그)\b.*$/gim;
+const PR_REVIEW_LOG_HEADER = /^##\s+(?:PR Review Log|PR 리뷰 로그)\b.*$/gim;
+
+async function hasPrePrReviewLogEvidence(candidatePath: string): Promise<boolean> {
+  try {
+    const content = await fs.readFile(candidatePath, 'utf-8');
+    return hasReviewLogQuality(
+      content,
+      PRE_PR_REVIEW_LOG_HEADER,
+      ['Summary', '요약', 'Note', '노트'],
+      ['Decision', '결정']
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function hasPrReviewLogEvidence(candidatePath: string): Promise<boolean> {
+  try {
+    const content = await fs.readFile(candidatePath, 'utf-8');
+    return hasReviewLogQuality(
+      content,
+      PR_REVIEW_LOG_HEADER,
+      ['Summary', '요약', 'Note', '노트'],
+      ['Decision', '결정']
+    );
+  } catch {
+    return false;
+  }
+}
+
+function resolveLocalEvidencePathCandidates(
+  rawValue: string | undefined,
+  context: { featurePath: string; docsDir: string }
+): string[] {
+  if (!rawValue) return [];
   const evidencePath = resolveEvidencePathValue(rawValue);
-  if (!evidencePath) return false;
-  if (/^https?:\/\//i.test(evidencePath)) return false;
+  if (!evidencePath) return [];
+  if (/^https?:\/\//i.test(evidencePath)) return [];
 
   const candidates = new Set<string>();
   if (path.isAbsolute(evidencePath)) {
@@ -210,11 +319,51 @@ async function isPrePrEvidenceProvided(
     candidates.add(path.resolve(context.docsDir, evidencePath));
     candidates.add(path.resolve(path.dirname(context.docsDir), evidencePath));
   }
+  return [...candidates];
+}
 
+async function resolveExistingEvidencePath(
+  rawValue: string | undefined,
+  context: { featurePath: string; docsDir: string }
+): Promise<string | undefined> {
+  const candidates = resolveLocalEvidencePathCandidates(rawValue, context);
   for (const candidate of candidates) {
-    if (await fs.pathExists(candidate)) return true;
+    if (await fs.pathExists(candidate)) return candidate;
   }
-  return false;
+  return undefined;
+}
+
+async function isPrePrEvidenceProvided(
+  rawValue: string | undefined,
+  policy: ReturnType<typeof resolvePrePrReviewPolicy>,
+  context: {
+    featurePath: string;
+    docsDir: string;
+  }
+): Promise<boolean> {
+  if (isPlaceholderReviewEvidence(rawValue)) return false;
+  const existingEvidencePath = await resolveExistingEvidencePath(rawValue, context);
+
+  if (policy.evidenceMode !== 'path_required') {
+    if (!existingEvidencePath) return true;
+    return hasPrePrReviewLogEvidence(existingEvidencePath);
+  }
+  if (!existingEvidencePath) return false;
+  return hasPrePrReviewLogEvidence(existingEvidencePath);
+}
+
+async function isPrReviewEvidenceProvided(
+  rawValue: string | undefined,
+  context: {
+    featurePath: string;
+    docsDir: string;
+  }
+): Promise<boolean> {
+  if (isPlaceholderReviewEvidence(rawValue)) return false;
+  if (hasStructuredReviewSummary(rawValue)) return true;
+  const existingEvidencePath = await resolveExistingEvidencePath(rawValue, context);
+  if (!existingEvidencePath) return false;
+  return hasPrReviewLogEvidence(existingEvidencePath);
 }
 
 function parseIssueNumber(value: string | undefined): string | undefined {
@@ -863,9 +1012,10 @@ export async function parseFeature(
       'PR Review Evidence',
     ]);
     prReviewEvidence = prReviewEvidenceValue?.trim();
-    prReviewEvidenceProvided =
-      !isPlaceholderReviewEvidence(prReviewEvidenceValue) &&
-      hasStructuredReviewSummary(prReviewEvidenceValue);
+    prReviewEvidenceProvided = await isPrReviewEvidenceProvided(
+      prReviewEvidenceValue,
+      { featurePath, docsDir: context.docsDir }
+    );
 
     const prReviewDecisionValue = extractFirstSpecValue(content, [
       'PR 리뷰 Decision',

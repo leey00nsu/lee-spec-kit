@@ -171,7 +171,7 @@ const ko = {
       'context.actionDetail.codeReviewNeedEvidenceField':
         'tasks.md에 PR 리뷰 Evidence 필드를 추가하세요',
       'context.actionDetail.codeReviewNeedEvidence':
-        'PR 리뷰 Evidence 요약을 기록하세요',
+        '`summary: ...` 형식 또는 decisions.md의 PR 리뷰 로그 경로로 PR 리뷰 Evidence를 기록하세요',
       'context.actionDetail.codeReviewNeedDecisionField':
         'tasks.md에 PR 리뷰 Decision 필드를 추가하세요',
       'context.actionDetail.codeReviewNeedDecision':
@@ -608,7 +608,7 @@ const ko = {
       prePrReviewFieldMissing:
         'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
       prePrReviewEvidenceMissing:
-        'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 placeholder입니다. 리뷰 근거(문서 경로/링크/로그)를 채우세요. (확인 필요)',
+        'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)의 `Summary`/`Decision`을 기록하세요. (확인 필요)',
       prePrReviewDecisionMissing:
         'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
       prePrReviewRun:
@@ -616,7 +616,7 @@ const ko = {
       prReviewEvidenceFieldMissing:
         'tasks.md에 `PR 리뷰 Evidence` 필드가 없습니다. `- **PR 리뷰 Evidence**: -` 항목을 추가하고 다시 진행하세요. (확인 필요)',
       prReviewEvidenceMissing:
-        'tasks.md의 `PR 리뷰 Evidence`가 비어있거나 placeholder이거나 요약 형식이 없습니다. 해결/합의한 리뷰 코멘트 근거를 `요약: ...`(또는 `summary: ...`) 형식으로 기록하세요. (확인 필요)',
+        'tasks.md의 `PR 리뷰 Evidence`가 비어있거나 유효하지 않습니다. `요약: ...`(또는 `summary: ...`) 형식으로 기록하거나 `PR Review Log`(또는 `PR 리뷰 로그`)의 `Summary`/`Decision`이 있는 파일 경로를 지정하세요. (확인 필요)',
       prReviewDecisionFieldMissing:
         'tasks.md에 `PR 리뷰 Decision` 필드가 없습니다. `- **PR 리뷰 Decision**: -` 항목을 추가하고 다시 진행하세요. (확인 필요)',
       prReviewDecisionMissing:
@@ -710,7 +710,7 @@ const ko = {
       workflowPrStatusNotApproved:
         '완료 상태이지만 PR 상태가 Approved가 아닙니다. (PR 생성/리뷰 단계는 Review를 유지하고, merge 성공 시에만 Approved로 동기화하세요.)',
       workflowPrReviewEvidenceMissing:
-        '리뷰 단계에서 `PR 리뷰 Evidence`가 비어있거나 placeholder이거나 요약 형식이 없습니다. (`요약: ...` 또는 `summary: ...` 형식으로 기록)',
+        '리뷰 단계에서 `PR 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (`요약: ...`/`summary: ...` 또는 `PR Review Log`의 `Summary`/`Decision`이 있는 경로를 기록)',
       workflowPrReviewDecisionMissing:
         '리뷰 단계에서 `PR 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. (`결정: ...` 또는 `decision: ...` 형식으로 기록)',
       workflowPrRemoteChangesRequested:
@@ -724,7 +724,7 @@ const ko = {
       workflowPrePrReviewNotDone:
         '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
       workflowPrePrEvidenceMissing:
-        '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (path_required 정책이면 실제 존재하는 경로를 기록하세요.)',
+        '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (`Pre-PR Review Log`/`PR 전 리뷰 로그`의 `Summary`/`Decision`이 있는 실제 경로를 기록하세요.)',
       workflowPrePrDecisionMissing:
         '완료 상태이지만 `PR 전 리뷰 Decision`이 비어있거나 형식이 올바르지 않습니다. (`decision: approve|changes_requested|blocked ...` 형식)',
       workflowPrePrDecisionNotApproved:

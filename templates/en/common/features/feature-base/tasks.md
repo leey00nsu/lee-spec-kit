@@ -31,7 +31,7 @@
   - PR creation requires final decision `approve`
   - Follow `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline
 - **PR Review Evidence**: -
-  - Example: resolved/aligned comment link, verification log, or docs path
+  - Example: `summary: ...` (or `요약: ...`), or `docs/features/F001-foo/decisions.md` with `PR Review Log`
 - **PR Review Decision**: -
   - Record why/how review comments were addressed as `decision: ...` (or `결정: ...`)
 

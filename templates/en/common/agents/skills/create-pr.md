@@ -24,8 +24,10 @@ Always run this checklist in Pre-PR review. Treat it as the minimum baseline, th
 4. Run related test/verification commands (or explicitly record why they were not run).
 5. Run `npx lee-spec-kit pre-pr-review <feature-ref>` to record review notes in `decisions.md` and sync `Pre-PR Evidence/Decision`.
 6. `Pre-PR Evidence` should point to a real existing path. (default: `workflow.prePrReview.evidenceMode=path_required`)
-7. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
-8. Ensure the final decision is `approve` before moving to PR creation.
+7. In `decisions.md`, include a `Pre-PR Review Log` section with non-placeholder `Summary` and `Decision` entries.
+8. In code-review stage, keep `PR Review Evidence/Decision` aligned with `decisions.md` by adding a `PR Review Log` section with `Summary` and `Decision`.
+9. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
+10. Ensure the final decision is `approve` before moving to PR creation.
 
 ---
 

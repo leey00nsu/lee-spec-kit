@@ -17,6 +17,48 @@ import {
   suggestionOptionByLabel,
 } from './helpers/cli-contract-helpers.mjs';
 
+function buildStructuredPrePrEvidence(options = {}) {
+  const {
+    decision = 'approve',
+    findings = [
+      'src/app/store.ts:88 | severity: medium | fix: required | note: guard stale snapshot write',
+    ],
+    residualRisks = ['none'],
+    testsRun = ['pnpm test --filter app (pass)'],
+  } = options;
+  const findingsLines = findings.map((item) => `  - ${item}`).join('\n');
+  const residualRiskLines = residualRisks.map((item) => `  - ${item}`).join('\n');
+  const testsRunLines = testsRun.map((item) => `  - ${item}`).join('\n');
+  return `## Pre-PR Review Log (2026-02-19)
+
+- **Feature**: F001-alpha
+- **Baseline**: builtin-checklist
+- **Skills**: code-review-excellence
+- **Decision**: ${decision}
+- **Summary**: validated spec/plan/task alignment and reviewed regression scope
+- **Findings**:
+${findingsLines}
+- **Residual Risks**:
+${residualRiskLines}
+- **Tests Run**:
+${testsRunLines}
+- **Trace**: manual review completed
+`;
+}
+
+function buildPrReviewLog(options = {}) {
+  const {
+    decision = 'decision: reflected review feedback and synced docs',
+    summary = 'summary: validated resolved comments and regression checks',
+  } = options;
+  return `## PR Review Log (2026-02-19)
+
+- **Summary**: ${summary}
+- **Decision**: ${decision}
+- **Trace**: reviewed latest PR feedback
+`;
+}
+
 test('context --json exposes generic label token policy', async () => {
   await withTempDir('lsk-context-token-policy-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1057,7 +1099,7 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
       'F001-alpha',
       'decisions.md'
     );
-    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
+    await fs.writeFile(reportPath, buildStructuredPrePrEvidence(), 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
@@ -1106,6 +1148,92 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
   });
 });
 
+test('context pre-PR review requires structured evidence content before PR step', async () => {
+  await withTempDir('lsk-context-pre-pr-structured-evidence-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const reportPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'decisions.md'
+    );
+    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md\n- **Pre-PR Decision**: decision: approve - baseline checklist completed'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: require structured pre-pr evidence',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 12);
+    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
+  });
+});
+
 test('context pre-PR review ignores legacy findings config when decision is approve', async () => {
   await withTempDir('lsk-context-pre-pr-legacy-findings-config-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1151,7 +1279,7 @@ test('context pre-PR review ignores legacy findings config when decision is appr
       'F001-alpha',
       'decisions.md'
     );
-    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
+    await fs.writeFile(reportPath, buildStructuredPrePrEvidence(), 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
@@ -1237,7 +1365,16 @@ test('context pre-PR review blocks PR step when decision outcome is not approve'
       'F001-alpha',
       'decisions.md'
     );
-    await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
+    await fs.writeFile(
+      reportPath,
+      buildStructuredPrePrEvidence({
+        decision: 'changes_requested',
+        findings: [
+          'src/app/store.ts:88 | severity: medium | fix: required | note: autosave race condition unresolved',
+        ],
+      }),
+      'utf-8'
+    );
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
@@ -1837,6 +1974,193 @@ test('context code_review step requires summary format in PR Review Evidence', a
         /--merge --confirm OK/.test(option.action.cmd || '')
     );
     assert.equal(Boolean(mergeOption), false);
+  });
+});
+
+test('context code_review evidence path must include PR Review Log section', async () => {
+  await withTempDir('lsk-context-code-review-evidence-path-log-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const decisionsPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'decisions.md'
+    );
+    await fs.writeFile(
+      decisionsPath,
+      '## Decision Log (general)\n\n- **Summary**: task-level decision only\n- **Decision**: decision: pick simpler api shape\n',
+      'utf-8'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace(
+      '- **PR Status**: Review',
+      '- **PR Status**: Review\n- **PR Review Evidence**: docs/features/F001-alpha/decisions.md\n- **PR Review Decision**: decision: reflected all requested UI fixes'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: require pr-review log section for evidence path',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.prReview.evidenceProvided, false);
+    assert.equal(primaryActionOption(payload).action.category, 'code_review');
+    assert.equal(
+      primaryActionOption(payload).action.uiDetailKey,
+      'context.actionDetail.codeReviewNeedEvidence'
+    );
+  });
+});
+
+test('context code_review accepts PR Review Log evidence path in decisions.md', async () => {
+  await withTempDir('lsk-context-code-review-evidence-path-log-ok-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const decisionsPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'decisions.md'
+    );
+    await fs.writeFile(decisionsPath, buildPrReviewLog(), 'utf-8');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace(
+      '- **PR Status**: Review',
+      '- **PR Status**: Review\n- **PR Review Evidence**: docs/features/F001-alpha/decisions.md\n- **PR Review Decision**: decision: reflected all requested UI fixes'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: allow pr-review evidence path with pr review log',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.prReview.evidenceProvided, true);
+    assert.notEqual(
+      primaryActionOption(payload).action.uiDetailKey,
+      'context.actionDetail.codeReviewNeedEvidence'
+    );
   });
 });
 

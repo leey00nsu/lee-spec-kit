@@ -24,8 +24,10 @@ Pre-PR 리뷰에서 항상 수행하는 최소 기준입니다. 가능한 경우
 4. 관련 테스트/검증 명령을 실행합니다. 실행하지 못했다면 사유를 명시합니다.
 5. `npx lee-spec-kit pre-pr-review <feature-ref>`를 실행해 리뷰 내용을 `decisions.md`에 기록하고 `PR 전 리뷰 Evidence/Decision`을 동기화합니다.
 6. `PR 전 리뷰 Evidence`는 실제 존재하는 문서 경로를 사용합니다. (`workflow.prePrReview.evidenceMode=path_required` 기본)
-7. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.
-8. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.
+7. `decisions.md`에 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`) 섹션을 두고 `Summary`/`Decision`을 placeholder 없이 기록합니다.
+8. 코드리뷰 단계에서도 `PR 리뷰 Evidence/Decision`과 `decisions.md`를 동기화하고 `PR Review Log`(또는 `PR 리뷰 로그`)의 `Summary`/`Decision`을 기록합니다.
+9. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.
+10. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.
 
 ---
 

@@ -31,7 +31,7 @@
   - PR 생성 전 최종 통과 기준은 `approve`
   - 기본 베이스라인으로 `agents/skills/create-pr.md`(`Pre-PR 기본 체크리스트`) 기준을 따르세요
 - **PR 리뷰 Evidence**: -
-  - 예: 해결/합의한 코멘트 링크, 검증 로그, 관련 문서 경로
+  - 예: `요약: ...`(또는 `summary: ...`), 또는 `PR Review Log`가 있는 `docs/features/F001-foo/decisions.md`
 - **PR 리뷰 Decision**: -
   - 리뷰 지적사항을 왜/어떻게 반영했는지 `결정: ...`(또는 `decision: ...`) 형식으로 기록
 

@@ -166,7 +166,7 @@ const en = {
       'context.actionDetail.codeReviewNeedEvidenceField':
         'Add PR Review Evidence field in tasks.md',
       'context.actionDetail.codeReviewNeedEvidence':
-        'Record PR Review Evidence summary',
+        'Record PR Review Evidence (`summary: ...`) or PR Review Log path in decisions.md',
       'context.actionDetail.codeReviewNeedDecisionField':
         'Add PR Review Decision field in tasks.md',
       'context.actionDetail.codeReviewNeedDecision':
@@ -622,7 +622,7 @@ const en = {
       prePrReviewFieldMissing:
         'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
       prePrReviewEvidenceMissing:
-        'tasks.md `Pre-PR Evidence` is empty or placeholder. Add concrete review evidence (doc path/link/log). (CHECK required)',
+        'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary` and `Decision`. (CHECK required)',
       prePrReviewDecisionMissing:
         'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
       prePrReviewRun:
@@ -630,7 +630,7 @@ const en = {
       prReviewEvidenceFieldMissing:
         'tasks.md is missing the `PR Review Evidence` field. Add `- **PR Review Evidence**: -` and continue. (CHECK required)',
       prReviewEvidenceMissing:
-        'tasks.md `PR Review Evidence` is empty/placeholder or missing summary format. Record evidence as `summary: ...` (or `요약: ...`) for resolved/aligned review comments. (CHECK required)',
+        'tasks.md `PR Review Evidence` is empty/invalid. Use `summary: ...` (or `요약: ...`), or point to a file containing `PR Review Log` with non-placeholder `Summary` and `Decision`. (CHECK required)',
       prReviewDecisionFieldMissing:
         'tasks.md is missing the `PR Review Decision` field. Add `- **PR Review Decision**: -` and continue. (CHECK required)',
       prReviewDecisionMissing:
@@ -723,7 +723,7 @@ const en = {
       workflowPrStatusNotApproved:
         'Implementation is done but PR Status is not Approved. (Keep PR Status as Review before merge and sync to Approved only after successful merge.)',
       workflowPrReviewEvidenceMissing:
-        'In review stage, `PR Review Evidence` is empty/placeholder or missing summary format. (Use `summary: ...` or `요약: ...`.)',
+        'In review stage, `PR Review Evidence` is empty/invalid. (Use `summary: ...`/`요약: ...`, or point to a `PR Review Log` section with `Summary` and `Decision`.)',
       workflowPrReviewDecisionMissing:
         'In review stage, `PR Review Decision` is empty/placeholder or missing decision format. (Use `decision: ...` or `결정: ...`.)',
       workflowPrRemoteChangesRequested:
@@ -737,7 +737,7 @@ const en = {
       workflowPrePrReviewNotDone:
         'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
       workflowPrePrEvidenceMissing:
-        'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Record a real existing path when path_required policy is enabled.)',
+        'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Point to an existing file and include `Pre-PR Review Log` with non-placeholder `Summary` and `Decision`.)',
       workflowPrePrDecisionMissing:
         'Implementation is done but `Pre-PR Decision` is empty/invalid. (Use `decision: approve|changes_requested|blocked ...`.)',
       workflowPrePrDecisionNotApproved:
