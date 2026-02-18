@@ -164,14 +164,10 @@ const en = {
       'context.list.recordPrLink': 'Record PR link',
       'context.list.addPrePrReviewField': 'Add Pre-PR Review field',
       'context.list.completePrePrReview': 'Complete Pre-PR review',
-      'context.list.addPrePrFindings': 'Add/fill Pre-PR Findings',
       'context.list.addPrePrEvidence': 'Add Pre-PR Evidence',
-      'context.list.addPrReviewFindings': 'Add/fill PR Review Findings',
+      'context.list.addPrePrDecision': 'Add Pre-PR Decision',
       'context.list.addPrReviewEvidence': 'Add PR Review Evidence summary',
-      'context.list.resolvePrePrMajorFindings':
-        'Resolve major pre-PR findings ({count})',
-      'context.list.resolvePrePrMinorFindings':
-        'Resolve minor pre-PR findings ({count})',
+      'context.list.addPrReviewDecision': 'Add PR Review Decision',
       'context.list.setPrStatus': 'Set PR Status',
       'context.list.prStatusToApproved': 'PR merge required (PR Status: {status} → Approved)',
       'context.list.approveSpec': 'Approve spec',
@@ -571,32 +567,20 @@ const en = {
         'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
       prePrReviewFieldMissing:
         'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
-      prePrReviewFindingsMissing:
-        'tasks.md is missing `Pre-PR Findings` or uses an invalid format. Record it as `- **Pre-PR Findings**: major=0, minor=0`. (CHECK required)',
       prePrReviewEvidenceMissing:
         'tasks.md `Pre-PR Evidence` is empty or placeholder. Add concrete review evidence (doc path/link/log). (CHECK required)',
-      prePrReviewMajorBlocked:
-        'Pre-PR major findings are recorded ({count}). With `blockOnFindings=true`, PR creation is blocked until major findings are resolved/aligned.',
-      prePrReviewMinorBlocked:
-        'Pre-PR minor findings are recorded ({count}). With `minorPolicy=block`, PR creation is blocked until minor findings are resolved/aligned.',
+      prePrReviewDecisionMissing:
+        'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
       prePrReviewRun:
-        'Run a pre-PR code review before creating the PR. Always execute the `{fallback}` baseline by following the `Pre-PR Baseline Checklist` section in the `create-pr` doc. Then use preferred skills ({skills}) for deeper review (if a better installed skill fits this change, propose it first). After completing it, set `Pre-PR Review` to Done in tasks.md. Major policy: {findingsPolicy}. Minor policy: {minorFindingsPolicy}',
-      prePrReviewFindingsBlock:
-        'major findings must be fixed/aligned before PR creation',
-      prePrReviewFindingsWarn:
-        'you may proceed after sharing the risks',
-      prePrReviewMinorFindingsBlock:
-        'minor findings must also be fixed/aligned before PR creation',
-      prePrReviewMinorFindingsWarn:
-        'you may proceed after documenting/sharing minor risks',
-      prReviewFindingsFieldMissing:
-        'tasks.md is missing the `PR Review Findings` field. Add `- **PR Review Findings**: major=0, minor=0` and continue. (CHECK required)',
-      prReviewFindingsMissing:
-        'tasks.md `PR Review Findings` is missing or invalid. Record it as `- **PR Review Findings**: major=0, minor=0`. (CHECK required)',
+        'Run a pre-PR code review before creating the PR. Always execute the `{fallback}` baseline by following the `Pre-PR Baseline Checklist` section in the `create-pr` doc. Then use preferred skills ({skills}) for deeper review (if a better installed skill fits this change, propose it first). After completing it, set `Pre-PR Review` to Done in tasks.md.',
       prReviewEvidenceFieldMissing:
         'tasks.md is missing the `PR Review Evidence` field. Add `- **PR Review Evidence**: -` and continue. (CHECK required)',
       prReviewEvidenceMissing:
         'tasks.md `PR Review Evidence` is empty/placeholder or missing summary format. Record evidence as `summary: ...` (or `요약: ...`) for resolved/aligned review comments. (CHECK required)',
+      prReviewDecisionFieldMissing:
+        'tasks.md is missing the `PR Review Decision` field. Add `- **PR Review Decision**: -` and continue. (CHECK required)',
+      prReviewDecisionMissing:
+        'tasks.md `PR Review Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
       prCreate:
         'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
       prCreatePrepareFromDoc:
@@ -612,11 +596,11 @@ const en = {
       prFillStatus:
         'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
       prReviewMergedSyncStatus:
-        'The remote PR is already merged. Update PR Status in tasks.md to Approved. (Also verify PR/review evidence fields are up to date.)',
+        'The remote PR is already merged. Update PR Status in tasks.md to Approved. (Also verify PR review Evidence/Decision fields are up to date.)',
       prResolveReview:
         'Address review comments while keeping PR Status as Review. For review-fix commits, summarize resolved feedback in the commit message (do not reuse task titles). Once ready to merge, get explicit user OK and run the merge option. (On success, PR Status is synced to Approved.)',
       prReviewResolve:
-        'Review/analyze PR comments first, then apply required fixes while addressing comments. Keep PR Status as Review and keep `PR Review Findings/Evidence` updated. Run push only after explicit user OK.',
+        'Review/analyze PR comments first, then apply required fixes while addressing comments. Keep PR Status as Review and keep `PR Review Evidence/Decision` updated. Run push only after explicit user OK and only when local branch is ahead of upstream.',
       prReviewPush:
         'cd "{projectGitCwd}" && git push',
       prReviewRemoteBlocked:
@@ -662,14 +646,14 @@ const en = {
         'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
       legacyTasksPrePrReviewField:
         'Legacy tasks.md format detected. Add `Pre-PR Review` before PR steps. (`- **Pre-PR Review**: Pending | Done`)',
-      legacyTasksPrePrFindingsField:
-        'Legacy tasks.md format detected. Add `Pre-PR Findings` before PR steps. (`- **Pre-PR Findings**: major=0, minor=0`)',
       legacyTasksPrePrEvidenceField:
         'Legacy tasks.md format detected. Add `Pre-PR Evidence` before PR steps.',
-      legacyTasksPrReviewFindingsField:
-        'Legacy tasks.md format detected. Add `PR Review Findings` before review iteration. (`- **PR Review Findings**: major=0, minor=0`)',
+      legacyTasksPrePrDecisionField:
+        'Legacy tasks.md format detected. Add `Pre-PR Decision` before PR steps. (`- **Pre-PR Decision**: decision: ...`)',
       legacyTasksPrReviewEvidenceField:
         'Legacy tasks.md format detected. Add `PR Review Evidence` before review iteration.',
+      legacyTasksPrReviewDecisionField:
+        'Legacy tasks.md format detected. Add `PR Review Decision` before review iteration. (`- **PR Review Decision**: decision: ...`)',
       workflowSpecNotApproved:
         'Implementation is done but spec.md Status is not Approved. (Update spec.md Status to Approved.)',
       workflowPlanNotApproved:
@@ -684,10 +668,10 @@ const en = {
         'Implementation is done but PR Status is missing. (Set PR Status to Review during PR creation/review stages.)',
       workflowPrStatusNotApproved:
         'Implementation is done but PR Status is not Approved. (Keep PR Status as Review before merge and sync to Approved only after successful merge.)',
-      workflowPrReviewFindingsMissing:
-        'In review stage, `PR Review Findings` is missing or invalid. (Use `major=0, minor=0` format.)',
       workflowPrReviewEvidenceMissing:
         'In review stage, `PR Review Evidence` is empty/placeholder or missing summary format. (Use `summary: ...` or `요약: ...`.)',
+      workflowPrReviewDecisionMissing:
+        'In review stage, `PR Review Decision` is empty/placeholder or missing decision format. (Use `decision: ...` or `결정: ...`.)',
       workflowPrRemoteChangesRequested:
         'Remote PR shows changes requested or additional review required. Address comments, push, then re-check.',
       workflowPrRemoteChecksFailing:
@@ -698,14 +682,10 @@ const en = {
         'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
       workflowPrePrReviewNotDone:
         'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
-      workflowPrePrFindingsMissing:
-        'Implementation is done but `Pre-PR Findings` is missing or invalid. (Use `major=0, minor=0` format.)',
       workflowPrePrEvidenceMissing:
         'Implementation is done but `Pre-PR Evidence` is empty. (Record review evidence.)',
-      workflowPrePrFindingsBlocked:
-        'Implementation is done but major pre-PR findings remain ({count}) while `blockOnFindings=true`.',
-      workflowPrePrMinorFindingsBlocked:
-        'Implementation is done but minor pre-PR findings remain ({count}) while `minorPolicy=block`.',
+      workflowPrePrDecisionMissing:
+        'Implementation is done but `Pre-PR Decision` is empty/invalid. (Use `decision: ...` or `결정: ...`.)',
     },
   } as const;
 

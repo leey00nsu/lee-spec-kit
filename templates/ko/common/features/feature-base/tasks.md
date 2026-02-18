@@ -24,15 +24,15 @@
 - **PR 전 리뷰**: -
   - 값: Pending | Done
   - 사전 코드리뷰 완료 후 `Done`으로 변경
-- **PR 전 리뷰 Findings**: major=0, minor=0
-  - 사전 리뷰 최종 결과에 맞게 major/minor 건수를 갱신
 - **PR 전 리뷰 Evidence**: -
   - 예: 리뷰 노트 링크, 로그 경로, 문서 경로
+- **PR 전 리뷰 Decision**: -
+  - 핵심 판단 근거를 `결정: ...`(또는 `decision: ...`) 형식으로 기록
   - 기본 베이스라인으로 `agents/skills/create-pr.md`(`Pre-PR 기본 체크리스트`) 기준을 따르세요
-- **PR 리뷰 Findings**: major=0, minor=0
-  - PR 리뷰 코멘트 반영 결과에 맞게 major/minor 건수를 갱신
 - **PR 리뷰 Evidence**: -
   - 예: 해결/합의한 코멘트 링크, 검증 로그, 관련 문서 경로
+- **PR 리뷰 Decision**: -
+  - 리뷰 지적사항을 왜/어떻게 반영했는지 `결정: ...`(또는 `decision: ...`) 형식으로 기록
 
 ---
 

@@ -320,7 +320,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `primaryActionLabel`/`primaryActionType`/`primaryActionCategory`/`primaryActionOperationType`: 첫 번째 원자 액션 요약 메타데이터
 - `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `taskCommitGatePolicy`: 태스크 커밋 게이트 정책 (`off` | `warn` | `strict`)
-- `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`, `blockOnFindings`, `minorPolicy`)
+- `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`)
 
 오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`)
 
@@ -624,8 +624,6 @@ npx lee-spec-kit update --force
   - `skills` (선택): 우선순위 스킬 목록 (기본: `["code-review-excellence"]`)
   - `fallback` (선택): 기본 베이스라인 정책 (기본: `"builtin-checklist"`)
     - 상세 기준은 `docs get create-pr --json`의 `Pre-PR 기본 체크리스트` 섹션을 단일 기준으로 사용
-  - `blockOnFindings` (선택): 주요 이슈 발견 시 PR 생성 전 해결/합의를 요구할지 여부 (기본: `true`)
-  - `minorPolicy` (선택): minor 이슈 정책 (`warn` | `block`, 기본: `warn`)
 - `workflow.auto`:
   - `defaultPreset` (선택): `flow --request "<요청>"` 실행 시 기본으로 사용할 auto preset 이름 (기본: `"pr-handoff"`)
   - `defaultUntilCategories` (선택): 기본 gate category 목록 (설정 시 `defaultPreset`보다 우선)
@@ -648,9 +646,7 @@ npx lee-spec-kit update --force
     },
     "prePrReview": {
       "skills": ["code-review-excellence"],
-      "fallback": "builtin-checklist",
-      "blockOnFindings": true,
-      "minorPolicy": "warn"
+      "fallback": "builtin-checklist"
     }
   }
 }

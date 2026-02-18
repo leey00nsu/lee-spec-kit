@@ -43,12 +43,21 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
     ) {
       continue;
     }
+    if (
+      /^\s*-\s*\*\*(Pre-PR Decision|PR Review Decision|PR 전 리뷰 Decision|PR 리뷰 Decision)\*\*\s*:/.test(
+        line
+      )
+    ) {
+      continue;
+    }
     if (/^\s*-\s*(Example|Values)\s*:/.test(line)) continue;
     if (/^\s*-\s*(예|값)\s*:/.test(line)) continue;
     if (/^\s*-\s*Mark\s+`?Done`?/i.test(line)) continue;
     if (/^\s*-\s*사전 코드리뷰 완료 후/.test(line)) continue;
     if (/^\s*-\s*Update with final findings counts from pre-PR review/i.test(line))
       continue;
+    if (/^\s*-\s*Record your key review decision/i.test(line)) continue;
+    if (/^\s*-\s*사전 리뷰 주요 판단 근거를/.test(line)) continue;
     if (/^\s*-\s*Example:\s*review note link/i.test(line)) continue;
     if (/^\s*-\s*사전 리뷰 최종 결과/.test(line)) continue;
     if (/^\s*-\s*예:\s*리뷰 노트 링크/.test(line)) continue;

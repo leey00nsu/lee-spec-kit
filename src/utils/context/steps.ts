@@ -56,9 +56,6 @@ function isPrePrReviewSatisfied(
   if (!feature.docs.prePrReviewFieldExists || feature.prePrReview.status !== 'Done') {
     return false;
   }
-  if (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findings) {
-    return false;
-  }
   if (
     !feature.docs.prePrEvidenceFieldExists ||
     !feature.prePrReview.evidenceProvided
@@ -66,14 +63,8 @@ function isPrePrReviewSatisfied(
     return false;
   }
   if (
-    prePrReviewPolicy.blockOnFindings &&
-    feature.prePrReview.findings.major > 0
-  ) {
-    return false;
-  }
-  if (
-    prePrReviewPolicy.minorPolicy === 'block' &&
-    feature.prePrReview.findings.minor > 0
+    !feature.docs.prePrDecisionFieldExists ||
+    !feature.prePrReview.decisionProvided
   ) {
     return false;
   }
@@ -105,21 +96,6 @@ function isFeatureDone(
 
 function formatSkillList(skills: string[]): string {
   return skills.join(', ');
-}
-
-function getFindingsPolicyText(lang: Lang, blockOnFindings: boolean): string {
-  return blockOnFindings
-    ? tr(lang, 'messages', 'prePrReviewFindingsBlock')
-    : tr(lang, 'messages', 'prePrReviewFindingsWarn');
-}
-
-function getMinorFindingsPolicyText(
-  lang: Lang,
-  minorPolicy: ReturnType<typeof resolvePrePrReviewPolicy>['minorPolicy']
-): string {
-  return minorPolicy === 'block'
-    ? tr(lang, 'messages', 'prePrReviewMinorFindingsBlock')
-    : tr(lang, 'messages', 'prePrReviewMinorFindingsWarn');
 }
 
 function getPrReviewRemoteBlockReasons(feature: FeatureState, lang: Lang): string[] {
@@ -1117,14 +1093,6 @@ export function getStepDefinitions(
                   message: tr(lang, 'messages', 'prePrReviewRun', {
                     skills: 'code-review-excellence',
                     fallback: prePrReviewPolicy.fallback,
-                    findingsPolicy: getFindingsPolicyText(
-                      lang,
-                      prePrReviewPolicy.blockOnFindings
-                    ),
-                    minorFindingsPolicy: getMinorFindingsPolicyText(
-                      lang,
-                      prePrReviewPolicy.minorPolicy
-                    ),
                   }),
                 },
               ];
@@ -1137,25 +1105,7 @@ export function getStepDefinitions(
                 message: tr(lang, 'messages', 'prePrReviewRun', {
                   skills: formatSkillList(prePrReviewPolicy.skills),
                   fallback: prePrReviewPolicy.fallback,
-                  findingsPolicy: getFindingsPolicyText(
-                    lang,
-                    prePrReviewPolicy.blockOnFindings
-                  ),
-                  minorFindingsPolicy: getMinorFindingsPolicyText(
-                    lang,
-                    prePrReviewPolicy.minorPolicy
-                  ),
                 }),
-              },
-            ];
-          }
-          if (!f.docs.prePrFindingsFieldExists || !f.prePrReview.findings) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewFindingsMissing'),
               },
             ];
           }
@@ -1169,33 +1119,13 @@ export function getStepDefinitions(
               },
             ];
           }
-          if (
-            prePrReviewPolicy.blockOnFindings &&
-            f.prePrReview.findings.major > 0
-          ) {
+          if (!f.docs.prePrDecisionFieldExists || !f.prePrReview.decisionProvided) {
             return [
               {
                 type: 'instruction',
                 category: 'pre_pr_review',
                 requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewMajorBlocked', {
-                  count: f.prePrReview.findings.major,
-                }),
-              },
-            ];
-          }
-          if (
-            prePrReviewPolicy.minorPolicy === 'block' &&
-            f.prePrReview.findings.minor > 0
-          ) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewMinorBlocked', {
-                  count: f.prePrReview.findings.minor,
-                }),
+                message: tr(lang, 'messages', 'prePrReviewDecisionMissing'),
               },
             ];
           }
@@ -1208,14 +1138,6 @@ export function getStepDefinitions(
                 message: tr(lang, 'messages', 'prePrReviewRun', {
                   skills: 'code-review-excellence',
                   fallback: prePrReviewPolicy.fallback,
-                  findingsPolicy: getFindingsPolicyText(
-                    lang,
-                    prePrReviewPolicy.blockOnFindings
-                  ),
-                  minorFindingsPolicy: getMinorFindingsPolicyText(
-                    lang,
-                    prePrReviewPolicy.minorPolicy
-                  ),
                 }),
               },
             ];
@@ -1228,14 +1150,6 @@ export function getStepDefinitions(
               message: tr(lang, 'messages', 'prePrReviewRun', {
                 skills: formatSkillList(prePrReviewPolicy.skills),
                 fallback: prePrReviewPolicy.fallback,
-                findingsPolicy: getFindingsPolicyText(
-                  lang,
-                  prePrReviewPolicy.blockOnFindings
-                ),
-                minorFindingsPolicy: getMinorFindingsPolicyText(
-                  lang,
-                  prePrReviewPolicy.minorPolicy
-                ),
               }),
             },
           ];
@@ -1342,26 +1256,6 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (!f.docs.prReviewFindingsFieldExists) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'code_review',
-                  requiresUserCheck: true,
-                  message: tr(lang, 'messages', 'prReviewFindingsFieldMissing'),
-                },
-              ];
-            }
-            if (!f.prReview.findings) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'code_review',
-                  requiresUserCheck: true,
-                  message: tr(lang, 'messages', 'prReviewFindingsMissing'),
-                },
-              ];
-            }
             if (!f.docs.prReviewEvidenceFieldExists) {
               return [
                 {
@@ -1372,16 +1266,33 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (
-              (f.prReview.findings.major > 0 || f.prReview.findings.minor > 0) &&
-              !f.prReview.evidenceProvided
-            ) {
+            if (!f.prReview.evidenceProvided) {
               return [
                 {
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
                   message: tr(lang, 'messages', 'prReviewEvidenceMissing'),
+                },
+              ];
+            }
+            if (!f.docs.prReviewDecisionFieldExists) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'code_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewDecisionFieldMissing'),
+                },
+              ];
+            }
+            if (!f.prReview.decisionProvided) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'code_review',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'prReviewDecisionMissing'),
                 },
               ];
             }
@@ -1407,7 +1318,7 @@ export function getStepDefinitions(
                 requiresUserCheck: true,
                 message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
               });
-            } else {
+            } else if ((f.git.projectBranchAhead || 0) > 0) {
               actions.push({
                 type: 'command',
                 category: 'code_review',

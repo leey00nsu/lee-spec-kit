@@ -837,7 +837,7 @@ test('context pre-PR review requires evidence before PR step when review is mark
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=0, minor=1\n- **Pre-PR Evidence**: -'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: -\n- **Pre-PR Decision**: -'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -876,8 +876,8 @@ test('context pre-PR review requires evidence before PR step when review is mark
   });
 });
 
-test('context pre-PR review blocks PR step when major findings remain', async () => {
-  await withTempDir('lsk-context-pre-pr-major-findings-block-', async (dir) => {
+test('context pre-PR review requires decision before PR step when review is marked Done', async () => {
+  await withTempDir('lsk-context-pre-pr-decision-required-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -917,7 +917,7 @@ test('context pre-PR review blocks PR step when major findings remain', async ()
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=2, minor=1\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: -'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -943,7 +943,7 @@ test('context pre-PR review blocks PR step when major findings remain', async ()
     const docsCommit = await runCommand(docsGitRoot, 'git', [
       'commit',
       '-m',
-      'docs: block pre-pr step on major findings',
+      'docs: require pre-pr decision before pr step',
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
@@ -952,13 +952,12 @@ test('context pre-PR review blocks PR step when major findings remain', async ()
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.match(primaryActionOption(payload).detail, /major findings/i);
-    assert.match(primaryActionOption(payload).detail, /2/);
+    assert.match(primaryActionOption(payload).detail, /Pre-PR Decision/i);
   });
 });
 
-test('context pre-PR review allows PR step on minor-only findings when minorPolicy=warn', async () => {
-  await withTempDir('lsk-context-pre-pr-minor-warn-', async (dir) => {
+test('context pre-PR review proceeds to PR step when evidence and decision are provided', async () => {
+  await withTempDir('lsk-context-pre-pr-evidence-decision-ok-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -998,7 +997,7 @@ test('context pre-PR review allows PR step on minor-only findings when minorPoli
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=0, minor=2\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=9, minor=9\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: proceed after documenting review trade-offs'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1024,7 +1023,7 @@ test('context pre-PR review allows PR step on minor-only findings when minorPoli
     const docsCommit = await runCommand(docsGitRoot, 'git', [
       'commit',
       '-m',
-      'docs: allow pre-pr step with minor findings in warn mode',
+      'docs: allow pre-pr step with evidence and decision',
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
@@ -1043,8 +1042,8 @@ test('context pre-PR review allows PR step on minor-only findings when minorPoli
   });
 });
 
-test('context pre-PR review blocks PR step on minor findings when minorPolicy=block', async () => {
-  await withTempDir('lsk-context-pre-pr-minor-block-', async (dir) => {
+test('context pre-PR review ignores findings policy when evidence and decision are provided', async () => {
+  await withTempDir('lsk-context-pre-pr-findings-policy-ignored-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -1085,7 +1084,7 @@ test('context pre-PR review blocks PR step on minor findings when minorPolicy=bl
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=0, minor=2\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=3, minor=7\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: major/minor counts are informational only'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1111,17 +1110,15 @@ test('context pre-PR review blocks PR step on minor findings when minorPolicy=bl
     const docsCommit = await runCommand(docsGitRoot, 'git', [
       'commit',
       '-m',
-      'docs: block pre-pr step on minor findings',
+      'docs: keep pre-pr findings as informational only',
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
     const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
     assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.matchedFeature.currentStep, 12);
-    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.match(primaryActionOption(payload).detail, /minor findings/i);
-    assert.match(primaryActionOption(payload).detail, /2/);
+    assert.equal(payload.matchedFeature.currentStep, 13);
+    assert.equal(primaryActionOption(payload).action.category, 'pr_create');
   });
 });
 
@@ -1330,7 +1327,7 @@ test('context code_review step keeps Review status and guides merge command', as
     tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
     tasks = tasks.replace(
       '- **PR Status**: Review',
-      '- **PR Status**: Review\n- **PR Review Findings**: major=0, minor=0\n- **PR Review Evidence**: -'
+      '- **PR Status**: Review\n- **PR Review Evidence**: summary: reviewed latest comments and validated current state\n- **PR Review Decision**: decision: keep review status until merge gate passes'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1418,15 +1415,159 @@ process.exit(0);
         option.action.category === 'code_review' &&
         /\bgit\s+push\b/.test(option.action.cmd || '')
     );
-    assert.equal(Boolean(pushOption), true);
-    assert.match(pushOption.detail, /\(project\)\s+push review-fix commits/i);
-    assert.doesNotMatch(pushOption.detail, /\bgit\s+push\b/);
+    assert.equal(Boolean(pushOption), false);
     assert.match(primaryActionOption(payload).action.message, /addressing comments|리뷰 코멘트/);
     assert.doesNotMatch(primaryActionOption(payload).action.message, /Review → Approved/);
   });
 });
 
-test('context code_review step requires summary format in PR Review Evidence when findings remain', async () => {
+test('context code_review step shows push option only when local branch is ahead of upstream', async () => {
+  await withTempDir('lsk-context-code-review-push-only-when-ahead-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace(
+      '- **PR Status**: Review',
+      '- **PR Status**: Review\n- **PR Review Evidence**: summary: reviewed comments and synced expected behavior\n- **PR Review Decision**: decision: push review-fix commits before merge'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare code-review ahead-of-upstream case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const realGit = await runCommand(dir, 'which', ['git']);
+    assert.equal(realGit.code, 0, realGit.stderr || realGit.stdout);
+    const realGitPath = realGit.stdout.trim().split('\n').pop();
+    assert.equal(Boolean(realGitPath), true);
+
+    const fakeBinDir = path.join(dir, 'docs', '.fake-bin');
+    await fs.mkdir(fakeBinDir, { recursive: true });
+    const fakeGhScriptPath = path.join(fakeBinDir, 'gh');
+    const fakeGitScriptPath = path.join(fakeBinDir, 'git');
+    await fs.writeFile(
+      fakeGhScriptPath,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify({
+    state: 'OPEN',
+    mergedAt: null,
+    reviewDecision: '',
+    mergeStateStatus: 'CLEAN',
+    isDraft: false,
+    statusCheckRollup: [],
+  }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+      'utf-8'
+    );
+    await fs.chmod(fakeGhScriptPath, 0o755);
+    await fs.writeFile(
+      fakeGitScriptPath,
+      `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
+
+const args = process.argv.slice(2);
+if (
+  args[0] === 'rev-list' &&
+  args[1] === '--left-right' &&
+  args[2] === '--count' &&
+  args[3] === 'HEAD...@{upstream}'
+) {
+  process.stdout.write('1 0\\n');
+  process.exit(0);
+}
+
+const realGit = process.env.REAL_GIT || 'git';
+const result = spawnSync(realGit, args, { encoding: 'utf-8' });
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`,
+      'utf-8'
+    );
+    await fs.chmod(fakeGitScriptPath, 0o755);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json'], {
+      PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
+      REAL_GIT: realGitPath,
+    });
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    const pushOption = payload.actionOptions.find(
+      (option) =>
+        option.action.type === 'command' &&
+        option.action.category === 'code_review' &&
+        /\bgit\s+push\b/.test(option.action.cmd || '')
+    );
+    assert.equal(Boolean(pushOption), true);
+    assert.match(pushOption.detail, /\(project\)\s+push review-fix commits/i);
+    assert.equal(payload.matchedFeature.git.projectBranchAhead > 0, true);
+  });
+});
+
+test('context code_review step requires summary format in PR Review Evidence', async () => {
   await withTempDir('lsk-context-code-review-evidence-summary-required-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -1468,7 +1609,7 @@ test('context code_review step requires summary format in PR Review Evidence whe
     tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
     tasks = tasks.replace(
       '- **PR Status**: Review',
-      '- **PR Status**: Review\n- **PR Review Findings**: major=1, minor=0\n- **PR Review Evidence**: fixed button spacing and contrast issues'
+      '- **PR Status**: Review\n- **PR Review Evidence**: fixed button spacing and contrast issues\n- **PR Review Decision**: decision: reflected all requested UI fixes'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1556,7 +1697,7 @@ test('context code_review step asks PR status sync when remote PR is already mer
     tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
     tasks = tasks.replace(
       '- **PR Status**: Review',
-      '- **PR Status**: Review\n- **PR Review Findings**: major=0, minor=0\n- **PR Review Evidence**: merged'
+      '- **PR Status**: Review\n- **PR Review Evidence**: summary: merged remotely\n- **PR Review Decision**: decision: sync local PR status to Approved'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1684,7 +1825,7 @@ test('context code_review step blocks merge guidance when remote PR is closed wi
     tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
     tasks = tasks.replace(
       '- **PR Status**: Review',
-      '- **PR Status**: Review\n- **PR Review Findings**: major=0, minor=0\n- **PR Review Evidence**: closed'
+      '- **PR Status**: Review\n- **PR Review Evidence**: summary: remote PR is closed without merge\n- **PR Review Decision**: decision: reopen or recreate PR before merge'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1806,7 +1947,7 @@ test('context code_review step hides merge guidance when remote status is unavai
     tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
     tasks = tasks.replace(
       '- **PR Status**: Review',
-      '- **PR Status**: Review\n- **PR Review Findings**: major=0, minor=0\n- **PR Review Evidence**: unknown'
+      '- **PR Status**: Review\n- **PR Review Evidence**: summary: remote state unavailable during check\n- **PR Review Decision**: decision: verify gh auth/network then re-check'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 

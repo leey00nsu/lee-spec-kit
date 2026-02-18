@@ -22,8 +22,8 @@ Always run this checklist in Pre-PR review. Treat it as the minimum baseline, th
 2. Inspect regression, exception handling, critical/security risks, side effects, user flow impact, and release readiness.
 3. Check maintainability: split oversized functions/files when needed, reuse/integrate existing code where appropriate, and remove obsolete code.
 4. Run related test/verification commands (or explicitly record why they were not run).
-5. Update `Pre-PR Findings` in `tasks.md` as `major=<n>, minor=<n>`.
-6. Update `Pre-PR Evidence` with concrete proof (review links, logs, or doc paths).
+5. Update `Pre-PR Evidence` with concrete proof (review links, logs, or doc paths).
+6. Update `Pre-PR Decision` as `decision: ...` (or `결정: ...`) to capture key review decisions.
 7. Set `Pre-PR Review` to `Done` only after the checklist is completed.
 
 ---

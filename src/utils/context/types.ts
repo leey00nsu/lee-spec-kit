@@ -131,11 +131,15 @@ export interface FeatureState {
     findings?: PrePrReviewFindings;
     evidence?: string;
     evidenceProvided: boolean;
+    decision?: string;
+    decisionProvided: boolean;
   };
   prReview: {
     findings?: PrReviewFindings;
     evidence?: string;
     evidenceProvided: boolean;
+    decision?: string;
+    decisionProvided: boolean;
   };
   pr: {
     link?: string;
@@ -153,6 +157,9 @@ export interface FeatureState {
     docsHasUncommittedChanges: boolean;
     projectHasUncommittedChanges: boolean;
     docsPathIgnored?: boolean;
+    projectHasUpstream?: boolean;
+    projectBranchAhead?: number;
+    projectBranchBehind?: number;
   };
   docs: {
     featurePathFromDocs: string;
@@ -174,8 +181,10 @@ export interface FeatureState {
     prePrReviewFieldExists: boolean;
     prePrFindingsFieldExists: boolean;
     prePrEvidenceFieldExists: boolean;
+    prePrDecisionFieldExists: boolean;
     prReviewFindingsFieldExists: boolean;
     prReviewEvidenceFieldExists: boolean;
+    prReviewDecisionFieldExists: boolean;
   };
 }
 

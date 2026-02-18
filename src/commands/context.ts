@@ -427,33 +427,15 @@ function getListLabel(
     }
     if (
       prePrReviewPolicy.enabled &&
-      (!f.docs.prePrFindingsFieldExists || !f.prePrReview.findings)
-    ) {
-      return tr(lang, 'cli', 'context.list.addPrePrFindings');
-    }
-    if (
-      prePrReviewPolicy.enabled &&
       (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided)
     ) {
       return tr(lang, 'cli', 'context.list.addPrePrEvidence');
     }
     if (
       prePrReviewPolicy.enabled &&
-      prePrReviewPolicy.blockOnFindings &&
-      (f.prePrReview.findings?.major || 0) > 0
+      (!f.docs.prePrDecisionFieldExists || !f.prePrReview.decisionProvided)
     ) {
-      return tr(lang, 'cli', 'context.list.resolvePrePrMajorFindings', {
-        count: f.prePrReview.findings?.major || 0,
-      });
-    }
-    if (
-      prePrReviewPolicy.enabled &&
-      prePrReviewPolicy.minorPolicy === 'block' &&
-      (f.prePrReview.findings?.minor || 0) > 0
-    ) {
-      return tr(lang, 'cli', 'context.list.resolvePrePrMinorFindings', {
-        count: f.prePrReview.findings?.minor || 0,
-      });
+      return tr(lang, 'cli', 'context.list.addPrePrDecision');
     }
     if (workflowPolicy.requirePr && !f.pr.link) {
       return tr(lang, 'cli', 'context.list.recordPrLink');
@@ -464,18 +446,16 @@ function getListLabel(
     if (
       workflowPolicy.requireReview &&
       f.pr.status === 'Review' &&
-      (!f.docs.prReviewFindingsFieldExists || !f.prReview.findings)
+      (!f.docs.prReviewEvidenceFieldExists || !f.prReview.evidenceProvided)
     ) {
-      return tr(lang, 'cli', 'context.list.addPrReviewFindings');
+      return tr(lang, 'cli', 'context.list.addPrReviewEvidence');
     }
     if (
       workflowPolicy.requireReview &&
       f.pr.status === 'Review' &&
-      (!f.docs.prReviewEvidenceFieldExists ||
-        (((f.prReview.findings?.major || 0) + (f.prReview.findings?.minor || 0) > 0) &&
-          !f.prReview.evidenceProvided))
+      (!f.docs.prReviewDecisionFieldExists || !f.prReview.decisionProvided)
     ) {
-      return tr(lang, 'cli', 'context.list.addPrReviewEvidence');
+      return tr(lang, 'cli', 'context.list.addPrReviewDecision');
     }
     if (workflowPolicy.requireReview && f.pr.status !== 'Approved') {
       return tr(lang, 'cli', 'context.list.prStatusToApproved', {
@@ -532,10 +512,12 @@ function toCompactFeature(
       status: feature.prePrReview.status,
       findings: feature.prePrReview.findings,
       evidenceProvided: feature.prePrReview.evidenceProvided,
+      decisionProvided: feature.prePrReview.decisionProvided,
     },
     prReview: {
       findings: feature.prReview.findings,
       evidenceProvided: feature.prReview.evidenceProvided,
+      decisionProvided: feature.prReview.decisionProvided,
     },
     pr: {
       link: feature.pr.link,
@@ -551,6 +533,9 @@ function toCompactFeature(
       docsHasUncommittedChanges: feature.git.docsHasUncommittedChanges,
       projectHasUncommittedChanges: feature.git.projectHasUncommittedChanges,
       docsPathIgnored: feature.git.docsPathIgnored,
+      projectHasUpstream: feature.git.projectHasUpstream,
+      projectBranchAhead: feature.git.projectBranchAhead,
+      projectBranchBehind: feature.git.projectBranchBehind,
     },
     docs: {
       specExists: feature.docs.specExists,
@@ -564,8 +549,10 @@ function toCompactFeature(
       prePrReviewFieldExists: feature.docs.prePrReviewFieldExists,
       prePrFindingsFieldExists: feature.docs.prePrFindingsFieldExists,
       prePrEvidenceFieldExists: feature.docs.prePrEvidenceFieldExists,
+      prePrDecisionFieldExists: feature.docs.prePrDecisionFieldExists,
       prReviewFindingsFieldExists: feature.docs.prReviewFindingsFieldExists,
       prReviewEvidenceFieldExists: feature.docs.prReviewEvidenceFieldExists,
+      prReviewDecisionFieldExists: feature.docs.prReviewDecisionFieldExists,
     },
     warnings: feature.warnings,
   };

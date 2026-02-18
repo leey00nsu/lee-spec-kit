@@ -168,14 +168,10 @@ const ko = {
       'context.list.recordPrLink': 'PR 링크 기록',
       'context.list.addPrePrReviewField': 'Pre-PR Review 필드 추가',
       'context.list.completePrePrReview': 'Pre-PR 리뷰 완료 처리',
-      'context.list.addPrePrFindings': 'Pre-PR Findings 필드/값 보완',
       'context.list.addPrePrEvidence': 'Pre-PR Evidence 근거 추가',
-      'context.list.addPrReviewFindings': 'PR 리뷰 Findings 필드/값 보완',
+      'context.list.addPrePrDecision': 'Pre-PR Decision 기록',
       'context.list.addPrReviewEvidence': 'PR 리뷰 Evidence 요약 추가',
-      'context.list.resolvePrePrMajorFindings':
-        'Pre-PR 주요 Findings 해소 필요 ({count}건)',
-      'context.list.resolvePrePrMinorFindings':
-        'Pre-PR minor Findings 해소 필요 ({count}건)',
+      'context.list.addPrReviewDecision': 'PR 리뷰 Decision 기록',
       'context.list.setPrStatus': 'PR 상태 설정',
       'context.list.prStatusToApproved': 'PR 머지 필요 (현재 PR 상태: {status} → Approved)',
       'context.list.approveSpec': 'spec 승인 필요',
@@ -556,32 +552,20 @@ const ko = {
         'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
       prePrReviewFieldMissing:
         'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
-      prePrReviewFindingsMissing:
-        'tasks.md에 `PR 전 리뷰 Findings` 필드가 없거나 값 형식이 잘못되었습니다. `- **PR 전 리뷰 Findings**: major=0, minor=0` 형식으로 기록하세요. (확인 필요)',
       prePrReviewEvidenceMissing:
         'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 placeholder입니다. 리뷰 근거(문서 경로/링크/로그)를 채우세요. (확인 필요)',
-      prePrReviewMajorBlocked:
-        'Pre-PR 주요 Findings가 {count}건으로 기록되었습니다. `blockOnFindings=true` 정책에서는 주요 이슈 해결/합의 전 PR 생성으로 진행할 수 없습니다.',
-      prePrReviewMinorBlocked:
-        'Pre-PR minor Findings가 {count}건으로 기록되었습니다. `minorPolicy=block` 정책에서는 minor 이슈 정리/합의 전 PR 생성으로 진행할 수 없습니다.',
+      prePrReviewDecisionMissing:
+        'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
       prePrReviewRun:
-        'PR 생성 전 사전 코드리뷰를 진행하세요. 기본 베이스라인은 `{fallback}`이며, `create-pr` 문서의 `Pre-PR 기본 체크리스트` 섹션을 항상 수행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용)로 추가 심화 검토를 진행하세요. 완료 후 `PR 전 리뷰`를 Done으로 업데이트하세요. Major 정책: {findingsPolicy}. Minor 정책: {minorFindingsPolicy}',
-      prePrReviewFindingsBlock:
-        '중요 이슈는 수정/합의 후에만 PR 생성',
-      prePrReviewFindingsWarn:
-        '리스크를 공유하면 PR 생성 진행 가능',
-      prePrReviewMinorFindingsBlock:
-        'minor 이슈도 정리/합의 후에만 PR 생성',
-      prePrReviewMinorFindingsWarn:
-        'minor 이슈는 기록/공유 후 PR 생성 진행 가능',
-      prReviewFindingsFieldMissing:
-        'tasks.md에 `PR 리뷰 Findings` 필드가 없습니다. `- **PR 리뷰 Findings**: major=0, minor=0` 항목을 추가하고 다시 진행하세요. (확인 필요)',
-      prReviewFindingsMissing:
-        'tasks.md의 `PR 리뷰 Findings` 값이 없거나 형식이 잘못되었습니다. `- **PR 리뷰 Findings**: major=0, minor=0` 형식으로 기록하세요. (확인 필요)',
+        'PR 생성 전 사전 코드리뷰를 진행하세요. 기본 베이스라인은 `{fallback}`이며, `create-pr` 문서의 `Pre-PR 기본 체크리스트` 섹션을 항상 수행하세요. 우선순위 스킬: {skills} (설치된 더 적합한 스킬이 있다면 먼저 제안 후 사용)로 추가 심화 검토를 진행하세요. 완료 후 `PR 전 리뷰`를 Done으로 업데이트하세요.',
       prReviewEvidenceFieldMissing:
         'tasks.md에 `PR 리뷰 Evidence` 필드가 없습니다. `- **PR 리뷰 Evidence**: -` 항목을 추가하고 다시 진행하세요. (확인 필요)',
       prReviewEvidenceMissing:
         'tasks.md의 `PR 리뷰 Evidence`가 비어있거나 placeholder이거나 요약 형식이 없습니다. 해결/합의한 리뷰 코멘트 근거를 `요약: ...`(또는 `summary: ...`) 형식으로 기록하세요. (확인 필요)',
+      prReviewDecisionFieldMissing:
+        'tasks.md에 `PR 리뷰 Decision` 필드가 없습니다. `- **PR 리뷰 Decision**: -` 항목을 추가하고 다시 진행하세요. (확인 필요)',
+      prReviewDecisionMissing:
+        'tasks.md의 `PR 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
       prCreate:
         'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
       prCreatePrepareFromDoc:
@@ -597,11 +581,11 @@ const ko = {
       prFillStatus:
         'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
       prReviewMergedSyncStatus:
-        '원격 PR이 이미 머지되었습니다. tasks.md의 PR 상태를 Approved로 업데이트하세요. (PR/리뷰 근거 필드도 최신 상태로 확인)',
+        '원격 PR이 이미 머지되었습니다. tasks.md의 PR 상태를 Approved로 업데이트하세요. (PR 리뷰 Evidence/Decision 필드도 최신 상태로 확인)',
       prResolveReview:
         '리뷰 코멘트를 해결하세요. PR 상태는 Review를 유지하고, 리뷰 수정 커밋 메시지는 실제로 해결한 항목 요약으로 작성하세요. (태스크 제목 재사용 금지) 머지 준비가 되면 사용자 승인(OK) 후 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
       prReviewResolve:
-        '리뷰 코멘트를 확인/분석한 뒤 필요한 수정을 진행하세요. PR 상태는 Review를 유지하고 `PR 리뷰 Findings/Evidence`를 최신으로 기록하세요. 원격 반영(push)은 사용자 승인(OK) 후 진행하세요.',
+        '리뷰 코멘트를 확인/분석한 뒤 필요한 수정을 진행하세요. PR 상태는 Review를 유지하고 `PR 리뷰 Evidence/Decision`을 최신으로 기록하세요. 원격 반영(push)은 사용자 승인(OK) 후, 로컬 브랜치가 upstream보다 앞선 경우에만 진행하세요.',
       prReviewPush:
         'cd "{projectGitCwd}" && git push',
       prReviewRemoteBlocked:
@@ -648,14 +632,14 @@ const ko = {
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       legacyTasksPrePrReviewField:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰` 필드를 추가하세요. (`- **PR 전 리뷰**: Pending | Done`)',
-      legacyTasksPrePrFindingsField:
-        '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Findings` 필드를 추가하세요. (`- **PR 전 리뷰 Findings**: major=0, minor=0`)',
       legacyTasksPrePrEvidenceField:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Evidence` 필드를 추가하세요.',
-      legacyTasksPrReviewFindingsField:
-        '구버전 tasks.md 포맷입니다. 리뷰 단계 전에 `PR 리뷰 Findings` 필드를 추가하세요. (`- **PR 리뷰 Findings**: major=0, minor=0`)',
+      legacyTasksPrePrDecisionField:
+        '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Decision` 필드를 추가하세요. (`- **PR 전 리뷰 Decision**: 결정: ...`)',
       legacyTasksPrReviewEvidenceField:
         '구버전 tasks.md 포맷입니다. 리뷰 단계 전에 `PR 리뷰 Evidence` 필드를 추가하세요.',
+      legacyTasksPrReviewDecisionField:
+        '구버전 tasks.md 포맷입니다. 리뷰 단계 전에 `PR 리뷰 Decision` 필드를 추가하세요. (`- **PR 리뷰 Decision**: 결정: ...`)',
       workflowSpecNotApproved:
         '완료 상태이지만 spec.md 상태가 Approved가 아닙니다. (spec.md의 상태를 Approved로 업데이트하세요.)',
       workflowPlanNotApproved:
@@ -670,10 +654,10 @@ const ko = {
         '완료 상태이지만 PR 상태가 비어있습니다. (PR 생성/리뷰 단계에서는 PR 상태를 Review로 설정하세요.)',
       workflowPrStatusNotApproved:
         '완료 상태이지만 PR 상태가 Approved가 아닙니다. (PR 생성/리뷰 단계는 Review를 유지하고, merge 성공 시에만 Approved로 동기화하세요.)',
-      workflowPrReviewFindingsMissing:
-        '리뷰 단계에서 `PR 리뷰 Findings`가 없거나 형식이 올바르지 않습니다. (`major=0, minor=0` 형식)',
       workflowPrReviewEvidenceMissing:
         '리뷰 단계에서 `PR 리뷰 Evidence`가 비어있거나 placeholder이거나 요약 형식이 없습니다. (`요약: ...` 또는 `summary: ...` 형식으로 기록)',
+      workflowPrReviewDecisionMissing:
+        '리뷰 단계에서 `PR 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. (`결정: ...` 또는 `decision: ...` 형식으로 기록)',
       workflowPrRemoteChangesRequested:
         '원격 PR에서 변경 요청 또는 추가 리뷰가 감지되었습니다. 코멘트 반영 후 push하고 다시 확인하세요.',
       workflowPrRemoteChecksFailing:
@@ -684,14 +668,10 @@ const ko = {
         '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
       workflowPrePrReviewNotDone:
         '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
-      workflowPrePrFindingsMissing:
-        '완료 상태이지만 `PR 전 리뷰 Findings`가 없거나 형식이 올바르지 않습니다. (`major=0, minor=0` 형식)',
       workflowPrePrEvidenceMissing:
         '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있습니다. (리뷰 근거를 기록하세요.)',
-      workflowPrePrFindingsBlocked:
-        '완료 상태이지만 Pre-PR 주요 Findings가 {count}건 남아 있습니다. (`blockOnFindings=true` 정책)',
-      workflowPrePrMinorFindingsBlocked:
-        '완료 상태이지만 Pre-PR minor Findings가 {count}건 남아 있습니다. (`minorPolicy=block` 정책)',
+      workflowPrePrDecisionMissing:
+        '완료 상태이지만 `PR 전 리뷰 Decision`이 비어있거나 형식이 올바르지 않습니다. (`결정: ...` 또는 `decision: ...` 형식)',
     },
   } as const;
 

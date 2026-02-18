@@ -160,6 +160,13 @@ function hasStructuredReviewSummary(value: string | undefined): boolean {
   return /^(?:summary|요약)\s*[:：]\s*\S.+$/i.test(trimmed);
 }
 
+function hasStructuredReviewDecision(value: string | undefined): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^(?:decision|결정)\s*[:：]\s*\S.+$/i.test(trimmed);
+}
+
 function parseIssueNumber(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const match = value.match(/#?(\d+)/);
@@ -391,6 +398,34 @@ function resolvePrRemoteStatus(
   }
 }
 
+function resolveBranchDivergence(
+  projectGitCwd: string
+): { hasUpstream: boolean; ahead: number; behind: number } {
+  try {
+    const raw = execFileSync(
+      'git',
+      ['rev-list', '--left-right', '--count', 'HEAD...@{upstream}'],
+      {
+        cwd: projectGitCwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }
+    ).trim();
+    const match = raw.match(/^(\d+)\s+(\d+)$/);
+    if (!match) {
+      return { hasUpstream: false, ahead: 0, behind: 0 };
+    }
+    const ahead = Number(match[1]);
+    const behind = Number(match[2]);
+    if (!Number.isFinite(ahead) || !Number.isFinite(behind)) {
+      return { hasUpstream: false, ahead: 0, behind: 0 };
+    }
+    return { hasUpstream: true, ahead, behind };
+  } catch {
+    return { hasUpstream: false, ahead: 0, behind: 0 };
+  }
+}
+
 async function resolveComponentStatusPaths(
   projectGitCwd: string,
   component: string,
@@ -534,13 +569,13 @@ function isPrePrReviewSatisfied(
   feature: {
     docs: {
       prePrReviewFieldExists: boolean;
-      prePrFindingsFieldExists: boolean;
       prePrEvidenceFieldExists: boolean;
+      prePrDecisionFieldExists: boolean;
     };
     prePrReview: {
       status?: PrePrReviewStatus;
-      findings?: PrePrReviewFindings;
       evidenceProvided: boolean;
+      decisionProvided: boolean;
     };
   },
   policy: ReturnType<typeof resolvePrePrReviewPolicy>
@@ -549,21 +584,15 @@ function isPrePrReviewSatisfied(
   if (!feature.docs.prePrReviewFieldExists || feature.prePrReview.status !== 'Done') {
     return false;
   }
-  if (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findings) {
-    return false;
-  }
   if (
     !feature.docs.prePrEvidenceFieldExists ||
     !feature.prePrReview.evidenceProvided
   ) {
     return false;
   }
-  if (policy.blockOnFindings && feature.prePrReview.findings.major > 0) {
-    return false;
-  }
   if (
-    policy.minorPolicy === 'block' &&
-    feature.prePrReview.findings.minor > 0
+    !feature.docs.prePrDecisionFieldExists ||
+    !feature.prePrReview.decisionProvided
   ) {
     return false;
   }
@@ -669,9 +698,13 @@ export async function parseFeature(
   let prePrFindings: PrePrReviewFindings | undefined;
   let prePrEvidence: string | undefined;
   let prePrEvidenceProvided = false;
+  let prePrDecision: string | undefined;
+  let prePrDecisionProvided = false;
   let prReviewFindings: PrReviewFindings | undefined;
   let prReviewEvidence: string | undefined;
   let prReviewEvidenceProvided = false;
+  let prReviewDecision: string | undefined;
+  let prReviewDecisionProvided = false;
   let prLink: string | undefined;
   let prStatus: PrReviewStatus | undefined;
   let prRemote: PrRemoteStatus | undefined;
@@ -687,8 +720,10 @@ export async function parseFeature(
   let prePrReviewFieldExists = false;
   let prePrFindingsFieldExists = false;
   let prePrEvidenceFieldExists = false;
+  let prePrDecisionFieldExists = false;
   let prReviewFindingsFieldExists = false;
   let prReviewEvidenceFieldExists = false;
+  let prReviewDecisionFieldExists = false;
 
   if (tasksExists) {
     const content = await fs.readFile(tasksPath, 'utf-8');
@@ -758,6 +793,19 @@ export async function parseFeature(
     prePrEvidence = prePrEvidenceValue?.trim();
     prePrEvidenceProvided = !isPlaceholderReviewEvidence(prePrEvidenceValue);
 
+    const prePrDecisionValue = extractFirstSpecValue(content, [
+      'PR 전 리뷰 Decision',
+      'Pre-PR Decision',
+    ]);
+    prePrDecisionFieldExists = hasAnySpecKey(content, [
+      'PR 전 리뷰 Decision',
+      'Pre-PR Decision',
+    ]);
+    prePrDecision = prePrDecisionValue?.trim();
+    prePrDecisionProvided =
+      !isPlaceholderReviewEvidence(prePrDecisionValue) &&
+      hasStructuredReviewDecision(prePrDecisionValue);
+
     const prReviewFindingsValue = extractFirstSpecValue(content, [
       'PR 리뷰 Findings',
       'PR Review Findings',
@@ -780,6 +828,19 @@ export async function parseFeature(
     prReviewEvidenceProvided =
       !isPlaceholderReviewEvidence(prReviewEvidenceValue) &&
       hasStructuredReviewSummary(prReviewEvidenceValue);
+
+    const prReviewDecisionValue = extractFirstSpecValue(content, [
+      'PR 리뷰 Decision',
+      'PR Review Decision',
+    ]);
+    prReviewDecisionFieldExists = hasAnySpecKey(content, [
+      'PR 리뷰 Decision',
+      'PR Review Decision',
+    ]);
+    prReviewDecision = prReviewDecisionValue?.trim();
+    prReviewDecisionProvided =
+      !isPlaceholderReviewEvidence(prReviewDecisionValue) &&
+      hasStructuredReviewDecision(prReviewDecisionValue);
   }
 
   // tasks.md is the primary source of issue metadata. Re-resolve feature worktree
@@ -894,6 +955,9 @@ export async function parseFeature(
       ? context.projectHasUncommittedChanges
       : false;
   let projectStatusUnavailable = !!context.projectStatusUnavailable;
+  let projectHasUpstream = false;
+  let projectBranchAhead = 0;
+  let projectBranchBehind = 0;
 
   if (
     typeof context.projectHasUncommittedChanges !== 'boolean' &&
@@ -943,6 +1007,13 @@ export async function parseFeature(
     }
   }
 
+  if (effectiveProjectGitCwd) {
+    const divergence = resolveBranchDivergence(effectiveProjectGitCwd);
+    projectHasUpstream = divergence.hasUpstream;
+    projectBranchAhead = divergence.ahead;
+    projectBranchBehind = divergence.behind;
+  }
+
   if (docsGitUnavailable) {
     warnings.push(tr(lang, 'warnings', 'docsGitUnavailable'));
   }
@@ -964,17 +1035,17 @@ export async function parseFeature(
   if (tasksExists && prePrReviewPolicy.enabled && !prePrReviewFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrReviewField'));
   }
-  if (tasksExists && prePrReviewPolicy.enabled && !prePrFindingsFieldExists) {
-    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrFindingsField'));
-  }
   if (tasksExists && prePrReviewPolicy.enabled && !prePrEvidenceFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrEvidenceField'));
   }
-  if (tasksExists && workflowPolicy.requireReview && !prReviewFindingsFieldExists) {
-    warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewFindingsField'));
+  if (tasksExists && prePrReviewPolicy.enabled && !prePrDecisionFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrDecisionField'));
   }
   if (tasksExists && workflowPolicy.requireReview && !prReviewEvidenceFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewEvidenceField'));
+  }
+  if (tasksExists && workflowPolicy.requireReview && !prReviewDecisionFieldExists) {
+    warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewDecisionField'));
   }
   if (tasksExists && !tasksDocStatusFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksDocStatusField'));
@@ -1027,13 +1098,13 @@ export async function parseFeature(
       {
         docs: {
           prePrReviewFieldExists,
-          prePrFindingsFieldExists,
           prePrEvidenceFieldExists,
+          prePrDecisionFieldExists,
         },
         prePrReview: {
           status: prePrReviewStatus,
-          findings: prePrFindings,
           evidenceProvided: prePrEvidenceProvided,
+          decisionProvided: prePrDecisionProvided,
         },
       },
       prePrReviewPolicy
@@ -1062,14 +1133,11 @@ export async function parseFeature(
         if (prStatus && prStatus !== 'Approved') {
           warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
           if (prStatus === 'Review') {
-            if (!prReviewFindingsFieldExists || !prReviewFindings) {
-              warnings.push(tr(lang, 'warnings', 'workflowPrReviewFindingsMissing'));
-            }
-            if (
-              (!prReviewEvidenceFieldExists || !prReviewEvidenceProvided) &&
-              (prReviewFindings?.major || 0) + (prReviewFindings?.minor || 0) > 0
-            ) {
+            if (!prReviewEvidenceFieldExists || !prReviewEvidenceProvided) {
               warnings.push(tr(lang, 'warnings', 'workflowPrReviewEvidenceMissing'));
+            }
+            if (!prReviewDecisionFieldExists || !prReviewDecisionProvided) {
+              warnings.push(tr(lang, 'warnings', 'workflowPrReviewDecisionMissing'));
             }
           }
         }
@@ -1080,25 +1148,10 @@ export async function parseFeature(
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewMissing'));
       } else if (prePrReviewStatus !== 'Done') {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewNotDone'));
-      } else if (!prePrFindingsFieldExists || !prePrFindings) {
-        warnings.push(tr(lang, 'warnings', 'workflowPrePrFindingsMissing'));
       } else if (!prePrEvidenceFieldExists || !prePrEvidenceProvided) {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrEvidenceMissing'));
-      } else if (prePrReviewPolicy.blockOnFindings && prePrFindings.major > 0) {
-        warnings.push(
-          tr(lang, 'warnings', 'workflowPrePrFindingsBlocked', {
-            count: prePrFindings.major,
-          })
-        );
-      } else if (
-        prePrReviewPolicy.minorPolicy === 'block' &&
-        prePrFindings.minor > 0
-      ) {
-        warnings.push(
-          tr(lang, 'warnings', 'workflowPrePrMinorFindingsBlocked', {
-            count: prePrFindings.minor,
-          })
-        );
+      } else if (!prePrDecisionFieldExists || !prePrDecisionProvided) {
+        warnings.push(tr(lang, 'warnings', 'workflowPrePrDecisionMissing'));
       }
     }
   }
@@ -1127,11 +1180,15 @@ export async function parseFeature(
       findings: prePrFindings,
       evidence: prePrEvidence,
       evidenceProvided: prePrEvidenceProvided,
+      decision: prePrDecision,
+      decisionProvided: prePrDecisionProvided,
     },
     prReview: {
       findings: prReviewFindings,
       evidence: prReviewEvidence,
       evidenceProvided: prReviewEvidenceProvided,
+      decision: prReviewDecision,
+      decisionProvided: prReviewDecisionProvided,
     },
     pr: { link: prLink, status: prStatus, remote: prRemote },
     git: {
@@ -1145,6 +1202,9 @@ export async function parseFeature(
       docsHasUncommittedChanges,
       projectHasUncommittedChanges,
       docsPathIgnored: docsPathIgnored === true,
+      projectHasUpstream,
+      projectBranchAhead,
+      projectBranchBehind,
     },
     docs: {
       featurePathFromDocs: relativeFeaturePathFromDocs,
@@ -1166,8 +1226,10 @@ export async function parseFeature(
       prePrReviewFieldExists,
       prePrFindingsFieldExists,
       prePrEvidenceFieldExists,
+      prePrDecisionFieldExists,
       prReviewFindingsFieldExists,
       prReviewEvidenceFieldExists,
+      prReviewDecisionFieldExists,
     },
   };
 

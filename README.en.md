@@ -301,7 +301,7 @@ Use `context --json` only when full-detail debugging fields are required.
 - `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: summary metadata for the first atomic action
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
-- `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`, `blockOnFindings`, `minorPolicy`)
+- `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`)
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
 
@@ -576,8 +576,6 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
   - `skills` (optional): preferred skill names in priority order (default: `["code-review-excellence"]`)
   - `fallback` (optional): baseline review policy (default: `"builtin-checklist"`)
     - Use the `Pre-PR Baseline Checklist` section in `docs get create-pr --json` as the single source of truth
-  - `blockOnFindings` (optional): require major findings to be resolved/aligned before PR creation (default: `true`)
-  - `minorPolicy` (optional): minor findings policy (`warn` | `block`, default: `warn`)
 - `workflow.auto`:
   - `defaultPreset` (optional): default auto preset used by `flow --request "<text>"` (default: `"pr-handoff"`)
   - `defaultUntilCategories` (optional): default gate categories (takes precedence over `defaultPreset`)
@@ -600,9 +598,7 @@ Example:
     },
     "prePrReview": {
       "skills": ["code-review-excellence"],
-      "fallback": "builtin-checklist",
-      "blockOnFindings": true,
-      "minorPolicy": "warn"
+      "fallback": "builtin-checklist"
     }
   }
 }

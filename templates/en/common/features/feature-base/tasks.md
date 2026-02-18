@@ -24,15 +24,15 @@
 - **Pre-PR Review**: -
   - Values: Pending | Done
   - Mark `Done` after pre-PR review is completed
-- **Pre-PR Findings**: major=0, minor=0
-  - Update with final findings counts from pre-PR review
 - **Pre-PR Evidence**: -
   - Example: review note link, log path, or docs path
+- **Pre-PR Decision**: -
+  - Record your key review decision as `decision: ...` (or `결정: ...`)
   - Follow `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline
-- **PR Review Findings**: major=0, minor=0
-  - Update with findings counts from PR review comment resolution
 - **PR Review Evidence**: -
   - Example: resolved/aligned comment link, verification log, or docs path
+- **PR Review Decision**: -
+  - Record why/how review comments were addressed as `decision: ...` (or `결정: ...`)
 
 ---
 
