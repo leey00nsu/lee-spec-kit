@@ -127,23 +127,66 @@ const en = {
       'context.actionDetail.planWrite': 'Write or refine plan.md and set status',
       'context.actionDetail.planApprove': 'Approve plan.md',
       'context.actionDetail.tasksWrite': 'Write or refine tasks.md and align document status',
+      'context.actionDetail.tasksWriteCreate':
+        'Create tasks.md and set Doc Status to Review',
+      'context.actionDetail.tasksWriteNeedAtLeastOne':
+        'Add at least one task to tasks.md',
+      'context.actionDetail.tasksWriteImprove':
+        'Refine tasks.md and align Doc Status',
       'context.actionDetail.tasksApprove': 'Approve tasks.md',
       'context.actionDetail.issueCreate':
         'Create the issue and sync issue fields in tasks.md',
+      'context.actionDetail.issueCreateAndWrite':
+        'Draft issue content, get explicit OK, then create and sync Issue',
+      'context.actionDetail.issueCreatePrepareFromDoc':
+        'Refine issue.md draft and set Status to Ready',
+      'context.actionDetail.issueCreateFromDoc':
+        'Create GitHub Issue from ready issue.md and sync Issue',
       'context.actionDetail.taskExecute': 'Proceed with the current task',
       'context.actionDetail.reviewFixCommit':
         'Create a review-fix commit with resolved feedback summary',
       'context.actionDetail.prePrReview':
         'Run pre-PR review and record results',
       'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
+      'context.actionDetail.prCreateRequiredSequence':
+        'Complete PR 2-step flow: prepare draft + OK, then create and sync',
+      'context.actionDetail.prCreatePrepareFromDoc':
+        'Refine pr.md draft and set Status to Ready',
+      'context.actionDetail.prCreateExecuteFromDoc':
+        'Create PR from ready pr.md and sync PR link/status',
       'context.actionDetail.prStatusUpdate':
         'Sync PR status in tasks.md with remote status',
+      'context.actionDetail.prStatusUpdateSetReview': 'Set PR Status to Review',
+      'context.actionDetail.prStatusUpdateSyncApproved':
+        'PR merged remotely; sync PR Status to Approved',
       'context.actionDetail.codeReview':
         'Address review feedback and update PR review fields',
+      'context.actionDetail.codeReviewNeedEvidenceField':
+        'Add PR Review Evidence field in tasks.md',
+      'context.actionDetail.codeReviewNeedEvidence':
+        'Record PR Review Evidence summary',
+      'context.actionDetail.codeReviewNeedDecisionField':
+        'Add PR Review Decision field in tasks.md',
+      'context.actionDetail.codeReviewNeedDecision':
+        'Record PR Review Decision',
+      'context.actionDetail.codeReviewResolve':
+        'Address review feedback and keep PR review docs updated',
+      'context.actionDetail.codeReviewNeedProjectRoot':
+        'Set projectRoot to continue review actions',
+      'context.actionDetail.codeReviewRemoteBlocked':
+        'Resolve remote PR blockers before merge',
+      'context.actionDetail.codeReviewMergeAfterOk':
+        'Merge PR after explicit OK',
+      'context.actionDetail.codeReviewRequestReview':
+        'Request review and keep PR Status as Review',
       'context.actionDetail.worktreeCleanup':
         'Clean up the completed feature worktree',
       'context.actionDetail.prMetadataMigrate':
         'Update tasks.md PR fields to the latest template format',
+      'context.actionDetail.prMetadataMigratePrFields':
+        'Update tasks.md with PR/PR Status fields',
+      'context.actionDetail.prMetadataMigratePrePrReviewField':
+        'Add Pre-PR Review field in tasks.md',
       'context.actionDetail.userRequestReplan':
         'Handle the new user request first and re-run context',
       'context.actionDetail.featureDone':

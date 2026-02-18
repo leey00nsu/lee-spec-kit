@@ -1288,6 +1288,14 @@ test('context issue_create action requires explicit user check and is instructio
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
     assert.equal(primaryActionOption(payload).action.operationType, 'remote');
+    assert.match(
+      primaryActionOption(payload).action.uiDetailKey || '',
+      /^context\.actionDetail\.issueCreate/
+    );
+    assert.notEqual(
+      primaryActionOption(payload).detail,
+      'Create the issue and sync issue fields in tasks.md'
+    );
     assert.doesNotMatch(primaryActionOption(payload).detail, /docs get/i);
     assert.doesNotMatch(primaryActionOption(payload).approvalPrompt, /docs get/i);
     assert.equal(Array.isArray(payload.requiredDocs), true);
@@ -1380,6 +1388,14 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
     assert.equal(primaryActionOption(payload).action.operationType, 'remote');
+    assert.match(
+      primaryActionOption(payload).action.uiDetailKey || '',
+      /^context\.actionDetail\.prCreate/
+    );
+    assert.notEqual(
+      primaryActionOption(payload).detail,
+      'Create PR and sync PR fields in tasks.md'
+    );
     assert.equal(payload.actionOptions.length >= 2, true);
     assert.equal(
       payload.actionOptions.some(
@@ -1503,6 +1519,14 @@ process.exit(0);
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
     assert.equal(primaryActionOption(payload).action.operationType, 'remote');
+    assert.equal(
+      primaryActionOption(payload).action.uiDetailKey,
+      'context.actionDetail.codeReviewResolve'
+    );
+    assert.notEqual(
+      primaryActionOption(payload).detail,
+      'Address review feedback and update PR review fields'
+    );
     assert.equal(payload.actionOptions.length >= 2, true);
     assert.equal(
       payload.actionOptions.some(
@@ -1755,6 +1779,10 @@ test('context code_review step requires summary format in PR Review Evidence', a
     const payload = JSON.parse(context.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 14);
     assert.equal(primaryActionOption(payload).action.category, 'code_review');
+    assert.equal(
+      primaryActionOption(payload).action.uiDetailKey,
+      'context.actionDetail.codeReviewNeedEvidence'
+    );
     assert.match(primaryActionOption(payload).action.message, /summary:\s*\.\.\.|요약:\s*\.\.\./i);
     const mergeOption = payload.actionOptions.find(
       (option) =>
@@ -1884,6 +1912,14 @@ process.exit(0);
     assert.equal(primaryActionOption(payload).action.category, 'pr_status_update');
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
+    assert.equal(
+      primaryActionOption(payload).action.uiDetailKey,
+      'context.actionDetail.prStatusUpdateSyncApproved'
+    );
+    assert.notEqual(
+      primaryActionOption(payload).detail,
+      'Sync PR status in tasks.md with remote status'
+    );
     assert.match(primaryActionOption(payload).action.message, /already merged/i);
     assert.equal(
       payload.actionOptions.some((option) =>

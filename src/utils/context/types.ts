@@ -59,6 +59,8 @@ export type NextAction =
       category?: ActionCategory;
       operationType?: OperationType;
       taskExecutePhase?: TaskExecutePhase;
+      uiSummaryKey?: string;
+      uiDetailKey?: string;
     }
   | {
       type: 'instruction';
@@ -67,6 +69,8 @@ export type NextAction =
       category?: ActionCategory;
       operationType?: OperationType;
       taskExecutePhase?: TaskExecutePhase;
+      uiSummaryKey?: string;
+      uiDetailKey?: string;
     };
 
 export interface TaskRef {

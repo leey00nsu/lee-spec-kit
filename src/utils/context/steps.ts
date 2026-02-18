@@ -492,6 +492,7 @@ export function getStepDefinitions(
               {
                 type: 'instruction',
                 category: 'tasks_write',
+                uiDetailKey: 'context.actionDetail.tasksWriteCreate',
                 message: tr(lang, 'messages', 'tasksCreate'),
               },
             ];
@@ -502,6 +503,7 @@ export function getStepDefinitions(
               {
                 type: 'instruction',
                 category: 'tasks_write',
+                uiDetailKey: 'context.actionDetail.tasksWriteNeedAtLeastOne',
                 message: tr(lang, 'messages', 'tasksNeedAtLeastOne'),
               },
             ];
@@ -512,6 +514,7 @@ export function getStepDefinitions(
               {
                 type: 'instruction',
                 category: 'tasks_write',
+                uiDetailKey: 'context.actionDetail.tasksWriteImprove',
                 message: tr(lang, 'messages', 'tasksImprove'),
               },
             ];
@@ -532,6 +535,7 @@ export function getStepDefinitions(
             {
               type: 'instruction',
               category: 'tasks_write',
+              uiDetailKey: 'context.actionDetail.tasksWriteImprove',
               message: tr(lang, 'messages', 'tasksImprove'),
             },
           ];
@@ -624,6 +628,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'issue_create',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.issueCreateAndWrite',
                 message: tr(lang, 'messages', 'issueCreateAndWrite', {
                   featureRef: f.id || f.folderName,
                 }),
@@ -636,6 +641,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'issue_create',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.issueCreateFromDoc',
                 message: tr(lang, 'messages', 'issueCreateFromDoc', {
                   featureRef: f.id || f.folderName,
                 }),
@@ -647,6 +653,7 @@ export function getStepDefinitions(
               type: 'instruction',
               category: 'issue_create',
               requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.issueCreatePrepareFromDoc',
               message: tr(lang, 'messages', 'issuePrepareFromDoc', {
                 featureRef: f.id || f.folderName,
               }),
@@ -829,6 +836,7 @@ export function getStepDefinitions(
                 type: 'instruction' as const,
                 category: 'pr_metadata_migrate',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.prMetadataMigratePrFields',
                 message: tr(lang, 'messages', 'prLegacyAsk'),
               });
             }
@@ -1092,6 +1100,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'pr_metadata_migrate',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.prMetadataMigratePrePrReviewField',
                 message: tr(lang, 'messages', 'prePrReviewFieldMissing'),
               },
             ];
@@ -1137,6 +1146,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'pr_metadata_migrate',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.prMetadataMigratePrFields',
                 message: tr(lang, 'messages', 'prLegacyAsk'),
               },
             ];
@@ -1147,6 +1157,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'pr_create',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.prCreateRequiredSequence',
                 message: tr(lang, 'messages', 'prCreateRequiredSequence', {
                   featureRef: f.id || f.folderName,
                 }),
@@ -1159,6 +1170,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'pr_create',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.prCreateExecuteFromDoc',
                 message: tr(lang, 'messages', 'prCreateExecuteFromDoc', {
                   featureRef: f.id || f.folderName,
                 }),
@@ -1170,6 +1182,7 @@ export function getStepDefinitions(
               type: 'instruction',
               category: 'pr_create',
               requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.prCreatePrepareFromDoc',
               message: tr(lang, 'messages', 'prCreatePrepareFromDoc', {
                 featureRef: f.id || f.folderName,
               }),
@@ -1199,6 +1212,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'pr_status_update',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.prStatusUpdateSetReview',
                 message: tr(lang, 'messages', 'prFillStatus'),
               },
             ];
@@ -1210,6 +1224,7 @@ export function getStepDefinitions(
                   type: 'instruction',
                   category: 'pr_status_update',
                   requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.prStatusUpdateSyncApproved',
                   message: tr(lang, 'messages', 'prReviewMergedSyncStatus'),
                 },
               ];
@@ -1220,6 +1235,7 @@ export function getStepDefinitions(
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.codeReviewNeedEvidenceField',
                   message: tr(lang, 'messages', 'prReviewEvidenceFieldMissing'),
                 },
               ];
@@ -1230,6 +1246,7 @@ export function getStepDefinitions(
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.codeReviewNeedEvidence',
                   message: tr(lang, 'messages', 'prReviewEvidenceMissing'),
                 },
               ];
@@ -1240,6 +1257,7 @@ export function getStepDefinitions(
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.codeReviewNeedDecisionField',
                   message: tr(lang, 'messages', 'prReviewDecisionFieldMissing'),
                 },
               ];
@@ -1250,6 +1268,7 @@ export function getStepDefinitions(
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.codeReviewNeedDecision',
                   message: tr(lang, 'messages', 'prReviewDecisionMissing'),
                 },
               ];
@@ -1265,6 +1284,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.codeReviewResolve',
                 message: tr(lang, 'messages', 'prReviewResolve'),
               },
             ];
@@ -1274,6 +1294,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.codeReviewNeedProjectRoot',
                 message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
               });
             } else if ((f.git.projectBranchAhead || 0) > 0) {
@@ -1298,6 +1319,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.codeReviewRemoteBlocked',
                 message: tr(lang, 'messages', 'prReviewRemoteBlocked', {
                   reasons: reasons.join('; '),
                 }),
@@ -1319,6 +1341,7 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.codeReviewMergeAfterOk',
                 message: tr(lang, 'messages', 'prReviewMerge', {
                   featureRef: f.id || f.folderName,
                 }),
@@ -1331,6 +1354,7 @@ export function getStepDefinitions(
             {
               type: 'instruction',
               category: 'code_review',
+              uiDetailKey: 'context.actionDetail.codeReviewRequestReview',
               message: tr(lang, 'messages', 'prRequestReview'),
             },
           ];

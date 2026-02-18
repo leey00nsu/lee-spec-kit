@@ -143,6 +143,14 @@ function annotateActions(actions: FeatureContext['actions']): ContextAction[] {
 }
 
 function getActionSummary(action: ContextAction, lang: 'ko' | 'en'): string {
+  if (action.uiSummaryKey) {
+    const localized = tr(lang, 'cli', action.uiSummaryKey);
+    if (localized !== `cli.${action.uiSummaryKey}`) return localized;
+  }
+  if (action.uiDetailKey) {
+    const localized = tr(lang, 'cli', action.uiDetailKey);
+    if (localized !== `cli.${action.uiDetailKey}`) return localized;
+  }
   const detailKey = action.category ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category] : undefined;
   if (detailKey) {
     const localized = tr(lang, 'cli', detailKey);
@@ -168,6 +176,11 @@ function toOneLine(text: string): string {
 }
 
 function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
+  if (action.uiDetailKey) {
+    const localized = tr(lang, 'cli', action.uiDetailKey);
+    if (localized !== `cli.${action.uiDetailKey}`) return localized;
+  }
+
   const formatBranchCreateDetail = (command: string): string => {
     const worktreeMatch = command.match(/\.worktrees\/([A-Za-z0-9._-]+)/);
     const branchMatch = command.match(/\bfeat\/([A-Za-z0-9._-]+)/);
@@ -285,6 +298,8 @@ function buildActionSnapshot(actionOptions: ActionOption[]): Array<Record<string
         category: action.category,
         operationType: action.operationType,
         requiresUserCheck: !!action.requiresUserCheck,
+        uiSummaryKey: action.uiSummaryKey,
+        uiDetailKey: action.uiDetailKey,
       };
     }
     return {
@@ -294,6 +309,8 @@ function buildActionSnapshot(actionOptions: ActionOption[]): Array<Record<string
       category: action.category,
       operationType: action.operationType,
       requiresUserCheck: !!action.requiresUserCheck,
+      uiSummaryKey: action.uiSummaryKey,
+      uiDetailKey: action.uiDetailKey,
     };
   });
 }

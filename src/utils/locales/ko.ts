@@ -130,9 +130,21 @@ const ko = {
       'context.actionDetail.planApprove': 'plan.md를 승인합니다',
       'context.actionDetail.tasksWrite':
         'tasks.md를 작성/보완하고 문서 상태를 정렬하세요',
+      'context.actionDetail.tasksWriteCreate':
+        'tasks.md를 생성하고 문서 상태를 Review로 설정하세요',
+      'context.actionDetail.tasksWriteNeedAtLeastOne':
+        'tasks.md에 최소 1개 이상의 태스크를 추가하세요',
+      'context.actionDetail.tasksWriteImprove':
+        'tasks.md를 보완하고 문서 상태를 정렬하세요',
       'context.actionDetail.tasksApprove': 'tasks.md를 승인합니다',
       'context.actionDetail.issueCreate':
         '이슈를 생성하고 tasks.md의 이슈 정보를 맞추세요',
+      'context.actionDetail.issueCreateAndWrite':
+        '이슈 초안을 보완하고 승인(OK) 후 이슈를 생성해 번호를 동기화하세요',
+      'context.actionDetail.issueCreatePrepareFromDoc':
+        'issue.md 초안을 보완하고 상태를 Ready로 설정하세요',
+      'context.actionDetail.issueCreateFromDoc':
+        'Ready 상태 issue.md로 이슈를 생성하고 번호를 동기화하세요',
       'context.actionDetail.taskExecute': '현재 태스크를 진행하세요',
       'context.actionDetail.reviewFixCommit':
         '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
@@ -140,14 +152,46 @@ const ko = {
         'PR 전 리뷰를 수행하고 결과를 기록하세요',
       'context.actionDetail.prCreate':
         'PR을 생성하고 tasks.md의 PR 정보를 맞추세요',
+      'context.actionDetail.prCreateRequiredSequence':
+        'PR 2단계(초안/승인 후 생성/동기화)를 순서대로 완료하세요',
+      'context.actionDetail.prCreatePrepareFromDoc':
+        'pr.md 초안을 보완하고 상태를 Ready로 설정하세요',
+      'context.actionDetail.prCreateExecuteFromDoc':
+        'Ready 상태 pr.md로 PR을 생성하고 링크/상태를 동기화하세요',
       'context.actionDetail.prStatusUpdate':
         'tasks.md의 PR 상태를 최신으로 업데이트하세요',
+      'context.actionDetail.prStatusUpdateSetReview':
+        'tasks.md의 PR 상태를 Review로 설정하세요',
+      'context.actionDetail.prStatusUpdateSyncApproved':
+        '원격 머지 상태를 반영해 PR 상태를 Approved로 동기화하세요',
       'context.actionDetail.codeReview':
         '코드 리뷰 지적사항을 반영하고 PR 리뷰 정보를 업데이트하세요',
+      'context.actionDetail.codeReviewNeedEvidenceField':
+        'tasks.md에 PR 리뷰 Evidence 필드를 추가하세요',
+      'context.actionDetail.codeReviewNeedEvidence':
+        'PR 리뷰 Evidence 요약을 기록하세요',
+      'context.actionDetail.codeReviewNeedDecisionField':
+        'tasks.md에 PR 리뷰 Decision 필드를 추가하세요',
+      'context.actionDetail.codeReviewNeedDecision':
+        'PR 리뷰 Decision을 기록하세요',
+      'context.actionDetail.codeReviewResolve':
+        '리뷰 코멘트를 반영하고 PR 리뷰 문서를 최신화하세요',
+      'context.actionDetail.codeReviewNeedProjectRoot':
+        '리뷰 작업을 계속하려면 projectRoot를 설정하세요',
+      'context.actionDetail.codeReviewRemoteBlocked':
+        '원격 PR 차단 사유를 해소한 뒤 머지를 진행하세요',
+      'context.actionDetail.codeReviewMergeAfterOk':
+        '사용자 승인(OK) 후 PR을 머지하세요',
+      'context.actionDetail.codeReviewRequestReview':
+        '리뷰 요청을 진행하고 PR 상태를 Review로 유지하세요',
       'context.actionDetail.worktreeCleanup':
         '완료된 feature worktree를 정리하세요',
       'context.actionDetail.prMetadataMigrate':
         'tasks.md의 PR 항목 형식을 최신 템플릿으로 업데이트하세요',
+      'context.actionDetail.prMetadataMigratePrFields':
+        'tasks.md에 PR/PR 상태 필드를 추가하세요',
+      'context.actionDetail.prMetadataMigratePrePrReviewField':
+        'tasks.md에 PR 전 리뷰 필드를 추가하세요',
       'context.actionDetail.userRequestReplan':
         '새 사용자 요구를 먼저 반영한 뒤 context를 다시 실행하세요',
       'context.actionDetail.featureDone':
