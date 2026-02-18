@@ -107,6 +107,8 @@ const en = {
         'Run continuously by config until approval-required categories appear: {categories}',
       'context.autoRunCommandHint':
         'Auto-run command (config-based gate): {command}',
+      'context.subAgentOrchestrationHint':
+        'Main-agent orchestration: keep short steps in the main agent, and delegate only long-running loops (task_execute/code_review/review_fix_commit/pre_pr_review or auto mode) to a sub-agent.',
       'context.commandDetail.branchCreateWithWorktree':
         '({scope}) create or reuse worktree {worktree} for branch {branch}',
       'context.commandDetail.branchCreateWithBranch':

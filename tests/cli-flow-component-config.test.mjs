@@ -70,6 +70,32 @@ test('flow --json aggregates context/status/doctor', async () => {
     assert.equal(payload.context.before.reasonCode, 'NO_FEATURES');
     assert.equal(payload.statusReport.reasonCode, 'NO_FEATURES');
     assert.equal(payload.doctorReport.status, 'warn');
+    assert.equal(
+      payload.agentOrchestration?.mode,
+      'main_orchestrates_subagent_execution'
+    );
+    assert.equal(
+      payload.agentOrchestration?.delegationPolicy,
+      'prefer_main_delegate_long_running_fallback_main'
+    );
+    assert.equal(
+      payload.agentOrchestration?.delegateCommandExecution,
+      'long_running_only'
+    );
+    assert.equal(payload.agentOrchestration?.delegateAutoRunExecution, true);
+    assert.equal(
+      payload.agentOrchestration?.fallbackToMainAgentWhenSubAgentUnavailable,
+      true
+    );
+    assert.equal(
+      Array.isArray(payload.agentOrchestration?.longRunningCategories),
+      true
+    );
+    assert.equal(
+      payload.agentOrchestration?.longRunningCategories?.includes('task_execute'),
+      true
+    );
+    assert.equal(payload.agentOrchestration?.preferredResumeCommand, null);
   });
 });
 
@@ -123,6 +149,10 @@ test('flow --json auto-until-category stops at gate and exposes approval lines',
     assert.match(
       payload.autoRun?.resume?.contextCommand || '',
       /npx lee-spec-kit context F001-alpha/
+    );
+    assert.equal(
+      payload.agentOrchestration?.preferredResumeCommand,
+      payload.autoRun?.resume?.flowCommand
     );
   });
 });

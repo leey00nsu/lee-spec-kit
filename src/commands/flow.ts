@@ -112,6 +112,26 @@ interface AutoRunSummary {
   error?: string;
 }
 
+interface AgentOrchestrationPolicy {
+  mode: 'main_orchestrates_subagent_execution';
+  delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
+  delegateCommandExecution: 'long_running_only';
+  delegateAutoRunExecution: true;
+  fallbackToMainAgentWhenSubAgentUnavailable: true;
+  longRunningCategories: string[];
+  mainAgentResponsibilities: string[];
+  subAgentResponsibilities: string[];
+  pauseAndReportWhen: string[];
+  preferredResumeCommand: string | null;
+}
+
+const LONG_RUNNING_DELEGATION_CATEGORIES = [
+  'task_execute',
+  'code_review',
+  'review_fix_commit',
+  'pre_pr_review',
+];
+
 const BUILTIN_AUTO_PRESETS: Record<string, string[]> = {
   'pr-handoff': ['pr_create', 'code_review', 'pr_status_update'],
 };
@@ -402,6 +422,39 @@ function toFlowRunStatus(status: AutoRunSummary['status']): FlowRunStatus {
     default:
       return 'failed';
   }
+}
+
+function buildAgentOrchestrationPolicy(
+  autoRun: AutoRunSummary | null
+): AgentOrchestrationPolicy {
+  const preferredResumeCommand =
+    autoRun?.run?.resumeCommand || autoRun?.resume?.flowCommand || null;
+  return {
+    mode: 'main_orchestrates_subagent_execution',
+    delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
+    delegateCommandExecution: 'long_running_only',
+    delegateAutoRunExecution: true,
+    fallbackToMainAgentWhenSubAgentUnavailable: true,
+    longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
+    mainAgentResponsibilities: [
+      'Keep user conversation state and approval boundaries',
+      'Run the same execution loop directly when sub-agent is unavailable',
+      'Delegate only long-running command/auto loops to sub-agents',
+      'Report only on approval/manual/error boundaries',
+    ],
+    subAgentResponsibilities: [
+      'Run flow/context command loops',
+      'Execute selected atomic command actions',
+      'Return structured status and errors to main agent',
+    ],
+    pauseAndReportWhen: [
+      'approvalRequest.required=true',
+      'AUTO_GATE_REACHED',
+      'AUTO_MANUAL_REQUIRED',
+      'command execution error',
+    ],
+    preferredResumeCommand,
+  };
 }
 
 async function runAutoUntilCategory(
@@ -1040,6 +1093,7 @@ async function runFlow(
 
   if (options.json) {
     const autoRunFailed = !!(autoRun && isAutoRunFailureStatus(autoRun.status));
+    const agentOrchestration = buildAgentOrchestrationPolicy(autoRun);
     const payload = {
       status: autoRunFailed ? 'error' : 'ok',
       reasonCode: autoRunFailed
@@ -1067,6 +1121,7 @@ async function runFlow(
       },
       approval: approvalResult,
       autoRun,
+      agentOrchestration,
       statusReport,
       doctorReport,
       strictChecks,
@@ -1114,6 +1169,12 @@ async function runFlow(
       console.log(chalk.gray(`- Resume with: ${autoRun.run.resumeCommand}`));
     }
   }
+  const agentOrchestration = buildAgentOrchestrationPolicy(autoRun);
+  console.log(
+    chalk.gray(
+      `- Orchestration: ${agentOrchestration.mode}, delegate long-running loops to sub-agent`
+    )
+  );
 
   const statusCounts = (statusReport as { counts?: { features?: number } }).counts;
   const doctorCounts = (

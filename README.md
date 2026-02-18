@@ -313,6 +313,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `approvalRequest`: 승인 요청/실행에 바로 사용하는 안내 데이터 (`labels`, `approveCommand`, `executeCommand`, `options[]`)
 - `requiredDocs`: 현재 액션 전에 읽어야 할 CLI 내장 문서 목록 (`id`, `command`)
 - `checkPolicy`: 승인 검증 정책 (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion` 등)
+- `agentOrchestration`: 메인(대화/승인) + 서브(명령 실행) 역할 분리 계약 (`mode`, `delegationPolicy`, `delegateCommandExecution`, `longRunningCategories`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`)
 
 **고급/참고 필드 (자동화 고급 시나리오 또는 디버깅용)**
 
@@ -421,6 +422,8 @@ npx lee-spec-kit flow --strict
 - 현재 액션이 instruction-only라 command 자동 실행이 불가능하면 `AUTO_MANUAL_REQUIRED`로 멈출 수 있습니다. (CLI 오류가 아니라 자동화 경계 도달 상태)
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
 - JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
+- JSON `agentOrchestration`으로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
+  - `delegateCommandExecution: "long_running_only"`면 짧은 단계는 메인이 처리하고, `longRunningCategories`에 해당하는 장시간 루프만 서브 에이전트 위임을 권장합니다.
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
 
 에이전트 재개 규칙(권장):

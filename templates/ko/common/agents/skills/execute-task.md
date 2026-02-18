@@ -24,6 +24,8 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - **[DOING] 상태인 태스크가 있다면**: 해당 태스크를 최우선으로 완료하세요.
 - 태스크 상태 전환 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다.
 - 승인 대기 여부는 `context --json`의 `approvalRequest.required`를 SSOT로 따릅니다. `false`면 라벨 승인 없이 진행하고, `true`면 라벨 규칙(`A`, `A OK`)으로 승인 후 진행합니다.
+- 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 선택적 서브 에이전트 실행**입니다. 짧은 단계(spec/plan/tasks 승인, 이슈/PR 메타 동기화 등)는 메인 에이전트가 직접 처리하고, 장시간 루프(`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run)는 서브 에이전트에 위임합니다.
+- 단, 서브 에이전트를 사용할 수 없는 환경이면 메인 에이전트가 같은 규칙/게이트를 유지한 채 직접 실행합니다. (동작 강등: 위임만 생략)
 - `context --json`에 `autoRun.available=true`가 있으면 `autoRun.command`를 사용해 승인 필요 카테고리 전까지 자동 진행할 수 있습니다.
 - 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다.
 - auto 실행이 중단되면 `flow --json`의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.

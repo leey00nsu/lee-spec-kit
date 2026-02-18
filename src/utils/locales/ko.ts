@@ -109,6 +109,8 @@ const ko = {
         'config 기준으로 승인 필요 카테고리 전까지 연속 실행하세요: {categories}',
       'context.autoRunCommandHint':
         '자동 실행 명령(config 게이트): {command}',
+      'context.subAgentOrchestrationHint':
+        '메인 에이전트 오케스트레이션: 짧은 단계는 메인이 직접 수행하고, 장시간 루프(task_execute/code_review/review_fix_commit/pre_pr_review 또는 auto)는 서브 에이전트에 위임하세요.',
       'context.commandDetail.branchCreateWithWorktree':
         '({scope}) worktree {worktree}를 사용해 브랜치 {branch}를 생성하거나 재사용하세요',
       'context.commandDetail.branchCreateWithBranch':

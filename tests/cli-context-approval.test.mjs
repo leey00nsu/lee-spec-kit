@@ -60,6 +60,52 @@ test('context --json exposes generic label token policy', async () => {
     assert.deepEqual(payload.checkPolicy.checkRequiredCategories, []);
     assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, false);
     assert.deepEqual(payload.checkPolicy.requiredExplanationFields, []);
+    assert.equal(
+      payload.agentOrchestration?.mode,
+      'main_orchestrates_subagent_execution'
+    );
+    assert.equal(
+      payload.agentOrchestration?.delegationPolicy,
+      'prefer_main_delegate_long_running_fallback_main'
+    );
+    assert.equal(
+      payload.agentOrchestration?.delegateCommandExecution,
+      'long_running_only'
+    );
+    assert.equal(payload.agentOrchestration?.delegateAutoRunExecution, true);
+    assert.equal(
+      payload.agentOrchestration?.fallbackToMainAgentWhenSubAgentUnavailable,
+      true
+    );
+    assert.equal(
+      Array.isArray(payload.agentOrchestration?.longRunningCategories),
+      true
+    );
+    assert.equal(
+      payload.agentOrchestration?.longRunningCategories?.includes('task_execute'),
+      true
+    );
+    assert.equal(
+      typeof payload.agentOrchestration?.currentActionShouldDelegate,
+      'boolean'
+    );
+    assert.equal(
+      payload.agentOrchestration?.currentActionCategory === null ||
+        typeof payload.agentOrchestration?.currentActionCategory === 'string',
+      true
+    );
+    assert.equal(Array.isArray(payload.agentOrchestration?.pauseAndReportWhen), true);
+    assert.equal(
+      payload.agentOrchestration?.pauseAndReportWhen?.includes(
+        'approvalRequest.required=true'
+      ),
+      true
+    );
+    assert.equal(Array.isArray(payload.agentOrchestration?.resumePriority), true);
+    assert.equal(
+      payload.agentOrchestration?.resumePriority?.includes('context --json'),
+      true
+    );
     assert.equal(payload.autoRun?.available, false);
     assert.equal(payload.autoRun?.reasonCode, 'NOT_SINGLE_MATCHED');
   });

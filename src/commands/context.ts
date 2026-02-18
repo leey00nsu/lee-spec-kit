@@ -92,6 +92,82 @@ interface AutoRunPlan {
   unknownCategories: string[];
 }
 
+interface AgentOrchestrationPolicy {
+  mode: 'main_orchestrates_subagent_execution';
+  delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
+  delegateCommandExecution: 'long_running_only';
+  delegateAutoRunExecution: true;
+  fallbackToMainAgentWhenSubAgentUnavailable: true;
+  longRunningCategories: string[];
+  currentActionShouldDelegate: boolean;
+  currentActionCategory: string | null;
+  mainAgentResponsibilities: string[];
+  subAgentResponsibilities: string[];
+  pauseAndReportWhen: string[];
+  resumePriority: string[];
+}
+
+const LONG_RUNNING_DELEGATION_CATEGORIES = [
+  'task_execute',
+  'code_review',
+  'review_fix_commit',
+  'pre_pr_review',
+] as const;
+
+function shouldDelegateCurrentAction(
+  actionOptions: ActionOption[],
+  autoRunAvailable: boolean
+): { shouldDelegate: boolean; category: string | null } {
+  const primaryCategory = actionOptions[0]?.action?.category || null;
+  const longRunningSet = new Set<string>(LONG_RUNNING_DELEGATION_CATEGORIES);
+  const shouldDelegate =
+    autoRunAvailable ||
+    (!!primaryCategory && longRunningSet.has(primaryCategory));
+  return {
+    shouldDelegate,
+    category: primaryCategory,
+  };
+}
+
+function buildAgentOrchestrationPolicy(
+  actionOptions: ActionOption[],
+  autoRunAvailable: boolean
+): AgentOrchestrationPolicy {
+  const delegation = shouldDelegateCurrentAction(actionOptions, autoRunAvailable);
+  return {
+    mode: 'main_orchestrates_subagent_execution',
+    delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
+    delegateCommandExecution: 'long_running_only',
+    delegateAutoRunExecution: true,
+    fallbackToMainAgentWhenSubAgentUnavailable: true,
+    longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
+    currentActionShouldDelegate: delegation.shouldDelegate,
+    currentActionCategory: delegation.category,
+    mainAgentResponsibilities: [
+      'Keep user conversation state and approval boundaries',
+      'Run the same execution loop directly when sub-agent is unavailable',
+      'Delegate only long-running command/auto loops to sub-agents',
+      'Report only on approval/manual/error boundaries',
+    ],
+    subAgentResponsibilities: [
+      'Run flow/context command loops',
+      'Execute only currently selected atomic command actions',
+      'Return structured status to main agent',
+    ],
+    pauseAndReportWhen: [
+      'approvalRequest.required=true',
+      'AUTO_GATE_REACHED',
+      'AUTO_MANUAL_REQUIRED',
+      'command execution error',
+    ],
+    resumePriority: [
+      'flow --resume <RUN_ID>',
+      'autoRun.resume.flowCommand',
+      'context --json',
+    ],
+  };
+}
+
 async function resolveContextState(
   config: Awaited<ReturnType<typeof getConfig>>,
   featureName: string | undefined,
@@ -811,6 +887,10 @@ async function runContext(
     config.approval,
     approvalRequired
   );
+  const agentOrchestration = buildAgentOrchestrationPolicy(
+    state.actionOptions,
+    autoRunPlan.available
+  );
 
   if (options.approve || options.execute) {
     await runApprovedOption(
@@ -907,6 +987,7 @@ async function runContext(
           contextVersion: state.contextVersion,
           config: config.approval ?? { mode: 'builtin' },
         },
+        agentOrchestration,
         autoRun: {
           available: autoRunPlan.available,
           reasonCode: autoRunPlan.reasonCode,
@@ -971,7 +1052,7 @@ async function runContext(
       workflowPolicy,
       taskCommitGatePolicy,
       prePrReviewPolicy,
-      checkPolicy: {
+        checkPolicy: {
         docPath: 'builtin://agents/policy',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
         policyOnly: true,
@@ -996,12 +1077,13 @@ async function runContext(
             ]
           : [],
         recommendation:
-          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed.',
+          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed. Use main-agent orchestration: keep short steps in main agent, and delegate only long-running command/auto loops to sub-agents.',
         oneApprovalPerAction: approvalRequired,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
       },
+      agentOrchestration,
       autoRun: {
         available: autoRunPlan.available,
         reasonCode: autoRunPlan.reasonCode,
@@ -1014,7 +1096,7 @@ async function runContext(
       },
       approvalRequest: {
         guidance:
-          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`.',
+          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`. Keep short steps in main agent and delegate only long-running command/auto loops to sub-agents.',
         required: approvalRequired,
         finalPrompt: finalApprovalPrompt,
         userFacingLines: approvalUserFacingLines,
@@ -1310,6 +1392,11 @@ async function runContext(
   }
 
   const actionOptions = state.actionOptions;
+  const hasCommandOption = actionOptions.some((option) => option.action.type === 'command');
+  const longRunningDelegation = shouldDelegateCurrentAction(
+    actionOptions,
+    autoRunPlan.available
+  );
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
   actionOptions.forEach((option) => {
@@ -1322,6 +1409,9 @@ async function runContext(
   });
   if (hasDocsCommand) {
     console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
+  }
+  if (hasCommandOption && longRunningDelegation.shouldDelegate) {
+    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.subAgentOrchestrationHint')}`));
   }
   if (hasCheckAction) {
     console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionOptionHint')}`));

@@ -294,6 +294,7 @@ Use `context --json` only when full-detail debugging fields are required.
 - `approvalRequest`: ready-to-use approval/execute guidance (`labels`, `approveCommand`, `executeCommand`, `options[]`)
 - `requiredDocs`: built-in docs to read before the current action (`id`, `command`)
 - `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
+- `agentOrchestration`: main-agent (conversation/approval) + sub-agent (execution) contract (`mode`, `delegationPolicy`, `delegateCommandExecution`, `longRunningCategories`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`)
 
 **Advanced/reference fields (automation edge cases or debugging)**
 
@@ -402,6 +403,8 @@ Auto gate mode rules:
 - If the current action set is instruction-only (no executable command), auto-run may stop with `AUTO_MANUAL_REQUIRED`. This is an automation boundary, not a CLI crash.
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
 - In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, and `autoRun.resume`.
+- Inspect JSON `agentOrchestration` for main/sub-agent responsibilities and pause/report boundaries.
+  - When `delegateCommandExecution: "long_running_only"`, keep short steps in the main agent and delegate only categories listed in `longRunningCategories`.
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
 
 Agent resume rules (recommended):
