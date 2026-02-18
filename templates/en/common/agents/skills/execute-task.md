@@ -25,7 +25,8 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
   - `false`: continue without label approval.
   - `true`: wait for label-token approval (`A`, `A OK`) before execution.
 - Default execution model is **main-agent orchestration + selective sub-agent execution**. Keep short steps (spec/plan/tasks approvals, issue/PR metadata sync) in the main agent, and delegate long-running loops (`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run) to a sub-agent.
-- If sub-agent execution is unavailable, the main agent must run the same loop directly with the same approval/gate rules (degrade by skipping delegation only).
+- When `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
+- Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution). Before fallback execution, report a one-line fallback reason to the user.
 - If `context --json-compact` exposes `autoRun.available=true`, you may use `autoRun.command` to continue automatically until approval-required categories are reached.
 - For long-running auto execution, start with `flow <feature> --auto-... --start-auto --json-compact` and prefer `autoRun.run.resumeCommand` (`flow --resume <RUN_ID>`) after interruption/compression (`--json` only when full-detail debugging fields are required).
 - If auto execution stops, treat `autoRun.resume` from `flow --json-compact` (or `flow --json`) as SSOT. After interruption/compression, resume with `autoRun.resume.flowCommand`; if needed, check current state first with `autoRun.resume.contextCommand`.
