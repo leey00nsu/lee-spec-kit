@@ -1343,6 +1343,108 @@ flowchart TD
   });
 });
 
+test('github pr --create adds plain close keyword when Ready pr.md only has coded keyword', async () => {
+  await withTempDir('lsk-github-pr-create-ready-doc-close-keyword-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    const nextTasksContent = /- \*\*(Issue|이슈)\*\*:\s*/.test(tasksContent)
+      ? tasksContent.replace(/^- \*\*(Issue|이슈)\*\*:\s*.*$/m, '- **Issue**: #123')
+      : tasksContent.replace(
+          '## Local Tracking\n',
+          '## Local Tracking\n- **Issue**: #123\n'
+        );
+    await fs.writeFile(
+      tasksPath,
+      nextTasksContent,
+      'utf-8'
+    );
+
+    const prDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md');
+    const prDoc = `# PR Draft: alpha
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: ready pr.md with coded close keyword
+- **Base**: main
+- **Created**: 2026-02-17
+
+## Overview
+
+The coded keyword below should not count.
+
+## Changes
+
+- [ ] Implement change
+- [ ] \`Closes #123\`
+
+\`\`\`text
+Closes #123
+\`\`\`
+
+## Tests
+
+- [ ] Add tests
+
+## Architecture Diagram
+
+\`\`\`mermaid
+flowchart TD
+  A[Start] --> B[Done]
+\`\`\`
+
+## Related Docs
+
+- Spec: \`docs/features/F001-alpha/spec.md\`
+- Tasks: \`docs/features/F001-alpha/tasks.md\`
+`;
+    await fs.writeFile(prDocPath, prDoc, 'utf-8');
+
+    const prCreateResult = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(prCreateResult.code, 0, prCreateResult.stderr || prCreateResult.stdout);
+    const prPayload = JSON.parse(prCreateResult.stdout.trim());
+    assert.equal(prPayload.status, 'ok');
+    assert.equal(prPayload.reasonCode, 'PR_CREATED_SYNCED');
+    assert.equal(prPayload.title, 'ready pr.md with coded close keyword');
+    assert.match(prPayload.body, /\nCloses #123\n$/);
+
+    const normalizedBody = await fs.readFile(prPayload.bodyFile, 'utf-8');
+    assert.match(normalizedBody, /\nCloses #123\n$/);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      new RegExp(
+        `--body-file ${String(prPayload.bodyFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
+    );
+  });
+});
+
 test('github pr --create accepts pr.md via explicit --body-file', async () => {
   await withTempDir('lsk-github-pr-create-explicit-ready-doc-', async (dir) => {
     const initResult = await runCli(dir, [

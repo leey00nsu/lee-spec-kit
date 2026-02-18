@@ -1410,6 +1410,64 @@ ${mermaidSection}
 - **Tasks**: \`${bodyPaths.tasksPath}\`${closes}`;
 }
 
+function stripMarkdownCodeContexts(body: string): string {
+  const lines = body.split('\n');
+  const out: string[] = [];
+  let inFence = false;
+  let fenceChar = '';
+  let fenceLength = 0;
+
+  for (const line of lines) {
+    const fenceStartMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    if (fenceStartMatch) {
+      const marker = fenceStartMatch[1];
+      const markerChar = marker[0];
+      const markerLength = marker.length;
+      if (!inFence) {
+        inFence = true;
+        fenceChar = markerChar;
+        fenceLength = markerLength;
+        continue;
+      }
+      if (markerChar === fenceChar && markerLength >= fenceLength) {
+        inFence = false;
+        fenceChar = '';
+        fenceLength = 0;
+      }
+      continue;
+    }
+    if (inFence) continue;
+    out.push(line.replace(/`[^`\n]*`/g, ''));
+  }
+
+  return out.join('\n');
+}
+
+function hasIssueClosingKeyword(
+  body: string,
+  issueNumber: string | undefined
+): boolean {
+  if (!issueNumber) return false;
+  const cleaned = stripMarkdownCodeContexts(body);
+  const issue = escapeRegExp(issueNumber);
+  const closeKeywordRegex = new RegExp(
+    `\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\b\\s*(?:[a-zA-Z0-9_.-]+\\/)?#\\s*${issue}\\b`,
+    'i'
+  );
+  return closeKeywordRegex.test(cleaned);
+}
+
+function ensureIssueClosingLine(
+  body: string,
+  issueNumber: string | undefined
+): string {
+  if (!issueNumber) return body;
+  if (hasIssueClosingKeyword(body, issueNumber)) return body;
+  const trimmed = body.trimEnd();
+  const separator = trimmed.length > 0 ? '\n\n' : '';
+  return `${trimmed}${separator}Closes #${issueNumber}\n`;
+}
+
 function getRequiredIssueSections(lang: Lang): string[] {
   return getGithubDraftRequiredSections('issue', lang);
 }
@@ -1977,8 +2035,8 @@ export function githubCommand(program: Command): void {
           kindLabel: tg(config.lang, 'kindPr'),
           lang: config.lang,
         });
-        const body = preparedBody.body;
-        const bodyFile = preparedBody.bodyFile;
+        let body = preparedBody.body;
+        let bodyFile = preparedBody.bodyFile;
         const title =
           options.title?.trim() ||
           (preparedBody.source === 'workflow-ready'
@@ -2003,6 +2061,19 @@ export function githubCommand(program: Command): void {
         const pushDocsSync = shouldPushDocsSync(config);
 
         if (options.create) {
+          const normalizedBody = ensureIssueClosingLine(body, feature.issueNumber);
+          if (normalizedBody !== body) {
+            body = normalizedBody;
+            const fallbackBodyFile = defaultBodyFile;
+            if (preparedBody.source === 'generated') {
+              await fs.writeFile(bodyFile, body, 'utf-8');
+            } else {
+              await fs.ensureDir(path.dirname(fallbackBodyFile));
+              await fs.writeFile(fallbackBodyFile, body, 'utf-8');
+              bodyFile = fallbackBodyFile;
+            }
+          }
+
           const projectGitCwd = resolveGithubProjectCwd(config, feature);
           ensureNoTodoPlaceholders(body, tg(config.lang, 'kindPr'), config.lang);
           ensurePrArtifacts(body, artifactPolicy, config.lang);
