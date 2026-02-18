@@ -317,8 +317,8 @@ const en = {
       'github.postMergePullWarning':
         'PR merged, but pull for `{base}` failed (non-fatal): {detail}',
       'github.issueDefaultTitle': '{slug} ({summary})',
-      'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} (implementation update)',
-      'github.prDefaultTitleNoIssue': 'feat: {slug} (implementation update)',
+      'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} ({featureRef} implementation)',
+      'github.prDefaultTitleNoIssue': 'feat: {slug} ({featureRef} implementation)',
       'github.issueHeader': '🧾 GitHub Issue Helper',
       'github.prHeader': '🔀 GitHub PR Helper',
       'github.labelFeature': 'Feature',

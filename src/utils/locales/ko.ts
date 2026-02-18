@@ -316,8 +316,8 @@ const ko = {
       'github.postMergePullWarning':
         'PR merge는 완료되었지만 `{base}` pull에 실패했습니다(치명 아님): {detail}',
       'github.issueDefaultTitle': '{slug} ({summary})',
-      'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} (구현 업데이트)',
-      'github.prDefaultTitleNoIssue': 'feat: {slug} (구현 업데이트)',
+      'github.prDefaultTitleWithIssue': 'feat(#{issue}): {slug} ({featureRef} 구현)',
+      'github.prDefaultTitleNoIssue': 'feat: {slug} ({featureRef} 구현)',
       'github.issueHeader': '🧾 GitHub Issue 도우미',
       'github.prHeader': '🔀 GitHub PR 도우미',
       'github.labelFeature': 'Feature',

@@ -1935,9 +1935,11 @@ export function githubCommand(program: Command): void {
           ? tg(config.lang, 'prDefaultTitleWithIssue', {
               issue: feature.issueNumber,
               slug: feature.slug,
+              featureRef: feature.folderName,
             })
           : tg(config.lang, 'prDefaultTitleNoIssue', {
               slug: feature.slug,
+              featureRef: feature.folderName,
             });
         const artifactPolicy = resolvePrArtifactPolicy(config, options);
         const generatedBody = buildPrBody(

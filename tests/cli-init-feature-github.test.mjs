@@ -686,6 +686,62 @@ test('github issue default title uses overview summary instead of docs-update su
   });
 });
 
+test('github pr default title includes feature ref instead of generic implementation-update suffix', async () => {
+  await withTempDir('lsk-github-pr-default-title-feature-ref-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'daily-theme-hall-of-fame',
+      '--id',
+      'F013',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(dir, 'tmp-pr-body.md');
+    await writePrBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F013-daily-theme-hall-of-fame',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      /--title feat: daily-theme-hall-of-fame \(F013-daily-theme-hall-of-fame implementation\)/
+    );
+    assert.doesNotMatch(log, /implementation update/);
+  });
+});
+
 test('github issue --create runs gh from standalone project root', async () => {
   await withTempDir('lsk-github-issue-standalone-cwd-', async (dir) => {
     const projectRoot = path.join(dir, 'project');
