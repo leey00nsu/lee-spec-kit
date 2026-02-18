@@ -643,7 +643,6 @@ async function runInit(options: InitOptions): Promise<void> {
             skills: ['code-review-excellence'],
             fallback: 'builtin-checklist',
             evidenceMode: 'path_required',
-            findings: 'required',
             decisionEnum: ['approve', 'changes_requested', 'blocked'],
           },
         },

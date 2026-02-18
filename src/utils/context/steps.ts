@@ -63,12 +63,6 @@ function isPrePrReviewSatisfied(
     return false;
   }
   if (
-    prePrReviewPolicy.findings === 'required' &&
-    (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findingsProvided)
-  ) {
-    return false;
-  }
-  if (
     !feature.docs.prePrDecisionFieldExists ||
     !feature.prePrReview.decisionProvided
   ) {

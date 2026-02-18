@@ -227,6 +227,11 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
         });
       }
     }
+    if (action.category === 'pre_pr_review') {
+      return tr(lang, 'cli', 'context.commandDetail.prePrReviewRun', {
+        scope: action.scope,
+      });
+    }
     if (action.category === 'worktree_cleanup') {
       return `(${action.scope}) ${tr(lang, 'cli', 'context.actionDetail.worktreeCleanup')}`;
     }

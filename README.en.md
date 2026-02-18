@@ -593,7 +593,6 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
     - Use the `Pre-PR Baseline Checklist` section in `docs get create-pr --json` as the single source of truth
   - `evidenceMode` (optional): evidence validation mode (`"path_required"` | `"any"`, default: `"path_required"`)
     - `path_required`: evidence must be a real existing local path
-  - `findings` (optional): findings requirement (`"required"` | `"optional"`, default: `"required"`)
   - `decisionEnum` (optional): allowed decision outcomes (default: `["approve","changes_requested","blocked"]`)
     - Moving to PR step requires final decision `approve`
 - `workflow.auto`:
@@ -620,7 +619,6 @@ Example:
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",
       "evidenceMode": "path_required",
-      "findings": "required",
       "decisionEnum": ["approve", "changes_requested", "blocked"]
     }
   }

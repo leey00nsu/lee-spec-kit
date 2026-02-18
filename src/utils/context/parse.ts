@@ -18,9 +18,7 @@ import {
   FeatureState,
   Lang,
   PrePrDecisionOutcome,
-  PrePrReviewFindings,
   PrePrReviewStatus,
-  PrReviewFindings,
   PrRemoteStatus,
   PrReviewStatus,
   RepoType,
@@ -125,24 +123,6 @@ function parsePrePrReviewStatus(
   if (/^(done|complete|completed)$/i.test(trimmed)) return 'Done';
   if (/^pending$/i.test(trimmed)) return 'Pending';
   return undefined;
-}
-
-function parseReviewFindings(
-  value: string | undefined
-): PrReviewFindings | undefined {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.includes('|')) return undefined;
-
-  const majorMatch = trimmed.match(/\bmajor\s*[:=]\s*(\d+)\b/i);
-  const minorMatch = trimmed.match(/\bminor\s*[:=]\s*(\d+)\b/i);
-  if (!majorMatch || !minorMatch) return undefined;
-
-  const major = Number(majorMatch[1]);
-  const minor = Number(minorMatch[1]);
-  if (!Number.isInteger(major) || !Number.isInteger(minor)) return undefined;
-  if (major < 0 || minor < 0) return undefined;
-  return { major, minor };
 }
 
 function isPlaceholderReviewEvidence(value: string | undefined): boolean {
@@ -639,13 +619,11 @@ function isPrePrReviewSatisfied(
   feature: {
     docs: {
       prePrReviewFieldExists: boolean;
-      prePrFindingsFieldExists: boolean;
       prePrEvidenceFieldExists: boolean;
       prePrDecisionFieldExists: boolean;
     };
     prePrReview: {
       status?: PrePrReviewStatus;
-      findingsProvided: boolean;
       evidenceProvided: boolean;
       decisionOutcome?: PrePrDecisionOutcome;
       decisionProvided: boolean;
@@ -660,12 +638,6 @@ function isPrePrReviewSatisfied(
   if (
     !feature.docs.prePrEvidenceFieldExists ||
     !feature.prePrReview.evidenceProvided
-  ) {
-    return false;
-  }
-  if (
-    policy.findings === 'required' &&
-    (!feature.docs.prePrFindingsFieldExists || !feature.prePrReview.findingsProvided)
   ) {
     return false;
   }
@@ -777,14 +749,11 @@ export async function parseFeature(
   let tasksDocStatusFieldExists = false;
   let completionChecklist: CompletionChecklistSummary | undefined;
   let prePrReviewStatus: PrePrReviewStatus | undefined;
-  let prePrFindings: PrePrReviewFindings | undefined;
-  let prePrFindingsProvided = false;
   let prePrEvidence: string | undefined;
   let prePrEvidenceProvided = false;
   let prePrDecision: string | undefined;
   let prePrDecisionOutcome: PrePrDecisionOutcome | undefined;
   let prePrDecisionProvided = false;
-  let prReviewFindings: PrReviewFindings | undefined;
   let prReviewEvidence: string | undefined;
   let prReviewEvidenceProvided = false;
   let prReviewDecision: string | undefined;
@@ -802,10 +771,8 @@ export async function parseFeature(
   let prDocPrFieldExists = false;
   let prDocReviewStatusFieldExists = false;
   let prePrReviewFieldExists = false;
-  let prePrFindingsFieldExists = false;
   let prePrEvidenceFieldExists = false;
   let prePrDecisionFieldExists = false;
-  let prReviewFindingsFieldExists = false;
   let prReviewEvidenceFieldExists = false;
   let prReviewDecisionFieldExists = false;
 
@@ -856,17 +823,6 @@ export async function parseFeature(
     ]);
     prePrReviewStatus = parsePrePrReviewStatus(prePrReviewValue);
 
-    const prePrFindingsValue = extractFirstSpecValue(content, [
-      'PR 전 리뷰 Findings',
-      'Pre-PR Findings',
-    ]);
-    prePrFindingsFieldExists = hasAnySpecKey(content, [
-      'PR 전 리뷰 Findings',
-      'Pre-PR Findings',
-    ]);
-    prePrFindings = parseReviewFindings(prePrFindingsValue);
-    prePrFindingsProvided = !!prePrFindings;
-
     const prePrEvidenceValue = extractFirstSpecValue(content, [
       'PR 전 리뷰 Evidence',
       'Pre-PR Evidence',
@@ -897,16 +853,6 @@ export async function parseFeature(
       hasStructuredReviewDecision(prePrDecisionValue) &&
       !!prePrDecisionOutcome &&
       prePrReviewPolicy.decisionEnum.includes(prePrDecisionOutcome);
-
-    const prReviewFindingsValue = extractFirstSpecValue(content, [
-      'PR 리뷰 Findings',
-      'PR Review Findings',
-    ]);
-    prReviewFindingsFieldExists = hasAnySpecKey(content, [
-      'PR 리뷰 Findings',
-      'PR Review Findings',
-    ]);
-    prReviewFindings = parseReviewFindings(prReviewFindingsValue);
 
     const prReviewEvidenceValue = extractFirstSpecValue(content, [
       'PR 리뷰 Evidence',
@@ -1127,14 +1073,6 @@ export async function parseFeature(
   if (tasksExists && prePrReviewPolicy.enabled && !prePrReviewFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrReviewField'));
   }
-  if (
-    tasksExists &&
-    prePrReviewPolicy.enabled &&
-    prePrReviewPolicy.findings === 'required' &&
-    !prePrFindingsFieldExists
-  ) {
-    warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrFindingsField'));
-  }
   if (tasksExists && prePrReviewPolicy.enabled && !prePrEvidenceFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrEvidenceField'));
   }
@@ -1198,13 +1136,11 @@ export async function parseFeature(
       {
         docs: {
           prePrReviewFieldExists,
-          prePrFindingsFieldExists,
           prePrEvidenceFieldExists,
           prePrDecisionFieldExists,
         },
         prePrReview: {
           status: prePrReviewStatus,
-          findingsProvided: prePrFindingsProvided,
           evidenceProvided: prePrEvidenceProvided,
           decisionOutcome: prePrDecisionOutcome,
           decisionProvided: prePrDecisionProvided,
@@ -1251,11 +1187,6 @@ export async function parseFeature(
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewMissing'));
       } else if (prePrReviewStatus !== 'Done') {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrReviewNotDone'));
-      } else if (
-        prePrReviewPolicy.findings === 'required' &&
-        (!prePrFindingsFieldExists || !prePrFindingsProvided)
-      ) {
-        warnings.push(tr(lang, 'warnings', 'workflowPrePrFindingsMissing'));
       } else if (!prePrEvidenceFieldExists || !prePrEvidenceProvided) {
         warnings.push(tr(lang, 'warnings', 'workflowPrePrEvidenceMissing'));
       } else if (!prePrDecisionFieldExists || !prePrDecisionProvided) {
@@ -1291,8 +1222,6 @@ export async function parseFeature(
     completionChecklist,
     prePrReview: {
       status: prePrReviewStatus,
-      findings: prePrFindings,
-      findingsProvided: prePrFindingsProvided,
       evidence: prePrEvidence,
       evidenceProvided: prePrEvidenceProvided,
       decision: prePrDecision,
@@ -1300,7 +1229,6 @@ export async function parseFeature(
       decisionProvided: prePrDecisionProvided,
     },
     prReview: {
-      findings: prReviewFindings,
       evidence: prReviewEvidence,
       evidenceProvided: prReviewEvidenceProvided,
       decision: prReviewDecision,
@@ -1340,10 +1268,8 @@ export async function parseFeature(
       prFieldExists,
       prStatusFieldExists,
       prePrReviewFieldExists,
-      prePrFindingsFieldExists,
       prePrEvidenceFieldExists,
       prePrDecisionFieldExists,
-      prReviewFindingsFieldExists,
       prReviewEvidenceFieldExists,
       prReviewDecisionFieldExists,
     },

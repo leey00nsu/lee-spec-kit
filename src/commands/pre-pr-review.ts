@@ -21,8 +21,6 @@ import {
 interface PrePrReviewOptions {
   component?: string;
   decision?: string;
-  major?: string;
-  minor?: string;
   note?: string;
   json?: boolean;
 }
@@ -44,18 +42,6 @@ function normalizeDecision(raw: string | undefined): PrePrDecisionOutcome | null
   }
   if (value === 'blocked' || value === 'block') return 'blocked';
   return null;
-}
-
-function parseNonNegativeInt(raw: string | undefined, label: string): number | null {
-  if (raw === undefined) return null;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      `\`${label}\` must be a non-negative integer.`
-    );
-  }
-  return value;
 }
 
 function findSpecLineIndex(lines: string[], keys: string[]): number {
@@ -114,7 +100,6 @@ function normalizePathForDoc(value: string): string {
 
 function getPreferredKeys(lang: 'ko' | 'en'): {
   review: string;
-  findings: string;
   evidence: string;
   decision: string;
   prStatus: string;
@@ -122,7 +107,6 @@ function getPreferredKeys(lang: 'ko' | 'en'): {
   if (lang === 'ko') {
     return {
       review: 'PR 전 리뷰',
-      findings: 'PR 전 리뷰 Findings',
       evidence: 'PR 전 리뷰 Evidence',
       decision: 'PR 전 리뷰 Decision',
       prStatus: 'PR 상태',
@@ -130,7 +114,6 @@ function getPreferredKeys(lang: 'ko' | 'en'): {
   }
   return {
     review: 'Pre-PR Review',
-    findings: 'Pre-PR Findings',
     evidence: 'Pre-PR Evidence',
     decision: 'Pre-PR Decision',
     prStatus: 'PR Status',
@@ -141,29 +124,26 @@ function buildReportContent(input: {
   folderName: string;
   date: string;
   decision: PrePrDecisionOutcome;
-  major: number;
-  minor: number;
   note: string;
   fallback: string;
   skills: string[];
 }): string {
   const skills = input.skills.length > 0 ? input.skills.join(', ') : 'code-review-excellence';
-  return `# Pre-PR Review Report: ${input.folderName}
+  return `## Pre-PR Review Log (${input.date})
 
-- Date: ${input.date}
-- Baseline: ${input.fallback}
-- Skills: ${skills}
-- Findings: major=${input.major}, minor=${input.minor}
-- Decision: ${input.decision}
-- Note: ${input.note}
-
-## Baseline Checklist
-
-- [x] Checked alignment with spec/plan/tasks.
-- [x] Reviewed risk areas (regression, security, side effects, release readiness).
-- [x] Reviewed maintainability (structure, reuse, obsolete code cleanup).
-- [x] Reviewed test/verification coverage (or recorded reason if not run).
+- **Feature**: ${input.folderName}
+- **Baseline**: ${input.fallback}
+- **Skills**: ${skills}
+- **Decision**: ${input.decision}
+- **Note**: ${input.note}
+- **Trace**: pre-pr-review command executed and synced with tasks.md
 `;
+}
+
+function appendDecisionLog(content: string, entry: string): string {
+  const normalized = content.trimEnd();
+  if (!normalized) return `${entry.trim()}\n`;
+  return `${normalized}\n\n${entry.trim()}\n`;
 }
 
 export function prePrReviewCommand(program: Command): void {
@@ -175,8 +155,6 @@ export function prePrReviewCommand(program: Command): void {
       '--decision <outcome>',
       'Decision outcome: approve | changes_requested | blocked'
     )
-    .option('--major <count>', 'Pre-PR major findings count')
-    .option('--minor <count>', 'Pre-PR minor findings count')
     .option('--note <text>', 'Decision note text')
     .option('--json', 'Output JSON')
     .action(async (featureName: string | undefined, options: PrePrReviewOptions) => {
@@ -242,15 +220,6 @@ async function runPrePrReview(
   const preferred = getPreferredKeys(config.lang);
   const date = getLocalDateString();
 
-  const major =
-    parseNonNegativeInt(options.major, '--major') ??
-    feature.prePrReview.findings?.major ??
-    0;
-  const minor =
-    parseNonNegativeInt(options.minor, '--minor') ??
-    feature.prePrReview.findings?.minor ??
-    0;
-
   const explicitDecision = normalizeDecision(options.decision);
   if (options.decision && !explicitDecision) {
     throw createCliError(
@@ -258,8 +227,8 @@ async function runPrePrReview(
       '`--decision` must be one of: approve, changes_requested, blocked.'
     );
   }
-  const inferredDecision: PrePrDecisionOutcome = major > 0 ? 'changes_requested' : 'approve';
-  const decision = explicitDecision || inferredDecision;
+  const decision =
+    explicitDecision || feature.prePrReview.decisionOutcome || 'approve';
   if (!policy.decisionEnum.includes(decision)) {
     throw createCliError(
       'INVALID_ARGUMENT',
@@ -270,31 +239,36 @@ async function runPrePrReview(
   const note =
     options.note?.trim() ||
     (decision === 'approve'
-      ? 'baseline review completed without blocking findings'
+      ? 'baseline review completed'
       : decision === 'changes_requested'
-        ? 'resolve findings before PR creation'
+        ? 'follow-up changes are required before PR creation'
         : 'blocked until prerequisite risk is resolved');
 
-  const reportPath = path.join(feature.path, 'pre-pr-review.md');
-  const reportContent = buildReportContent({
+  const decisionsPath = path.join(feature.path, 'decisions.md');
+  const decisionLogEntry = buildReportContent({
     folderName: feature.folderName,
     date,
     decision,
-    major,
-    minor,
     note,
     fallback: policy.fallback,
     skills: policy.skills,
   });
-  await fs.writeFile(reportPath, reportContent, 'utf-8');
 
-  const reportPathFromDocs = normalizePathForDoc(
-    path.join(feature.docs.featurePathFromDocs, 'pre-pr-review.md')
+  const decisionsContent = (await fs.pathExists(decisionsPath))
+    ? await fs.readFile(decisionsPath, 'utf-8')
+    : '';
+  const nextDecisions = appendDecisionLog(decisionsContent, decisionLogEntry);
+  if (nextDecisions !== decisionsContent) {
+    await fs.writeFile(decisionsPath, nextDecisions, 'utf-8');
+  }
+
+  const decisionsPathFromDocs = normalizePathForDoc(
+    path.join(feature.docs.featurePathFromDocs, 'decisions.md')
   );
   const evidencePath =
     path.basename(config.docsDir) === 'docs'
-      ? normalizePathForDoc(path.join('docs', reportPathFromDocs))
-      : reportPathFromDocs;
+      ? normalizePathForDoc(path.join('docs', decisionsPathFromDocs))
+      : decisionsPathFromDocs;
 
   let nextTasks = tasksContent;
   nextTasks = upsertSpecLine(
@@ -306,17 +280,10 @@ async function runPrePrReview(
   );
   nextTasks = upsertSpecLine(
     nextTasks,
-    ['PR 전 리뷰 Findings', 'Pre-PR Findings'],
-    preferred.findings,
-    `major=${major}, minor=${minor}`,
-    ['PR 전 리뷰', 'Pre-PR Review']
-  );
-  nextTasks = upsertSpecLine(
-    nextTasks,
     ['PR 전 리뷰 Evidence', 'Pre-PR Evidence'],
     preferred.evidence,
     evidencePath,
-    ['PR 전 리뷰 Findings', 'Pre-PR Findings', 'PR 전 리뷰', 'Pre-PR Review']
+    ['PR 전 리뷰', 'Pre-PR Review']
   );
   nextTasks = upsertSpecLine(
     nextTasks,
@@ -337,10 +304,10 @@ async function runPrePrReview(
           status: 'ok',
           reasonCode: 'PRE_PR_REVIEW_RECORDED',
           feature: feature.folderName,
-          reportPath: normalizePathForDoc(reportPath),
+          reportPath: normalizePathForDoc(decisionsPath),
+          decisionsPath: normalizePathForDoc(decisionsPath),
           evidencePath,
           decision,
-          findings: { major, minor },
           tasksUpdated: nextTasks !== tasksContent,
         },
         null,
@@ -353,8 +320,7 @@ async function runPrePrReview(
   console.log();
   console.log(chalk.green(`✅ pre-pr-review completed: ${feature.folderName}`));
   console.log(chalk.gray(`- Decision: ${decision}`));
-  console.log(chalk.gray(`- Findings: major=${major}, minor=${minor}`));
-  console.log(chalk.gray(`- Report: ${reportPath}`));
+  console.log(chalk.gray(`- Decisions log: ${decisionsPath}`));
   if (nextTasks !== tasksContent) {
     console.log(chalk.gray(`- tasks.md updated: ${tasksPath}`));
   }

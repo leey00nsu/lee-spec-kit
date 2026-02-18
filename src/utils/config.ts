@@ -85,12 +85,6 @@ export interface ProjectConfig {
        */
       evidenceMode?: 'any' | 'path_required';
       /**
-       * Findings field policy.
-       * - optional: findings are informational
-       * - required: findings line must be present and valid (major/minor)
-       */
-      findings?: 'optional' | 'required';
-      /**
        * Allowed decision outcomes recorded in `Pre-PR Decision`.
        */
       decisionEnum?: Array<'approve' | 'changes_requested' | 'blocked'>;

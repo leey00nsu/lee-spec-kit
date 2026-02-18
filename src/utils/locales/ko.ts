@@ -119,6 +119,8 @@ const ko = {
         '({scope}) 명시적 승인 후 PR을 머지하세요',
       'context.commandDetail.codeReviewPushFix':
         '({scope}) 리뷰 수정 커밋을 push하세요',
+      'context.commandDetail.prePrReviewRun':
+        '({scope}) Pre-PR 리뷰를 실행하고 decisions.md와 tasks.md를 동기화하세요',
       'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
       'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
       'context.actionDetail.featureFolder': 'Feature 폴더와 기본 문서 골격을 준비하세요',
@@ -164,7 +166,7 @@ const ko = {
       'context.finalTicketCommandHint':
         '명령 실행은 승인 결과의 티켓으로 실행: {command}',
       'context.readBuiltinDocFirst':
-        '이번 세션에 아직 읽지 않았거나 변경 가능성이 있을 때만 필요한 내장 문서를 확인하세요.',
+        '이번 세션에 아직 읽지 않았거나 변경 가능성이 있을 때만 필요한 내장 문서를 확인하세요: {command}',
       'context.tipDocsCommitRules':
         '커밋 메시지 규칙은 git-workflow 가이드를 기준으로 확인하세요.',
       'context.list.docsCommitNeeded': '문서 커밋 필요',
@@ -174,7 +176,6 @@ const ko = {
       'context.list.recordPrLink': 'PR 링크 기록',
       'context.list.addPrePrReviewField': 'Pre-PR Review 필드 추가',
       'context.list.completePrePrReview': 'Pre-PR 리뷰 완료 처리',
-      'context.list.addPrePrFindings': 'Pre-PR Findings 기록',
       'context.list.addPrePrEvidence': 'Pre-PR Evidence 근거 추가',
       'context.list.addPrePrDecision': 'Pre-PR Decision 기록',
       'context.list.resolvePrePrDecision': 'Pre-PR Decision을 approve로 정리',
@@ -640,8 +641,6 @@ const ko = {
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
       legacyTasksPrePrReviewField:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰` 필드를 추가하세요. (`- **PR 전 리뷰**: Pending | Done`)',
-      legacyTasksPrePrFindingsField:
-        '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Findings` 필드를 추가하세요. (`- **PR 전 리뷰 Findings**: major=0, minor=0`)',
       legacyTasksPrePrEvidenceField:
         '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Evidence` 필드를 추가하세요.',
       legacyTasksPrePrDecisionField:
@@ -678,14 +677,12 @@ const ko = {
         '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
       workflowPrePrReviewNotDone:
         '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
-      workflowPrePrFindingsMissing:
-        '완료 상태이지만 `PR 전 리뷰 Findings`가 없거나 형식이 올바르지 않습니다. (`major=<n>, minor=<n>` 형식으로 기록)',
       workflowPrePrEvidenceMissing:
         '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (path_required 정책이면 실제 존재하는 경로를 기록하세요.)',
       workflowPrePrDecisionMissing:
         '완료 상태이지만 `PR 전 리뷰 Decision`이 비어있거나 형식이 올바르지 않습니다. (`decision: approve|changes_requested|blocked ...` 형식)',
       workflowPrePrDecisionNotApproved:
-        '완료 상태이지만 `PR 전 리뷰 Decision`이 `{outcome}`입니다. Findings를 해결하고 pre-pr-review를 재실행해 `approve`로 맞추세요.',
+        '완료 상태이지만 `PR 전 리뷰 Decision`이 `{outcome}`입니다. 리뷰 리스크를 해소한 뒤 pre-pr-review를 재실행해 `approve`로 맞추세요.',
     },
   } as const;
 

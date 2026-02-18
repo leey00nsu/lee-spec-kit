@@ -12,7 +12,6 @@ export type CodeDirtyScopePolicy = 'repo' | 'component';
 export type TaskCommitGatePolicy = 'off' | 'warn' | 'strict';
 export type PrePrReviewFallbackPolicy = 'builtin-checklist';
 export type PrePrEvidenceMode = 'any' | 'path_required';
-export type PrePrFindingsPolicy = 'optional' | 'required';
 export type PrePrDecisionOutcome =
   | 'approve'
   | 'changes_requested'
@@ -23,7 +22,6 @@ export interface PrePrReviewPolicy {
   skills: string[];
   fallback: PrePrReviewFallbackPolicy;
   evidenceMode: PrePrEvidenceMode;
-  findings: PrePrFindingsPolicy;
   decisionEnum: PrePrDecisionOutcome[];
 }
 
@@ -168,7 +166,6 @@ export function resolvePrePrReviewPolicy(
         : 'builtin-checklist',
     evidenceMode:
       configured?.evidenceMode === 'any' ? 'any' : 'path_required',
-    findings: configured?.findings === 'optional' ? 'optional' : 'required',
     decisionEnum:
       configuredDecisionEnum.length > 0
         ? configuredDecisionEnum

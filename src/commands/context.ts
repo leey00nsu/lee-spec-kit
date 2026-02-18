@@ -537,13 +537,6 @@ function getListLabel(
     }
     if (
       prePrReviewPolicy.enabled &&
-      prePrReviewPolicy.findings === 'required' &&
-      (!f.docs.prePrFindingsFieldExists || !f.prePrReview.findingsProvided)
-    ) {
-      return tr(lang, 'cli', 'context.list.addPrePrFindings');
-    }
-    if (
-      prePrReviewPolicy.enabled &&
       (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided)
     ) {
       return tr(lang, 'cli', 'context.list.addPrePrEvidence');
@@ -630,14 +623,11 @@ function toCompactFeature(
     tasks: feature.tasks,
     prePrReview: {
       status: feature.prePrReview.status,
-      findings: feature.prePrReview.findings,
-      findingsProvided: feature.prePrReview.findingsProvided,
       evidenceProvided: feature.prePrReview.evidenceProvided,
       decisionOutcome: feature.prePrReview.decisionOutcome,
       decisionProvided: feature.prePrReview.decisionProvided,
     },
     prReview: {
-      findings: feature.prReview.findings,
       evidenceProvided: feature.prReview.evidenceProvided,
       decisionProvided: feature.prReview.decisionProvided,
     },
@@ -669,10 +659,8 @@ function toCompactFeature(
       prFieldExists: feature.docs.prFieldExists,
       prStatusFieldExists: feature.docs.prStatusFieldExists,
       prePrReviewFieldExists: feature.docs.prePrReviewFieldExists,
-      prePrFindingsFieldExists: feature.docs.prePrFindingsFieldExists,
       prePrEvidenceFieldExists: feature.docs.prePrEvidenceFieldExists,
       prePrDecisionFieldExists: feature.docs.prePrDecisionFieldExists,
-      prReviewFindingsFieldExists: feature.docs.prReviewFindingsFieldExists,
       prReviewEvidenceFieldExists: feature.docs.prReviewEvidenceFieldExists,
       prReviewDecisionFieldExists: feature.docs.prReviewDecisionFieldExists,
     },

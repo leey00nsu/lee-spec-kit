@@ -315,18 +315,8 @@ async function backfillMissingConfigDefaults(
     prePrReview.evidenceMode = 'path_required';
     changedPaths.push('workflow.prePrReview.evidenceMode');
   }
-  setIfMissing(
-    prePrReview,
-    'findings',
-    'required',
-    'workflow.prePrReview.findings'
-  );
-  if (
-    prePrReview.findings !== undefined &&
-    prePrReview.findings !== 'required' &&
-    prePrReview.findings !== 'optional'
-  ) {
-    prePrReview.findings = 'required';
+  if ('findings' in prePrReview) {
+    delete prePrReview.findings;
     changedPaths.push('workflow.prePrReview.findings');
   }
   if (prePrReview.decisionEnum === undefined) {

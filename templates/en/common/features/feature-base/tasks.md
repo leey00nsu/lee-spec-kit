@@ -24,10 +24,8 @@
 - **Pre-PR Review**: -
   - Values: Pending | Done
   - Mark `Done` after pre-PR review is completed
-- **Pre-PR Findings**: -
-  - Format: `major=<n>, minor=<n>`
 - **Pre-PR Evidence**: -
-  - Example: review report doc path (must exist)
+  - Example: `docs/features/F001-foo/decisions.md` (must exist)
 - **Pre-PR Decision**: -
   - Format: `decision: approve|changes_requested|blocked ...` (or `결정: ...`)
   - PR creation requires final decision `approve`

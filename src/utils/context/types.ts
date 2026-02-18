@@ -82,17 +82,7 @@ export interface CompletionChecklistSummary {
 
 export type PrePrReviewStatus = 'Pending' | 'Done';
 
-export interface PrePrReviewFindings {
-  major: number;
-  minor: number;
-}
-
 export type PrePrDecisionOutcome = 'approve' | 'changes_requested' | 'blocked';
-
-export interface PrReviewFindings {
-  major: number;
-  minor: number;
-}
 
 export interface FeatureState {
   id?: string;
@@ -130,8 +120,6 @@ export interface FeatureState {
   completionChecklist?: CompletionChecklistSummary;
   prePrReview: {
     status?: PrePrReviewStatus;
-    findings?: PrePrReviewFindings;
-    findingsProvided: boolean;
     evidence?: string;
     evidenceProvided: boolean;
     decision?: string;
@@ -139,7 +127,6 @@ export interface FeatureState {
     decisionProvided: boolean;
   };
   prReview: {
-    findings?: PrReviewFindings;
     evidence?: string;
     evidenceProvided: boolean;
     decision?: string;
@@ -183,10 +170,8 @@ export interface FeatureState {
     prFieldExists: boolean;
     prStatusFieldExists: boolean;
     prePrReviewFieldExists: boolean;
-    prePrFindingsFieldExists: boolean;
     prePrEvidenceFieldExists: boolean;
     prePrDecisionFieldExists: boolean;
-    prReviewFindingsFieldExists: boolean;
     prReviewEvidenceFieldExists: boolean;
     prReviewDecisionFieldExists: boolean;
   };

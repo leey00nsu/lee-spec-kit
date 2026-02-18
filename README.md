@@ -641,7 +641,6 @@ npx lee-spec-kit update --force
     - 상세 기준은 `docs get create-pr --json`의 `Pre-PR 기본 체크리스트` 섹션을 단일 기준으로 사용
   - `evidenceMode` (선택): Evidence 검증 방식 (`"path_required"` | `"any"`, 기본: `"path_required"`)
     - `path_required`: 실제 존재하는 로컬 경로만 인정
-  - `findings` (선택): Findings 필수 여부 (`"required"` | `"optional"`, 기본: `"required"`)
   - `decisionEnum` (선택): 허용 Decision 값 목록 (기본: `["approve","changes_requested","blocked"]`)
     - PR 단계로 진행하려면 최종 Decision이 `approve`여야 함
 - `workflow.auto`:
@@ -668,7 +667,6 @@ npx lee-spec-kit update --force
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",
       "evidenceMode": "path_required",
-      "findings": "required",
       "decisionEnum": ["approve", "changes_requested", "blocked"]
     }
   }

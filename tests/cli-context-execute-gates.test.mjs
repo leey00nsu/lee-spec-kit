@@ -304,7 +304,6 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
     assert.equal(config.workflow?.prePrReview?.evidenceMode, 'path_required');
-    assert.equal(config.workflow?.prePrReview?.findings, 'required');
     assert.deepEqual(config.workflow?.prePrReview?.decisionEnum, [
       'approve',
       'changes_requested',
@@ -378,7 +377,6 @@ test('update backfills missing config defaults including warn taskCommitGate', a
       'code-review-excellence',
     ]);
     assert.equal(nextConfig.workflow?.prePrReview?.evidenceMode, 'path_required');
-    assert.equal(nextConfig.workflow?.prePrReview?.findings, 'required');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.decisionEnum, [
       'approve',
       'changes_requested',
@@ -454,7 +452,6 @@ test('update keeps explicit config values and only fills missing keys', async ()
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, ['custom-skill']);
     assert.equal(nextConfig.workflow?.prePrReview?.fallback, 'builtin-checklist');
     assert.equal(nextConfig.workflow?.prePrReview?.evidenceMode, 'path_required');
-    assert.equal(nextConfig.workflow?.prePrReview?.findings, 'required');
     assert.deepEqual(nextConfig.workflow?.prePrReview?.decisionEnum, [
       'approve',
       'changes_requested',
@@ -1648,10 +1645,9 @@ test('context executes pre_pr_review command and records review evidence', async
 
     const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
     assert.match(tasksAfter, /\*\*Pre-PR Review\*\*:\s*Done/);
-    assert.match(tasksAfter, /\*\*Pre-PR Findings\*\*:\s*major=\d+,\s*minor=\d+/);
     assert.match(
       tasksAfter,
-      /\*\*Pre-PR Evidence\*\*:\s*docs\/features\/F001-alpha\/pre-pr-review\.md/
+      /\*\*Pre-PR Evidence\*\*:\s*docs\/features\/F001-alpha\/decisions\.md/
     );
     assert.match(tasksAfter, /\*\*Pre-PR Decision\*\*:\s*decision:\s*approve\b/);
 
@@ -1660,9 +1656,11 @@ test('context executes pre_pr_review command and records review evidence', async
       'docs',
       'features',
       'F001-alpha',
-      'pre-pr-review.md'
+      'decisions.md'
     );
     assert.equal(await pathExists(reportPath), true);
+    const decisions = await fs.readFile(reportPath, 'utf-8');
+    assert.match(decisions, /Pre-PR Review Log/i);
   });
 });
 

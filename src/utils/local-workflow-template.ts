@@ -37,7 +37,7 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
       continue;
     }
     if (
-      /^\s*-\s*\*\*(Pre-PR Findings|Pre-PR Evidence|PR 전 리뷰 Findings|PR 전 리뷰 Evidence)\*\*\s*:/.test(
+      /^\s*-\s*\*\*(Pre-PR Evidence|PR 전 리뷰 Evidence)\*\*\s*:/.test(
         line
       )
     ) {
@@ -54,8 +54,6 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
     if (/^\s*-\s*(예|값)\s*:/.test(line)) continue;
     if (/^\s*-\s*Mark\s+`?Done`?/i.test(line)) continue;
     if (/^\s*-\s*사전 코드리뷰 완료 후/.test(line)) continue;
-    if (/^\s*-\s*Update with final findings counts from pre-PR review/i.test(line))
-      continue;
     if (/^\s*-\s*Record your key review decision/i.test(line)) continue;
     if (/^\s*-\s*사전 리뷰 주요 판단 근거를/.test(line)) continue;
     if (/^\s*-\s*Example:\s*review note link/i.test(line)) continue;

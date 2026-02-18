@@ -24,10 +24,8 @@
 - **PR 전 리뷰**: -
   - 값: Pending | Done
   - 사전 코드리뷰 완료 후 `Done`으로 변경
-- **PR 전 리뷰 Findings**: -
-  - 형식: `major=<n>, minor=<n>`
 - **PR 전 리뷰 Evidence**: -
-  - 예: 리뷰 리포트 문서 경로(실제 존재 경로)
+  - 예: `docs/features/F001-foo/decisions.md` (실제 존재 경로)
 - **PR 전 리뷰 Decision**: -
   - 형식: `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`)
   - PR 생성 전 최종 통과 기준은 `approve`

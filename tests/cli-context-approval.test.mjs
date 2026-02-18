@@ -790,6 +790,7 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.equal(payload.matchedFeature.prePrReview.status, 'Pending');
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
     assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.doesNotMatch(primaryActionOption(payload).detail || '', /pre-pr-review/i);
     assert.match(
       primaryActionOption(payload).action.cmd,
       /pre-pr-review.*F001-alpha/
@@ -798,7 +799,6 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.deepEqual(payload.prePrReviewPolicy.skills, ['code-review-excellence']);
     assert.equal(payload.prePrReviewPolicy.fallback, 'builtin-checklist');
     assert.equal(payload.prePrReviewPolicy.evidenceMode, 'path_required');
-    assert.equal(payload.prePrReviewPolicy.findings, 'required');
     assert.deepEqual(payload.prePrReviewPolicy.decisionEnum, [
       'approve',
       'changes_requested',
@@ -927,7 +927,7 @@ test('context pre-PR review requires decision before PR step when review is mark
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: -'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md\n- **Pre-PR Decision**: -'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1009,13 +1009,13 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
       'docs',
       'features',
       'F001-alpha',
-      'pre-pr-review.md'
+      'decisions.md'
     );
     await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=0, minor=1\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: approve - baseline checklist completed'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md\n- **Pre-PR Decision**: decision: approve - baseline checklist completed'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1060,8 +1060,8 @@ test('context pre-PR review proceeds to PR step when evidence and decision are p
   });
 });
 
-test('context pre-PR review allows optional findings policy when decision is approve', async () => {
-  await withTempDir('lsk-context-pre-pr-findings-optional-', async (dir) => {
+test('context pre-PR review ignores legacy findings config when decision is approve', async () => {
+  await withTempDir('lsk-context-pre-pr-legacy-findings-config-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -1103,13 +1103,13 @@ test('context pre-PR review allows optional findings policy when decision is app
       'docs',
       'features',
       'F001-alpha',
-      'pre-pr-review.md'
+      'decisions.md'
     );
     await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: approve - findings are optional in this policy'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md\n- **Pre-PR Decision**: decision: approve - baseline checklist completed'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -1135,7 +1135,7 @@ test('context pre-PR review allows optional findings policy when decision is app
     const docsCommit = await runCommand(docsGitRoot, 'git', [
       'commit',
       '-m',
-      'docs: allow optional pre-pr findings with approve decision',
+      'docs: ignore legacy pre-pr findings config',
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
@@ -1189,13 +1189,13 @@ test('context pre-PR review blocks PR step when decision outcome is not approve'
       'docs',
       'features',
       'F001-alpha',
-      'pre-pr-review.md'
+      'decisions.md'
     );
     await fs.writeFile(reportPath, '# pre-pr review\n', 'utf-8');
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
-      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Findings**: major=1, minor=0\n- **Pre-PR Evidence**: docs/features/F001-alpha/pre-pr-review.md\n- **Pre-PR Decision**: decision: changes_requested - fix blocking findings'
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md\n- **Pre-PR Decision**: decision: changes_requested - follow-up changes required'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
