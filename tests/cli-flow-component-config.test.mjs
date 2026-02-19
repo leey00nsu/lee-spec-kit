@@ -708,6 +708,7 @@ test('flow --json refreshes branch context after branch_create execution', async
     assert.match(payload.context.before.actionOptions?.[0]?.detail || '', /create or reuse worktree/i);
     assert.doesNotMatch(payload.context.before.actionOptions?.[0]?.detail || '', /git worktree add/i);
     assert.match(payload.context.before.actionOptions?.[0]?.action?.cmd || '', /git worktree add/);
+    assert.match(payload.context.before.actionOptions?.[0]?.action?.cmd || '', /for f in \.env \.env\.local/);
 
     assert.equal(payload.approval?.status, 'approved_executed');
     assert.notEqual(payload.context.after.matchedFeature.currentStep, 9);
