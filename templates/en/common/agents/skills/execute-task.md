@@ -26,7 +26,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
   - `true`: wait for label-token approval (`A`, `A OK`) before execution.
 - Default execution model is **main-agent orchestration + selective sub-agent execution**. Keep short steps (spec/plan/tasks approvals, issue/PR metadata sync) in the main agent, and delegate long-running loops (`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run) to a sub-agent.
 - When `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
-- When `agentOrchestration.autoRunShouldDelegate=true`, delegate auto loops (`autoRun.command`, `flow --auto-*`) to a sub-agent.
+- Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Use `agentOrchestration.subAgentHandoff` as the minimal handoff contract (`featureRef`, `category`, `cwd`, `cmd`).
 - Run `subAgentHandoff.verify.commands` only once per session using `verify.cacheKey` (`pwd`, `git rev-parse --show-toplevel`). Stop/report on mismatch, and gather detailed logs only when mismatch happens.
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution). Before fallback execution, report a one-line fallback reason to the user.

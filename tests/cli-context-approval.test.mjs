@@ -246,21 +246,12 @@ test('context --json does not force command delegation for branch_create when au
     assert.equal(payload.autoRun?.available, true);
     assert.equal(payload.agentOrchestration?.currentActionCategory, 'branch_create');
     assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, false);
-    assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, true);
-    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
-    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'auto_run');
-    assert.equal(
-      payload.agentOrchestration?.subAgentHandoff?.cmd,
-      payload.autoRun?.command
-    );
-    assert.equal(
-      payload.agentOrchestration?.subAgentHandoff?.verify?.runOncePerSession,
-      true
-    );
-    assert.deepEqual(
-      payload.agentOrchestration?.subAgentHandoff?.verify?.commands,
-      ['pwd', 'git rev-parse --show-toplevel']
-    );
+    assert.equal(payload.agentOrchestration?.autoRunDelegationAvailable, true);
+    assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, false);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, false);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.cmd, null);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.verify, null);
   });
 });
 
@@ -730,6 +721,45 @@ test('context text output ends with current label reminder and execution hint', 
       result.stdout,
       /When a label is provided, run approval selection: npx lee-spec-kit context F001-alpha --approve <LABEL>/
     );
+  });
+});
+
+test('context text output hides action labels when approval is not required', async () => {
+  await withTempDir('lsk-context-text-no-labels-without-approval-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_approve'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /👉 Next Options \(Atomic\):/);
+    assert.match(result.stdout, /^\s*-\s+/m);
+    assert.doesNotMatch(result.stdout, /^\s*[A-Z]\.\s+/m);
+    assert.doesNotMatch(result.stdout, /Available labels now:/);
   });
 });
 

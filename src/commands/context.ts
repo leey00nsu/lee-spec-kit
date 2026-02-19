@@ -101,6 +101,7 @@ interface AgentOrchestrationPolicy {
   fallbackToMainAgentWhenSubAgentUnavailable: true;
   longRunningCategories: string[];
   currentActionShouldDelegate: boolean;
+  autoRunDelegationAvailable: boolean;
   autoRunShouldDelegate: boolean;
   currentActionCategory: string | null;
   mainAgentResponsibilities: string[];
@@ -169,16 +170,19 @@ function buildAgentOrchestrationPolicy(
     delegation.shouldDelegate
       ? primaryOption
       : null;
+  const shouldDelegateAutoRunNow =
+    autoRunAvailable && actionOptions.length === 0;
   const handoffMode: 'command' | 'auto_run' | null = delegatedCommandOption
     ? 'command'
-    : autoRunAvailable
+    : shouldDelegateAutoRunNow
       ? 'auto_run'
       : null;
   const handoffCwd =
     delegatedCommandOption?.action.cwd ||
-    (autoRunAvailable ? process.cwd() : null);
+    (shouldDelegateAutoRunNow ? process.cwd() : null);
   const handoffCmd =
-    delegatedCommandOption?.action.cmd || (autoRunAvailable ? autoRunCommand : null);
+    delegatedCommandOption?.action.cmd ||
+    (shouldDelegateAutoRunNow ? autoRunCommand : null);
   const handoffRequired = !!handoffMode && !!handoffCwd && !!handoffCmd;
   const verifyCacheKey = handoffRequired
     ? createHash('sha1')
@@ -201,7 +205,8 @@ function buildAgentOrchestrationPolicy(
     fallbackToMainAgentWhenSubAgentUnavailable: true,
     longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
     currentActionShouldDelegate: delegation.shouldDelegate,
-    autoRunShouldDelegate: autoRunAvailable,
+    autoRunDelegationAvailable: autoRunAvailable,
+    autoRunShouldDelegate: shouldDelegateAutoRunNow,
     currentActionCategory: delegation.category,
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
@@ -229,7 +234,7 @@ function buildAgentOrchestrationPolicy(
       required: handoffRequired,
       mode: handoffMode,
       featureRef,
-      category: delegation.category,
+      category: handoffMode === 'command' ? delegation.category : null,
       cwd: handoffCwd,
       cmd: handoffCmd,
       verify: handoffRequired
@@ -707,10 +712,11 @@ function getListLabel(
     if (workflowPolicy.requirePr && !f.pr.link) {
       return tr(lang, 'cli', 'context.list.recordPrLink');
     }
-    if (workflowPolicy.requireReview && !f.pr.status) {
+    if (workflowPolicy.requireMerge && !f.pr.status) {
       return tr(lang, 'cli', 'context.list.setPrStatus');
     }
     if (
+      workflowPolicy.requireMerge &&
       workflowPolicy.requireReview &&
       f.pr.status === 'Review' &&
       (!f.docs.prReviewEvidenceFieldExists || !f.prReview.evidenceProvided)
@@ -718,13 +724,14 @@ function getListLabel(
       return tr(lang, 'cli', 'context.list.addPrReviewEvidence');
     }
     if (
+      workflowPolicy.requireMerge &&
       workflowPolicy.requireReview &&
       f.pr.status === 'Review' &&
       (!f.docs.prReviewDecisionFieldExists || !f.prReview.decisionProvided)
     ) {
       return tr(lang, 'cli', 'context.list.addPrReviewDecision');
     }
-    if (workflowPolicy.requireReview && f.pr.status !== 'Approved') {
+    if (workflowPolicy.requireMerge && f.pr.status !== 'Approved') {
       return tr(lang, 'cli', 'context.list.prStatusToApproved', {
         status: f.pr.status,
       });
@@ -1157,7 +1164,7 @@ async function runContext(
             ]
           : [],
         recommendation:
-          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed. Use main-agent orchestration: keep short steps in main agent, and delegate only long-running command/auto loops to sub-agents.',
+          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed. Use main-agent orchestration: keep short steps in main agent. Delegate command runs only when `agentOrchestration.currentActionShouldDelegate=true`, and delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode=\"auto_run\"`.',
         oneApprovalPerAction: approvalRequired,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
@@ -1172,11 +1179,11 @@ async function runContext(
         untilCategories: autoRunPlan.untilCategories,
         unknownCategories: autoRunPlan.unknownCategories,
         guidance:
-          'Use auto-run only when `autoRun.available=true`. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
+          'Use auto-run only when `autoRun.available=true`. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode=\"auto_run\"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
       },
       approvalRequest: {
         guidance:
-          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`. Keep short steps in main agent and delegate only long-running command/auto loops to sub-agents.',
+          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`. Keep short steps in main agent. Delegate command runs only when `agentOrchestration.currentActionShouldDelegate=true`, and delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode=\"auto_run\"`.',
         required: approvalRequired,
         finalPrompt: finalApprovalPrompt,
         userFacingLines: approvalUserFacingLines,
@@ -1474,12 +1481,14 @@ async function runContext(
   const actionOptions = state.actionOptions;
   const hasCommandOption = actionOptions.some((option) => option.action.type === 'command');
   const longRunningDelegation = shouldDelegateCurrentAction(actionOptions);
+  const showOptionLabels = hasCheckAction;
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
   actionOptions.forEach((option) => {
     const requiresCheck = option.action.requiresUserCheck;
     const detail = option.detail;
-    console.log(`   ${option.label}. ${checkTag(requiresCheck)}${detail}`);
+    const prefix = showOptionLabels ? `${option.label}. ` : '- ';
+    console.log(`   ${prefix}${checkTag(requiresCheck)}${detail}`);
     if (option.action.type === 'command' && option.action.scope === 'docs') {
       hasDocsCommand = true;
     }
