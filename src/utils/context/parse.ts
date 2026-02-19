@@ -1147,7 +1147,7 @@ export async function parseFeature(
   }
 
   if (
-    workflowPolicy.requireReview &&
+    workflowPolicy.requireMerge &&
     prStatus === 'Review' &&
     prLink &&
     effectiveProjectGitCwd
@@ -1345,7 +1345,7 @@ export async function parseFeature(
     (!workflowPolicy.requirePr ||
       (isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
         !!prLink)) &&
-    (!workflowPolicy.requireReview || prStatus === 'Approved') &&
+    (!workflowPolicy.requireMerge || prStatus === 'Approved') &&
     isPrePrReviewSatisfied(
       {
         docs: {
@@ -1381,11 +1381,11 @@ export async function parseFeature(
     // PR 필드가 없다면 legacyTasksPrFields가 이미 경고로 올라감
     if (workflowPolicy.requirePr && prFieldExists && prStatusFieldExists) {
       if (!prLink) warnings.push(tr(lang, 'warnings', 'workflowPrLinkMissing'));
-      if (workflowPolicy.requireReview) {
+      if (workflowPolicy.requireMerge) {
         if (!prStatus) warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
         if (prStatus && prStatus !== 'Approved') {
           warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
-          if (prStatus === 'Review') {
+          if (workflowPolicy.requireReview && prStatus === 'Review') {
             if (!prReviewEvidenceFieldExists || !prReviewEvidenceProvided) {
               warnings.push(tr(lang, 'warnings', 'workflowPrReviewEvidenceMissing'));
             }

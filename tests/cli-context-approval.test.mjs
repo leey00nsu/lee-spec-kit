@@ -1724,6 +1724,7 @@ test('context pr_create action still requires explicit user check', async () => 
       requireBranch: false,
       requirePr: true,
       requireReview: false,
+      requireMerge: false,
       prePrReview: {
         enabled: false,
       },
@@ -1788,6 +1789,121 @@ test('context pr_create action still requires explicit user check', async () => 
     assert.doesNotMatch(primaryActionOption(payload).approvalPrompt, /docs get/i);
     assert.equal(Array.isArray(payload.requiredDocs), true);
     assert.equal(payload.requiredDocs.some((doc) => doc.id === 'create-pr'), true);
+  });
+});
+
+test('context shows merge guidance when requireReview=false (requireMerge defaults to true)', async () => {
+  await withTempDir('lsk-context-merge-without-review-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: false,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare merge-without-review-required step',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const fakeBinDir = path.join(dir, 'docs', '.fake-bin');
+    await fs.mkdir(fakeBinDir, { recursive: true });
+    const fakeGhScriptPath = path.join(fakeBinDir, 'gh');
+    await fs.writeFile(
+      fakeGhScriptPath,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify({
+    state: 'OPEN',
+    mergedAt: null,
+    reviewDecision: '',
+    mergeStateStatus: 'CLEAN',
+    isDraft: false,
+    statusCheckRollup: [],
+  }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+      'utf-8'
+    );
+    await fs.chmod(fakeGhScriptPath, 0o755);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json'], {
+      PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
+    });
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 14);
+    assert.equal(primaryActionOption(payload).action.category, 'code_review');
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
+    assert.equal(primaryActionOption(payload).action.operationType, 'remote');
+    assert.match(primaryActionOption(payload).action.cmd || '', /--merge --confirm OK/);
+    assert.match(primaryActionOption(payload).detail, /\(docs\)\s+merge PR after explicit OK/i);
+
+    const needsReviewEvidenceOption = payload.actionOptions.find(
+      (option) =>
+        option.action.type === 'instruction' &&
+        option.action.uiDetailKey === 'context.actionDetail.codeReviewNeedEvidence'
+    );
+    assert.equal(Boolean(needsReviewEvidenceOption), false);
   });
 });
 

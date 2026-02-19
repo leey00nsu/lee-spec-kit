@@ -6,6 +6,7 @@ export interface WorkflowPolicy {
   requireBranch: boolean;
   requirePr: boolean;
   requireReview: boolean;
+  requireMerge: boolean;
 }
 
 export type CodeDirtyScopePolicy = 'repo' | 'component';
@@ -45,6 +46,7 @@ export function resolveWorkflowPolicy(
           requireBranch: false,
           requirePr: false,
           requireReview: false,
+          requireMerge: false,
         }
       : {
           mode,
@@ -52,6 +54,7 @@ export function resolveWorkflowPolicy(
           requireBranch: true,
           requirePr: true,
           requireReview: true,
+          requireMerge: true,
         };
 
   if (typeof workflow?.requireIssue === 'boolean') {
@@ -66,6 +69,9 @@ export function resolveWorkflowPolicy(
   if (typeof workflow?.requireReview === 'boolean') {
     policy.requireReview = workflow.requireReview;
   }
+  if (typeof workflow?.requireMerge === 'boolean') {
+    policy.requireMerge = workflow.requireMerge;
+  }
 
   // Branch naming currently depends on issue number: feat/<issue>-<slug>
   if (!policy.requireIssue) {
@@ -74,7 +80,11 @@ export function resolveWorkflowPolicy(
 
   if (!policy.requirePr) {
     policy.requireReview = false;
+    policy.requireMerge = false;
   } else if (policy.requireReview) {
+    policy.requirePr = true;
+    policy.requireMerge = true;
+  } else if (policy.requireMerge) {
     policy.requirePr = true;
   }
 

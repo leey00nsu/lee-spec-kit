@@ -37,6 +37,11 @@ export interface ProjectConfig {
     requirePr?: boolean;
     requireReview?: boolean;
     /**
+     * Whether PR merge is required before marking workflow done.
+     * Defaults to true in github mode and false in local mode.
+     */
+    requireMerge?: boolean;
+    /**
      * Scope for "project code dirty" detection used by context/status/workflow completion.
      * - repo: entire project repo worktree
      * - component: only paths mapped to the current feature component

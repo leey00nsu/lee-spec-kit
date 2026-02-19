@@ -92,7 +92,7 @@ function isFeatureDone(
     (!workflowPolicy.requireIssue || !!feature.issueNumber) &&
     (!workflowPolicy.requirePr ||
       (isPrMetadataConfigured(feature) && !!feature.pr.link)) &&
-    (!workflowPolicy.requireReview || feature.pr.status === 'Approved') &&
+    (!workflowPolicy.requireMerge || feature.pr.status === 'Approved') &&
     isPrePrReviewSatisfied(feature, prePrReviewPolicy)
   );
 }
@@ -1196,12 +1196,12 @@ export function getStepDefinitions(
       name: tr(lang, 'steps', 'codeReview'),
       checklist: {
         done: (f) =>
-          !workflowPolicy.requireReview ||
+          !workflowPolicy.requireMerge ||
           (isPrMetadataConfigured(f) && f.pr.status === 'Approved'),
       },
       current: {
         when: (f) =>
-          workflowPolicy.requireReview &&
+          workflowPolicy.requireMerge &&
           isPrMetadataConfigured(f) &&
           !!f.pr.link &&
           f.pr.status !== 'Approved',
@@ -1218,7 +1218,7 @@ export function getStepDefinitions(
             ];
           }
           if (f.pr.status === 'Review') {
-            if (f.pr.remote?.available && f.pr.remote.isMerged) {
+            if (workflowPolicy.requireReview && f.pr.remote?.available && f.pr.remote.isMerged) {
               return [
                 {
                   type: 'instruction',
@@ -1229,7 +1229,7 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (!f.docs.prReviewEvidenceFieldExists) {
+            if (workflowPolicy.requireReview && !f.docs.prReviewEvidenceFieldExists) {
               return [
                 {
                   type: 'instruction',
@@ -1240,7 +1240,7 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (!f.prReview.evidenceProvided) {
+            if (workflowPolicy.requireReview && !f.prReview.evidenceProvided) {
               return [
                 {
                   type: 'instruction',
@@ -1251,7 +1251,7 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (!f.docs.prReviewDecisionFieldExists) {
+            if (workflowPolicy.requireReview && !f.docs.prReviewDecisionFieldExists) {
               return [
                 {
                   type: 'instruction',
@@ -1262,7 +1262,7 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (!f.prReview.decisionProvided) {
+            if (workflowPolicy.requireReview && !f.prReview.decisionProvided) {
               return [
                 {
                   type: 'instruction',
@@ -1279,15 +1279,17 @@ export function getStepDefinitions(
               workflowPolicy.mode === 'github' &&
               !!f.pr.link &&
               (!f.pr.remote || !f.pr.remote.available);
-            const actions: NextAction[] = [
-              {
+            const actions: NextAction[] = [];
+
+            if (workflowPolicy.requireReview) {
+              actions.push({
                 type: 'instruction',
                 category: 'code_review',
                 requiresUserCheck: true,
                 uiDetailKey: 'context.actionDetail.codeReviewResolve',
                 message: tr(lang, 'messages', 'prReviewResolve'),
-              },
-            ];
+              });
+            }
 
             if (!f.git.projectGitCwd) {
               actions.push({
@@ -1348,7 +1350,18 @@ export function getStepDefinitions(
               });
             }
 
-            return actions;
+            if (actions.length > 0) return actions;
+            return [
+              {
+                type: 'instruction',
+                category: 'code_review',
+                requiresUserCheck: true,
+                uiDetailKey: 'context.actionDetail.codeReviewMergeAfterOk',
+                message: tr(lang, 'messages', 'prReviewMerge', {
+                  featureRef: f.id || f.folderName,
+                }),
+              },
+            ];
           }
           return [
             {
