@@ -352,6 +352,10 @@ function detectFromBranch(
   );
 }
 
+function detectFromExpectedFeatureBranch(features: FeatureContext[]): FeatureContext[] {
+  return features.filter((feature) => feature.git.onExpectedBranch);
+}
+
 function toSelectionStatus(
   features: FeatureContext[],
   selectionMode: ContextSelectionMode,
@@ -405,7 +409,12 @@ export async function resolveContextSelection(
     );
     selectionMode = 'explicit';
   } else {
-    if (config.projectType === 'single') {
+    const expectedBranchMatches = detectFromExpectedFeatureBranch(scopedFeatures);
+    if (expectedBranchMatches.length === 1) {
+      targetFeatures = expectedBranchMatches;
+      selectionMode = 'branch';
+      selectionFallback = 'none';
+    } else if (config.projectType === 'single') {
       const branchName = branches.project.single || '';
       targetFeatures = detectFromBranch(branchName, scopedFeatures);
     } else if (selectedComponent) {

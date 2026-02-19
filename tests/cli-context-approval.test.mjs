@@ -161,6 +161,81 @@ test('context --json exposes generic label token policy', async () => {
   });
 });
 
+test('context auto-detect prefers single expected feature worktree before open-feature fallback', async () => {
+  await withTempDir('lsk-context-worktree-single-match-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureAlpha = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureAlpha.code, 0, featureAlpha.stderr || featureAlpha.stdout);
+    const featureBeta = await runCli(dir, ['feature', 'beta', '--id', 'F002']);
+    assert.equal(featureBeta.code, 0, featureBeta.stderr || featureBeta.stdout);
+
+    const alphaTasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const betaTasksPath = path.join(dir, 'docs', 'features', 'F002-beta', 'tasks.md');
+    const alphaTasks = (await fs.readFile(alphaTasksPath, 'utf-8')).replace(
+      /(- \*\*Repo\*\*: .*\n)/,
+      '$1- **Issue**: #11\n'
+    );
+    const betaTasks = (await fs.readFile(betaTasksPath, 'utf-8')).replace(
+      /(- \*\*Repo\*\*: .*\n)/,
+      '$1- **Issue**: #22\n'
+    );
+    await fs.writeFile(alphaTasksPath, alphaTasks, 'utf-8');
+    await fs.writeFile(betaTasksPath, betaTasks, 'utf-8');
+
+    const gitEmail = await runCommand(dir, 'git', ['config', 'user.email', 'tester@example.com']);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+    const gitAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha', 'docs/features/F002-beta']);
+    assert.equal(gitAdd.code, 0, gitAdd.stderr || gitAdd.stdout);
+    const gitCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare worktree-based feature selection test',
+    ]);
+    assert.equal(gitCommit.code, 0, gitCommit.stderr || gitCommit.stdout);
+
+    const before = await runCli(dir, ['context', '--json']);
+    assert.equal(before.code, 0, before.stderr || before.stdout);
+    const beforePayload = JSON.parse(before.stdout.trim());
+    assert.equal(beforePayload.status, 'multiple_active');
+    assert.equal(beforePayload.selectionMode, 'open');
+    assert.equal(beforePayload.selectionFallback, 'open_features');
+
+    const createWorktree = await runCommand(dir, 'git', [
+      'worktree',
+      'add',
+      '-b',
+      'feat/11-alpha',
+      '.worktrees/feat-11-alpha',
+    ]);
+    assert.equal(createWorktree.code, 0, createWorktree.stderr || createWorktree.stdout);
+
+    const after = await runCli(dir, ['context', '--json']);
+    assert.equal(after.code, 0, after.stderr || after.stdout);
+    const afterPayload = JSON.parse(after.stdout.trim());
+    assert.equal(afterPayload.status, 'single_matched');
+    assert.equal(afterPayload.selectionMode, 'branch');
+    assert.equal(afterPayload.selectionFallback, 'none');
+    assert.equal(afterPayload.matchedFeature?.id, 'F001');
+  });
+});
+
 test('context --json does not force command delegation for branch_create when auto-run is available', async () => {
   await withTempDir('lsk-context-branch-create-delegation-signal-', async (dir) => {
     const initResult = await runCli(dir, [
