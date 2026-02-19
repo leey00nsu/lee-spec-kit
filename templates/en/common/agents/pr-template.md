@@ -70,7 +70,9 @@ For file links within the repo in PR body, **always use current branch name**:
 
 {Screenshot markdown (e.g. ![](URL))}
 
-## Architecture Diagram (Backend / core structure changes)
+## Architecture Diagram
+
+<!-- Fill this section when backend/core-structure changes are included. -->
 
 ```mermaid
 sequenceDiagram

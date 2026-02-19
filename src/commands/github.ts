@@ -310,8 +310,14 @@ function ensureSections(
   lang: Lang
 ): void {
   const hasHeading = (sectionHeading: string): boolean => {
-    const re = new RegExp(`^##\\s+${escapeRegExp(sectionHeading)}\\s*$`, 'm');
-    return re.test(body);
+    const target = normalizeHeading(sectionHeading);
+    const lines = body.split('\n');
+    for (const line of lines) {
+      const match = line.match(/^\s*##\s+(.+?)\s*$/);
+      if (!match) continue;
+      if (normalizeHeading(match[1]) === target) return true;
+    }
+    return false;
   };
   const hasMetadataField = (field: string): boolean => {
     const re = new RegExp(`^\\s*-\\s*\\*\\*${escapeRegExp(field)}\\*\\*\\s*:`, 'm');
@@ -547,7 +553,16 @@ function getFeatureDocPaths(feature: FeatureContext): {
 }
 
 function normalizeHeading(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+  let normalized = value.trim();
+  for (;;) {
+    const next = normalized
+      .replace(/\s*\([^)]*\)\s*$/, '')
+      .replace(/\s*（[^）]*）\s*$/, '')
+      .trim();
+    if (next === normalized) break;
+    normalized = next;
+  }
+  return normalized.replace(/\s+/g, ' ').toLowerCase();
 }
 
 function extractMarkdownByHeadings(

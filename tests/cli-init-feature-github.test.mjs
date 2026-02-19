@@ -1740,6 +1740,62 @@ test('github pr --create enforces screenshot/mermaid sections when mode is on', 
   });
 });
 
+test('github pr --create accepts mermaid heading with qualifier text', async () => {
+  await withTempDir('lsk-github-pr-mermaid-heading-qualifier-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const bodyFile = path.join(dir, 'tmp-pr-body-mermaid-qualified-heading.md');
+    await writePrBodyWithoutTodo(bodyFile);
+    const originalBody = await fs.readFile(bodyFile, 'utf-8');
+    const qualifiedHeadingBody = originalBody.replace(
+      /^## Architecture Diagram$/m,
+      '## Architecture Diagram (Backend / core structure changes)'
+    );
+    await fs.writeFile(bodyFile, qualifiedHeadingBody, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--mermaid',
+        'on',
+        '--json',
+      ],
+      fakeGh.env
+    );
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
+  });
+});
+
 test('github pr --merge requires --confirm OK and does not mutate tasks.md', async () => {
   await withTempDir('lsk-github-pr-merge-confirm-required-', async (dir) => {
     const initResult = await runCli(dir, [
