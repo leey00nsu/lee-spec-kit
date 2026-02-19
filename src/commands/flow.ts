@@ -126,6 +126,22 @@ interface AgentOrchestrationPolicy {
   subAgentResponsibilities: string[];
   pauseAndReportWhen: string[];
   preferredResumeCommand: string | null;
+  subAgentHandoff: {
+    required: boolean;
+    mode: 'auto_run' | null;
+    featureRef: string | null;
+    category: string | null;
+    cwd: string | null;
+    cmd: string | null;
+    verify: {
+      runOncePerSession: true;
+      cacheKey: string;
+      expectedCwd: string;
+      commands: string[];
+      onMismatch: 'stop_and_report';
+      collectDetailedLogsOnMismatchOnly: true;
+    } | null;
+  };
 }
 
 interface CompactFlowFeatureSummary {
@@ -455,10 +471,19 @@ function toFlowRunStatus(status: AutoRunSummary['status']): FlowRunStatus {
 }
 
 function buildAgentOrchestrationPolicy(
-  autoRun: AutoRunSummary | null
+  autoRun: AutoRunSummary | null,
+  featureRef: string | null
 ): AgentOrchestrationPolicy {
   const preferredResumeCommand =
     autoRun?.run?.resumeCommand || autoRun?.resume?.flowCommand || null;
+  const handoffRequired = !!autoRun && !!preferredResumeCommand;
+  const verifyCacheKey = handoffRequired
+    ? `${(featureRef || 'unknown').toLowerCase()}|${Buffer.from(
+        preferredResumeCommand as string
+      )
+        .toString('base64')
+        .slice(0, 12)}`
+    : '';
   return {
     mode: 'main_orchestrates_subagent_execution',
     delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
@@ -484,6 +509,24 @@ function buildAgentOrchestrationPolicy(
       'command execution error',
     ],
     preferredResumeCommand,
+    subAgentHandoff: {
+      required: handoffRequired,
+      mode: handoffRequired ? 'auto_run' : null,
+      featureRef,
+      category: null,
+      cwd: handoffRequired ? process.cwd() : null,
+      cmd: handoffRequired ? preferredResumeCommand : null,
+      verify: handoffRequired
+        ? {
+            runOncePerSession: true,
+            cacheKey: verifyCacheKey,
+            expectedCwd: process.cwd(),
+            commands: ['pwd', 'git rev-parse --show-toplevel'],
+            onMismatch: 'stop_and_report',
+            collectDetailedLogsOnMismatchOnly: true,
+          }
+        : null,
+    },
   };
 }
 
@@ -1264,7 +1307,10 @@ async function runFlow(
   const jsonMode = !!options.json || !!options.jsonCompact;
   if (jsonMode) {
     const autoRunFailed = !!(autoRun && isAutoRunFailureStatus(autoRun.status));
-    const agentOrchestration = buildAgentOrchestrationPolicy(autoRun);
+    const agentOrchestration = buildAgentOrchestrationPolicy(
+      autoRun,
+      resolvedFeatureName || null
+    );
     const status = autoRunFailed ? 'error' : 'ok';
     const reasonCode = autoRunFailed
       ? autoRun?.reasonCode || 'AUTO_EXECUTION_FAILED'
@@ -1369,7 +1415,10 @@ async function runFlow(
       console.log(chalk.gray(`- Resume with: ${autoRun.run.resumeCommand}`));
     }
   }
-  const agentOrchestration = buildAgentOrchestrationPolicy(autoRun);
+  const agentOrchestration = buildAgentOrchestrationPolicy(
+    autoRun,
+    resolvedFeatureName || null
+  );
   console.log(
     chalk.gray(
       `- Orchestration: ${agentOrchestration.mode}, delegate long-running loops to sub-agent`

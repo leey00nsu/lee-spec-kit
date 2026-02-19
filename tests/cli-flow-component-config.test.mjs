@@ -96,6 +96,9 @@ test('flow --json aggregates context/status/doctor', async () => {
       true
     );
     assert.equal(payload.agentOrchestration?.preferredResumeCommand, null);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, false);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.verify, null);
   });
 });
 
@@ -190,6 +193,20 @@ test('flow --json auto-until-category stops at gate and exposes approval lines',
     assert.equal(
       payload.agentOrchestration?.preferredResumeCommand,
       payload.autoRun?.resume?.flowCommand
+    );
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'auto_run');
+    assert.equal(
+      payload.agentOrchestration?.subAgentHandoff?.cmd,
+      payload.agentOrchestration?.preferredResumeCommand
+    );
+    assert.equal(
+      payload.agentOrchestration?.subAgentHandoff?.verify?.runOncePerSession,
+      true
+    );
+    assert.deepEqual(
+      payload.agentOrchestration?.subAgentHandoff?.verify?.commands,
+      ['pwd', 'git rev-parse --show-toplevel']
     );
   });
 });

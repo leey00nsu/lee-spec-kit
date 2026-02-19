@@ -152,6 +152,10 @@ test('context --json exposes generic label token policy', async () => {
       payload.agentOrchestration?.resumePriority?.includes('context --json-compact'),
       true
     );
+    assert.equal(typeof payload.agentOrchestration?.subAgentHandoff, 'object');
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, false);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.verify, null);
     assert.equal(payload.autoRun?.available, false);
     assert.equal(payload.autoRun?.reasonCode, 'NOT_SINGLE_MATCHED');
   });
@@ -243,6 +247,20 @@ test('context --json does not force command delegation for branch_create when au
     assert.equal(payload.agentOrchestration?.currentActionCategory, 'branch_create');
     assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, false);
     assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, true);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'auto_run');
+    assert.equal(
+      payload.agentOrchestration?.subAgentHandoff?.cmd,
+      payload.autoRun?.command
+    );
+    assert.equal(
+      payload.agentOrchestration?.subAgentHandoff?.verify?.runOncePerSession,
+      true
+    );
+    assert.deepEqual(
+      payload.agentOrchestration?.subAgentHandoff?.verify?.commands,
+      ['pwd', 'git rev-parse --show-toplevel']
+    );
   });
 });
 
@@ -326,6 +344,8 @@ test('context --json keeps task_execute project commit command in main agent', a
     assert.match(primaryActionOption(payload).action?.cmd || '', /\bgit\s+commit\b/i);
     assert.equal(payload.agentOrchestration?.currentActionCategory, 'task_execute');
     assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, false);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, false);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
   });
 });
 

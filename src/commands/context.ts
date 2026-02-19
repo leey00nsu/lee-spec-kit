@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import { execSync } from 'child_process';
+import { createHash } from 'crypto';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
@@ -106,6 +107,22 @@ interface AgentOrchestrationPolicy {
   subAgentResponsibilities: string[];
   pauseAndReportWhen: string[];
   resumePriority: string[];
+  subAgentHandoff: {
+    required: boolean;
+    mode: 'command' | 'auto_run' | null;
+    featureRef: string | null;
+    category: string | null;
+    cwd: string | null;
+    cmd: string | null;
+    verify: {
+      runOncePerSession: true;
+      cacheKey: string;
+      expectedCwd: string;
+      commands: string[];
+      onMismatch: 'stop_and_report';
+      collectDetailedLogsOnMismatchOnly: true;
+    } | null;
+  };
 }
 
 const LONG_RUNNING_DELEGATION_CATEGORIES = [
@@ -140,9 +157,42 @@ function shouldDelegateCurrentAction(
 
 function buildAgentOrchestrationPolicy(
   actionOptions: ActionOption[],
-  autoRunAvailable: boolean
+  autoRunAvailable: boolean,
+  autoRunCommand: string,
+  featureRef: string | null
 ): AgentOrchestrationPolicy {
   const delegation = shouldDelegateCurrentAction(actionOptions);
+  const primaryOption = actionOptions[0];
+  const delegatedCommandOption =
+    primaryOption &&
+    primaryOption.action.type === 'command' &&
+    delegation.shouldDelegate
+      ? primaryOption
+      : null;
+  const handoffMode: 'command' | 'auto_run' | null = delegatedCommandOption
+    ? 'command'
+    : autoRunAvailable
+      ? 'auto_run'
+      : null;
+  const handoffCwd =
+    delegatedCommandOption?.action.cwd ||
+    (autoRunAvailable ? process.cwd() : null);
+  const handoffCmd =
+    delegatedCommandOption?.action.cmd || (autoRunAvailable ? autoRunCommand : null);
+  const handoffRequired = !!handoffMode && !!handoffCwd && !!handoffCmd;
+  const verifyCacheKey = handoffRequired
+    ? createHash('sha1')
+        .update(
+          [
+            handoffMode,
+            featureRef || '',
+            handoffCwd || '',
+            handoffCmd || '',
+          ].join('|')
+        )
+        .digest('hex')
+        .slice(0, 12)
+    : '';
   return {
     mode: 'main_orchestrates_subagent_execution',
     delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
@@ -175,6 +225,24 @@ function buildAgentOrchestrationPolicy(
       'autoRun.resume.flowCommand',
       'context --json-compact',
     ],
+    subAgentHandoff: {
+      required: handoffRequired,
+      mode: handoffMode,
+      featureRef,
+      category: delegation.category,
+      cwd: handoffCwd,
+      cmd: handoffCmd,
+      verify: handoffRequired
+        ? {
+            runOncePerSession: true,
+            cacheKey: verifyCacheKey,
+            expectedCwd: handoffCwd as string,
+            commands: ['pwd', 'git rev-parse --show-toplevel'],
+            onMismatch: 'stop_and_report',
+            collectDetailedLogsOnMismatchOnly: true,
+          }
+        : null,
+    },
   };
 }
 
@@ -899,7 +967,9 @@ async function runContext(
   );
   const agentOrchestration = buildAgentOrchestrationPolicy(
     state.actionOptions,
-    autoRunPlan.available
+    autoRunPlan.available,
+    autoRunPlan.command,
+    state.matchedFeature?.folderName || null
   );
 
   if (options.approve || options.execute) {

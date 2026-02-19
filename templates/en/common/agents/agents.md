@@ -43,6 +43,8 @@ Prohibited:
 - For approved command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
 - If `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
 - If `agentOrchestration.autoRunShouldDelegate=true`, delegate auto loops (`autoRun.command`, `flow --auto-*`) to a sub-agent.
+- Prefer `agentOrchestration.subAgentHandoff` as the handoff SSOT. Pass only its minimal fields (`featureRef`, `category`, `cwd`, `cmd`) to the sub-agent.
+- For delegated runs, execute one-time verification from `subAgentHandoff.verify` (`pwd`, `git rev-parse --show-toplevel`) and cache by `verify.cacheKey`. If mismatched, stop and report; collect detailed logs only on mismatch.
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution).
 - When fallback is used, report a one-line fallback reason to the user before running the command in the main agent.
 
