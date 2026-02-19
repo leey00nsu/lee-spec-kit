@@ -246,6 +246,89 @@ test('context --json does not force command delegation for branch_create when au
   });
 });
 
+test('context --json keeps task_execute project commit command in main agent', async () => {
+  await withTempDir('lsk-context-task-exec-project-commit-main-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare task_execute project commit delegation test',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(path.join(dir, 'probe-task-execute.txt'), 'probe\n', 'utf-8');
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(primaryActionOption(payload).action?.category, 'task_execute');
+    assert.equal(primaryActionOption(payload).action?.type, 'command');
+    assert.equal(primaryActionOption(payload).action?.scope, 'project');
+    assert.match(primaryActionOption(payload).action?.cmd || '', /\bgit\s+commit\b/i);
+    assert.equal(payload.agentOrchestration?.currentActionCategory, 'task_execute');
+    assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, false);
+  });
+});
+
 test('context --json actionOptions and approvalRequest expose raw detail fields', async () => {
   await withTempDir('lsk-context-action-summary-', async (dir) => {
     const initResult = await runCli(dir, [

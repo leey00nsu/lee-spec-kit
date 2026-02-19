@@ -115,12 +115,23 @@ const LONG_RUNNING_DELEGATION_CATEGORIES = [
   'pre_pr_review',
 ] as const;
 
+function isTaskExecuteProjectCommitCommand(option: ActionOption | undefined): boolean {
+  if (!option || option.action.type !== 'command') return false;
+  if (option.action.category !== 'task_execute') return false;
+  if (option.action.scope !== 'project') return false;
+  return /\bgit\s+commit\b/i.test(option.action.cmd);
+}
+
 function shouldDelegateCurrentAction(
   actionOptions: ActionOption[]
 ): { shouldDelegate: boolean; category: string | null } {
-  const primaryCategory = actionOptions[0]?.action?.category || null;
+  const primaryOption = actionOptions[0];
+  const primaryCategory = primaryOption?.action?.category || null;
   const longRunningSet = new Set<string>(LONG_RUNNING_DELEGATION_CATEGORIES);
-  const shouldDelegate = !!primaryCategory && longRunningSet.has(primaryCategory);
+  const shouldDelegate =
+    !!primaryCategory &&
+    longRunningSet.has(primaryCategory) &&
+    !isTaskExecuteProjectCommitCommand(primaryOption);
   return {
     shouldDelegate,
     category: primaryCategory,
