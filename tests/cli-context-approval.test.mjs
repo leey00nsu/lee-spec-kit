@@ -3015,6 +3015,9 @@ test('context featureDone step exposes and executes worktree cleanup option for 
     assert.equal(cleanupOption.action.scope, 'project');
     assert.match(cleanupOption.detail, /worktree/i);
     assert.match(cleanupOption.action.cmd, /git worktree remove/);
+    assert.match(cleanupOption.action.cmd, /git worktree remove --force/);
+    assert.match(cleanupOption.action.cmd, /git worktree list --porcelain/);
+    assert.match(cleanupOption.action.cmd, /rm -rf/);
 
     const expectedRoot = await normalizePathForCompare(dir);
     const actualRoot = await normalizePathForCompare(cleanupOption.action.cwd);
