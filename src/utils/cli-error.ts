@@ -18,6 +18,7 @@ export type CliReasonCode =
   | 'ACTION_NOT_AVAILABLE'
   | 'EXECUTION_NOT_COMMAND'
   | 'EXECUTION_FAILED'
+  | 'VALIDATION_FAILED'
   | 'UNKNOWN_ERROR';
 
 export interface CliSuggestion {
@@ -34,7 +35,10 @@ export class CliError extends Error {
     message: string,
     options?: { cause?: unknown; stack?: string }
   ) {
-    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
+    super(
+      message,
+      options?.cause === undefined ? undefined : { cause: options.cause }
+    );
     this.name = 'CliError';
     this.code = code;
     if (options?.stack) this.stack = options.stack;
@@ -217,6 +221,13 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
       command: 'npx lee-spec-kit context --approve A --execute',
     },
   ],
+  VALIDATION_FAILED: [
+    {
+      titleKey: 'invalidArg.reviewUsage',
+      command: 'npx lee-spec-kit <command> --help',
+    },
+    { titleKey: 'invalidArg.fixValues' },
+  ],
   UNKNOWN_ERROR: [
     { titleKey: 'unknown.rerunAndCaptureLogs' },
     {
@@ -260,7 +271,9 @@ export function printCliErrorSuggestions(
   lang: Lang = DEFAULT_LANG
 ): void {
   if (suggestions.length === 0) return;
-  console.error(tr(normalizeLang(lang), 'cli', 'cliError.headerNextOptionsError'));
+  console.error(
+    tr(normalizeLang(lang), 'cli', 'cliError.headerNextOptionsError')
+  );
   for (const suggestion of suggestions) {
     if (suggestion.command) {
       console.error(
