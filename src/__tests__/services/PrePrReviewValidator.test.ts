@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PrePrReviewValidator } from '../../src/services/PrePrReviewValidator.js';
-import { CliContext } from '../../src/utils/cli-context.js';
+import { PrePrReviewValidator } from '../../services/PrePrReviewValidator.js';
+import { CliContext } from '../../utils/cli-context.js';
 import fs from 'fs-extra';
 
 vi.mock('fs-extra');

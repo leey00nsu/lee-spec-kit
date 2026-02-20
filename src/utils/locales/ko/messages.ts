@@ -3,24 +3,24 @@ export const koMessages = {
     'spec.md를 작성하고 상태를 Review로 변경하세요. (agents 가이드 기준)',
   specImprove: 'spec.md를 보완하고 상태를 Review로 변경하세요.',
   specApproval:
-    'spec.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
+    'spec.md 내용을 사용자에게 공유하고 진행 승인(라벨 응답 제공)을 받으세요.',
   planCreate:
     'plan.md를 작성하고 상태를 Review로 변경하세요. (agents 가이드 기준)',
   planImprove: 'plan.md를 보완하고 상태를 Review로 변경하세요.',
   planApproval:
-    'plan.md 내용을 사용자에게 공유하고 승인(`A` 또는 `A OK` 형식)을 받으세요.',
+    'plan.md 내용을 사용자에게 공유하고 진행 승인(라벨 응답 제공)을 받으세요.',
   tasksCreate:
     'tasks.md를 작성하고 문서 상태를 Review로 변경하세요. (agents/execute-task 가이드 기준)',
   tasksNeedAtLeastOne: 'tasks.md에 최소 1개 이상의 태스크를 작성하세요.',
   tasksImprove: 'tasks.md를 보완하고 문서 상태를 Review로 변경하세요.',
   tasksApproval:
-    'tasks.md 내용을 사용자에게 공유하고 진행 승인(`A` 또는 `A OK` 형식)을 받으세요. (승인 후 문서 상태를 Approved로 변경)',
+    'tasks.md 내용을 사용자에게 공유하고 진행 승인(라벨 응답 제공)을 받으세요. (승인 후 문서 상태를 Approved로 변경)',
   docsCommitPlanning:
     'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} 기획 문서"',
   issueCreateAndWrite:
-    '이슈 본문 템플릿을 생성해 목표/완료 기준을 검토·보완하고, 라벨 승인(`A` 또는 `A OK`) 후 이슈를 생성하세요. 이후 tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
+    '이슈 본문 템플릿을 생성해 목표/완료 기준을 검토·보완하고, 명시적 승인(라벨) 후 이슈를 생성하세요. 이후 tasks.md의 이슈 번호를 채우고 문서 커밋을 준비하세요.',
   issuePrepareFromDoc:
-    '`issue.md`를 기준으로 이슈 제목/본문/라벨 초안을 보완하고 라벨 승인(`A` 또는 `A OK`)을 받아 상태를 `Ready`로 변경하세요.',
+    '`issue.md`를 기준으로 이슈 제목/본문/라벨 초안을 보완하고 명시적 승인(라벨)을 받아 상태를 `Ready`로 변경하세요.',
   issueCreateFromDoc:
     '`issue.md` 상태가 `Ready`이면 GitHub Issue를 생성하고, 생성된 이슈 번호를 `tasks.md`에 반영하세요.',
   docsCommitIssueUpdate:
@@ -42,9 +42,9 @@ export const koMessages = {
   worktreeCleanupCommand:
     'cd "{projectGitCwd}" && WT="{worktreePath}" && ROOT="$(pwd)" && case "$WT" in "$ROOT"/.worktrees/*) if git worktree list --porcelain | grep -Fxq "worktree $WT"; then git worktree remove --force "$WT" || true; fi; [ -d "$WT" ] && rm -rf "$WT" || true ;; *) echo "skip unsafe worktree path: $WT" ;; esac && git worktree prune && CURRENT_BRANCH=$(git branch --show-current) && DEFAULT_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | cut -d/ -f2-) && TARGET_BRANCH="${DEFAULT_BRANCH:-$CURRENT_BRANCH}" && if [ -n "$TARGET_BRANCH" ]; then git checkout "$TARGET_BRANCH" >/dev/null 2>&1 || true; fi && if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1 && [ -z "$(git status --porcelain)" ]; then git pull --ff-only || true; fi',
   tasksAllDoneButNoChecklist:
-    '완료 조건 체크리스트를 작성하세요. tasks.md의 "완료 조건" 섹션에 검증 항목을 추가하고, 사용자와 확인 후 충족 항목을 [x]로 체크하세요. 최종 승인(OK)도 반영하세요.',
+    '완료 조건 체크리스트를 작성하세요. tasks.md의 "완료 조건" 섹션에 검증 항목을 추가하고, 사용자와 확인 후 충족 항목을 [x]로 체크하세요. 명시적인 최종 승인도 반영하세요.',
   tasksAllDoneButChecklist:
-    '완료 조건 체크리스트의 남은 항목을 진행하세요. 현재 진행: ({checked}/{total}) 사용자와 확인 후 충족 항목을 [x]로 체크하고 최종 승인(OK)을 반영하세요.',
+    '완료 조건 체크리스트의 남은 항목을 진행하세요. 현재 진행: ({checked}/{total}) 사용자와 확인 후 충족 항목을 [x]로 체크하고 명시적인 최종 승인을 반영하세요.',
   finishDoingTask:
     '현재 DOING/REVIEW 태스크를 수행하세요: "{title}" ({done}/{total}) 완료 시 결과/검증을 공유하고 DONE 처리',
   startNextTodoTask:
@@ -79,23 +79,23 @@ export const koMessages = {
   prReviewDecisionMissing:
     'tasks.md의 `PR 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
   prCreate:
-    'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 사용자 승인(OK) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
+    'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, 명시적 진행 승인(라벨 제공) 후 PR을 생성하세요. 이후 tasks.md에 PR 링크를 기록하세요.',
   prCreatePrepareFromDoc:
-    '`pr.md`를 기준으로 PR 제목/본문/라벨 초안을 보완하고 사용자 승인(OK)을 받아 상태를 `Ready`로 변경하세요.',
+    '`pr.md`를 기준으로 PR 제목/본문/라벨 초안을 보완하고 진행 승인을 받아 확인 후 상태를 `Ready`로 변경하세요.',
   prCreateExecuteFromDoc:
     '`pr.md` 상태가 `Ready`이면 PR을 생성하고, 생성된 PR 링크/PR 상태를 `tasks.md`에 기록하세요. (`pr.md`는 상태 `Ready`만 유지)',
   prCreatePrepare:
-    'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, PR 생성 전 사용자 승인(OK)을 받으세요.',
+    'PR 본문 템플릿을 생성해 변경 사항/테스트 섹션을 검토·보완하고, PR 생성 전 명시적인 진행 승인을 받으세요.',
   prCreateExecute:
     '확정된 PR 본문으로 PR을 생성하고, 생성된 PR 링크를 tasks.md의 PR 필드에 기록하세요.',
   prCreateRequiredSequence:
-    'PR 생성은 필수 2단계입니다: (1) PR 본문 템플릿 생성/보완 + 사용자 승인(OK), (2) PR 생성 + tasks.md PR 링크 기록. 위 순서를 모두 완료하세요.',
+    'PR 생성은 필수 2단계입니다: (1) PR 본문 템플릿 생성/보완 + 명시적 진행 승인, (2) PR 생성 + tasks.md PR 링크 기록. 위 순서를 모두 완료하세요.',
   prFillStatus:
     'tasks.md의 PR 상태를 Review로 설정하세요. (PR 생성/리뷰 단계에서는 Review를 유지합니다.)',
   prReviewMergedSyncStatus:
     '원격 PR이 이미 머지되었습니다. tasks.md의 PR 상태를 Approved로 업데이트하세요. (PR 리뷰 Evidence/Decision 필드도 최신 상태로 확인)',
   prResolveReview:
-    '리뷰 코멘트를 해결하세요. PR 상태는 Review를 유지하고, 리뷰 수정 커밋 메시지는 실제로 해결한 항목 요약으로 작성하세요. (태스크 제목 재사용 금지) 머지 준비가 되면 사용자 승인(OK) 후 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+    '리뷰 코멘트를 해결하세요. PR 상태는 Review를 유지하고, 리뷰 수정 커밋 메시지는 실제로 해결한 항목 요약으로 작성하세요. (태스크 제목 재사용 금지) 머지 준비가 되면 명시적인 승인(라벨) 후 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
   prReviewPush: 'cd "{projectGitCwd}" && git push',
   prReviewRemoteBlocked:
     '원격 PR 상태를 확인한 결과 아직 머지 준비가 되지 않았습니다: {reasons}. 리뷰 코멘트/체크 상태를 정리한 뒤 다시 확인하세요.',
@@ -110,7 +110,7 @@ export const koMessages = {
   prReviewRemoteReasonUnavailable:
     '원격 PR 상태를 확인하지 못했습니다 (gh 인증/네트워크/권한 확인 필요)',
   prReviewMerge:
-    '머지 준비가 되면 사용자 승인(OK)을 받은 뒤 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
+    '머지 준비가 되면 명시적인 승인(라벨)을 받은 뒤 머지 옵션을 실행하세요. (성공 시 PR 상태가 Approved로 동기화됩니다.)',
   prReviewMergeCommand:
     'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
   prRequestReview:

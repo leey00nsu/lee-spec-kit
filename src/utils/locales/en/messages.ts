@@ -3,24 +3,24 @@ export const enMessages = {
     'Write spec.md and change Status to Review. (Follow the agents guide baseline.)',
   specImprove: 'Improve spec.md and change Status to Review.',
   specApproval:
-    'Share spec.md with the user and get approval (`A` or `A OK` format).',
+    'Share spec.md with the user and get explicit progress approval (provide a label response).',
   planCreate:
     'Write plan.md and change Status to Review. (Follow the agents guide baseline.)',
   planImprove: 'Improve plan.md and change Status to Review.',
   planApproval:
-    'Share plan.md with the user and get approval (`A` or `A OK` format).',
+    'Share plan.md with the user and get explicit progress approval (provide a label response).',
   tasksCreate:
     'Write tasks.md and change Doc Status to Review. (Follow the agents/execute-task guide baseline.)',
   tasksNeedAtLeastOne: 'Write at least 1 task in tasks.md.',
   tasksImprove: 'Improve tasks.md and change Doc Status to Review.',
   tasksApproval:
-    'Share tasks.md with the user and get progress approval (`A` or `A OK` format). (Then set Doc Status to Approved)',
+    'Share tasks.md with the user and get progress approval (provide a label response). (Then set Doc Status to Approved)',
   docsCommitPlanning:
     'cd "{docsGitCwd}" && git add "{featurePath}" && git commit -m "docs(planning): {folderName} planning docs"',
   issueCreateAndWrite:
-    'Generate the issue body template, refine goals/completion criteria, get label approval (`A` or `A OK`), create the issue, then update issue number in tasks.md and prepare a docs commit.',
+    'Generate the issue body template, refine goals/completion criteria, get explicit label approval, create the issue, then update issue number in tasks.md and prepare a docs commit.',
   issuePrepareFromDoc:
-    'Use `issue.md` to refine issue title/body/labels draft, get label approval (`A` or `A OK`), then set status to `Ready`.',
+    'Use `issue.md` to refine issue title/body/labels draft, get explicit label approval, then set status to `Ready`.',
   issueCreateFromDoc:
     'When `issue.md` status is `Ready`, create the GitHub Issue and sync the created issue number into `tasks.md`.',
   docsCommitIssueUpdate:
@@ -42,9 +42,9 @@ export const enMessages = {
   worktreeCleanupCommand:
     'cd "{projectGitCwd}" && WT="{worktreePath}" && ROOT="$(pwd)" && case "$WT" in "$ROOT"/.worktrees/*) if git worktree list --porcelain | grep -Fxq "worktree $WT"; then git worktree remove --force "$WT" || true; fi; [ -d "$WT" ] && rm -rf "$WT" || true ;; *) echo "skip unsafe worktree path: $WT" ;; esac && git worktree prune && CURRENT_BRANCH=$(git branch --show-current) && DEFAULT_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | cut -d/ -f2-) && TARGET_BRANCH="${DEFAULT_BRANCH:-$CURRENT_BRANCH}" && if [ -n "$TARGET_BRANCH" ]; then git checkout "$TARGET_BRANCH" >/dev/null 2>&1 || true; fi && if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1 && [ -z "$(git status --porcelain)" ]; then git pull --ff-only || true; fi',
   tasksAllDoneButNoChecklist:
-    'Create the completion checklist. Add verification items to the tasks.md "Completion Criteria" section, then mark satisfied items as [x] after user confirmation. Record final approval (OK) as well.',
+    'Create the completion checklist. Add verification items to the tasks.md "Completion Criteria" section, then mark satisfied items as [x] after user confirmation. Record explicit final approval as well.',
   tasksAllDoneButChecklist:
-    'Proceed with remaining completion checklist items. Current progress: ({checked}/{total}) Mark items as [x] only after user confirmation and real verification. Record final approval (OK) as well.',
+    'Proceed with remaining completion checklist items. Current progress: ({checked}/{total}) Mark items as [x] only after user confirmation and real verification. Record explicit final approval as well.',
   finishDoingTask:
     'Continue working on the current DOING/REVIEW task: "{title}" ({done}/{total}) After it is complete, share outcome/verification and mark it DONE',
   startNextTodoTask:
@@ -78,23 +78,23 @@ export const enMessages = {
   prReviewDecisionMissing:
     'tasks.md `PR Review Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
   prCreate:
-    'Generate the PR body template, refine changes/tests sections, get explicit user OK, create the PR, then record the PR link in tasks.md.',
+    'Generate the PR body template, refine changes/tests sections, get explicit progress approval (label), create the PR, then record the PR link in tasks.md.',
   prCreatePrepareFromDoc:
-    'Use `pr.md` to refine PR title/body/labels draft, get explicit user OK, then set status to `Ready`.',
+    'Use `pr.md` to refine PR title/body/labels draft, get explicit progress approval, then set status to `Ready`.',
   prCreateExecuteFromDoc:
     'When `pr.md` status is `Ready`, create the PR and record the PR link/status in `tasks.md`. (Keep only `pr.md` status as `Ready`.)',
   prCreatePrepare:
-    'Generate the PR body template, refine changes/tests sections, and get explicit user OK before PR creation.',
+    'Generate the PR body template, refine changes/tests sections, and get explicit progress approval before PR creation.',
   prCreateExecute:
     'Create the PR with the finalized body, then record the created PR link in tasks.md.',
   prCreateRequiredSequence:
-    'PR creation is a required 2-step sequence: (1) generate/refine PR body template + explicit user OK, (2) create PR + record PR link in tasks.md. Complete both in order.',
+    'PR creation is a required 2-step sequence: (1) generate/refine PR body template + explicit progress approval, (2) create PR + record PR link in tasks.md. Complete both in order.',
   prFillStatus:
     'Set PR Status in tasks.md to Review. (Keep Review during PR creation/review stages.)',
   prReviewMergedSyncStatus:
     'The remote PR is already merged. Update PR Status in tasks.md to Approved. (Also verify PR review Evidence/Decision fields are up to date.)',
   prResolveReview:
-    'Address review comments while keeping PR Status as Review. For review-fix commits, summarize resolved feedback in the commit message (do not reuse task titles). Once ready to merge, get explicit user OK and run the merge option. (On success, PR Status is synced to Approved.)',
+    'Address review comments while keeping PR Status as Review. For review-fix commits, summarize resolved feedback in the commit message (do not reuse task titles). Once ready to merge, get explicit approval (label) and run the merge option. (On success, PR Status is synced to Approved.)',
   prReviewPush: 'cd "{projectGitCwd}" && git push',
   prReviewRemoteBlocked:
     'Remote PR checks indicate this PR is not ready to merge yet: {reasons}. Resolve review comments/check statuses, then re-check.',
@@ -108,7 +108,7 @@ export const enMessages = {
   prReviewRemoteReasonUnavailable:
     'remote PR status could not be verified (check gh auth/network/permissions)',
   prReviewMerge:
-    'When ready to merge, get explicit user OK and run the merge option. (On success, PR Status is synced to Approved.)',
+    'When ready to merge, get explicit approval (label) and run the merge option. (On success, PR Status is synced to Approved.)',
   prReviewMergeCommand:
     'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
   prRequestReview: 'Request review and set/keep PR Status as Review.',

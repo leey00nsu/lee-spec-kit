@@ -25,7 +25,7 @@ After completion, execute 'pnpm lee pre-pr-review <feature> --evidence review-tr
 
 export function getCodeReviewPrompt(lang: Lang): string {
   if (lang === 'ko') {
-    return `리뷰 코멘트를 확인/분석한 뒤 필요한 수정을 진행하세요. PR 상태는 Review를 유지하고 'PR 리뷰 Evidence/Decision'을 최신으로 기록하세요. 원격 반영(push)은 사용자 승인(OK) 후, 로컬 브랜치가 upstream보다 앞선 경우에만 진행하세요.`;
+    return `리뷰 코멘트를 확인/분석한 뒤 필요한 수정을 진행하세요. PR 상태는 Review를 유지하고 'PR 리뷰 Evidence/Decision'을 최신으로 기록하세요. 원격 반영(push)은 명시적인 머지 승인(라벨) 후, 로컬 브랜치가 upstream보다 앞선 경우에만 진행하세요.`;
   }
-  return `Review and analyze comments, then make necessary fixes. Keep PR status as Review and record the latest 'PR Review Evidence/Decision'. Push changes only after user confirmation (OK) and only if the local branch is ahead of upstream.`;
+  return `Review and analyze comments, then make necessary fixes. Keep PR status as Review and record the latest 'PR Review Evidence/Decision'. Push changes only after explicit approval (label) and only if the local branch is ahead of upstream.`;
 }
