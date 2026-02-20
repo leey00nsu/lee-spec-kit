@@ -1,0 +1,18 @@
+export const enSteps = {
+  featureFolder: 'Create feature folder',
+  specWrite: 'Write spec.md',
+  specApprove: 'Approve spec.md',
+  planWrite: 'Write plan.md',
+  planApprove: 'Approve plan.md',
+  tasksWrite: 'Write/approve tasks.md',
+  docsInitialCommit: 'Initial docs commit',
+  docsCommitPlanning: 'Commit docs (sync)',
+  issueCreate: 'Create GitHub Issue',
+  branchCreate: 'Create branch',
+  tasksExecute: 'Execute tasks',
+  docsCommitSync: 'Commit docs (sync)',
+  prePrReview: 'Pre-PR review',
+  prCreate: 'Create PR',
+  codeReview: 'Code review',
+  featureDone: 'Feature done',
+} as const;

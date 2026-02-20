@@ -1,0 +1,18 @@
+export const koSteps = {
+  featureFolder: 'Feature 폴더 생성',
+  specWrite: 'spec.md 작성',
+  specApprove: 'spec.md 승인',
+  planWrite: 'plan.md 작성',
+  planApprove: 'plan.md 승인',
+  tasksWrite: 'tasks.md 작성/승인',
+  docsInitialCommit: '초기 문서 커밋',
+  docsCommitPlanning: '문서 커밋(동기화)',
+  issueCreate: 'GitHub Issue 생성',
+  branchCreate: '브랜치 생성',
+  tasksExecute: '태스크 실행',
+  docsCommitSync: '문서 커밋(동기화)',
+  prePrReview: 'Pre-PR 리뷰',
+  prCreate: 'PR 생성',
+  codeReview: '코드 리뷰',
+  featureDone: 'Feature 완료',
+} as const;

@@ -8,6 +8,7 @@ import {
   resolveTaskCommitGatePolicy,
   resolveWorkflowPolicy,
 } from '../workflow.js';
+import { getCodeReviewPrompt } from '../agent-orchestration.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
   return (
@@ -18,7 +19,10 @@ function isCompletionChecklistDone(feature: FeatureState): boolean {
 }
 
 function isTasksDocApproved(feature: FeatureState): boolean {
-  return !feature.docs.tasksDocStatusFieldExists || feature.tasksDocStatus === 'Approved';
+  return (
+    !feature.docs.tasksDocStatusFieldExists ||
+    feature.tasksDocStatus === 'Approved'
+  );
 }
 
 function isImplementationDone(feature: FeatureState): boolean {
@@ -53,7 +57,10 @@ function isPrePrReviewSatisfied(
   prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
 ): boolean {
   if (!prePrReviewPolicy.enabled) return true;
-  if (!feature.docs.prePrReviewFieldExists || feature.prePrReview.status !== 'Done') {
+  if (
+    !feature.docs.prePrReviewFieldExists ||
+    feature.prePrReview.status !== 'Done'
+  ) {
     return false;
   }
   if (
@@ -97,7 +104,10 @@ function isFeatureDone(
   );
 }
 
-function getPrReviewRemoteBlockReasons(feature: FeatureState, lang: Lang): string[] {
+function getPrReviewRemoteBlockReasons(
+  feature: FeatureState,
+  lang: Lang
+): string[] {
   const remote = feature.pr.remote;
   if (!remote || !remote.available) return [];
 
@@ -263,13 +273,21 @@ function countDoneTransitionsInLatestTasksCommit(
   if (diff === undefined) return 0;
   if (!diff.trim()) return 0;
 
-  const removedByTask = new Map<string, Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>>();
-  const addedByTask = new Map<string, Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>>();
+  const removedByTask = new Map<
+    string,
+    Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>
+  >();
+  const addedByTask = new Map<
+    string,
+    Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>
+  >();
 
   const parseTaskLine = (
     line: string
   ): { key: string; status: 'TODO' | 'DOING' | 'DONE' | 'REVIEW' } | null => {
-    const match = line.match(/^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\s+(.+?)\s*$/i);
+    const match = line.match(
+      /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\s+(.+?)\s*$/i
+    );
     if (!match) return null;
     const key = toTaskKey(match[2]);
     if (!key) return null;
@@ -306,7 +324,9 @@ function countDoneTransitionsInLatestTasksCommit(
     const removedStatuses = removedByTask.get(taskKey);
     if (!removedStatuses) continue;
     const transitionedFromOpen =
-      removedStatuses.has('TODO') || removedStatuses.has('DOING') || removedStatuses.has('REVIEW');
+      removedStatuses.has('TODO') ||
+      removedStatuses.has('DOING') ||
+      removedStatuses.has('REVIEW');
     if (transitionedFromOpen) {
       doneTransitions += 1;
     }
@@ -476,7 +496,8 @@ export function getStepDefinitions(
       step: 6,
       name: tr(lang, 'steps', 'tasksWrite'),
       checklist: {
-        done: (f) => f.docs.tasksExists && f.tasks.total > 0 && isTasksDocApproved(f),
+        done: (f) =>
+          f.docs.tasksExists && f.tasks.total > 0 && isTasksDocApproved(f),
         detail: (f) => (f.tasks.total > 0 ? `(${f.tasks.total})` : ''),
       },
       current: {
@@ -485,7 +506,9 @@ export function getStepDefinitions(
           (!f.docs.tasksExists ||
             f.tasks.total === 0 ||
             (f.docs.tasksDocStatusFieldExists &&
-              (!f.tasksDocStatus || f.tasksDocStatus === 'Draft' || f.tasksDocStatus === 'Review'))),
+              (!f.tasksDocStatus ||
+                f.tasksDocStatus === 'Draft' ||
+                f.tasksDocStatus === 'Review'))),
         actions: (f) => {
           if (!f.docs.tasksExists) {
             return [
@@ -509,7 +532,10 @@ export function getStepDefinitions(
             ];
           }
 
-          if (f.docs.tasksDocStatusFieldExists && (!f.tasksDocStatus || f.tasksDocStatus === 'Draft')) {
+          if (
+            f.docs.tasksDocStatusFieldExists &&
+            (!f.tasksDocStatus || f.tasksDocStatus === 'Draft')
+          ) {
             return [
               {
                 type: 'instruction',
@@ -520,7 +546,10 @@ export function getStepDefinitions(
             ];
           }
 
-          if (f.docs.tasksDocStatusFieldExists && f.tasksDocStatus === 'Review') {
+          if (
+            f.docs.tasksDocStatusFieldExists &&
+            f.tasksDocStatus === 'Review'
+          ) {
             return [
               {
                 type: 'instruction',
@@ -755,40 +784,44 @@ export function getStepDefinitions(
               ];
             }
 
-          if (f.git.projectHasUncommittedChanges) {
-            if (isReviewIterationPhase(f, workflowPolicy)) {
-              if (!f.git.projectGitCwd) {
+            if (f.git.projectHasUncommittedChanges) {
+              if (isReviewIterationPhase(f, workflowPolicy)) {
+                if (!f.git.projectGitCwd) {
+                  return [
+                    {
+                      type: 'instruction',
+                      category: 'review_fix_commit',
+                      message: tr(
+                        lang,
+                        'messages',
+                        'standaloneNeedsProjectRoot'
+                      ),
+                    },
+                  ];
+                }
+
                 return [
                   {
                     type: 'instruction',
                     category: 'review_fix_commit',
-                    message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+                    requiresUserCheck: true,
+                    message: f.issueNumber
+                      ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
+                          projectGitCwd: f.git.projectGitCwd,
+                          issueNumber: f.issueNumber,
+                        })
+                      : tr(lang, 'messages', 'reviewFixCommitGuidance', {
+                          projectGitCwd: f.git.projectGitCwd,
+                        }),
                   },
                 ];
               }
 
-              return [
-                {
-                  type: 'instruction',
-                  category: 'review_fix_commit',
-                  requiresUserCheck: true,
-                  message: f.issueNumber
-                    ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
-                        projectGitCwd: f.git.projectGitCwd,
-                        issueNumber: f.issueNumber,
-                      })
-                    : tr(lang, 'messages', 'reviewFixCommitGuidance', {
-                        projectGitCwd: f.git.projectGitCwd,
-                      }),
-                },
-              ];
-            }
-
-            if (!f.git.projectGitCwd) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'task_execute',
+              if (!f.git.projectGitCwd) {
+                return [
+                  {
+                    type: 'instruction',
+                    category: 'task_execute',
                     message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
                   },
                 ];
@@ -878,7 +911,7 @@ export function getStepDefinitions(
                         docsGitCwd: f.git.docsGitCwd,
                         featurePath: f.docs.featurePathFromDocs,
                         folderName: f.folderName,
-                  }),
+                      }),
                 },
               ];
             }
@@ -918,16 +951,26 @@ export function getStepDefinitions(
             if (taskCommitGatePolicy !== 'off' && f.lastDoneTask) {
               const commitGate = checkTaskCommitGate(f);
               if (!commitGate.pass) {
-                const reasonText = getTaskCommitGateReasonText(lang, commitGate);
-                if (shouldBlockTaskCommitGate(taskCommitGatePolicy, commitGate)) {
+                const reasonText = getTaskCommitGateReasonText(
+                  lang,
+                  commitGate
+                );
+                if (
+                  shouldBlockTaskCommitGate(taskCommitGatePolicy, commitGate)
+                ) {
                   return [
                     {
                       type: 'instruction',
                       category: 'task_execute',
                       requiresUserCheck: true,
-                      message: tr(lang, 'messages', 'taskCommitGateStrictBlock', {
-                        reason: reasonText,
-                      }),
+                      message: tr(
+                        lang,
+                        'messages',
+                        'taskCommitGateStrictBlock',
+                        {
+                          reason: reasonText,
+                        }
+                      ),
                     },
                   ];
                 }
@@ -982,12 +1025,14 @@ export function getStepDefinitions(
       name: tr(lang, 'steps', 'docsCommitSync'),
       checklist: {
         done: (f) =>
-          !f.git.docsHasUncommittedChanges && !f.git.projectHasUncommittedChanges,
+          !f.git.docsHasUncommittedChanges &&
+          !f.git.projectHasUncommittedChanges,
       },
       current: {
         when: (f) =>
           isImplementationDone(f) &&
-          (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges),
+          (f.git.docsHasUncommittedChanges ||
+            f.git.projectHasUncommittedChanges),
         actions: (f) => {
           if (f.git.docsHasUncommittedChanges) {
             return [
@@ -1100,7 +1145,8 @@ export function getStepDefinitions(
                 type: 'instruction',
                 category: 'pr_metadata_migrate',
                 requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.prMetadataMigratePrePrReviewField',
+                uiDetailKey:
+                  'context.actionDetail.prMetadataMigratePrePrReviewField',
                 message: tr(lang, 'messages', 'prePrReviewFieldMissing'),
               },
             ];
@@ -1218,24 +1264,33 @@ export function getStepDefinitions(
             ];
           }
           if (f.pr.status === 'Review') {
-            if (workflowPolicy.requireReview && f.pr.remote?.available && f.pr.remote.isMerged) {
+            if (
+              workflowPolicy.requireReview &&
+              f.pr.remote?.available &&
+              f.pr.remote.isMerged
+            ) {
               return [
                 {
                   type: 'instruction',
                   category: 'pr_status_update',
                   requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.prStatusUpdateSyncApproved',
+                  uiDetailKey:
+                    'context.actionDetail.prStatusUpdateSyncApproved',
                   message: tr(lang, 'messages', 'prReviewMergedSyncStatus'),
                 },
               ];
             }
-            if (workflowPolicy.requireReview && !f.docs.prReviewEvidenceFieldExists) {
+            if (
+              workflowPolicy.requireReview &&
+              !f.docs.prReviewEvidenceFieldExists
+            ) {
               return [
                 {
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.codeReviewNeedEvidenceField',
+                  uiDetailKey:
+                    'context.actionDetail.codeReviewNeedEvidenceField',
                   message: tr(lang, 'messages', 'prReviewEvidenceFieldMissing'),
                 },
               ];
@@ -1251,13 +1306,17 @@ export function getStepDefinitions(
                 },
               ];
             }
-            if (workflowPolicy.requireReview && !f.docs.prReviewDecisionFieldExists) {
+            if (
+              workflowPolicy.requireReview &&
+              !f.docs.prReviewDecisionFieldExists
+            ) {
               return [
                 {
                   type: 'instruction',
                   category: 'code_review',
                   requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.codeReviewNeedDecisionField',
+                  uiDetailKey:
+                    'context.actionDetail.codeReviewNeedDecisionField',
                   message: tr(lang, 'messages', 'prReviewDecisionFieldMissing'),
                 },
               ];
@@ -1287,7 +1346,7 @@ export function getStepDefinitions(
                 category: 'code_review',
                 requiresUserCheck: true,
                 uiDetailKey: 'context.actionDetail.codeReviewResolve',
-                message: tr(lang, 'messages', 'prReviewResolve'),
+                message: getCodeReviewPrompt(lang),
               });
             }
 
@@ -1315,7 +1374,9 @@ export function getStepDefinitions(
             if (remoteBlockReasons.length > 0 || remoteUnavailable) {
               const reasons = [...remoteBlockReasons];
               if (remoteUnavailable) {
-                reasons.push(tr(lang, 'messages', 'prReviewRemoteReasonUnavailable'));
+                reasons.push(
+                  tr(lang, 'messages', 'prReviewRemoteReasonUnavailable')
+                );
               }
               actions.push({
                 type: 'instruction',
