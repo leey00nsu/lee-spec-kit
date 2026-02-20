@@ -5,6 +5,7 @@ import path from 'path';
 import { getConfig } from '../utils/config.js';
 import { resolveProjectComponents } from '../utils/components.js';
 import { resolveProjectGitCwd } from '../utils/context/git.js';
+import { createCliContext, CliContext } from '../utils/cli-context.js';
 import { listSubdirectories, walkFiles } from '../utils/fs-walk.js';
 import { runGitCapture } from '../utils/git-run.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
@@ -51,11 +52,13 @@ function quotePath(value: string): string {
 }
 
 function toSlug(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'project';
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'project'
+  );
 }
 
 function isGitRepo(cwd: string): boolean {
@@ -96,33 +99,42 @@ function hasTemplateMarkers(content: string): boolean {
 }
 
 async function countFeatureDirs(
+  ctx: CliContext,
   docsDir: string,
   projectType: 'single' | 'multi'
 ): Promise<number> {
   const featuresRoot = path.join(docsDir, 'features');
   if (projectType === 'single') {
-    const dirs = await listSubdirectories(featuresRoot);
-    return dirs.filter((value) => path.basename(value) !== 'feature-base').length;
+    const dirs = await listSubdirectories(ctx.fs, featuresRoot);
+    return dirs.filter((value) => path.basename(value) !== 'feature-base')
+      .length;
   }
 
-  const components = await listSubdirectories(featuresRoot);
+  const components = await listSubdirectories(ctx.fs, featuresRoot);
   let total = 0;
   for (const componentDir of components) {
     const componentName = path.basename(componentDir).trim().toLowerCase();
     if (!componentName || componentName === 'feature-base') continue;
-    const dirs = await listSubdirectories(componentDir);
-    total += dirs.filter((value) => path.basename(value) !== 'feature-base').length;
+    const dirs = await listSubdirectories(ctx.fs, componentDir);
+    total += dirs.filter(
+      (value) => path.basename(value) !== 'feature-base'
+    ).length;
   }
   return total;
 }
 
-async function hasUserPrdFile(prdDir: string): Promise<boolean> {
-  if (!(await fs.pathExists(prdDir))) return false;
-  const files = await walkFiles(prdDir, {
+async function hasUserPrdFile(
+  ctx: CliContext,
+  prdDir: string
+): Promise<boolean> {
+  if (!(await ctx.fs.pathExists(prdDir))) return false;
+  const files = await walkFiles(ctx.fs, prdDir, {
     extensions: ['.md'],
     ignoreDirs: ['node_modules'],
   });
-  return files.some((absolutePath) => path.basename(absolutePath).toLowerCase() !== 'readme.md');
+  return files.some(
+    (absolutePath) => path.basename(absolutePath).toLowerCase() !== 'readme.md'
+  );
 }
 
 function finalizeChecks(checks: OnboardCheck[]): OnboardResult {
@@ -134,18 +146,16 @@ function finalizeChecks(checks: OnboardCheck[]): OnboardResult {
     { ok: 0, warn: 0, block: 0 }
   );
   const status =
-    summary.block > 0
-      ? 'blocked'
-      : summary.warn > 0
-        ? 'needs_action'
-        : 'ready';
+    summary.block > 0 ? 'blocked' : summary.warn > 0 ? 'needs_action' : 'ready';
 
   return { checks, summary, status };
 }
 
 function printOnboardResult(lang: 'ko' | 'en', result: OnboardResult): void {
   console.log();
-  console.log(chalk.bold(t(lang, '🧭 Onboarding 점검', '🧭 Onboarding Checks')));
+  console.log(
+    chalk.bold(t(lang, '🧭 Onboarding 점검', '🧭 Onboarding Checks'))
+  );
   for (const check of result.checks) {
     const mark =
       check.status === 'ok'
@@ -163,7 +173,11 @@ function printOnboardResult(lang: 'ko' | 'en', result: OnboardResult): void {
     console.log(`   ${check.message}`);
     if (check.path) console.log(chalk.gray(`   path: ${check.path}`));
     if (check.suggestedCommand) {
-      console.log(chalk.gray(`   ${t(lang, '다음 명령', 'next')}: ${check.suggestedCommand}`));
+      console.log(
+        chalk.gray(
+          `   ${t(lang, '다음 명령', 'next')}: ${check.suggestedCommand}`
+        )
+      );
     }
   }
   console.log();
@@ -177,16 +191,37 @@ function printOnboardResult(lang: 'ko' | 'en', result: OnboardResult): void {
     )
   );
   if (result.status === 'ready') {
-    console.log(chalk.green(t(lang, '온보딩 준비가 완료되었습니다.', 'Onboarding checks passed.')));
+    console.log(
+      chalk.green(
+        t(lang, '온보딩 준비가 완료되었습니다.', 'Onboarding checks passed.')
+      )
+    );
   } else if (result.status === 'needs_action') {
-    console.log(chalk.yellow(t(lang, '추가 정리가 필요합니다.', 'Some onboarding actions are required.')));
+    console.log(
+      chalk.yellow(
+        t(
+          lang,
+          '추가 정리가 필요합니다.',
+          'Some onboarding actions are required.'
+        )
+      )
+    );
   } else {
-    console.log(chalk.red(t(lang, '온보딩 선행 작업이 필요합니다.', 'Onboarding is blocked by required setup.')));
+    console.log(
+      chalk.red(
+        t(
+          lang,
+          '온보딩 선행 작업이 필요합니다.',
+          'Onboarding is blocked by required setup.'
+        )
+      )
+    );
   }
   console.log();
 }
 
-async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof getConfig>>>): Promise<OnboardResult> {
+async function runOnboardChecks(ctx: CliContext): Promise<OnboardResult> {
+  const { config } = ctx;
   const lang = config.lang;
   const checks: OnboardCheck[] = [];
   const docsDir = config.docsDir;
@@ -210,7 +245,11 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
       id: 'docs_git_repo',
       status: 'ok',
       title: t(lang, 'docs Git 레포 초기화', 'Docs git repository initialized'),
-      message: t(lang, 'docs Git 레포가 확인되었습니다.', 'Docs git repository is available.'),
+      message: t(
+        lang,
+        'docs Git 레포가 확인되었습니다.',
+        'Docs git repository is available.'
+      ),
       path: docsDir,
     });
 
@@ -234,7 +273,11 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
         id: 'docs_initial_commit',
         status: 'ok',
         title: t(lang, 'docs 초기 커밋', 'Docs initial commit'),
-        message: t(lang, 'docs 초기 커밋이 존재합니다.', 'Initial commit exists in docs repo.'),
+        message: t(
+          lang,
+          'docs 초기 커밋이 존재합니다.',
+          'Initial commit exists in docs repo.'
+        ),
         path: docsDir,
       });
     }
@@ -272,7 +315,11 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
         id: 'docs_worktree',
         status: 'ok',
         title: t(lang, 'docs 작업 트리 상태', 'Docs worktree status'),
-        message: t(lang, 'docs 작업 트리가 깨끗합니다.', 'Docs worktree is clean.'),
+        message: t(
+          lang,
+          'docs 작업 트리가 깨끗합니다.',
+          'Docs worktree is clean.'
+        ),
         path: docsDir,
       });
     }
@@ -311,7 +358,11 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
         id: 'constitution_filled',
         status: 'ok',
         title: t(lang, 'Constitution 작성', 'Constitution setup'),
-        message: t(lang, 'Constitution이 작성되었습니다.', 'Constitution looks filled.'),
+        message: t(
+          lang,
+          'Constitution이 작성되었습니다.',
+          'Constitution looks filled.'
+        ),
         path: constitutionPath,
       });
     }
@@ -337,15 +388,19 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
         id: 'custom_optional',
         status: 'ok',
         title: t(lang, 'Custom 규칙 문서', 'Custom rules doc'),
-        message: t(lang, 'Custom 규칙 문서가 구성되었습니다.', 'Custom rules doc looks configured.'),
+        message: t(
+          lang,
+          'Custom 규칙 문서가 구성되었습니다.',
+          'Custom rules doc looks configured.'
+        ),
         path: customPath,
       });
     }
   }
 
   const prdDir = path.join(docsDir, 'prd');
-  const featureCount = await countFeatureDirs(docsDir, config.projectType);
-  const prdReady = await hasUserPrdFile(prdDir);
+  const featureCount = await countFeatureDirs(ctx, docsDir, config.projectType);
+  const prdReady = await hasUserPrdFile(ctx, prdDir);
   if (!prdReady) {
     checks.push({
       id: 'prd_ready',
@@ -371,7 +426,11 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
       id: 'prd_ready',
       status: 'ok',
       title: t(lang, 'PRD 준비 상태', 'PRD readiness'),
-      message: t(lang, 'PRD 문서가 확인되었습니다.', 'PRD document is present.'),
+      message: t(
+        lang,
+        'PRD 문서가 확인되었습니다.',
+        'PRD document is present.'
+      ),
       path: prdDir,
     });
   }
@@ -384,7 +443,7 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
         : ['single'];
 
     for (const key of projectKeys) {
-      const resolved = resolveProjectGitCwd(config, key, lang);
+      const resolved = resolveProjectGitCwd(ctx, key, lang);
       const title = t(
         lang,
         config.projectType === 'multi'
@@ -492,7 +551,11 @@ async function runOnboardChecks(config: NonNullable<Awaited<ReturnType<typeof ge
         id: 'docs_origin',
         status: 'ok',
         title: t(lang, 'docs origin 설정', 'Docs origin configured'),
-        message: t(lang, `origin이 설정되어 있습니다: ${origin}`, `origin is configured: ${origin}`),
+        message: t(
+          lang,
+          `origin이 설정되어 있습니다: ${origin}`,
+          `origin is configured: ${origin}`
+        ),
         path: docsDir,
       });
     }
@@ -546,7 +609,8 @@ async function runOnboard(options: OnboardOptions): Promise<void> {
     );
   }
   const lang = config.lang;
-  const result = await runOnboardChecks(config);
+  const ctx = (await createCliContext({ cwd: process.cwd() }))!;
+  const result = await runOnboardChecks(ctx);
 
   if (options.json) {
     const payload = {

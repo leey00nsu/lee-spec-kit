@@ -14,6 +14,7 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
+import { createCliContext } from '../utils/cli-context.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
 
 interface ViewOptions extends ContextSelectionOptions {
@@ -72,7 +73,8 @@ async function runView(
   }
 
   const selectedComponent = resolveComponentOption(options.component);
-  const state = await resolveContextSelection(config, featureName, {
+  const ctx = (await createCliContext({ cwd }))!;
+  const state = await resolveContextSelection(ctx, featureName, {
     component: selectedComponent,
     all: options.all,
     done: options.done,
@@ -133,7 +135,9 @@ async function runView(
 
   if (!state.matchedFeature) {
     console.log();
-    console.log(chalk.blue(`Selection: ${state.status} (${toReasonCode(state.status)})`));
+    console.log(
+      chalk.blue(`Selection: ${state.status} (${toReasonCode(state.status)})`)
+    );
     const rows =
       state.targetFeatures.length > 0 ? state.targetFeatures : state.features;
     for (const f of rows) {
@@ -154,9 +158,7 @@ async function runView(
           ? `Tip: npx lee-spec-kit view <slug|F001|F001-slug> --component ${selectedComponent}`
           : 'Tip: npx lee-spec-kit view <slug|F001|F001-slug> [--component <component>]'
         : 'Tip: npx lee-spec-kit view <slug|F001|F001-slug>';
-    console.log(
-      chalk.gray(selectorTip)
-    );
+    console.log(chalk.gray(selectorTip));
     console.log();
     return;
   }
@@ -175,7 +177,9 @@ async function runView(
   console.log(`- Progress: ${completion}`);
   console.log(`- Step: ${f.currentStep}`);
   const nextSummary =
-    state.actionOptions.length > 0 ? state.actionOptions[0].detail : f.nextAction;
+    state.actionOptions.length > 0
+      ? state.actionOptions[0].detail
+      : f.nextAction;
   console.log(`- Next: ${nextSummary}`);
 
   if (state.actionOptions.length > 0) {

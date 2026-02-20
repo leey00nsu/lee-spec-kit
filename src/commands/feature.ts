@@ -9,6 +9,7 @@ import {
   resolveProjectComponents,
 } from '../utils/components.js';
 import { replaceInFiles } from '../utils/template.js';
+import { DefaultFileSystemAdapter } from '../adapters/DefaultFileSystemAdapter.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   getDocsLockPath,
@@ -107,7 +108,7 @@ export function featureCommand(program: Command): void {
             })
           );
           process.exitCode = 1;
-        return;
+          return;
         }
         console.error(
           chalk.red(tr(lang, 'cli', 'common.errorLabel')),
@@ -210,7 +211,11 @@ async function runFeature(
         );
         featureId = options.id;
       } else {
-        featureId = await getNextFeatureId(docsDir, projectType, configuredComponents);
+        featureId = await getNextFeatureId(
+          docsDir,
+          projectType,
+          configuredComponents
+        );
       }
 
       // 기능 폴더 경로
@@ -241,7 +246,10 @@ async function runFeature(
         'feature-base'
       );
       if (!(await fs.pathExists(featureBasePath))) {
-        throw createCliError('DOCS_NOT_FOUND', tr(lang, 'cli', 'feature.baseNotFound'));
+        throw createCliError(
+          'DOCS_NOT_FOUND',
+          tr(lang, 'cli', 'feature.baseNotFound')
+        );
       }
 
       await fs.copy(featureBasePath, featureDir);
@@ -284,7 +292,8 @@ async function runFeature(
         replacements['상태'] = 'Status';
       }
 
-      await replaceInFiles(featureDir, replacements);
+      const fsAdapter = new DefaultFileSystemAdapter();
+      await replaceInFiles(fsAdapter, featureDir, replacements);
 
       if (config.workflow?.mode === 'local') {
         await applyLocalWorkflowTemplateToFeatureDir(featureDir, lang);
@@ -292,10 +301,16 @@ async function runFeature(
 
       if (!options.json) {
         console.log();
-        console.log(chalk.green(tr(lang, 'cli', 'feature.created', { path: featureDir })));
+        console.log(
+          chalk.green(tr(lang, 'cli', 'feature.created', { path: featureDir }))
+        );
         console.log();
         console.log(chalk.blue(tr(lang, 'cli', 'feature.nextStepsTitle')));
-        console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps1', { path: featureDir })));
+        console.log(
+          chalk.gray(
+            tr(lang, 'cli', 'feature.nextSteps1', { path: featureDir })
+          )
+        );
         console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps2')));
         console.log(chalk.gray(tr(lang, 'cli', 'feature.nextSteps3')));
         console.log();
@@ -364,7 +379,9 @@ async function getNextFeatureId(
   const scanDirs: string[] = [];
 
   if (projectType === 'multi') {
-    scanDirs.push(...components.map((component) => path.join(featuresDir, component)));
+    scanDirs.push(
+      ...components.map((component) => path.join(featuresDir, component))
+    );
   } else {
     scanDirs.push(featuresDir);
   }

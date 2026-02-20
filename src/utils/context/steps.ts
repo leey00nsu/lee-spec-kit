@@ -1,7 +1,6 @@
 import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
-import { ProjectConfig } from '../config.js';
-import { execFileSync } from 'child_process';
+import { CliContext } from '../cli-context.js';
 import path from 'path';
 import {
   resolvePrePrReviewPolicy,
@@ -223,13 +222,16 @@ function normalizeGitRelativePath(value: string): string {
     .replace(/\/+$/, '');
 }
 
-function readGitText(cwd: string, args: string[]): string | undefined {
+function readGitText(
+  ctx: Pick<CliContext, 'cmd'>,
+  cwd: string,
+  args: string[]
+): string | undefined {
   try {
-    return execFileSync('git', args, {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const result = ctx.cmd.runSync('git', args, cwd);
+    if (result.code !== 0) return undefined;
+    if (!result.stdout) return undefined;
+    return result.stdout;
   } catch {
     return undefined;
   }
@@ -254,6 +256,7 @@ function toTaskKey(rawTitle: string): string {
 }
 
 function countDoneTransitionsInLatestTasksCommit(
+  ctx: Pick<CliContext, 'cmd'>,
   feature: FeatureState
 ): number | undefined {
   const docsGitCwd = feature.git.docsGitCwd;
@@ -261,7 +264,7 @@ function countDoneTransitionsInLatestTasksCommit(
     path.join(feature.docs.featurePathFromDocs, 'tasks.md')
   );
 
-  const diff = readGitText(docsGitCwd, [
+  const diff = readGitText(ctx, docsGitCwd, [
     'diff',
     '--unified=0',
     '--no-color',
@@ -335,8 +338,11 @@ function countDoneTransitionsInLatestTasksCommit(
   return doneTransitions;
 }
 
-function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
-  const doneTransitions = countDoneTransitionsInLatestTasksCommit(feature);
+function checkTaskCommitGate(
+  ctx: Pick<CliContext, 'cmd'>,
+  feature: FeatureState
+): TaskCommitGateCheck {
+  const doneTransitions = countDoneTransitionsInLatestTasksCommit(ctx, feature);
   if (doneTransitions === 0) {
     // Docs-only edits (e.g., adding/changing TODO text) should not trigger
     // project commit gate checks.
@@ -368,7 +374,7 @@ function checkTaskCommitGate(feature: FeatureState): TaskCommitGateCheck {
     args.push(`:(exclude)${normalizedDocsDir}/**`);
   }
 
-  const latestProjectSubject = readGitText(projectGitCwd, args);
+  const latestProjectSubject = readGitText(ctx, projectGitCwd, args);
   if (latestProjectSubject === undefined) {
     return { pass: false, reason: 'PROJECT_LOG_UNAVAILABLE' };
   }
@@ -405,10 +411,9 @@ function getTaskCommitGateReasonText(
   }
 }
 
-export function getStepDefinitions(
-  lang: Lang,
-  workflow?: ProjectConfig['workflow']
-): StepDefinition[] {
+export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
+  const lang = ctx.config.lang;
+  const workflow = ctx.config.workflow;
   const workflowPolicy = resolveWorkflowPolicy(workflow);
   const prePrReviewPolicy = resolvePrePrReviewPolicy(workflow);
   const taskCommitGatePolicy = resolveTaskCommitGatePolicy(workflow);
@@ -949,7 +954,11 @@ export function getStepDefinitions(
             }
 
             if (taskCommitGatePolicy !== 'off' && f.lastDoneTask) {
-              const commitGate = checkTaskCommitGate(f);
+              if (!f.git.docsGitCwd) {
+                return [];
+              }
+
+              const commitGate = checkTaskCommitGate(ctx, f);
               if (!commitGate.pass) {
                 const reasonText = getTaskCommitGateReasonText(
                   lang,
@@ -1474,14 +1483,8 @@ export function getStepDefinitions(
   ];
 }
 
-export function getStepsMap(
-  lang: Lang,
-  workflow?: ProjectConfig['workflow']
-): Record<number, string> {
+export function getStepsMap(ctx: CliContext): Record<number, string> {
   return Object.fromEntries(
-    getStepDefinitions(lang, workflow).map((d) => [d.step, d.name])
+    getStepDefinitions(ctx).map((d) => [d.step, d.name])
   );
 }
-
-export const STEP_DEFINITIONS: StepDefinition[] = getStepDefinitions('ko');
-export const STEPS: Record<number, string> = getStepsMap('ko');

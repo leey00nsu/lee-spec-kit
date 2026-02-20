@@ -1,21 +1,24 @@
-import { execFileSync } from 'child_process';
 import path from 'path';
-import { ProjectConfig } from '../config.js';
+import { CliContext } from '../cli-context.js';
 import { DEFAULT_LANG, Lang, tr } from '../i18n.js';
 
-export function getCurrentBranch(cwd: string): string {
+export function getCurrentBranch(ctx: CliContext, cwd: string): string {
   try {
-    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
+    return ctx.cmd
+      .execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString()
+      .trim();
   } catch {
     return '';
   }
 }
 
 export function getGitStatusPorcelain(
+  ctx: CliContext,
   cwd: string,
   relativePaths: string[]
 ): string | undefined {
@@ -25,11 +28,13 @@ export function getGitStatusPorcelain(
     if (normalizedPaths.length > 0) {
       args.push('--', ...normalizedPaths);
     }
-    return execFileSync('git', args, {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    return ctx.cmd
+      .execFileSync('git', args, {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString();
   } catch {
     return undefined;
   }
@@ -56,17 +61,20 @@ function toUniqueNormalizedPaths(relativePaths: string[]): string[] {
 }
 
 export function getTrackedGitPaths(
+  ctx: CliContext,
   cwd: string,
   relativePaths: string[]
 ): Set<string> | undefined {
   const inputs = toUniqueNormalizedPaths(relativePaths);
   if (inputs.length === 0) return new Set<string>();
   try {
-    const out = execFileSync('git', ['ls-files', '--', ...inputs], {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const out = ctx.cmd
+      .execFileSync('git', ['ls-files', '--', ...inputs], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString();
     return new Set(
       out
         .split('\n')
@@ -79,6 +87,7 @@ export function getTrackedGitPaths(
 }
 
 export function getIgnoredGitPaths(
+  ctx: CliContext,
   cwd: string,
   relativePaths: string[]
 ): Set<string> | undefined {
@@ -86,12 +95,14 @@ export function getIgnoredGitPaths(
   if (inputs.length === 0) return new Set<string>();
 
   try {
-    const out = execFileSync('git', ['check-ignore', '--stdin'], {
-      cwd,
-      encoding: 'utf-8',
-      input: `${inputs.join('\n')}\n`,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const out = ctx.cmd
+      .execFileSync('git', ['check-ignore', '--stdin'], {
+        cwd,
+        encoding: 'utf-8',
+        input: `${inputs.join('\n')}\n`,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      .toString();
     return new Set(
       out
         .split('\n')
@@ -108,21 +119,25 @@ export function getIgnoredGitPaths(
 }
 
 export function getLastCommitForPath(
+  ctx: CliContext,
   cwd: string,
   relativePath: string
 ): string | undefined {
   const normalizedPath = normalizeInputPath(relativePath);
   if (!normalizedPath) return undefined;
   try {
-    const out = execFileSync(
-      'git',
-      ['rev-list', '-n', '1', 'HEAD', '--', normalizedPath],
-      {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    ).trim();
+    const out = ctx.cmd
+      .execFileSync(
+        'git',
+        ['rev-list', '-n', '1', 'HEAD', '--', normalizedPath],
+        {
+          cwd,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }
+      )
+      .toString()
+      .trim();
     return out || undefined;
   } catch {
     return undefined;
@@ -130,11 +145,12 @@ export function getLastCommitForPath(
 }
 
 export function isGitPathIgnored(
+  ctx: CliContext,
   cwd: string,
   relativePath: string
 ): boolean | undefined {
   try {
-    execFileSync('git', ['check-ignore', '-q', '--', relativePath], {
+    ctx.cmd.execFileSync('git', ['check-ignore', '-q', '--', relativePath], {
       cwd,
       stdio: 'ignore',
     });
@@ -159,30 +175,38 @@ export function resetContextGitCaches(): void {
   GIT_WORKTREE_CACHE.clear();
 }
 
-function getGitTopLevel(cwd: string): string | null {
+function getGitTopLevel(ctx: CliContext, cwd: string): string | null {
   try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
+    return ctx.cmd
+      .execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString()
+      .trim();
   } catch {
     return null;
   }
 }
 
-function listGitWorktrees(cwd: string): GitWorktreeEntry[] | undefined {
-  const topLevel = getGitTopLevel(cwd) || cwd;
+function listGitWorktrees(
+  ctx: CliContext,
+  cwd: string
+): GitWorktreeEntry[] | undefined {
+  const topLevel = getGitTopLevel(ctx, cwd) || cwd;
   const cacheKey = path.resolve(topLevel);
   const cached = GIT_WORKTREE_CACHE.get(cacheKey);
   if (cached) return cached;
 
   try {
-    const out = execFileSync('git', ['worktree', 'list', '--porcelain'], {
-      cwd: topLevel,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const out = ctx.cmd
+      .execFileSync('git', ['worktree', 'list', '--porcelain'], {
+        cwd: topLevel,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString();
     const entries: GitWorktreeEntry[] = [];
     let current: GitWorktreeEntry | null = null;
 
@@ -216,25 +240,27 @@ function listGitWorktrees(cwd: string): GitWorktreeEntry[] | undefined {
 }
 
 export function findWorktreePathForBranch(
+  ctx: CliContext,
   cwd: string,
   branchName: string
 ): string | undefined {
   const target = branchName.trim();
   if (!target) return undefined;
-  const entries = listGitWorktrees(cwd);
+  const entries = listGitWorktrees(ctx, cwd);
   if (!entries) return undefined;
   const match = entries.find((entry) => entry.branch === target);
   return match?.path;
 }
 
 export function resolveProjectGitCwd(
-  config: ProjectConfig,
+  ctx: CliContext,
   repo: string,
-  lang: Lang = config.lang ?? DEFAULT_LANG
+  lang: Lang = ctx.config.lang ?? DEFAULT_LANG
 ): { cwd: string | null; warning?: string } {
+  const config = ctx.config;
   const docsRepo = config.docsRepo;
   if (docsRepo !== 'standalone') {
-    const topLevel = getGitTopLevel(process.cwd());
+    const topLevel = getGitTopLevel(ctx, process.cwd());
     return { cwd: topLevel || process.cwd() };
   }
 
@@ -261,7 +287,7 @@ export function resolveProjectGitCwd(
         }),
       };
     }
-    return { cwd: getGitTopLevel(root) || root };
+    return { cwd: getGitTopLevel(ctx, root) || root };
   }
 
   if (typeof config.projectRoot !== 'string') {
@@ -270,7 +296,7 @@ export function resolveProjectGitCwd(
       warning: tr(lang, 'cli', 'context.git.singleProjectRootShapeInvalid'),
     };
   }
-  return { cwd: getGitTopLevel(config.projectRoot) || config.projectRoot };
+  return { cwd: getGitTopLevel(ctx, config.projectRoot) || config.projectRoot };
 }
 
 export function isExpectedFeatureBranch(

@@ -1,6 +1,5 @@
-import fs from 'fs-extra';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { CliContext } from '../cli-context.js';
 import { tr } from '../i18n.js';
 import {
   findWorktreePathForBranch,
@@ -58,7 +57,10 @@ function hasAnySpecKey(content: string, keys: string[]): boolean {
   return keys.some((key) => hasSpecKey(content, key));
 }
 
-function extractFirstSpecValue(content: string, keys: string[]): string | undefined {
+function extractFirstSpecValue(
+  content: string,
+  keys: string[]
+): string | undefined {
   for (const key of keys) {
     const value = extractSpecValue(content, key);
     if (value) return value;
@@ -79,7 +81,9 @@ function parseDocStatus(value: string | undefined): DocStatus | undefined {
   return 'Approved';
 }
 
-function parseWorkflowDocStatus(value: string | undefined): WorkflowDocStatus | undefined {
+function parseWorkflowDocStatus(
+  value: string | undefined
+): WorkflowDocStatus | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('|')) return undefined;
@@ -102,7 +106,9 @@ function parseWorkflowDocStatus(value: string | undefined): WorkflowDocStatus | 
   return undefined;
 }
 
-function parsePrReviewStatus(value: string | undefined): PrReviewStatus | undefined {
+function parsePrReviewStatus(
+  value: string | undefined
+): PrReviewStatus | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('|')) return undefined;
@@ -158,9 +164,7 @@ function parsePrePrDecisionOutcome(
   if (!structured) return undefined;
 
   const payload = structured[1].trim().toLowerCase();
-  const normalized = payload
-    .split(/[,\s-]+/)[0]
-    ?.replace(/[^a-z_]/g, '');
+  const normalized = payload.split(/[,\s-]+/)[0]?.replace(/[^a-z_]/g, '');
   if (!normalized) return undefined;
 
   if (normalized === 'approve' || normalized === 'approved') {
@@ -186,21 +190,33 @@ function resolveEvidencePathValue(value: string): string {
   return trimmed.split(/\s+/)[0] || '';
 }
 
-function splitReviewLogSections(content: string, headerRegex: RegExp): string[] {
-  const normalizedHeaderRegex = new RegExp(headerRegex.source, headerRegex.flags);
+function splitReviewLogSections(
+  content: string,
+  headerRegex: RegExp
+): string[] {
+  const normalizedHeaderRegex = new RegExp(
+    headerRegex.source,
+    headerRegex.flags
+  );
   const matches = [...content.matchAll(normalizedHeaderRegex)];
   if (matches.length === 0) return [];
 
   const sections: string[] = [];
   for (let i = 0; i < matches.length; i += 1) {
     const start = matches[i].index ?? 0;
-    const end = i + 1 < matches.length ? (matches[i + 1].index ?? content.length) : content.length;
+    const end =
+      i + 1 < matches.length
+        ? (matches[i + 1].index ?? content.length)
+        : content.length;
     sections.push(content.slice(start, end));
   }
   return sections;
 }
 
-function collectStructuredReviewEntries(section: string, keys: string[]): string[] {
+function collectStructuredReviewEntries(
+  section: string,
+  keys: string[]
+): string[] {
   const lines = section.split('\n');
   const escaped = keys.map((key) => escapeRegExp(key));
   const fieldRegex = new RegExp(
@@ -263,7 +279,10 @@ function hasReviewLogQuality(
   for (const section of sections) {
     const summaryEntries = collectStructuredReviewEntries(section, summaryKeys);
     if (!hasValidReviewLogEntries(summaryEntries)) continue;
-    const decisionEntries = collectStructuredReviewEntries(section, decisionKeys);
+    const decisionEntries = collectStructuredReviewEntries(
+      section,
+      decisionKeys
+    );
     if (!hasValidReviewLogEntries(decisionEntries)) continue;
 
     return true;
@@ -340,21 +359,28 @@ function hasPrePrReviewLogQuality(content: string): boolean {
   return false;
 }
 
-const PRE_PR_REVIEW_LOG_HEADER = /^##\s+(?:Pre-PR Review Log|PR 전 리뷰 로그)\b.*$/gim;
+const PRE_PR_REVIEW_LOG_HEADER =
+  /^##\s+(?:Pre-PR Review Log|PR 전 리뷰 로그)\b.*$/gim;
 const PR_REVIEW_LOG_HEADER = /^##\s+(?:PR Review Log|PR 리뷰 로그)\b.*$/gim;
 
-async function hasPrePrReviewLogEvidence(candidatePath: string): Promise<boolean> {
+async function hasPrePrReviewLogEvidence(
+  ctx: CliContext,
+  candidatePath: string
+): Promise<boolean> {
   try {
-    const content = await fs.readFile(candidatePath, 'utf-8');
+    const content = await ctx.fs.readFile(candidatePath, 'utf-8');
     return hasPrePrReviewLogQuality(content);
   } catch {
     return false;
   }
 }
 
-async function hasPrReviewLogEvidence(candidatePath: string): Promise<boolean> {
+async function hasPrReviewLogEvidence(
+  ctx: CliContext,
+  candidatePath: string
+): Promise<boolean> {
   try {
-    const content = await fs.readFile(candidatePath, 'utf-8');
+    const content = await ctx.fs.readFile(candidatePath, 'utf-8');
     return hasReviewLogQuality(
       content,
       PR_REVIEW_LOG_HEADER,
@@ -387,17 +413,19 @@ function resolveLocalEvidencePathCandidates(
 }
 
 async function resolveExistingEvidencePath(
+  ctx: CliContext,
   rawValue: string | undefined,
   context: { featurePath: string; docsDir: string }
 ): Promise<string | undefined> {
   const candidates = resolveLocalEvidencePathCandidates(rawValue, context);
   for (const candidate of candidates) {
-    if (await fs.pathExists(candidate)) return candidate;
+    if (await ctx.fs.pathExists(candidate)) return candidate;
   }
   return undefined;
 }
 
 async function isPrePrEvidenceProvided(
+  ctx: CliContext,
   rawValue: string | undefined,
   policy: ReturnType<typeof resolvePrePrReviewPolicy>,
   context: {
@@ -406,17 +434,22 @@ async function isPrePrEvidenceProvided(
   }
 ): Promise<boolean> {
   if (isPlaceholderReviewEvidence(rawValue)) return false;
-  const existingEvidencePath = await resolveExistingEvidencePath(rawValue, context);
+  const existingEvidencePath = await resolveExistingEvidencePath(
+    ctx,
+    rawValue,
+    context
+  );
 
   if (policy.evidenceMode !== 'path_required') {
     if (!existingEvidencePath) return true;
-    return hasPrePrReviewLogEvidence(existingEvidencePath);
+    return hasPrePrReviewLogEvidence(ctx, existingEvidencePath);
   }
   if (!existingEvidencePath) return false;
-  return hasPrePrReviewLogEvidence(existingEvidencePath);
+  return hasPrePrReviewLogEvidence(ctx, existingEvidencePath);
 }
 
 async function isPrReviewEvidenceProvided(
+  ctx: CliContext,
   rawValue: string | undefined,
   context: {
     featurePath: string;
@@ -425,9 +458,13 @@ async function isPrReviewEvidenceProvided(
 ): Promise<boolean> {
   if (isPlaceholderReviewEvidence(rawValue)) return false;
   if (hasStructuredReviewSummary(rawValue)) return true;
-  const existingEvidencePath = await resolveExistingEvidencePath(rawValue, context);
+  const existingEvidencePath = await resolveExistingEvidencePath(
+    ctx,
+    rawValue,
+    context
+  );
   if (!existingEvidencePath) return false;
-  return hasPrReviewLogEvidence(existingEvidencePath);
+  return hasPrReviewLogEvidence(ctx, existingEvidencePath);
 }
 
 function parseIssueNumber(value: string | undefined): string | undefined {
@@ -465,7 +502,10 @@ function resolveProjectStatusPaths(
     return [];
   }
 
-  const normalizedDocsDir = normalizeGitPath(relativeDocsDir).replace(/\/+$/, '');
+  const normalizedDocsDir = normalizeGitPath(relativeDocsDir).replace(
+    /\/+$/,
+    ''
+  );
   if (!normalizedDocsDir) return [];
   return ['.', `:(exclude)${normalizedDocsDir}/**`];
 }
@@ -474,7 +514,9 @@ function uniqueNormalizedPaths(values: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const value of values) {
-    const normalized = normalizeGitPath(value).replace(/^\.\/+/, '').replace(/\/+$/, '');
+    const normalized = normalizeGitPath(value)
+      .replace(/^\.\/+/, '')
+      .replace(/\/+$/, '');
     if (!normalized || normalized === '.' || normalized === '..') continue;
     if (seen.has(normalized)) continue;
     seen.add(normalized);
@@ -500,6 +542,7 @@ export function resetContextParseCaches(): void {
 }
 
 function resolveFeatureWorktreePath(
+  ctx: CliContext,
   projectGitCwd: string,
   issueNumber: string,
   slug: string,
@@ -514,13 +557,14 @@ function resolveFeatureWorktreePath(
     const cacheKey = `${projectGitCwd}::${branchName}`;
     let foundPath = FEATURE_WORKTREE_CACHE.get(cacheKey);
     if (typeof foundPath === 'undefined') {
-      foundPath = findWorktreePathForBranch(projectGitCwd, branchName) || null;
+      foundPath =
+        findWorktreePathForBranch(ctx, projectGitCwd, branchName) || null;
       FEATURE_WORKTREE_CACHE.set(cacheKey, foundPath);
     }
     if (!foundPath) continue;
     return {
       cwd: foundPath,
-      branch: getCurrentBranch(foundPath) || branchName,
+      branch: getCurrentBranch(ctx, foundPath) || branchName,
     };
   }
   return undefined;
@@ -532,8 +576,12 @@ function toUpperToken(value: unknown): string | undefined {
   return normalized || undefined;
 }
 
-function parseCheckSignal(check: unknown): { failing: boolean; pending: boolean } {
-  if (!check || typeof check !== 'object') return { failing: false, pending: false };
+function parseCheckSignal(check: unknown): {
+  failing: boolean;
+  pending: boolean;
+} {
+  if (!check || typeof check !== 'object')
+    return { failing: false, pending: false };
   const row = check as Record<string, unknown>;
   const tokens = new Set<string>();
   for (const key of ['conclusion', 'status', 'state']) {
@@ -585,6 +633,7 @@ function isMergeBlockedState(value: string | undefined): boolean {
 }
 
 function resolvePrRemoteStatus(
+  ctx: CliContext,
   prRef: string,
   projectGitCwd: string
 ): PrRemoteStatus | null {
@@ -594,23 +643,26 @@ function resolvePrRemoteStatus(
   }
 
   try {
-    const raw = execFileSync(
-      'gh',
-      [
-        'pr',
-        'view',
-        prRef,
-        '--json',
-        'state,mergedAt,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup',
-      ],
-      {
-        cwd: projectGitCwd,
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 5000,
-        maxBuffer: 1024 * 1024,
-      }
-    ).trim();
+    const raw = ctx.cmd
+      .execFileSync(
+        'gh',
+        [
+          'pr',
+          'view',
+          prRef,
+          '--json',
+          'state,mergedAt,reviewDecision,mergeStateStatus,isDraft,statusCheckRollup',
+        ],
+        {
+          cwd: projectGitCwd,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          timeout: 5000,
+          maxBuffer: 1024 * 1024,
+        }
+      )
+      .toString()
+      .trim();
     if (!raw) {
       PR_REMOTE_STATUS_CACHE.set(cacheKey, null);
       return null;
@@ -648,8 +700,10 @@ function resolvePrRemoteStatus(
       mergeStateStatus,
       isDraft,
       hasBlockingReview:
-        reviewDecision === 'CHANGES_REQUESTED' || reviewDecision === 'REVIEW_REQUIRED',
-      mergeBlocked: !isMerged && (isDraft || isMergeBlockedState(mergeStateStatus)),
+        reviewDecision === 'CHANGES_REQUESTED' ||
+        reviewDecision === 'REVIEW_REQUIRED',
+      mergeBlocked:
+        !isMerged && (isDraft || isMergeBlockedState(mergeStateStatus)),
       failingChecks,
       pendingChecks,
     };
@@ -662,18 +716,26 @@ function resolvePrRemoteStatus(
 }
 
 function resolveBranchDivergence(
+  ctx: CliContext,
   projectGitCwd: string
-): { hasUpstream: boolean; ahead: number; behind: number } {
+): {
+  hasUpstream: boolean;
+  ahead: number;
+  behind: number;
+} {
   try {
-    const raw = execFileSync(
-      'git',
-      ['rev-list', '--left-right', '--count', 'HEAD...@{upstream}'],
-      {
-        cwd: projectGitCwd,
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    ).trim();
+    const raw = ctx.cmd
+      .execFileSync(
+        'git',
+        ['rev-list', '--left-right', '--count', 'HEAD...@{upstream}'],
+        {
+          cwd: projectGitCwd,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }
+      )
+      .toString()
+      .trim();
     const match = raw.match(/^(\d+)\s+(\d+)$/);
     if (!match) {
       return { hasUpstream: false, ahead: 0, behind: 0 };
@@ -690,6 +752,7 @@ function resolveBranchDivergence(
 }
 
 async function resolveComponentStatusPaths(
+  ctx: CliContext,
   projectGitCwd: string,
   component: string,
   workflow?: ProjectConfig['workflow']
@@ -717,7 +780,8 @@ async function resolveComponentStatusPaths(
         if (!path.isAbsolute(candidate)) return candidate;
         const relative = path.relative(projectGitCwd, candidate);
         if (!relative) return '';
-        if (relative === '..' || relative.startsWith(`..${path.sep}`)) return '';
+        if (relative === '..' || relative.startsWith(`..${path.sep}`))
+          return '';
         return relative;
       })
       .filter(Boolean)
@@ -733,7 +797,7 @@ async function resolveComponentStatusPaths(
 
   const existing: string[] = [];
   for (const candidate of normalizedCandidates) {
-    if (await fs.pathExists(path.join(projectGitCwd, candidate))) {
+    if (await ctx.fs.pathExists(path.join(projectGitCwd, candidate))) {
       existing.push(candidate);
     }
   }
@@ -762,7 +826,9 @@ function parseTasks(content: string): {
     }
     if (inCodeBlock) continue;
 
-    const match = line.match(/^\s*-\s*\[([A-Z]+)\]((?:\[[^\]]+\])*)\s*(.+?)\s*$/);
+    const match = line.match(
+      /^\s*-\s*\[([A-Z]+)\]((?:\[[^\]]+\])*)\s*(.+?)\s*$/
+    );
     if (!match) continue;
 
     const status = match[1].toUpperCase();
@@ -789,7 +855,9 @@ function parseTasks(content: string): {
   return { summary, activeTask, lastDoneTask, nextTodoTask };
 }
 
-function parseCompletionChecklist(content: string): CompletionChecklistSummary | undefined {
+function parseCompletionChecklist(
+  content: string
+): CompletionChecklistSummary | undefined {
   const lines = content.split('\n');
   const startIndex = lines.findIndex((line) =>
     /^\s*##\s+(완료 조건|Completion Criteria)\s*$/.test(line)
@@ -845,7 +913,10 @@ function isPrePrReviewSatisfied(
   policy: ReturnType<typeof resolvePrePrReviewPolicy>
 ): boolean {
   if (!policy.enabled) return true;
-  if (!feature.docs.prePrReviewFieldExists || feature.prePrReview.status !== 'Done') {
+  if (
+    !feature.docs.prePrReviewFieldExists ||
+    feature.prePrReview.status !== 'Done'
+  ) {
     return false;
   }
   if (
@@ -867,6 +938,7 @@ function isPrePrReviewSatisfied(
 }
 
 export async function parseFeature(
+  ctx: CliContext,
   featurePath: string,
   type: RepoType,
   context: {
@@ -907,14 +979,18 @@ export async function parseFeature(
 
   let specStatus: DocStatus | undefined;
   let issueNumber: string | undefined;
-  const specExists = await fs.pathExists(specPath);
+  const specExists = await ctx.fs.pathExists(specPath);
 
   if (specExists) {
-    const content = await fs.readFile(specPath, 'utf-8');
+    const content = await ctx.fs.readFile(specPath, 'utf-8');
     const statusValue = extractFirstSpecValue(content, ['상태', 'Status']);
     specStatus = parseDocStatus(statusValue);
 
-    const issueValue = extractFirstSpecValue(content, ['이슈 번호', 'Issue Number', 'Issue']);
+    const issueValue = extractFirstSpecValue(content, [
+      '이슈 번호',
+      'Issue Number',
+      'Issue',
+    ]);
     issueNumber = parseIssueNumber(issueValue);
   }
 
@@ -931,6 +1007,7 @@ export async function parseFeature(
     );
     if (!alreadyExpected) {
       const worktree = resolveFeatureWorktreePath(
+        ctx,
         effectiveProjectGitCwd,
         issueNumber,
         slug,
@@ -945,15 +1022,15 @@ export async function parseFeature(
   }
 
   let planStatus: DocStatus | undefined;
-  const planExists = await fs.pathExists(planPath);
+  const planExists = await ctx.fs.pathExists(planPath);
 
   if (planExists) {
-    const content = await fs.readFile(planPath, 'utf-8');
+    const content = await ctx.fs.readFile(planPath, 'utf-8');
     const statusValue = extractFirstSpecValue(content, ['상태', 'Status']);
     planStatus = parseDocStatus(statusValue);
   }
 
-  const tasksExists = await fs.pathExists(tasksPath);
+  const tasksExists = await ctx.fs.pathExists(tasksPath);
   const tasksSummary = { total: 0, todo: 0, doing: 0, done: 0 };
   let activeTask: TaskRef | undefined;
   let lastDoneTask: TaskRef | undefined;
@@ -990,7 +1067,7 @@ export async function parseFeature(
   let prReviewDecisionFieldExists = false;
 
   if (tasksExists) {
-    const content = await fs.readFile(tasksPath, 'utf-8');
+    const content = await ctx.fs.readFile(tasksPath, 'utf-8');
     const {
       summary,
       activeTask: active,
@@ -1014,15 +1091,24 @@ export async function parseFeature(
     // tasks.md is the primary source of operational tracking metadata.
     issueNumber = parseIssueNumber(issueValue);
 
-    const tasksDocStatusValue = extractFirstSpecValue(content, ['문서 상태', 'Doc Status']);
-    tasksDocStatusFieldExists = hasAnySpecKey(content, ['문서 상태', 'Doc Status']);
+    const tasksDocStatusValue = extractFirstSpecValue(content, [
+      '문서 상태',
+      'Doc Status',
+    ]);
+    tasksDocStatusFieldExists = hasAnySpecKey(content, [
+      '문서 상태',
+      'Doc Status',
+    ]);
     tasksDocStatus = parseDocStatus(tasksDocStatusValue);
 
     const prValue = extractFirstSpecValue(content, ['PR', 'Pull Request']);
     prFieldExists = hasAnySpecKey(content, ['PR', 'Pull Request']);
     prLink = parsePrLink(prValue);
 
-    const prStatusValue = extractFirstSpecValue(content, ['PR 상태', 'PR Status']);
+    const prStatusValue = extractFirstSpecValue(content, [
+      'PR 상태',
+      'PR Status',
+    ]);
     prStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
     prStatus = parsePrReviewStatus(prStatusValue);
 
@@ -1046,6 +1132,7 @@ export async function parseFeature(
     ]);
     prePrEvidence = prePrEvidenceValue?.trim();
     prePrEvidenceProvided = await isPrePrEvidenceProvided(
+      ctx,
       prePrEvidenceValue,
       prePrReviewPolicy,
       { featurePath, docsDir: context.docsDir }
@@ -1077,6 +1164,7 @@ export async function parseFeature(
     ]);
     prReviewEvidence = prReviewEvidenceValue?.trim();
     prReviewEvidenceProvided = await isPrReviewEvidenceProvided(
+      ctx,
       prReviewEvidenceValue,
       { featurePath, docsDir: context.docsDir }
     );
@@ -1107,6 +1195,7 @@ export async function parseFeature(
     );
     if (!alreadyExpected) {
       const worktree = resolveFeatureWorktreePath(
+        ctx,
         effectiveProjectGitCwd,
         issueNumber,
         slug,
@@ -1120,10 +1209,13 @@ export async function parseFeature(
     }
   }
 
-  const issueDocExists = await fs.pathExists(issueDocPath);
+  const issueDocExists = await ctx.fs.pathExists(issueDocPath);
   if (issueDocExists) {
-    const content = await fs.readFile(issueDocPath, 'utf-8');
-    const issueDocStatusValue = extractFirstSpecValue(content, ['상태', 'Status']);
+    const content = await ctx.fs.readFile(issueDocPath, 'utf-8');
+    const issueDocStatusValue = extractFirstSpecValue(content, [
+      '상태',
+      'Status',
+    ]);
     issueDocStatusFieldExists = hasAnySpecKey(content, ['상태', 'Status']);
     issueDocStatus = parseWorkflowDocStatus(issueDocStatusValue);
 
@@ -1134,16 +1226,19 @@ export async function parseFeature(
     ]);
   }
 
-  const prDocExists = await fs.pathExists(prDocPath);
+  const prDocExists = await ctx.fs.pathExists(prDocPath);
   if (prDocExists) {
-    const content = await fs.readFile(prDocPath, 'utf-8');
+    const content = await ctx.fs.readFile(prDocPath, 'utf-8');
     const prDocStatusValue = extractFirstSpecValue(content, ['상태', 'Status']);
     prDocStatusFieldExists = hasAnySpecKey(content, ['상태', 'Status']);
     prDocStatus = parseWorkflowDocStatus(prDocStatusValue);
 
     prDocPrFieldExists = hasAnySpecKey(content, ['PR', 'Pull Request']);
 
-    prDocReviewStatusFieldExists = hasAnySpecKey(content, ['PR 상태', 'PR Status']);
+    prDocReviewStatusFieldExists = hasAnySpecKey(content, [
+      'PR 상태',
+      'PR Status',
+    ]);
   }
 
   if (
@@ -1152,7 +1247,8 @@ export async function parseFeature(
     prLink &&
     effectiveProjectGitCwd
   ) {
-    prRemote = resolvePrRemoteStatus(prLink, effectiveProjectGitCwd) || undefined;
+    prRemote =
+      resolvePrRemoteStatus(ctx, prLink, effectiveProjectGitCwd) || undefined;
   }
 
   const warnings: string[] = [];
@@ -1167,12 +1263,21 @@ export async function parseFeature(
     folderName
   );
 
-  const relativeFeaturePathFromDocs = path.relative(context.docsDir, featurePath);
-  const normalizedFeaturePathFromDocs = normalizeGitPath(relativeFeaturePathFromDocs);
+  const relativeFeaturePathFromDocs = path.relative(
+    context.docsDir,
+    featurePath
+  );
+  const normalizedFeaturePathFromDocs = normalizeGitPath(
+    relativeFeaturePathFromDocs
+  );
   const docsPathIgnored =
     typeof context.docsPathIgnored === 'boolean'
       ? context.docsPathIgnored
-      : isGitPathIgnored(context.docsGitCwd, normalizedFeaturePathFromDocs);
+      : isGitPathIgnored(
+          ctx,
+          context.docsGitCwd,
+          normalizedFeaturePathFromDocs
+        );
 
   let docsHasUncommittedChanges =
     typeof context.docsHasUncommittedChanges === 'boolean'
@@ -1185,7 +1290,9 @@ export async function parseFeature(
   let docsGitUnavailable = !!context.docsGitUnavailable;
 
   if (typeof context.docsHasUncommittedChanges !== 'boolean') {
-    const docsStatus = getGitStatusPorcelain(context.docsGitCwd, [normalizedFeaturePathFromDocs]);
+    const docsStatus = getGitStatusPorcelain(ctx, context.docsGitCwd, [
+      normalizedFeaturePathFromDocs,
+    ]);
     if (docsStatus === undefined) {
       docsGitUnavailable = true;
       docsHasUncommittedChanges = true;
@@ -1196,6 +1303,7 @@ export async function parseFeature(
 
   if (typeof context.docsEverCommitted !== 'boolean') {
     const docsLastCommit = getLastCommitForPath(
+      ctx,
       context.docsGitCwd,
       normalizedFeaturePathFromDocs
     );
@@ -1215,7 +1323,10 @@ export async function parseFeature(
     typeof context.projectHasUncommittedChanges !== 'boolean' &&
     effectiveProjectGitCwd
   ) {
-    const dirtyScopePolicy = resolveCodeDirtyScopePolicy(options.workflow, options.projectType);
+    const dirtyScopePolicy = resolveCodeDirtyScopePolicy(
+      options.workflow,
+      options.projectType
+    );
     const projectCacheKey = JSON.stringify({
       projectGitCwd: effectiveProjectGitCwd,
       docsDir: context.docsDir,
@@ -1231,6 +1342,7 @@ export async function parseFeature(
       let projectStatusPaths: string[] = [];
       if (dirtyScopePolicy === 'component' && type !== 'single') {
         const componentStatusPaths = await resolveComponentStatusPaths(
+          ctx,
           effectiveProjectGitCwd,
           type,
           options.workflow
@@ -1238,7 +1350,10 @@ export async function parseFeature(
         projectStatusPaths =
           componentStatusPaths.length > 0
             ? componentStatusPaths
-            : resolveProjectStatusPaths(effectiveProjectGitCwd, context.docsDir);
+            : resolveProjectStatusPaths(
+                effectiveProjectGitCwd,
+                context.docsDir
+              );
       } else {
         projectStatusPaths = resolveProjectStatusPaths(
           effectiveProjectGitCwd,
@@ -1246,6 +1361,7 @@ export async function parseFeature(
         );
       }
       const projectStatus = getGitStatusPorcelain(
+        ctx,
         effectiveProjectGitCwd,
         projectStatusPaths
       );
@@ -1260,7 +1376,7 @@ export async function parseFeature(
   }
 
   if (effectiveProjectGitCwd) {
-    const divergence = resolveBranchDivergence(effectiveProjectGitCwd);
+    const divergence = resolveBranchDivergence(ctx, effectiveProjectGitCwd);
     projectHasUpstream = divergence.hasUpstream;
     projectBranchAhead = divergence.ahead;
     projectBranchBehind = divergence.behind;
@@ -1293,10 +1409,18 @@ export async function parseFeature(
   if (tasksExists && prePrReviewPolicy.enabled && !prePrDecisionFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrePrDecisionField'));
   }
-  if (tasksExists && workflowPolicy.requireReview && !prReviewEvidenceFieldExists) {
+  if (
+    tasksExists &&
+    workflowPolicy.requireReview &&
+    !prReviewEvidenceFieldExists
+  ) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewEvidenceField'));
   }
-  if (tasksExists && workflowPolicy.requireReview && !prReviewDecisionFieldExists) {
+  if (
+    tasksExists &&
+    workflowPolicy.requireReview &&
+    !prReviewDecisionFieldExists
+  ) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksPrReviewDecisionField'));
   }
   if (tasksExists && !tasksDocStatusFieldExists) {
@@ -1327,7 +1451,8 @@ export async function parseFeature(
     );
   }
 
-  const tasksDocApproved = !tasksDocStatusFieldExists || tasksDocStatus === 'Approved';
+  const tasksDocApproved =
+    !tasksDocStatusFieldExists || tasksDocStatus === 'Approved';
   const implementationDone =
     tasksExists &&
     tasksSummary.total > 0 &&
@@ -1343,7 +1468,9 @@ export async function parseFeature(
     planStatus === 'Approved' &&
     (!workflowPolicy.requireIssue || !!issueNumber) &&
     (!workflowPolicy.requirePr ||
-      (isPrMetadataConfigured({ docs: { prFieldExists, prStatusFieldExists } }) &&
+      (isPrMetadataConfigured({
+        docs: { prFieldExists, prStatusFieldExists },
+      }) &&
         !!prLink)) &&
     (!workflowPolicy.requireMerge || prStatus === 'Approved') &&
     isPrePrReviewSatisfied(
@@ -1382,15 +1509,20 @@ export async function parseFeature(
     if (workflowPolicy.requirePr && prFieldExists && prStatusFieldExists) {
       if (!prLink) warnings.push(tr(lang, 'warnings', 'workflowPrLinkMissing'));
       if (workflowPolicy.requireMerge) {
-        if (!prStatus) warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
+        if (!prStatus)
+          warnings.push(tr(lang, 'warnings', 'workflowPrStatusMissing'));
         if (prStatus && prStatus !== 'Approved') {
           warnings.push(tr(lang, 'warnings', 'workflowPrStatusNotApproved'));
           if (workflowPolicy.requireReview && prStatus === 'Review') {
             if (!prReviewEvidenceFieldExists || !prReviewEvidenceProvided) {
-              warnings.push(tr(lang, 'warnings', 'workflowPrReviewEvidenceMissing'));
+              warnings.push(
+                tr(lang, 'warnings', 'workflowPrReviewEvidenceMissing')
+              );
             }
             if (!prReviewDecisionFieldExists || !prReviewDecisionProvided) {
-              warnings.push(tr(lang, 'warnings', 'workflowPrReviewDecisionMissing'));
+              warnings.push(
+                tr(lang, 'warnings', 'workflowPrReviewDecisionMissing')
+              );
             }
           }
         }

@@ -1,8 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import fs from 'fs-extra';
-import { getConfig } from '../utils/config.js';
+import { createCliContext } from '../utils/cli-context.js';
 import { scanFeatures } from '../utils/context.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getLocalDateString } from '../utils/date.js';
@@ -42,8 +41,8 @@ export function statusCommand(program: Command): void {
       try {
         await runStatus(options);
       } catch (error) {
-        const config = await getConfig(process.cwd());
-        const lang = config?.lang ?? DEFAULT_LANG;
+        const ctx = await createCliContext();
+        const lang = ctx?.config?.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
         console.error(
@@ -58,20 +57,20 @@ export function statusCommand(program: Command): void {
 }
 
 async function runStatus(options: StatusOptions): Promise<void> {
-  const cwd = process.cwd();
-  const config = await getConfig(cwd);
+  const ctx = await createCliContext();
 
-  if (!config) {
+  if (!ctx || !ctx.config) {
     throw createCliError(
       'CONFIG_NOT_FOUND',
       tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
     );
   }
 
-  const { docsDir, projectType, projectName, lang } = config;
+  const { docsDir, projectType, projectName, lang } = ctx.config;
   const featuresDir = path.join(docsDir, 'features');
 
-  const scan = await scanFeatures(config);
+  // Note: scanFeatures currently still uses internal fs from its module, that will be refactored next
+  const scan = await scanFeatures(ctx);
   const features: FeatureInfo[] = [];
   const idMap = new Map<string, string[]>();
 
@@ -83,11 +82,16 @@ async function runStatus(options: StatusOptions): Promise<void> {
 
     if (!f.docs.specExists || !f.docs.tasksExists) continue;
 
-    const name = await getFeatureNameFromSpec(f.path, f.slug, f.folderName);
+    const name = await getFeatureNameFromSpec(
+      ctx.fs,
+      f.path,
+      f.slug,
+      f.folderName
+    );
     const repo =
       projectType === 'multi'
         ? `${projectName ?? '{{projectName}}'}-${f.type}`
-        : projectName ?? '{{projectName}}';
+        : (projectName ?? '{{projectName}}');
     const issue = f.issueNumber ? `#${f.issueNumber}` : '-';
 
     const total = f.tasks.total;
@@ -175,9 +179,9 @@ async function runStatus(options: StatusOptions): Promise<void> {
         ? chalk.green
         : f.status === 'DONE'
           ? chalk.cyan
-        : f.status === 'DOING'
-          ? chalk.yellow
-          : chalk.gray;
+          : f.status === 'DOING'
+            ? chalk.yellow
+            : chalk.gray;
     console.log(
       `| ${f.id} | ${f.name} | ${f.repo} | ${f.issue} | ${statusColor(f.status)} | ${f.progress} | ${f.path} |`
     );
@@ -204,11 +208,9 @@ async function runStatus(options: StatusOptions): Promise<void> {
       '',
     ].join('\n');
 
-    await fs.writeFile(outputPath, content, 'utf-8');
+    await ctx.fs.writeFile(outputPath, content, 'utf-8');
     console.log(
-      chalk.green(
-        tr(lang, 'cli', 'status.wrote', { path: outputPath })
-      )
+      chalk.green(tr(lang, 'cli', 'status.wrote', { path: outputPath }))
     );
   }
 }
@@ -218,14 +220,15 @@ function escapeRegExp(value: string): string {
 }
 
 async function getFeatureNameFromSpec(
+  fsAdapter: import('../ports/FileSystemAdapter.js').IFileSystemAdapter,
   featureDir: string,
   fallbackSlug: string,
   fallbackFolderName: string
 ): Promise<string> {
   try {
     const specPath = path.join(featureDir, 'spec.md');
-    if (!(await fs.pathExists(specPath))) return fallbackSlug;
-    const content = await fs.readFile(specPath, 'utf-8');
+    if (!(await fsAdapter.pathExists(specPath))) return fallbackSlug;
+    const content = await fsAdapter.readFile(specPath, 'utf-8');
 
     const keys = ['기능명', 'Feature Name'];
     for (const key of keys) {

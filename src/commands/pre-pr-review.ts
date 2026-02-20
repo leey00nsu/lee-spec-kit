@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG } from '../utils/i18n.js';
 import { resolveContextSelection } from '../utils/context-selection.js';
+import { createCliContext } from '../utils/cli-context.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
 import {
   PrePrDecisionOutcome,
@@ -29,9 +30,14 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function normalizeDecision(raw: string | undefined): PrePrDecisionOutcome | null {
+function normalizeDecision(
+  raw: string | undefined
+): PrePrDecisionOutcome | null {
   if (!raw) return null;
-  const value = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const value = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
   if (value === 'approve' || value === 'approved') return 'approve';
   if (
     value === 'changes_requested' ||
@@ -46,11 +52,18 @@ function normalizeDecision(raw: string | undefined): PrePrDecisionOutcome | null
 
 function findSpecLineIndex(lines: string[], keys: string[]): number {
   const escaped = keys.map((key) => escapeRegExp(key));
-  const re = new RegExp(`^\\s*-\\s*\\*\\*(?:${escaped.join('|')})\\*\\*\\s*:\\s*`);
+  const re = new RegExp(
+    `^\\s*-\\s*\\*\\*(?:${escaped.join('|')})\\*\\*\\s*:\\s*`
+  );
   return lines.findIndex((line) => re.test(line));
 }
 
-function replaceSpecLine(line: string, keys: string[], preferredKey: string, value: string): string {
+function replaceSpecLine(
+  line: string,
+  keys: string[],
+  preferredKey: string,
+  value: string
+): string {
   const escaped = keys.map((key) => escapeRegExp(key));
   const re = new RegExp(
     `^(\\s*-\\s*\\*\\*)(?:${escaped.join('|')})(\\*\\*\\s*:\\s*)(.*)$`
@@ -128,7 +141,10 @@ function buildReportContent(input: {
   fallback: string;
   skills: string[];
 }): string {
-  const skills = input.skills.length > 0 ? input.skills.join(', ') : 'code-review-excellence';
+  const skills =
+    input.skills.length > 0
+      ? input.skills.join(', ')
+      : 'code-review-excellence';
   return `## Pre-PR Review Log (${input.date})
 
 - **Feature**: ${input.folderName}
@@ -165,30 +181,32 @@ export function prePrReviewCommand(program: Command): void {
     )
     .option('--note <text>', 'Decision note text')
     .option('--json', 'Output JSON')
-    .action(async (featureName: string | undefined, options: PrePrReviewOptions) => {
-      try {
-        await runPrePrReview(featureName, options);
-      } catch (error) {
-        const config = await getConfig(process.cwd());
-        const lang = config?.lang ?? DEFAULT_LANG;
-        const cliError = toCliError(error);
-        const suggestions = getCliErrorSuggestions(cliError.code, lang);
-        if (options.json) {
-          console.log(
-            JSON.stringify({
-              status: 'error',
-              reasonCode: cliError.code,
-              error: cliError.message,
-              suggestions,
-            })
-          );
-        } else {
-          console.error(chalk.red(`[${cliError.code}] ${cliError.message}`));
-          printCliErrorSuggestions(suggestions, lang);
+    .action(
+      async (featureName: string | undefined, options: PrePrReviewOptions) => {
+        try {
+          await runPrePrReview(featureName, options);
+        } catch (error) {
+          const config = await getConfig(process.cwd());
+          const lang = config?.lang ?? DEFAULT_LANG;
+          const cliError = toCliError(error);
+          const suggestions = getCliErrorSuggestions(cliError.code, lang);
+          if (options.json) {
+            console.log(
+              JSON.stringify({
+                status: 'error',
+                reasonCode: cliError.code,
+                error: cliError.message,
+                suggestions,
+              })
+            );
+          } else {
+            console.error(chalk.red(`[${cliError.code}] ${cliError.message}`));
+            printCliErrorSuggestions(suggestions, lang);
+          }
+          process.exitCode = 1;
         }
-        process.exitCode = 1;
       }
-    });
+    );
 }
 
 async function runPrePrReview(
@@ -206,7 +224,12 @@ async function runPrePrReview(
   const selectionOptions = {
     component: resolveComponentOption(options.component),
   };
-  const state = await resolveContextSelection(config, featureName, selectionOptions);
+  const ctx = (await createCliContext({ cwd: process.cwd() }))!;
+  const state = await resolveContextSelection(
+    ctx,
+    featureName,
+    selectionOptions
+  );
   if (state.status !== 'single_matched' || !state.matchedFeature) {
     throw createCliError(
       'CONTEXT_SELECTION_REQUIRED',

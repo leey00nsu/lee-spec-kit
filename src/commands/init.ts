@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
 import { copyTemplates, replaceInFiles } from '../utils/template.js';
+import { DefaultFileSystemAdapter } from '../adapters/DefaultFileSystemAdapter.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import {
   assertValidComponentId,
@@ -72,7 +73,10 @@ export function initCommand(program: Command): void {
     .command('init')
     .description('Initialize project documentation structure')
     .option('-n, --name <name>', 'Project name (default: current folder name)')
-    .option('-t, --type <type>', 'Project type: single | multi (fullstack alias)')
+    .option(
+      '-t, --type <type>',
+      'Project type: single | multi (fullstack alias)'
+    )
     .option(
       '--components <list>',
       'Component list for multi (comma-separated, e.g. app,api,worker)'
@@ -100,9 +104,7 @@ export function initCommand(program: Command): void {
       } catch (error) {
         if (error instanceof Error && error.message === 'canceled') {
           const lang = options.lang ?? DEFAULT_LANG;
-          console.log(
-            chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`)
-          );
+          console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           return;
         }
         const lang = options.lang ?? DEFAULT_LANG;
@@ -139,7 +141,10 @@ async function runInit(options: InitOptions): Promise<void> {
   const targetDir = path.resolve(cwd, options.dir || './docs');
   const skipPrompts = !!options.yes || !!options.nonInteractive;
 
-  if (options.docsRepo && !['embedded', 'standalone'].includes(options.docsRepo)) {
+  if (
+    options.docsRepo &&
+    !['embedded', 'standalone'].includes(options.docsRepo)
+  ) {
     throw createCliError(
       'INVALID_ARGUMENT',
       '`--docs-repo` must be `embedded` or `standalone`.'
@@ -192,32 +197,12 @@ async function runInit(options: InitOptions): Promise<void> {
     if (isInsideGitRepo) {
       console.log(chalk.green(tr(lang, 'cli', 'init.gitDetected')));
       console.log();
-      console.log(
-        chalk.gray(
-          tr(lang, 'cli', 'init.insideProjectRoot')
-        )
-      );
-      console.log(
-        chalk.gray(
-          tr(lang, 'cli', 'init.modeEmbeddedDesc')
-        )
-      );
-      console.log(
-        chalk.gray(
-          tr(lang, 'cli', 'init.modeStandaloneDesc')
-        )
-      );
-      console.log(
-        chalk.gray(
-          tr(lang, 'cli', 'init.modeStandaloneMove')
-        )
-      );
+      console.log(chalk.gray(tr(lang, 'cli', 'init.insideProjectRoot')));
+      console.log(chalk.gray(tr(lang, 'cli', 'init.modeEmbeddedDesc')));
+      console.log(chalk.gray(tr(lang, 'cli', 'init.modeStandaloneDesc')));
+      console.log(chalk.gray(tr(lang, 'cli', 'init.modeStandaloneMove')));
     } else {
-      console.log(
-        chalk.yellow(
-          tr(lang, 'cli', 'init.gitNotDetected')
-        )
-      );
+      console.log(chalk.yellow(tr(lang, 'cli', 'init.gitNotDetected')));
       console.log(chalk.gray(tr(lang, 'cli', 'init.gitNotDetectedDetail')));
     }
     console.log();
@@ -238,12 +223,20 @@ async function runInit(options: InitOptions): Promise<void> {
             {
               title: tr(lang, 'cli', 'init.choice.projectType.single.title'),
               value: 'single',
-              description: tr(lang, 'cli', 'init.choice.projectType.single.desc'),
+              description: tr(
+                lang,
+                'cli',
+                'init.choice.projectType.single.desc'
+              ),
             },
             {
               title: tr(lang, 'cli', 'init.choice.projectType.fullstack.title'),
               value: 'multi',
-              description: tr(lang, 'cli', 'init.choice.projectType.fullstack.desc'),
+              description: tr(
+                lang,
+                'cli',
+                'init.choice.projectType.fullstack.desc'
+              ),
             },
           ],
           initial: 1,
@@ -256,12 +249,20 @@ async function runInit(options: InitOptions): Promise<void> {
             {
               title: tr(lang, 'cli', 'init.choice.docsRepo.embedded.title'),
               value: 'embedded',
-              description: tr(lang, 'cli', 'init.choice.docsRepo.embedded.desc'),
+              description: tr(
+                lang,
+                'cli',
+                'init.choice.docsRepo.embedded.desc'
+              ),
             },
             {
               title: tr(lang, 'cli', 'init.choice.docsRepo.standalone.title'),
               value: 'standalone',
-              description: tr(lang, 'cli', 'init.choice.docsRepo.standalone.desc'),
+              description: tr(
+                lang,
+                'cli',
+                'init.choice.docsRepo.standalone.desc'
+              ),
             },
           ],
           initial: 0,
@@ -290,7 +291,10 @@ async function runInit(options: InitOptions): Promise<void> {
         const rootMap: Record<string, string> = {};
 
         if (typeof projectRoot === 'string' && projectRoot.trim()) {
-          Object.assign(rootMap, parseStandaloneMultiProjectRootJson(projectRoot));
+          Object.assign(
+            rootMap,
+            parseStandaloneMultiProjectRootJson(projectRoot)
+          );
         } else if (projectRoot && typeof projectRoot === 'object') {
           for (const [component, root] of Object.entries(projectRoot)) {
             const normalized = component.trim().toLowerCase();
@@ -318,7 +322,8 @@ async function runInit(options: InitOptions): Promise<void> {
                 type: 'text',
                 name: 'componentRoot',
                 message,
-                validate: (value: string) => validatePromptPathValue(value, lang),
+                validate: (value: string) =>
+                  validatePromptPathValue(value, lang),
               },
             ],
             {
@@ -469,7 +474,10 @@ async function runInit(options: InitOptions): Promise<void> {
       const multiRoot: Record<string, string> = {};
 
       if (typeof projectRoot === 'string' && projectRoot.trim()) {
-        Object.assign(multiRoot, parseStandaloneMultiProjectRootJson(projectRoot));
+        Object.assign(
+          multiRoot,
+          parseStandaloneMultiProjectRootJson(projectRoot)
+        );
       } else if (projectRoot && typeof projectRoot === 'object') {
         for (const [component, root] of Object.entries(projectRoot)) {
           const normalized = component.trim().toLowerCase();
@@ -511,7 +519,8 @@ async function runInit(options: InitOptions): Promise<void> {
           '`--component-project-roots` can only be used when `--type multi`.'
         );
       }
-      const singleRoot = typeof projectRoot === 'string' ? projectRoot.trim() : '';
+      const singleRoot =
+        typeof projectRoot === 'string' ? projectRoot.trim() : '';
       if (!singleRoot) {
         throw createCliError(
           'PROMPT_BLOCKED',
@@ -555,7 +564,9 @@ async function runInit(options: InitOptions): Promise<void> {
             const { overwrite } = await prompts({
               type: 'confirm',
               name: 'overwrite',
-              message: tr(lang, 'cli', 'init.prompt.overwrite', { dir: targetDir }),
+              message: tr(lang, 'cli', 'init.prompt.overwrite', {
+                dir: targetDir,
+              }),
               initial: false,
             });
 
@@ -570,12 +581,16 @@ async function runInit(options: InitOptions): Promise<void> {
       console.log();
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.creatingDocs')));
       console.log(
-        chalk.gray(`  ${tr(lang, 'cli', 'init.log.projectLabel')}: ${projectName}`)
+        chalk.gray(
+          `  ${tr(lang, 'cli', 'init.log.projectLabel')}: ${projectName}`
+        )
       );
       console.log(
         chalk.gray(`  ${tr(lang, 'cli', 'init.log.typeLabel')}: ${projectType}`)
       );
-      console.log(chalk.gray(`  ${tr(lang, 'cli', 'init.log.langLabel')}: ${lang}`));
+      console.log(
+        chalk.gray(`  ${tr(lang, 'cli', 'init.log.langLabel')}: ${lang}`)
+      );
       console.log(
         chalk.gray(`  ${tr(lang, 'cli', 'init.log.pathLabel')}: ${targetDir}`)
       );
@@ -589,7 +604,8 @@ async function runInit(options: InitOptions): Promise<void> {
           tr(lang, 'cli', 'init.error.templateNotFound', { path: commonPath })
         );
       }
-      await copyTemplates(commonPath, targetDir);
+      const fsAdapter = new DefaultFileSystemAdapter();
+      await copyTemplates(fs, commonPath, targetDir);
 
       if (projectType === 'multi') {
         const featuresRoot = path.join(targetDir, 'features');
@@ -609,9 +625,7 @@ async function runInit(options: InitOptions): Promise<void> {
 
       // 플레이스홀더 치환
       const featurePath =
-        projectType === 'multi'
-          ? 'docs/features/{component}'
-          : 'docs/features';
+        projectType === 'multi' ? 'docs/features/{component}' : 'docs/features';
       const replacements: Record<string, string> = {
         '{{projectName}}': projectName,
         '{{projectType}}': projectType,
@@ -619,7 +633,7 @@ async function runInit(options: InitOptions): Promise<void> {
         '{{featurePath}}': featurePath,
       };
 
-      await replaceInFiles(targetDir, replacements);
+      await replaceInFiles(fsAdapter, targetDir, replacements);
 
       // CLI-managed docs/templates are not project-managed artifacts.
       await pruneEngineManagedDocs(targetDir);
@@ -678,7 +692,9 @@ async function runInit(options: InitOptions): Promise<void> {
 
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.nextStepsTitle')));
       console.log(
-        chalk.gray(tr(lang, 'cli', 'init.log.nextSteps1', { docsDir: targetDir }))
+        chalk.gray(
+          tr(lang, 'cli', 'init.log.nextSteps1', { docsDir: targetDir })
+        )
       );
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps3')));
@@ -703,11 +719,18 @@ async function initGit(
 
     const getCachedStagedFiles = (workdir: string): string[] | null => {
       try {
-        const out = runGitOrThrow(['diff', '--cached', '--name-only'], workdir, {
-          stdio: ['ignore', 'pipe', 'ignore'],
-        });
+        const out = runGitOrThrow(
+          ['diff', '--cached', '--name-only'],
+          workdir,
+          {
+            stdio: ['ignore', 'pipe', 'ignore'],
+          }
+        );
         if (!out) return [];
-        return out.split('\n').map((s) => s.trim()).filter(Boolean);
+        return out
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean);
       } catch {
         return null;
       }
@@ -730,7 +753,10 @@ async function initGit(
     const toGitPath = (input: string): string =>
       input.replace(/\\/g, '/').replace(/^\.\//, '');
 
-    const toRepoRelativePath = (workdir: string, relativePath: string): string => {
+    const toRepoRelativePath = (
+      workdir: string,
+      relativePath: string
+    ): string => {
       if (relativePath === '.') return '.';
       try {
         const prefix = runGitOrThrow(['rev-parse', '--show-prefix'], workdir, {
@@ -738,7 +764,9 @@ async function initGit(
         });
         const normalizedPrefix = toGitPath(prefix).replace(/\/+$/, '');
         const normalizedPath = toGitPath(relativePath);
-        return normalizedPrefix ? `${normalizedPrefix}/${normalizedPath}` : normalizedPath;
+        return normalizedPrefix
+          ? `${normalizedPrefix}/${normalizedPath}`
+          : normalizedPath;
       } catch {
         return toGitPath(relativePath);
       }
@@ -748,7 +776,9 @@ async function initGit(
     try {
       runGitOrThrow(['rev-parse', '--is-inside-work-tree'], gitWorkdir);
       // Git이 이미 있으면 docs만 커밋
-      console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitRepoDetectedCommit')));
+      console.log(
+        chalk.blue(tr(lang, 'cli', 'init.log.gitRepoDetectedCommit'))
+      );
     } catch {
       // Git이 없으면 초기화
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.gitInit')));
@@ -760,11 +790,7 @@ async function initGit(
       docsRepo === 'standalone' ? '.' : path.relative(cwd, targetDir);
     const stagedBeforeAdd = getCachedStagedFiles(gitWorkdir);
     if (relativePath === '.' && stagedBeforeAdd && stagedBeforeAdd.length > 0) {
-      console.log(
-        chalk.yellow(
-          tr(lang, 'cli', 'init.warn.stagedChangesSkip')
-        )
-      );
+      console.log(chalk.yellow(tr(lang, 'cli', 'init.warn.stagedChangesSkip')));
       console.log(chalk.gray(tr(lang, 'cli', 'init.warn.commitManually')));
       console.log();
       return;
@@ -795,7 +821,13 @@ async function initGit(
     // 커밋
     // pathspec을 사용해 "docs만" 커밋 (다른 staged 변경이 있어도 포함되지 않음)
     runGitOrThrow(
-      ['commit', '-m', 'init: docs 구조 초기화 (lee-spec-kit)', '--', relativePath],
+      [
+        'commit',
+        '-m',
+        'init: docs 구조 초기화 (lee-spec-kit)',
+        '--',
+        relativePath,
+      ],
       gitWorkdir
     );
 
@@ -804,7 +836,9 @@ async function initGit(
       try {
         runGitOrThrow(['remote', 'add', 'origin', docsRemote], gitWorkdir);
         console.log(
-          chalk.green(tr(lang, 'cli', 'init.log.gitRemoteSet', { remote: docsRemote }))
+          chalk.green(
+            tr(lang, 'cli', 'init.log.gitRemoteSet', { remote: docsRemote })
+          )
         );
       } catch {
         // remote가 이미 존재할 수 있음
@@ -816,9 +850,7 @@ async function initGit(
     console.log();
   } catch {
     // Git 관련 오류는 무시하고 경고만 출력
-    console.log(
-      chalk.yellow(tr(lang, 'cli', 'init.warn.skipGitInit'))
-    );
+    console.log(chalk.yellow(tr(lang, 'cli', 'init.warn.skipGitInit')));
     console.log();
   }
 }

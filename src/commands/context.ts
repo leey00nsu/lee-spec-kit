@@ -1,9 +1,16 @@
+import * as presenter from '../services/ContextPresenter.js';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import { execSync } from 'child_process';
-import { createHash } from 'crypto';
 import { getConfig } from '../utils/config.js';
+import { createCliContext } from '../utils/cli-context.js';
+import { parseApprovalReply } from '../utils/context/approval-reply.js';
+import {
+  consumeApprovalTicket,
+  issueApprovalTicket,
+  toApprovalActionHash,
+} from '../utils/context/approval-ticket.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
   resolvePrePrReviewPolicy,
@@ -32,20 +39,8 @@ import {
   ActionOption,
   ContextSelectionOptions,
   ContextSelectionState,
-  resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
-import { parseApprovalReply } from '../utils/context/approval-reply.js';
-import {
-  consumeApprovalTicket,
-  issueApprovalTicket,
-  toApprovalActionHash,
-} from '../utils/context/approval-ticket.js';
-import {
-  BuiltinDocId,
-  getRecommendedDocIdsForCategories,
-  toBuiltinDocCommand,
-} from '../utils/builtin-docs.js';
 
 interface ContextOptions {
   json?: boolean;
@@ -61,513 +56,6 @@ interface ContextOptions {
 
 type CommandAction = Extract<ActionOption['action'], { type: 'command' }>;
 type ResolvedContextState = ContextSelectionState;
-interface RequiredDocHint {
-  id: BuiltinDocId;
-  command: string;
-}
-
-interface SuggestionOption {
-  label: string;
-  summary: string;
-  detail: string;
-  command: string;
-}
-
-type ApprovalConfig = NonNullable<Awaited<ReturnType<typeof getConfig>>>['approval'];
-
-type AutoRunReasonCode =
-  | 'AVAILABLE'
-  | 'NOT_SINGLE_MATCHED'
-  | 'NO_ACTION_OPTIONS'
-  | 'APPROVAL_REQUIRED'
-  | 'APPROVAL_MODE_NOT_CATEGORY'
-  | 'DEFAULT_NOT_SKIP'
-  | 'NO_REQUIRE_CHECK_CATEGORIES';
-
-interface AutoRunPlan {
-  available: boolean;
-  reasonCode: AutoRunReasonCode;
-  summary: string;
-  command: string;
-  untilCategories: string[];
-  unknownCategories: string[];
-}
-
-interface AgentOrchestrationPolicy {
-  mode: 'main_orchestrates_subagent_execution';
-  delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
-  delegateCommandExecution: 'long_running_only';
-  delegateAutoRunExecution: true;
-  fallbackToMainAgentWhenSubAgentUnavailable: true;
-  longRunningCategories: string[];
-  currentActionShouldDelegate: boolean;
-  autoRunDelegationAvailable: boolean;
-  autoRunShouldDelegate: boolean;
-  currentActionCategory: string | null;
-  mainAgentResponsibilities: string[];
-  subAgentResponsibilities: string[];
-  pauseAndReportWhen: string[];
-  resumePriority: string[];
-  subAgentHandoff: {
-    required: boolean;
-    mode: 'command' | 'auto_run' | null;
-    featureRef: string | null;
-    category: string | null;
-    cwd: string | null;
-    cmd: string | null;
-    verify: {
-      runOncePerSession: true;
-      cacheKey: string;
-      expectedCwd: string;
-      commands: string[];
-      onMismatch: 'stop_and_report';
-      collectDetailedLogsOnMismatchOnly: true;
-    } | null;
-  };
-}
-
-const LONG_RUNNING_DELEGATION_CATEGORIES = [
-  'task_execute',
-  'code_review',
-  'review_fix_commit',
-  'pre_pr_review',
-] as const;
-
-function isTaskExecuteProjectCommitCommand(option: ActionOption | undefined): boolean {
-  if (!option || option.action.type !== 'command') return false;
-  if (option.action.category !== 'task_execute') return false;
-  if (option.action.scope !== 'project') return false;
-  return /\bgit\s+commit\b/i.test(option.action.cmd);
-}
-
-function shouldDelegateCurrentAction(
-  actionOptions: ActionOption[]
-): { shouldDelegate: boolean; category: string | null } {
-  const primaryOption = actionOptions[0];
-  const primaryCategory = primaryOption?.action?.category || null;
-  const longRunningSet = new Set<string>(LONG_RUNNING_DELEGATION_CATEGORIES);
-  const shouldDelegate =
-    !!primaryCategory &&
-    longRunningSet.has(primaryCategory) &&
-    !isTaskExecuteProjectCommitCommand(primaryOption);
-  return {
-    shouldDelegate,
-    category: primaryCategory,
-  };
-}
-
-function buildAgentOrchestrationPolicy(
-  actionOptions: ActionOption[],
-  autoRunAvailable: boolean,
-  autoRunCommand: string,
-  featureRef: string | null
-): AgentOrchestrationPolicy {
-  const delegation = shouldDelegateCurrentAction(actionOptions);
-  const primaryOption = actionOptions[0];
-  const delegatedCommandOption =
-    primaryOption &&
-    primaryOption.action.type === 'command' &&
-    delegation.shouldDelegate
-      ? primaryOption
-      : null;
-  const shouldDelegateAutoRunNow =
-    autoRunAvailable && actionOptions.length === 0;
-  const handoffMode: 'command' | 'auto_run' | null = delegatedCommandOption
-    ? 'command'
-    : shouldDelegateAutoRunNow
-      ? 'auto_run'
-      : null;
-  const handoffCwd =
-    delegatedCommandOption?.action.cwd ||
-    (shouldDelegateAutoRunNow ? process.cwd() : null);
-  const handoffCmd =
-    delegatedCommandOption?.action.cmd ||
-    (shouldDelegateAutoRunNow ? autoRunCommand : null);
-  const handoffRequired = !!handoffMode && !!handoffCwd && !!handoffCmd;
-  const verifyCacheKey = handoffRequired
-    ? createHash('sha1')
-        .update(
-          [
-            handoffMode,
-            featureRef || '',
-            handoffCwd || '',
-            handoffCmd || '',
-          ].join('|')
-        )
-        .digest('hex')
-        .slice(0, 12)
-    : '';
-  return {
-    mode: 'main_orchestrates_subagent_execution',
-    delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
-    delegateCommandExecution: 'long_running_only',
-    delegateAutoRunExecution: true,
-    fallbackToMainAgentWhenSubAgentUnavailable: true,
-    longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
-    currentActionShouldDelegate: delegation.shouldDelegate,
-    autoRunDelegationAvailable: autoRunAvailable,
-    autoRunShouldDelegate: shouldDelegateAutoRunNow,
-    currentActionCategory: delegation.category,
-    mainAgentResponsibilities: [
-      'Keep user conversation state and approval boundaries',
-      'Run the same execution loop directly when sub-agent is unavailable',
-      'Delegate only long-running command/auto loops to sub-agents',
-      'Report only on approval/manual/error boundaries',
-    ],
-    subAgentResponsibilities: [
-      'Run flow/context command loops',
-      'Execute only currently selected atomic command actions',
-      'Return structured status to main agent',
-    ],
-    pauseAndReportWhen: [
-      'approvalRequest.required=true',
-      'AUTO_GATE_REACHED',
-      'AUTO_MANUAL_REQUIRED',
-      'command execution error',
-    ],
-    resumePriority: [
-      'flow --resume <RUN_ID>',
-      'autoRun.resume.flowCommand',
-      'context --json-compact',
-    ],
-    subAgentHandoff: {
-      required: handoffRequired,
-      mode: handoffMode,
-      featureRef,
-      category: handoffMode === 'command' ? delegation.category : null,
-      cwd: handoffCwd,
-      cmd: handoffCmd,
-      verify: handoffRequired
-        ? {
-            runOncePerSession: true,
-            cacheKey: verifyCacheKey,
-            expectedCwd: handoffCwd as string,
-            commands: ['pwd', 'git rev-parse --show-toplevel'],
-            onMismatch: 'stop_and_report',
-            collectDetailedLogsOnMismatchOnly: true,
-          }
-        : null,
-    },
-  };
-}
-
-async function resolveContextState(
-  config: Awaited<ReturnType<typeof getConfig>>,
-  featureName: string | undefined,
-  options: ContextSelectionOptions
-): Promise<ResolvedContextState> {
-  if (!config) {
-    throw createCliError(
-      'CONFIG_NOT_FOUND',
-      tr(DEFAULT_LANG, 'cli', 'common.configNotFound')
-    );
-  }
-  return resolveContextSelection(config, featureName, options);
-}
-
-function listLabels(actionOptions: ActionOption[]): string {
-  if (actionOptions.length === 0) return '-';
-  return actionOptions.map((o) => o.label).join(', ');
-}
-
-function listSuggestionLabels(suggestionOptions: SuggestionOption[]): string {
-  if (suggestionOptions.length === 0) return '-';
-  return suggestionOptions.map((o) => o.label).join(', ');
-}
-
-function listActiveCategories(actionOptions: ActionOption[]): string[] {
-  const unique = new Set<string>();
-  for (const option of actionOptions) {
-    if (option.action.category) unique.add(option.action.category);
-  }
-  return Array.from(unique);
-}
-
-function listUncategorizedLabels(actionOptions: ActionOption[]): string[] {
-  return actionOptions
-    .filter((option) => !option.action.category)
-    .map((option) => option.label);
-}
-
-function resolveFeatureRefForApproval(
-  state: ResolvedContextState,
-  featureName: string | undefined
-): string {
-  const raw =
-    featureName?.trim() ||
-    state.matchedFeature?.folderName ||
-    '<slug|F001|F001-slug>';
-  return raw;
-}
-
-function buildApprovalCommand(
-  state: ResolvedContextState,
-  featureName: string | undefined,
-  selectedComponent: string,
-  execute: boolean
-): string {
-  const featureRef = resolveFeatureRefForApproval(state, featureName);
-  const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
-  if (execute) {
-    return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL> --execute [--ticket <TICKET>]`;
-  }
-  return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL>`;
-}
-
-function buildFinalApprovalPrompt(
-  lang: 'ko' | 'en',
-  actionOptions: ActionOption[]
-): string {
-  if (actionOptions.length === 0) return '';
-  const labels = listLabels(actionOptions);
-  const example = actionOptions[0]?.replyExample || `${actionOptions[0]?.label || 'A'} OK`;
-  const requestExamples = actionOptions
-    .filter((option) => option.requiresRequestText)
-    .map((option) => `\`${option.replyExample}\``);
-  if (requestExamples.length === 0) {
-    return tr(lang, 'cli', 'context.finalLabelPrompt', {
-      labels,
-      example,
-    });
-  }
-  return tr(lang, 'cli', 'context.finalLabelPromptWithRequest', {
-    labels,
-    example,
-    requestExamples: requestExamples.join(', '),
-  });
-}
-
-function buildSuggestionFinalPrompt(
-  lang: 'ko' | 'en',
-  suggestionOptions: SuggestionOption[]
-): string {
-  if (suggestionOptions.length === 0) return '';
-  const labels = listSuggestionLabels(suggestionOptions);
-  const example = suggestionOptions[0]?.label || 'A';
-  return tr(lang, 'cli', 'context.suggestionFinalPrompt', {
-    labels,
-    example,
-  });
-}
-
-function normalizeCategoryToken(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return null;
-  return normalized;
-}
-
-function resolveAutoRunCategories(approval: ApprovalConfig): {
-  untilCategories: string[];
-  unknownCategories: string[];
-} {
-  const known = new Set<string>(ACTION_CATEGORIES);
-  const unique = new Set<string>();
-  const unknown = new Set<string>();
-  for (const raw of approval?.requireCheckCategories ?? approval?.requireOkCategories ?? []) {
-    const normalized = normalizeCategoryToken(raw);
-    if (!normalized) continue;
-    if (known.has(normalized)) {
-      unique.add(normalized);
-    } else {
-      unknown.add(normalized);
-    }
-  }
-  return {
-    untilCategories: Array.from(unique),
-    unknownCategories: Array.from(unknown),
-  };
-}
-
-function buildAutoRunCommand(
-  state: ResolvedContextState,
-  featureName: string | undefined,
-  selectedComponent: string,
-  untilCategories: string[]
-): string {
-  if (untilCategories.length === 0) return '';
-  const featureRef = resolveFeatureRefForApproval(state, featureName);
-  const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
-  return `npx lee-spec-kit flow ${featureRef}${componentArg} --auto-until-category ${untilCategories.join(',')}`;
-}
-
-function resolveAutoRunPlan(
-  lang: 'ko' | 'en',
-  state: ResolvedContextState,
-  featureName: string | undefined,
-  selectedComponent: string,
-  approval: ApprovalConfig,
-  approvalRequired: boolean
-): AutoRunPlan {
-  const base = (reasonCode: AutoRunReasonCode, untilCategories: string[] = [], unknownCategories: string[] = []): AutoRunPlan => ({
-    available: false,
-    reasonCode,
-    summary: tr(lang, 'cli', 'context.autoRunUnavailable'),
-    command: '',
-    untilCategories,
-    unknownCategories,
-  });
-
-  if (state.status !== 'single_matched') return base('NOT_SINGLE_MATCHED');
-  if (state.actionOptions.length === 0) return base('NO_ACTION_OPTIONS');
-  if (approvalRequired) return base('APPROVAL_REQUIRED');
-
-  const mode = approval?.mode ?? 'builtin';
-  if (mode !== 'category') return base('APPROVAL_MODE_NOT_CATEGORY');
-
-  const defaultPolicy = approval?.default ?? 'keep';
-  if (defaultPolicy !== 'skip') return base('DEFAULT_NOT_SKIP');
-
-  const { untilCategories, unknownCategories } = resolveAutoRunCategories(approval);
-  if (untilCategories.length === 0) {
-    return base('NO_REQUIRE_CHECK_CATEGORIES', [], unknownCategories);
-  }
-
-  return {
-    available: true,
-    reasonCode: 'AVAILABLE',
-    summary: tr(lang, 'cli', 'context.autoRunSummary', {
-      categories: untilCategories.join(', '),
-    }),
-    command: buildAutoRunCommand(
-      state,
-      featureName,
-      selectedComponent,
-      untilCategories
-    ),
-    untilCategories,
-    unknownCategories,
-  };
-}
-
-function toSuggestionLabel(index: number): string {
-  let n = index + 1;
-  let label = '';
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    label = String.fromCharCode(65 + rem) + label;
-    n = Math.floor((n - 1) / 26);
-  }
-  return label;
-}
-
-function buildSuggestionOptions(
-  lang: 'ko' | 'en',
-  state: ResolvedContextState,
-  projectType: 'single' | 'multi',
-  selectedComponent: string
-): SuggestionOption[] {
-  const componentArg = selectedComponent ? ` --component ${selectedComponent}` : '';
-  const createFeatureCommand =
-    projectType === 'multi'
-      ? selectedComponent
-        ? `npx lee-spec-kit feature <name> --component ${selectedComponent}`
-        : 'npx lee-spec-kit feature <name> --component <component>'
-      : 'npx lee-spec-kit feature <name>';
-  const selectFeatureCommand =
-    projectType === 'multi'
-      ? selectedComponent
-        ? `npx lee-spec-kit context <slug|F001|F001-slug> --component ${selectedComponent}`
-        : 'npx lee-spec-kit context <slug|F001|F001-slug> --component <component>'
-      : 'npx lee-spec-kit context <slug|F001|F001-slug>';
-  const showDoneCommand = `npx lee-spec-kit context --done${componentArg}`;
-  const showAllCommand = `npx lee-spec-kit context --all${componentArg}`;
-  const showOpenCommand = `npx lee-spec-kit context${componentArg}`;
-  const runOnboardCommand = 'npx lee-spec-kit onboard --strict';
-
-  const rawSuggestions: Array<{ summary: string; command: string }> = [];
-  switch (state.status) {
-    case 'no_features':
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.runOnboard'),
-        command: runOnboardCommand,
-      });
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.createFeature'),
-        command: createFeatureCommand,
-      });
-      break;
-    case 'no_open':
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.showDone'),
-        command: showDoneCommand,
-      });
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.createFeature'),
-        command: createFeatureCommand,
-      });
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.showAll'),
-        command: showAllCommand,
-      });
-      break;
-    case 'multiple_active':
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.selectFeature'),
-        command: selectFeatureCommand,
-      });
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.showAll'),
-        command: showAllCommand,
-      });
-      break;
-    case 'no_match':
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.showOpen'),
-        command: showOpenCommand,
-      });
-      rawSuggestions.push({
-        summary: tr(lang, 'cli', 'context.suggestion.showAll'),
-        command: showAllCommand,
-      });
-      break;
-    case 'single_matched':
-    default:
-      break;
-  }
-
-  return rawSuggestions.map((item, index) => {
-    const label = toSuggestionLabel(index);
-    return {
-      label,
-      summary: item.summary,
-      detail: `${item.summary}: ${item.command}`,
-      command: item.command,
-    };
-  });
-}
-
-function printSuggestionOptions(
-  lang: 'ko' | 'en',
-  suggestionOptions: SuggestionOption[]
-): void {
-  if (suggestionOptions.length === 0) return;
-  const finalPrompt = buildSuggestionFinalPrompt(lang, suggestionOptions);
-  console.log(chalk.green(chalk.bold(`👉 ${tr(lang, 'cli', 'context.suggestionHeader')}`)));
-  suggestionOptions.forEach((option) => {
-    console.log(`   ${option.label}: ${option.summary}`);
-    console.log(
-      chalk.gray(
-        `   ↳ ${tr(lang, 'cli', 'context.suggestionCommandHint', {
-          command: option.command,
-        })}`
-      )
-    );
-  });
-  if (finalPrompt) {
-    console.log(chalk.cyan(`   ↳ ${finalPrompt}`));
-  }
-}
-
-function buildRequiredDocHints(actionOptions: ActionOption[]): RequiredDocHint[] {
-  const ids = getRecommendedDocIdsForCategories(
-    actionOptions.map((option) => option.action.category)
-  );
-  return ids.map((id) => ({
-    id,
-    command: toBuiltinDocCommand(id),
-  }));
-}
 
 function executeCommandAction(
   cmd: string,
@@ -576,7 +64,9 @@ function executeCommandAction(
 ): { stdout?: string; stderr?: string } {
   const shellPath =
     process.env.SHELL ||
-    (process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh');
+    (process.platform === 'win32'
+      ? process.env.ComSpec || 'cmd.exe'
+      : '/bin/sh');
 
   if (jsonMode) {
     const stdout = execSync(cmd, {
@@ -660,231 +150,10 @@ export function contextCommand(program: Command): void {
             printCliErrorSuggestions(suggestions, lang);
           }
           process.exitCode = 1;
-        return;
+          return;
         }
       }
     );
-}
-
-function getListLabel(
-  f: FeatureContext,
-  stepsMap: Record<number, string>,
-  lang: 'ko' | 'en',
-  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
-  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
-): string {
-  // For "ready to close" features, show the closest missing workflow requirement
-  // instead of generic step names like "tasks.md 작성".
-  if (f.completion.implementationDone && !f.completion.workflowDone) {
-    if (f.git.docsHasUncommittedChanges) {
-      return tr(lang, 'cli', 'context.list.docsCommitNeeded');
-    }
-    if (f.git.projectHasUncommittedChanges) {
-      return tr(lang, 'cli', 'context.list.projectCommitNeeded');
-    }
-    if (workflowPolicy.requireIssue && !f.issueNumber) {
-      return tr(lang, 'cli', 'context.list.issueNumberNeeded');
-    }
-    if (workflowPolicy.requirePr && (!f.docs.prFieldExists || !f.docs.prStatusFieldExists)) {
-      return tr(lang, 'cli', 'context.list.addPrMetadata');
-    }
-    if (prePrReviewPolicy.enabled && !f.docs.prePrReviewFieldExists) {
-      return tr(lang, 'cli', 'context.list.addPrePrReviewField');
-    }
-    if (prePrReviewPolicy.enabled && f.prePrReview.status !== 'Done') {
-      return tr(lang, 'cli', 'context.list.completePrePrReview');
-    }
-    if (
-      prePrReviewPolicy.enabled &&
-      (!f.docs.prePrEvidenceFieldExists || !f.prePrReview.evidenceProvided)
-    ) {
-      return tr(lang, 'cli', 'context.list.addPrePrEvidence');
-    }
-    if (
-      prePrReviewPolicy.enabled &&
-      (!f.docs.prePrDecisionFieldExists || !f.prePrReview.decisionProvided)
-    ) {
-      return tr(lang, 'cli', 'context.list.addPrePrDecision');
-    }
-    if (prePrReviewPolicy.enabled && f.prePrReview.decisionOutcome !== 'approve') {
-      return tr(lang, 'cli', 'context.list.resolvePrePrDecision');
-    }
-    if (workflowPolicy.requirePr && !f.pr.link) {
-      return tr(lang, 'cli', 'context.list.recordPrLink');
-    }
-    if (workflowPolicy.requireMerge && !f.pr.status) {
-      return tr(lang, 'cli', 'context.list.setPrStatus');
-    }
-    if (
-      workflowPolicy.requireMerge &&
-      workflowPolicy.requireReview &&
-      f.pr.status === 'Review' &&
-      (!f.docs.prReviewEvidenceFieldExists || !f.prReview.evidenceProvided)
-    ) {
-      return tr(lang, 'cli', 'context.list.addPrReviewEvidence');
-    }
-    if (
-      workflowPolicy.requireMerge &&
-      workflowPolicy.requireReview &&
-      f.pr.status === 'Review' &&
-      (!f.docs.prReviewDecisionFieldExists || !f.prReview.decisionProvided)
-    ) {
-      return tr(lang, 'cli', 'context.list.addPrReviewDecision');
-    }
-    if (workflowPolicy.requireMerge && f.pr.status !== 'Approved') {
-      return tr(lang, 'cli', 'context.list.prStatusToApproved', {
-        status: f.pr.status,
-      });
-    }
-    if (f.specStatus !== 'Approved') {
-      return tr(lang, 'cli', 'context.list.approveSpec');
-    }
-    if (f.planStatus !== 'Approved') {
-      return tr(lang, 'cli', 'context.list.approvePlan');
-    }
-  }
-
-  return stepsMap[f.currentStep] || 'Unknown';
-}
-
-function getMultipleFeaturesRecommendation(
-  projectType: 'single' | 'multi',
-  selectedComponent: string
-): string {
-  if (projectType === 'single') {
-    return 'Multiple features detected. Please specify feature name (slug | F001 | F001-slug).';
-  }
-  if (selectedComponent) {
-    return `Multiple features detected in component "${selectedComponent}". Please specify feature name (slug | F001 | F001-slug).`;
-  }
-  return 'Multiple features detected across components. Please specify feature name (slug | F001 | F001-slug) or use --component.';
-}
-
-function getFeatureRef(feature: FeatureContext): string {
-  return feature.folderName || `${feature.type}:${feature.slug}`;
-}
-
-function toCompactFeature(
-  feature: FeatureContext | null | undefined
-): Record<string, unknown> | null {
-  if (!feature) return null;
-
-  return {
-    ref: getFeatureRef(feature),
-    id: feature.id ?? null,
-    slug: feature.slug,
-    folderName: feature.folderName,
-    type: feature.type,
-    path: feature.path,
-    currentStep: feature.currentStep,
-    nextAction: feature.nextAction,
-    completion: feature.completion,
-    specStatus: feature.specStatus,
-    planStatus: feature.planStatus,
-    tasks: feature.tasks,
-    prePrReview: {
-      status: feature.prePrReview.status,
-      evidenceProvided: feature.prePrReview.evidenceProvided,
-      decisionOutcome: feature.prePrReview.decisionOutcome,
-      decisionProvided: feature.prePrReview.decisionProvided,
-    },
-    prReview: {
-      evidenceProvided: feature.prReview.evidenceProvided,
-      decisionProvided: feature.prReview.decisionProvided,
-    },
-    pr: {
-      link: feature.pr.link,
-      status: feature.pr.status,
-      remote: feature.pr.remote,
-    },
-    git: {
-      docsBranch: feature.git.docsBranch,
-      projectBranch: feature.git.projectBranch,
-      projectBranchAvailable: feature.git.projectBranchAvailable,
-      onExpectedBranch: feature.git.onExpectedBranch,
-      docsEverCommitted: feature.git.docsEverCommitted,
-      docsHasUncommittedChanges: feature.git.docsHasUncommittedChanges,
-      projectHasUncommittedChanges: feature.git.projectHasUncommittedChanges,
-      docsPathIgnored: feature.git.docsPathIgnored,
-      projectHasUpstream: feature.git.projectHasUpstream,
-      projectBranchAhead: feature.git.projectBranchAhead,
-      projectBranchBehind: feature.git.projectBranchBehind,
-    },
-    docs: {
-      specExists: feature.docs.specExists,
-      planExists: feature.docs.planExists,
-      tasksExists: feature.docs.tasksExists,
-      issueDocIssueFieldExists: feature.docs.issueDocIssueFieldExists,
-      prDocPrFieldExists: feature.docs.prDocPrFieldExists,
-      prDocReviewStatusFieldExists: feature.docs.prDocReviewStatusFieldExists,
-      prFieldExists: feature.docs.prFieldExists,
-      prStatusFieldExists: feature.docs.prStatusFieldExists,
-      prePrReviewFieldExists: feature.docs.prePrReviewFieldExists,
-      prePrEvidenceFieldExists: feature.docs.prePrEvidenceFieldExists,
-      prePrDecisionFieldExists: feature.docs.prePrDecisionFieldExists,
-      prReviewEvidenceFieldExists: feature.docs.prReviewEvidenceFieldExists,
-      prReviewDecisionFieldExists: feature.docs.prReviewDecisionFieldExists,
-    },
-    warnings: feature.warnings,
-  };
-}
-
-function toCompactActionOption(option: ActionOption): Record<string, unknown> {
-  const base: Record<string, unknown> = {
-    label: option.label,
-    summary: option.summary,
-    detail: option.detail,
-    approvalPrompt: option.approvalPrompt,
-    requiresRequestText: option.requiresRequestText,
-    replyExample: option.replyExample,
-    actionType: option.action.type,
-    category: option.action.category,
-    operationType: option.action.operationType,
-    requiresUserCheck: !!option.action.requiresUserCheck,
-  };
-
-  if (option.action.type === 'command') {
-    base.scope = option.action.scope;
-    base.cwd = option.action.cwd;
-    base.cmd = option.action.cmd;
-    return base;
-  }
-
-  base.message = option.action.message;
-  return base;
-}
-
-function toCompactSuggestionOption(
-  option: SuggestionOption
-): Record<string, string> {
-  return {
-    label: option.label,
-    summary: option.summary,
-    command: option.command,
-  };
-}
-
-function resolveContextRecommendation(
-  state: ResolvedContextState,
-  projectType: 'single' | 'multi',
-  selectedComponent: string
-): string {
-  if (state.status === 'multiple_active') {
-    return getMultipleFeaturesRecommendation(projectType, selectedComponent);
-  }
-  if (state.status === 'no_features') {
-    return 'No features found. Run onboarding checks first, then create a feature.';
-  }
-  if (state.status === 'no_open') {
-    return 'No open features found. Use `context --done` to inspect completed features.';
-  }
-  if (state.status === 'no_match') {
-    return 'No features found.';
-  }
-  if (state.targetFeatures.length === 1) {
-    return state.targetFeatures[0].nextAction;
-  }
-  return 'No matched feature.';
 }
 
 async function runContext(
@@ -928,22 +197,31 @@ async function runContext(
 
   const selectedComponent = (options.component || '').trim().toLowerCase();
 
-  const stepDefinitions = getStepDefinitions(lang, config.workflow);
-  const stepsMap = getStepsMap(lang, config.workflow);
+  const ctx = (await createCliContext({ cwd }))!;
+
+  const stepDefinitions = getStepDefinitions(ctx);
+  const stepsMap = getStepsMap(ctx);
   const selectionOptions: ContextSelectionOptions = {
     component: selectedComponent || undefined,
     all: options.all,
     done: options.done,
   };
-  const state = await resolveContextState(config, featureName, selectionOptions);
-  const requiredDocs = buildRequiredDocHints(state.actionOptions);
-  const suggestionOptions = buildSuggestionOptions(
+  const state = await presenter.resolveContextState(
+    ctx,
+    featureName,
+    selectionOptions
+  );
+  const requiredDocs = presenter.buildRequiredDocHints(state.actionOptions);
+  const suggestionOptions = presenter.buildSuggestionOptions(
     lang,
     state,
     config.projectType,
     selectedComponent
   );
-  const suggestionFinalPrompt = buildSuggestionFinalPrompt(lang, suggestionOptions);
+  const suggestionFinalPrompt = presenter.buildSuggestionFinalPrompt(
+    lang,
+    suggestionOptions
+  );
   const checkRequiredLabels = state.actionOptions
     .filter((option) => !!option.action.requiresUserCheck)
     .map((option) => option.label);
@@ -956,7 +234,7 @@ async function runContext(
   ];
   const approvalRequired = checkRequiredLabels.length > 0;
   const finalApprovalPrompt = approvalRequired
-    ? buildFinalApprovalPrompt(lang, state.actionOptions)
+    ? presenter.buildFinalApprovalPrompt(lang, state.actionOptions)
     : '';
   const approvalUserFacingLines = approvalRequired
     ? [
@@ -964,7 +242,7 @@ async function runContext(
         finalApprovalPrompt,
       ].filter((line) => line.length > 0)
     : [];
-  const autoRunPlan = resolveAutoRunPlan(
+  const autoRunPlan = presenter.resolveAutoRunPlan(
     lang,
     state,
     featureName,
@@ -972,7 +250,7 @@ async function runContext(
     config.approval,
     approvalRequired
   );
-  const agentOrchestration = buildAgentOrchestrationPolicy(
+  const agentOrchestration = presenter.buildAgentOrchestrationPolicy(
     state.actionOptions,
     autoRunPlan.available,
     autoRunPlan.command,
@@ -996,25 +274,29 @@ async function runContext(
   // 2. 결과 출력 (JSON)
   if (jsonMode) {
     const primaryAction = state.actionOptions[0] ?? null;
-    const approveCommand = buildApprovalCommand(
+    const approveCommand = presenter.buildApprovalCommand(
       state,
       featureName,
       selectedComponent,
       false
     );
-    const executeCommand = buildApprovalCommand(
+    const executeCommand = presenter.buildApprovalCommand(
       state,
       featureName,
       selectedComponent,
       true
     );
-    const recommendation = resolveContextRecommendation(
+    const recommendation = presenter.resolveContextRecommendation(
       state,
       config.projectType,
       selectedComponent
     );
-    const activeCategories = listActiveCategories(state.actionOptions);
-    const uncategorizedLabels = listUncategorizedLabels(state.actionOptions);
+    const activeCategories = presenter.listActiveCategories(
+      state.actionOptions
+    );
+    const uncategorizedLabels = presenter.listUncategorizedLabels(
+      state.actionOptions
+    );
 
     if (options.jsonCompact) {
       const compactResult = {
@@ -1026,30 +308,42 @@ async function runContext(
         branches: state.branches,
         warnings: state.warnings,
         contextVersion: state.contextVersion,
-        matchedFeature: toCompactFeature(state.matchedFeature),
+        matchedFeature: presenter.toCompactFeature(state.matchedFeature),
         candidateRefs:
           state.targetFeatures.length > 1
-            ? state.targetFeatures.map((feature) => getFeatureRef(feature))
+            ? state.targetFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
             : [],
         completedCandidateRefs:
           state.selectionMode === 'open'
-            ? state.doneFeatures.map((feature) => getFeatureRef(feature))
+            ? state.doneFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
             : [],
         openCandidateRefs:
           state.selectionMode === 'open'
-            ? state.openFeatures.map((feature) => getFeatureRef(feature))
+            ? state.openFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
             : [],
         inProgressCandidateRefs:
           state.selectionMode === 'open'
-            ? state.inProgressFeatures.map((feature) => getFeatureRef(feature))
+            ? state.inProgressFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
             : [],
         readyToCloseCandidateRefs:
           state.selectionMode === 'open'
-            ? state.readyToCloseFeatures.map((feature) => getFeatureRef(feature))
+            ? state.readyToCloseFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
             : [],
-        actionOptions: state.actionOptions.map((option) => toCompactActionOption(option)),
+        actionOptions: state.actionOptions.map((option) =>
+          presenter.toCompactActionOption(option)
+        ),
         suggestionOptions: suggestionOptions.map((option) =>
-          toCompactSuggestionOption(option)
+          presenter.toCompactSuggestionOption(option)
         ),
         primaryActionLabel: primaryAction?.label ?? null,
         workflowPolicy,
@@ -1058,7 +352,12 @@ async function runContext(
         checkPolicy: {
           docPath: 'builtin://agents/policy',
           token: '<LABEL>',
-          acceptedTokens: ['<LABEL>', '<LABEL> OK', '<LABEL> ...', '... <LABEL> ...'],
+          acceptedTokens: [
+            '<LABEL>',
+            '<LABEL> OK',
+            '<LABEL> ...',
+            '... <LABEL> ...',
+          ],
           tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
           validLabels: state.actionOptions.map((o) => o.label),
           activeCategories,
@@ -1087,7 +386,9 @@ async function runContext(
           required: approvalRequired,
           finalPrompt: finalApprovalPrompt,
           userFacingLines: approvalUserFacingLines,
-          labels: approvalRequired ? state.actionOptions.map((o) => o.label) : [],
+          labels: approvalRequired
+            ? state.actionOptions.map((o) => o.label)
+            : [],
           approveCommand,
           executeCommand,
           executeRequiresTicket:
@@ -1123,7 +424,8 @@ async function runContext(
       matchedFeature: state.matchedFeature,
       candidates: state.targetFeatures.length > 1 ? state.targetFeatures : [],
       // "Completed" now means workflow-done.
-      completedCandidates: state.selectionMode === 'open' ? state.doneFeatures : [],
+      completedCandidates:
+        state.selectionMode === 'open' ? state.doneFeatures : [],
       openCandidates: state.selectionMode === 'open' ? state.openFeatures : [],
       inProgressCandidates:
         state.selectionMode === 'open' ? state.inProgressFeatures : [],
@@ -1139,12 +441,17 @@ async function runContext(
       workflowPolicy,
       taskCommitGatePolicy,
       prePrReviewPolicy,
-        checkPolicy: {
+      checkPolicy: {
         docPath: 'builtin://agents/policy',
         hint: tr(lang, 'cli', 'context.checkPolicyHint'),
         policyOnly: true,
         token: '<LABEL>',
-        acceptedTokens: ['<LABEL>', '<LABEL> OK', '<LABEL> ...', '... <LABEL> ...'],
+        acceptedTokens: [
+          '<LABEL>',
+          '<LABEL> OK',
+          '<LABEL> ...',
+          '... <LABEL> ...',
+        ],
         tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
         validLabels: state.actionOptions.map((o) => o.label),
         activeCategories,
@@ -1164,7 +471,7 @@ async function runContext(
             ]
           : [],
         recommendation:
-          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed. Use main-agent orchestration: keep short steps in main agent. Delegate command runs only when `agentOrchestration.currentActionShouldDelegate=true`, and delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode=\"auto_run\"`.',
+          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed. Use main-agent orchestration: keep short steps in main agent. Delegate command runs only when `agentOrchestration.currentActionShouldDelegate=true`, and delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.',
         oneApprovalPerAction: approvalRequired,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
@@ -1179,11 +486,11 @@ async function runContext(
         untilCategories: autoRunPlan.untilCategories,
         unknownCategories: autoRunPlan.unknownCategories,
         guidance:
-          'Use auto-run only when `autoRun.available=true`. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode=\"auto_run\"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
+          'Use auto-run only when `autoRun.available=true`. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode="auto_run"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
       },
       approvalRequest: {
         guidance:
-          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`. Keep short steps in main agent. Delegate command runs only when `agentOrchestration.currentActionShouldDelegate=true`, and delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode=\"auto_run\"`.',
+          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`. Keep short steps in main agent. Delegate command runs only when `agentOrchestration.currentActionShouldDelegate=true`, and delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.',
         required: approvalRequired,
         finalPrompt: finalApprovalPrompt,
         userFacingLines: approvalUserFacingLines,
@@ -1204,7 +511,8 @@ async function runContext(
           scope: o.action.type === 'command' ? o.action.scope : undefined,
           cwd: o.action.type === 'command' ? o.action.cwd : undefined,
           cmd: o.action.type === 'command' ? o.action.cmd : undefined,
-          message: o.action.type === 'instruction' ? o.action.message : undefined,
+          message:
+            o.action.type === 'instruction' ? o.action.message : undefined,
           requiresUserCheck: !!o.action.requiresUserCheck,
           executeRequiresTicket: !!o.action.requiresUserCheck,
           operationType: o.action.operationType,
@@ -1264,7 +572,9 @@ async function runContext(
       .filter(([key, value]) => key !== 'single' && !!value)
       .map(([key, value]) => `${key.toUpperCase()} ${value}`);
     if (parts.length > 0) {
-      console.log(chalk.gray(`   (Detected from Project Branch: ${parts.join(' / ')})`));
+      console.log(
+        chalk.gray(`   (Detected from Project Branch: ${parts.join(' / ')})`)
+      );
     }
   }
   if (config.docsRepo === 'standalone' && state.branches.docs) {
@@ -1274,13 +584,9 @@ async function runContext(
   console.log();
 
   if (state.features.length === 0) {
-    console.log(
-      chalk.yellow(
-        tr(lang, 'cli', 'context.noActiveFeatures')
-      )
-    );
+    console.log(chalk.yellow(tr(lang, 'cli', 'context.noActiveFeatures')));
     console.log();
-    printSuggestionOptions(lang, suggestionOptions);
+    presenter.printSuggestionOptions(lang, suggestionOptions);
     console.log();
     return;
   }
@@ -1306,7 +612,7 @@ async function runContext(
       );
     }
     console.log();
-    printSuggestionOptions(lang, suggestionOptions);
+    presenter.printSuggestionOptions(lang, suggestionOptions);
     console.log();
     return;
   }
@@ -1331,7 +637,7 @@ async function runContext(
         )
       );
       state.inProgressFeatures.forEach((f) => {
-        const stepName = getListLabel(
+        const stepName = presenter.getListLabel(
           f,
           stepsMap,
           lang,
@@ -1352,7 +658,7 @@ async function runContext(
         )
       );
       state.readyToCloseFeatures.forEach((f) => {
-        const stepName = getListLabel(
+        const stepName = presenter.getListLabel(
           f,
           stepsMap,
           lang,
@@ -1375,7 +681,7 @@ async function runContext(
       console.log(chalk.blue(title));
       console.log();
       state.targetFeatures.forEach((f) => {
-        const stepName = getListLabel(
+        const stepName = presenter.getListLabel(
           f,
           stepsMap,
           lang,
@@ -1398,9 +704,7 @@ async function runContext(
           ? `   $ npx lee-spec-kit context <slug|F001|F001-slug> --component ${selectedComponent}`
           : '   $ npx lee-spec-kit context <slug|F001|F001-slug> [--component <component>]'
         : '   $ npx lee-spec-kit context <slug|F001|F001-slug>';
-    console.log(
-      chalk.gray(selectorTip)
-    );
+    console.log(chalk.gray(selectorTip));
     if (state.selectionMode === 'open') {
       console.log(
         chalk.gray(
@@ -1414,7 +718,7 @@ async function runContext(
       );
     }
     console.log();
-    printSuggestionOptions(lang, suggestionOptions);
+    presenter.printSuggestionOptions(lang, suggestionOptions);
     console.log();
     return;
   }
@@ -1479,8 +783,11 @@ async function runContext(
   }
 
   const actionOptions = state.actionOptions;
-  const hasCommandOption = actionOptions.some((option) => option.action.type === 'command');
-  const longRunningDelegation = shouldDelegateCurrentAction(actionOptions);
+  const hasCommandOption = actionOptions.some(
+    (option) => option.action.type === 'command'
+  );
+  const longRunningDelegation =
+    presenter.shouldDelegateCurrentAction(actionOptions);
   const showOptionLabels = hasCheckAction;
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;
@@ -1494,14 +801,22 @@ async function runContext(
     }
   });
   if (hasDocsCommand) {
-    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`));
+    console.log(
+      chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.tipDocsCommitRules')}`)
+    );
   }
   if (hasCommandOption && longRunningDelegation.shouldDelegate) {
-    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.subAgentOrchestrationHint')}`));
+    console.log(
+      chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.subAgentOrchestrationHint')}`)
+    );
   }
   if (hasCheckAction) {
-    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionOptionHint')}`));
-    console.log(chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionExplainHint')}`));
+    console.log(
+      chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionOptionHint')}`)
+    );
+    console.log(
+      chalk.gray(`   ↳ ${tr(lang, 'cli', 'context.actionExplainHint')}`)
+    );
   }
   if (requiredDocs.length > 0) {
     for (const requiredDoc of requiredDocs) {
@@ -1525,13 +840,13 @@ async function runContext(
     );
   }
   if (actionOptions.length > 0 && hasCheckAction) {
-    const approveCommand = buildApprovalCommand(
+    const approveCommand = presenter.buildApprovalCommand(
       state,
       featureName,
       selectedComponent,
       false
     );
-    const executeCommand = buildApprovalCommand(
+    const executeCommand = presenter.buildApprovalCommand(
       state,
       featureName,
       selectedComponent,
@@ -1597,12 +912,18 @@ async function runApprovedOption(
   if (!selected) {
     throw createCliError(
       'INVALID_APPROVAL',
-      `Unknown label "${parsedLabel}". Valid labels: ${listLabels(state.actionOptions)}`
+      `Unknown label "${parsedLabel}". Valid labels: ${presenter.listLabels(state.actionOptions)}`
     );
   }
 
   // Re-check right before execution/selection to avoid stale context approvals.
-  const freshState = await resolveContextState(config, featureName, selectionOptions);
+  const cwd = process.cwd();
+  const ctx = (await createCliContext({ cwd }))!;
+  const freshState = await presenter.resolveContextState(
+    ctx,
+    featureName,
+    selectionOptions
+  );
   if (freshState.contextVersion !== state.contextVersion) {
     throw createCliError(
       'CONTEXT_STALE',
@@ -1698,24 +1019,27 @@ async function runApprovedOption(
     }
     if (selectedAction.type === 'command') {
       const selectedComponent = selectionOptions.component || '';
-      let executeCommand = buildApprovalCommand(
-        freshState,
-        featureName,
-        selectedComponent,
-        true
-      ).replace('<LABEL>', parsedLabel);
+      let executeCommand = presenter
+        .buildApprovalCommand(freshState, featureName, selectedComponent, true)
+        .replace('<LABEL>', parsedLabel);
       if (ticket) {
         executeCommand = executeCommand.replace(
           '[--ticket <TICKET>]',
           `--ticket ${ticket.token}`
         );
-        console.log(chalk.gray(`   - Ticket: ${ticket.token} (expires: ${ticket.expiresAt})`));
+        console.log(
+          chalk.gray(
+            `   - Ticket: ${ticket.token} (expires: ${ticket.expiresAt})`
+          )
+        );
       } else {
         executeCommand = executeCommand.replace(' [--ticket <TICKET>]', '');
       }
       console.log(chalk.gray(`   - Run with: ${executeCommand}`));
     } else {
-      console.log(chalk.gray('   - Instruction-only action (no command execution).'));
+      console.log(
+        chalk.gray('   - Instruction-only action (no command execution).')
+      );
     }
     console.log();
     return;
@@ -1768,7 +1092,9 @@ async function runApprovedOption(
     }
 
     console.log();
-    console.log(chalk.yellow(`⚠️  Approved label ${parsedLabel} is instruction-only.`));
+    console.log(
+      chalk.yellow(`⚠️  Approved label ${parsedLabel} is instruction-only.`)
+    );
     if (userRequest) {
       console.log(chalk.gray(`   User request: ${userRequest}`));
     }
@@ -1789,11 +1115,7 @@ async function runApprovedOption(
     const execResult = await withFileLock(
       lockPath,
       async () =>
-        executeCommandAction(
-          selectedAction.cmd,
-          jsonMode,
-          selectedAction.cwd
-        ),
+        executeCommandAction(selectedAction.cmd, jsonMode, selectedAction.cwd),
       { owner: `context-execute:${selectedAction.scope}` }
     );
     if (jsonMode) {
@@ -1828,7 +1150,10 @@ async function runApprovedOption(
   }
 }
 
-function printChecklist(f: FeatureContext, stepDefinitions: StepDefinition[]): void {
+function printChecklist(
+  f: FeatureContext,
+  stepDefinitions: StepDefinition[]
+): void {
   const checklistSteps = [...stepDefinitions].sort((a, b) => a.step - b.step);
 
   checklistSteps.forEach((definition) => {

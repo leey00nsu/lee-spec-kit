@@ -5,6 +5,7 @@ import path from 'path';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { scanFeatures, FeatureContext } from '../utils/context.js';
+import { createCliContext } from '../utils/cli-context.js';
 import { getLocalDateString } from '../utils/date.js';
 import { applyReplacements } from '../utils/template.js';
 import {
@@ -133,7 +134,11 @@ function ensureTasksDocStatus(
   content: string,
   lang: 'ko' | 'en'
 ): { content: string; changed: boolean } {
-  const normalized = normalizeStatusLine(content, ['Doc Status', '문서 상태'], 'Review');
+  const normalized = normalizeStatusLine(
+    content,
+    ['Doc Status', '문서 상태'],
+    'Review'
+  );
   if (normalized.changed) return normalized;
 
   const hasField = /^\s*-\s*\*\*(Doc Status|문서 상태)\*\*\s*:/m.test(content);
@@ -155,7 +160,8 @@ function ensureTasksDocStatus(
     return { content: lines.join('\n'), changed: true };
   }
 
-  const fallbackHeading = lang === 'ko' ? '## 로컬 추적 정보' : '## Local Tracking';
+  const fallbackHeading =
+    lang === 'ko' ? '## 로컬 추적 정보' : '## Local Tracking';
   const next = `${content.trimEnd()}\n\n${fallbackHeading}\n\n${line}\n`;
   return { content: next, changed: true };
 }
@@ -218,16 +224,27 @@ function applyPlaceholderFixes(
   next = next.replace(/\{\d{4}-\d{2}-\d{2}\}/g, date);
 
   if (lang === 'en') {
-    next = next.replace(/\s+\(\s*Why is this feature needed\? What problem does it solve\?\)/g, '');
+    next = next.replace(
+      /\s+\(\s*Why is this feature needed\? What problem does it solve\?\)/g,
+      ''
+    );
   } else {
-    next = next.replace(/\s+\(\s*이 기능이 왜 필요한지, 어떤 문제를 해결하는지\)/g, '');
+    next = next.replace(
+      /\s+\(\s*이 기능이 왜 필요한지, 어떤 문제를 해결하는지\)/g,
+      ''
+    );
   }
 
   return { content: next, changed: next !== content };
 }
 
 async function applyDoctorFixes(
-  config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en'; projectName?: string },
+  config: {
+    docsDir: string;
+    projectType: 'single' | 'multi';
+    lang: 'ko' | 'en';
+    projectName?: string;
+  },
   cwd: string,
   features: FeatureContext[],
   dryRun: boolean
@@ -239,7 +256,8 @@ async function applyDoctorFixes(
     const placeholderContext = {
       projectName: config.projectName,
       featureName: f.slug,
-      featurePath: f.docs.featurePathFromDocs || path.relative(config.docsDir, f.path),
+      featurePath:
+        f.docs.featurePathFromDocs || path.relative(config.docsDir, f.path),
       repoType: f.type,
       featureNumber,
     };
@@ -258,14 +276,22 @@ async function applyDoctorFixes(
       let next = original;
       const changes: string[] = [];
 
-      const placeholderFix = applyPlaceholderFixes(next, placeholderContext, config.lang);
+      const placeholderFix = applyPlaceholderFixes(
+        next,
+        placeholderContext,
+        config.lang
+      );
       next = placeholderFix.content;
       if (placeholderFix.changed) {
         changes.push('replaced placeholders');
       }
 
       if (file === 'spec.md' || file === 'plan.md') {
-        const normalized = normalizeStatusLine(next, ['Status', '상태'], 'Review');
+        const normalized = normalizeStatusLine(
+          next,
+          ['Status', '상태'],
+          'Review'
+        );
         next = normalized.content;
         if (normalized.changed) {
           changes.push('normalized document status to Review');
@@ -302,7 +328,11 @@ async function applyDoctorFixes(
 }
 
 async function checkDocsStructure(
-  config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en' },
+  config: {
+    docsDir: string;
+    projectType: 'single' | 'multi';
+    lang: 'ko' | 'en';
+  },
   cwd: string
 ): Promise<DoctorIssue[]> {
   const issues: DoctorIssue[] = [];
@@ -314,7 +344,9 @@ async function checkDocsStructure(
       issues.push({
         level: 'error',
         code: 'missing_dir',
-        message: tr(config.lang, 'cli', 'doctor.issue.missingRequiredDir', { dir }),
+        message: tr(config.lang, 'cli', 'doctor.issue.missingRequiredDir', {
+          dir,
+        }),
         path: formatPath(cwd, p),
       });
     }
@@ -334,7 +366,11 @@ async function checkDocsStructure(
 }
 
 async function checkFeatures(
-  config: { docsDir: string; projectType: 'single' | 'multi'; lang: 'ko' | 'en' },
+  config: {
+    docsDir: string;
+    projectType: 'single' | 'multi';
+    lang: 'ko' | 'en';
+  },
   cwd: string,
   features: FeatureContext[],
   decisionsPlaceholderMode: 'off' | 'info' | 'warn'
@@ -352,7 +388,8 @@ async function checkFeatures(
 
   const idMap = new Map<string, string[]>();
   for (const f of features) {
-    const rel = f.docs.featurePathFromDocs || path.relative(config.docsDir, f.path);
+    const rel =
+      f.docs.featurePathFromDocs || path.relative(config.docsDir, f.path);
     const id = f.id || 'UNKNOWN';
     if (!idMap.has(id)) idMap.set(id, []);
     idMap.get(id)!.push(rel);
@@ -506,7 +543,10 @@ export function doctorCommand(program: Command): void {
     .description('Validate docs structure and feature metadata')
     .option('--json', 'Output in JSON format for agents')
     .option('--fix', 'Automatically apply safe fixes for common docs issues')
-    .option('--dry-run', 'Show potential fixes without writing files (requires --fix)')
+    .option(
+      '--dry-run',
+      'Show potential fixes without writing files (requires --fix)'
+    )
     .option(
       '--decisions-placeholders <mode>',
       'decisions.md placeholder severity: off | info | warn (default: info)',
@@ -550,14 +590,17 @@ export function doctorCommand(program: Command): void {
           | 'info'
           | 'warn';
 
+        const ctx = (await createCliContext({ cwd }))!;
         const { docsDir, projectType, lang } = config;
-        let scan = await scanFeatures(config);
+        let scan = await scanFeatures(ctx);
         let features = scan.features;
         let branches = scan.branches;
         let warnings = scan.warnings;
 
         let issues: DoctorIssue[] = [];
-        issues.push(...(await checkDocsStructure({ docsDir, projectType, lang }, cwd)));
+        issues.push(
+          ...(await checkDocsStructure({ docsDir, projectType, lang }, cwd))
+        );
         issues.push(
           ...(await checkFeatures(
             { docsDir, projectType, lang },
@@ -586,12 +629,14 @@ export function doctorCommand(program: Command): void {
           }
 
           if (!options.dryRun && fixResult.changedFiles > 0) {
-            scan = await scanFeatures(config);
+            scan = await scanFeatures(ctx);
             features = scan.features;
             branches = scan.branches;
             warnings = scan.warnings;
             issues = [];
-            issues.push(...(await checkDocsStructure({ docsDir, projectType, lang }, cwd)));
+            issues.push(
+              ...(await checkDocsStructure({ docsDir, projectType, lang }, cwd))
+            );
             issues.push(
               ...(await checkFeatures(
                 { docsDir, projectType, lang },
@@ -656,11 +701,17 @@ export function doctorCommand(program: Command): void {
         }
 
         if (fixResult) {
-          const label = fixResult.dryRun ? '🧪 Doctor Fix (dry-run)' : '🛠️  Doctor Fix';
-          console.log(chalk.blue(`${label}: ${fixResult.changedFiles} file(s)`));
+          const label = fixResult.dryRun
+            ? '🧪 Doctor Fix (dry-run)'
+            : '🛠️  Doctor Fix';
+          console.log(
+            chalk.blue(`${label}: ${fixResult.changedFiles} file(s)`)
+          );
           if (fixResult.changedFiles > 0) {
             fixResult.entries.forEach((entry) =>
-              console.log(chalk.gray(`  - ${entry.path}: ${entry.changes.join(', ')}`))
+              console.log(
+                chalk.gray(`  - ${entry.path}: ${entry.changes.join(', ')}`)
+              )
             );
           }
           console.log();
@@ -688,7 +739,9 @@ export function doctorCommand(program: Command): void {
             )
           );
           errors.forEach((i) =>
-            console.log(chalk.red(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`))
+            console.log(
+              chalk.red(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`)
+            )
           );
           console.log();
         }
@@ -710,7 +763,9 @@ export function doctorCommand(program: Command): void {
         if (infos.length > 0) {
           console.log(chalk.blue(`ℹ️  Info (${infos.length})`));
           infos.forEach((i) =>
-            console.log(chalk.blue(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`))
+            console.log(
+              chalk.blue(`  - ${i.message}${i.path ? ` (${i.path})` : ''}`)
+            )
           );
           console.log();
         }
@@ -725,7 +780,7 @@ export function doctorCommand(program: Command): void {
         console.log();
 
         process.exitCode = exitCode;
-          return;
+        return;
       } catch (error) {
         const config = await getConfig(process.cwd());
         const lang = config?.lang ?? DEFAULT_LANG;

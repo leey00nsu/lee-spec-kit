@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { ProjectConfig } from './config.js';
+import { CliContext } from './cli-context.js';
 import {
   ActionCategory,
   FeatureContext,
@@ -17,7 +17,12 @@ export type ContextStatus =
   | 'multiple_active'
   | 'no_match';
 
-export type ContextSelectionMode = 'explicit' | 'branch' | 'open' | 'done' | 'all';
+export type ContextSelectionMode =
+  | 'explicit'
+  | 'branch'
+  | 'open'
+  | 'done'
+  | 'all';
 export type ContextSelectionFallback =
   | 'none'
   | 'open_features'
@@ -78,7 +83,8 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
   'worktree_cleanup',
 ]);
 
-const REMOTE_COMMAND_PATTERN = /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
+const REMOTE_COMMAND_PATTERN =
+  /\b(?:git\s+push|git\s+merge|gh\s+(?:issue|pr)\b)/i;
 const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
   feature_folder: 'context.actionDetail.featureFolder',
   spec_write: 'context.actionDetail.specWrite',
@@ -151,7 +157,9 @@ function getActionSummary(action: ContextAction, lang: 'ko' | 'en'): string {
     const localized = tr(lang, 'cli', action.uiDetailKey);
     if (localized !== `cli.${action.uiDetailKey}`) return localized;
   }
-  const detailKey = action.category ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category] : undefined;
+  const detailKey = action.category
+    ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category]
+    : undefined;
   if (detailKey) {
     const localized = tr(lang, 'cli', detailKey);
     if (localized !== `cli.${detailKey}`) return localized;
@@ -257,7 +265,9 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
   if (action.category === 'task_execute') {
     return toOneLine(action.message);
   }
-  const detailKey = action.category ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category] : undefined;
+  const detailKey = action.category
+    ? ACTION_DETAIL_KEY_BY_CATEGORY[action.category]
+    : undefined;
   if (detailKey) {
     const localized = tr(lang, 'cli', detailKey);
     if (localized !== `cli.${detailKey}`) return localized;
@@ -265,7 +275,10 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
   return toOneLine(action.message);
 }
 
-function toActionOptions(actions: ContextAction[], lang: 'ko' | 'en'): ActionOption[] {
+function toActionOptions(
+  actions: ContextAction[],
+  lang: 'ko' | 'en'
+): ActionOption[] {
   return actions.map((action, index) => {
     const label = getActionLabel(index);
     const summary = getActionSummary(action, lang);
@@ -286,7 +299,9 @@ function toActionOptions(actions: ContextAction[], lang: 'ko' | 'en'): ActionOpt
   });
 }
 
-function buildActionSnapshot(actionOptions: ActionOption[]): Array<Record<string, string | boolean | undefined>> {
+function buildActionSnapshot(
+  actionOptions: ActionOption[]
+): Array<Record<string, string | boolean | undefined>> {
   return actionOptions.map(({ label, action }) => {
     if (action.type === 'command') {
       return {
@@ -352,7 +367,9 @@ function detectFromBranch(
   );
 }
 
-function detectFromExpectedFeatureBranch(features: FeatureContext[]): FeatureContext[] {
+function detectFromExpectedFeatureBranch(
+  features: FeatureContext[]
+): FeatureContext[] {
   return features.filter((feature) => feature.git.onExpectedBranch);
 }
 
@@ -363,7 +380,9 @@ function toSelectionStatus(
   targetFeatures: FeatureContext[]
 ): ContextStatus {
   const isNoOpen =
-    selectionMode === 'open' && features.length > 0 && openFeatures.length === 0;
+    selectionMode === 'open' &&
+    features.length > 0 &&
+    openFeatures.length === 0;
   if (features.length === 0) return 'no_features';
   if (isNoOpen) return 'no_open';
   if (targetFeatures.length === 1) return 'single_matched';
@@ -380,11 +399,12 @@ export function toReasonCode(status: ContextStatus): string {
 }
 
 export async function resolveContextSelection(
-  config: ProjectConfig,
+  ctx: CliContext,
   featureName: string | undefined,
   options: ContextSelectionOptions
 ): Promise<ContextSelectionState> {
-  const { features, branches, warnings } = await scanFeatures(config);
+  const { config } = ctx;
+  const { features, branches, warnings } = await scanFeatures(ctx);
   const selectedComponent = resolveComponentOption(options.component);
   const scopedFeatures = selectedComponent
     ? features.filter((f) => f.type === selectedComponent)
@@ -409,7 +429,8 @@ export async function resolveContextSelection(
     );
     selectionMode = 'explicit';
   } else {
-    const expectedBranchMatches = detectFromExpectedFeatureBranch(scopedFeatures);
+    const expectedBranchMatches =
+      detectFromExpectedFeatureBranch(scopedFeatures);
     if (expectedBranchMatches.length === 1) {
       targetFeatures = expectedBranchMatches;
       selectionMode = 'branch';
@@ -419,14 +440,12 @@ export async function resolveContextSelection(
       targetFeatures = detectFromBranch(branchName, scopedFeatures);
     } else if (selectedComponent) {
       const branchName = branches.project[selectedComponent] || '';
-      targetFeatures = detectFromBranch(
-        branchName,
-        scopedFeatures
-      );
+      targetFeatures = detectFromBranch(branchName, scopedFeatures);
     } else {
       const matches: FeatureContext[] = [];
-      const componentKeys = [...new Set(scopedFeatures.map((f) => f.type))]
-        .filter((key) => key !== 'single');
+      const componentKeys = [
+        ...new Set(scopedFeatures.map((f) => f.type)),
+      ].filter((key) => key !== 'single');
       for (const component of componentKeys) {
         const branchName = branches.project[component] || '';
         if (!branchName) continue;

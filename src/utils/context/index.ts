@@ -12,7 +12,7 @@ export type {
 } from './types.js';
 export { ACTION_CATEGORIES } from './types.js';
 
-export { getStepDefinitions, getStepsMap, STEP_DEFINITIONS, STEPS } from './steps.js';
+export { getStepDefinitions, getStepsMap } from './steps.js';
 export { resolveFeatureProgress } from './progress.js';
 export { getCurrentBranch } from './git.js';
 export { parseFeature } from './parse.js';

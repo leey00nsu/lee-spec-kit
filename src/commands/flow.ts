@@ -16,6 +16,8 @@ import {
   resolveContextSelection,
   toReasonCode,
 } from '../utils/context-selection.js';
+import { createCliContext } from '../utils/cli-context.js';
+import { Buffer } from 'buffer';
 import { ACTION_CATEGORIES } from '../utils/context.js';
 import { resolveComponentOption } from '../utils/context/component-option.js';
 import {
@@ -96,22 +98,18 @@ interface AutoRunSummary {
     | 'AUTO_EXECUTION_FAILED';
   iterations: number;
   executions: AutoRunExecution[];
-  gate?:
-    | {
-        label: string;
-        category?: string;
-        detail: string;
-        finalPrompt?: string;
-        userFacingLines?: string[];
-      }
-    | null;
-  manual?:
-    | {
-        label: string;
-        category?: string;
-        detail: string;
-      }
-    | null;
+  gate?: {
+    label: string;
+    category?: string;
+    detail: string;
+    finalPrompt?: string;
+    userFacingLines?: string[];
+  } | null;
+  manual?: {
+    label: string;
+    category?: string;
+    detail: string;
+  } | null;
   error?: string;
 }
 
@@ -205,7 +203,9 @@ function shellEscape(arg: string): string {
 }
 
 function toLeeSpecKitCommand(args: string[]): string {
-  return ['npx', 'lee-spec-kit', ...args].map((arg) => shellEscape(arg)).join(' ');
+  return ['npx', 'lee-spec-kit', ...args]
+    .map((arg) => shellEscape(arg))
+    .join(' ');
 }
 
 function buildResumeRunCommand(runId: string): string {
@@ -257,8 +257,12 @@ function runSelfCli(args: string[]): CliRunResult {
 function runSelfCliJson(args: string[], allowFailure = false): unknown {
   const result = runSelfCli([...args, '--json']);
   if (result.code !== 0 && !allowFailure) {
-    const detail = result.stderr.trim() || result.stdout.trim() || args.join(' ');
-    throw createCliError('EXECUTION_FAILED', `Flow sub-command failed: ${detail}`);
+    const detail =
+      result.stderr.trim() || result.stdout.trim() || args.join(' ');
+    throw createCliError(
+      'EXECUTION_FAILED',
+      `Flow sub-command failed: ${detail}`
+    );
   }
   const text = result.stdout.trim();
   if (!text) return { status: 'empty' };
@@ -288,7 +292,10 @@ function buildSelectionArgs(
   return args;
 }
 
-function normalizeAutoCategories(values: string[], sourceLabel: string): string[] {
+function normalizeAutoCategories(
+  values: string[],
+  sourceLabel: string
+): string[] {
   const requested = values.map((value) => value.trim()).filter(Boolean);
   if (requested.length === 0) {
     throw createCliError(
@@ -322,13 +329,19 @@ function normalizePresetName(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-function resolveConfiguredPresetMap(config: LoadedConfig): Map<string, string[]> {
+function resolveConfiguredPresetMap(
+  config: LoadedConfig
+): Map<string, string[]> {
   const presets = new Map<string, string[]>();
   for (const [name, categories] of Object.entries(BUILTIN_AUTO_PRESETS)) {
-    presets.set(name, normalizeAutoCategories(categories, `builtin preset "${name}"`));
+    presets.set(
+      name,
+      normalizeAutoCategories(categories, `builtin preset "${name}"`)
+    );
   }
   const configuredPresets = config.workflow?.auto?.presets;
-  if (!configuredPresets || typeof configuredPresets !== 'object') return presets;
+  if (!configuredPresets || typeof configuredPresets !== 'object')
+    return presets;
   for (const [rawName, rawCategories] of Object.entries(configuredPresets)) {
     const name = normalizePresetName(rawName);
     if (!name) continue;
@@ -355,7 +368,10 @@ function resolvePresetCategories(
 ): AutoPresetResolution {
   const presetName = normalizePresetName(rawPresetName);
   if (!presetName) {
-    throw createCliError('INVALID_ARGUMENT', '`--auto-preset` requires a preset name.');
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--auto-preset` requires a preset name.'
+    );
   }
   const presetMap = resolveConfiguredPresetMap(config);
   const categories = presetMap.get(presetName);
@@ -371,10 +387,15 @@ function resolvePresetCategories(
   };
 }
 
-function resolveConfigDefaultAutoMode(config: LoadedConfig): AutoModeResolution | null {
+function resolveConfigDefaultAutoMode(
+  config: LoadedConfig
+): AutoModeResolution | null {
   const autoPolicy = config.workflow?.auto;
   if (!autoPolicy) return null;
-  if (Array.isArray(autoPolicy.defaultUntilCategories) && autoPolicy.defaultUntilCategories.length > 0) {
+  if (
+    Array.isArray(autoPolicy.defaultUntilCategories) &&
+    autoPolicy.defaultUntilCategories.length > 0
+  ) {
     return {
       untilCategories: normalizeAutoCategories(
         autoPolicy.defaultUntilCategories.map((value) => String(value || '')),
@@ -420,7 +441,9 @@ function resolveAutoMode(
   return null;
 }
 
-function toAutoReasonCode(status: AutoRunSummary['status']): AutoRunSummary['reasonCode'] {
+function toAutoReasonCode(
+  status: AutoRunSummary['status']
+): AutoRunSummary['reasonCode'] {
   switch (status) {
     case 'gate_reached':
       return 'AUTO_GATE_REACHED';
@@ -560,7 +583,9 @@ function toCompactFlowFeature(
   };
 }
 
-function toCompactFlowActionOption(option: ActionOption): Record<string, unknown> {
+function toCompactFlowActionOption(
+  option: ActionOption
+): Record<string, unknown> {
   const base: Record<string, unknown> = {
     label: option.label,
     summary: option.summary,
@@ -584,7 +609,9 @@ function toCompactFlowActionOption(option: ActionOption): Record<string, unknown
   return base;
 }
 
-function toCompactFlowContextSnapshot(state: ContextSelectionState): Record<string, unknown> {
+function toCompactFlowContextSnapshot(
+  state: ContextSelectionState
+): Record<string, unknown> {
   const primaryAction = state.actionOptions[0] ?? null;
   return {
     status: state.status,
@@ -625,7 +652,9 @@ function toCompactFlowContextSnapshot(state: ContextSelectionState): Record<stri
   };
 }
 
-function toCompactAutoRun(autoRun: AutoRunSummary | null): Record<string, unknown> | null {
+function toCompactAutoRun(
+  autoRun: AutoRunSummary | null
+): Record<string, unknown> | null {
   if (!autoRun) return null;
   const lastExecution =
     autoRun.executions.length > 0
@@ -650,7 +679,9 @@ function toCompactAutoRun(autoRun: AutoRunSummary | null): Record<string, unknow
   };
 }
 
-function toCompactStatusReport(report: unknown): Record<string, unknown> | null {
+function toCompactStatusReport(
+  report: unknown
+): Record<string, unknown> | null {
   if (!report || typeof report !== 'object') return null;
   const payload = report as {
     status?: string;
@@ -674,7 +705,10 @@ async function runAutoUntilCategory(
   requestText: string | undefined,
   metadata?: { preset?: string | null; source?: string | null }
 ): Promise<AutoRunSummary> {
-  const contextArgs = ['context', ...buildSelectionArgs(featureName, selectionOptions)];
+  const contextArgs = [
+    'context',
+    ...buildSelectionArgs(featureName, selectionOptions),
+  ];
   const gateSet = new Set(untilCategories);
   const executions: AutoRunExecution[] = [];
   const stagnantLimit = 3;
@@ -692,7 +726,12 @@ async function runAutoUntilCategory(
       !requestHandled
     );
     iterations += 1;
-    const state = await resolveContextSelection(config, featureName, selectionOptions);
+    const ctx = (await createCliContext({ cwd: process.cwd() }))!;
+    const state = await resolveContextSelection(
+      ctx,
+      featureName,
+      selectionOptions
+    );
     const actionOptions = state.actionOptions;
     const signature = JSON.stringify({
       contextVersion: state.contextVersion,
@@ -791,9 +830,7 @@ async function runAutoUntilCategory(
       const approveResult = runSelfCliJson(
         [...contextArgs, '--approve', approvalReply],
         true
-      ) as
-        | { status?: string; reasonCode?: string; error?: string }
-        | undefined;
+      ) as { status?: string; reasonCode?: string; error?: string } | undefined;
       const approveStatus = approveResult?.status ?? 'unknown';
       executions.push({
         kind: 'request',
@@ -863,7 +900,9 @@ async function runAutoUntilCategory(
       };
     }
 
-    const executable = actionOptions.find((option) => option.action.type === 'command');
+    const executable = actionOptions.find(
+      (option) => option.action.type === 'command'
+    );
     if (!executable) {
       return {
         enabled: true,
@@ -935,7 +974,10 @@ async function runAutoUntilCategory(
       executable.label,
       '--execute',
     ];
-    if (approveResult?.executeRequiresTicket && approveResult.approvalTicket?.token) {
+    if (
+      approveResult?.executeRequiresTicket &&
+      approveResult.approvalTicket?.token
+    ) {
       executeArgs.push('--ticket', approveResult.approvalTicket.token);
     }
     const executeResult = runSelfCliJson(executeArgs, true) as
@@ -1125,7 +1167,9 @@ async function runFlow(
       );
     }
     resolvedFeatureName = flowRunRecord.featureName;
-    selectedComponent = resolveComponentOption(flowRunRecord.selection.component);
+    selectedComponent = resolveComponentOption(
+      flowRunRecord.selection.component
+    );
     selectionOptions.component = selectedComponent;
     selectionOptions.all = !!flowRunRecord.selection.all;
     selectionOptions.done = !!flowRunRecord.selection.done;
@@ -1205,10 +1249,18 @@ async function runFlow(
     ? ` --component ${selectedComponent}`
     : '';
 
-  const before = await resolveContextSelection(config, resolvedFeatureName, selectionOptions);
+  const ctx = (await createCliContext({ cwd: process.cwd() }))!;
+  const before = await resolveContextSelection(
+    ctx,
+    resolvedFeatureName,
+    selectionOptions
+  );
   let approvalResult: unknown = null;
   let autoRun: AutoRunSummary | null = null;
-  const contextArgs = ['context', ...buildSelectionArgs(resolvedFeatureName, selectionOptions)];
+  const contextArgs = [
+    'context',
+    ...buildSelectionArgs(resolvedFeatureName, selectionOptions),
+  ];
   if (autoMode) {
     autoRun = await runAutoUntilCategory(
       config,
@@ -1230,7 +1282,8 @@ async function runFlow(
             approvalTicket?: { token?: string };
           }
         | undefined;
-      const executeRequiresTicket = selectedPayload?.executeRequiresTicket === true;
+      const executeRequiresTicket =
+        selectedPayload?.executeRequiresTicket === true;
       const ticket = selectedPayload?.approvalTicket?.token;
       if (selectedPayload?.status === 'approved_selected') {
         const executeArgs = [
@@ -1277,7 +1330,11 @@ async function runFlow(
     };
   }
 
-  const after = await resolveContextSelection(config, resolvedFeatureName, selectionOptions);
+  const after = await resolveContextSelection(
+    ctx,
+    resolvedFeatureName,
+    selectionOptions
+  );
   const statusReport = runSelfCliJson(['status']);
   const doctorReport = runSelfCliJson(['doctor']);
 
@@ -1425,9 +1482,12 @@ async function runFlow(
     )
   );
 
-  const statusCounts = (statusReport as { counts?: { features?: number } }).counts;
+  const statusCounts = (statusReport as { counts?: { features?: number } })
+    .counts;
   const doctorCounts = (
-    doctorReport as { counts?: { issues?: number; warnings?: number; errors?: number } }
+    doctorReport as {
+      counts?: { issues?: number; warnings?: number; errors?: number };
+    }
   ).counts;
   console.log(chalk.gray(`- Status features: ${statusCounts?.features ?? 0}`));
   console.log(
@@ -1445,11 +1505,18 @@ async function runFlow(
   }
 
   console.log();
-  if (autoRun?.status === 'gate_reached' && autoRun.gate?.userFacingLines?.length) {
+  if (
+    autoRun?.status === 'gate_reached' &&
+    autoRun.gate?.userFacingLines?.length
+  ) {
     for (const line of autoRun.gate.userFacingLines) {
       console.log(line);
     }
-    console.log(chalk.gray('Auto gate reached. Reply with one of the labels shown above (example: A OK).'));
+    console.log(
+      chalk.gray(
+        'Auto gate reached. Reply with one of the labels shown above (example: A OK).'
+      )
+    );
     console.log();
   }
   if (autoRun && isAutoRunFailureStatus(autoRun.status)) {
@@ -1464,6 +1531,10 @@ async function runFlow(
   } else {
     console.log(chalk.blue(`Next: npx lee-spec-kit context${componentHint}`));
   }
-  console.log(chalk.gray('Tip: add --approve <LABEL> [--execute] to run the selected atomic action.'));
+  console.log(
+    chalk.gray(
+      'Tip: add --approve <LABEL> [--execute] to run the selected atomic action.'
+    )
+  );
   console.log();
 }
