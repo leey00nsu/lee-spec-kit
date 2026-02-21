@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import { execFileSync } from 'child_process';
 
 export function runGitOrThrow(
@@ -5,7 +6,11 @@ export function runGitOrThrow(
   cwd: string,
   options: {
     encoding?: BufferEncoding;
-    stdio?: 'pipe' | 'ignore' | ['ignore', 'pipe', 'pipe'] | ['ignore', 'pipe', 'ignore'];
+    stdio?:
+      | 'pipe'
+      | 'ignore'
+      | ['ignore', 'pipe', 'pipe']
+      | ['ignore', 'pipe', 'ignore'];
   } = {}
 ): string {
   const encoding = options.encoding ?? 'utf-8';

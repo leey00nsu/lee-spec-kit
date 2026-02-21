@@ -38,6 +38,7 @@ export function tr<C extends I18nCategory>(
   key: I18nKey<C>,
   vars?: Record<string, string | number | undefined>
 ): string;
+/* eslint-disable no-redeclare */
 export function tr(
   lang: Lang,
   category: I18nCategory,
@@ -51,8 +52,12 @@ export function tr(
   vars: Record<string, string | number | undefined> = {}
 ): string {
   const safeLang = normalizeLang(lang);
-  const safeCategory = I18N[safeLang]?.[category] as Record<string, string> | undefined;
-  const defaultCategory = I18N[DEFAULT_LANG]?.[category] as Record<string, string> | undefined;
+  const safeCategory = I18N[safeLang]?.[category] as
+    | Record<string, string>
+    | undefined;
+  const defaultCategory = I18N[DEFAULT_LANG]?.[category] as
+    | Record<string, string>
+    | undefined;
   const koCategory = I18N.ko?.[category] as Record<string, string> | undefined;
   const template =
     safeCategory?.[key] ??

@@ -605,7 +605,7 @@ async function runInit(options: InitOptions): Promise<void> {
         );
       }
       const fsAdapter = new DefaultFileSystemAdapter();
-      await copyTemplates(fs, commonPath, targetDir);
+      await copyTemplates(fsAdapter, commonPath, targetDir);
 
       if (projectType === 'multi') {
         const featuresRoot = path.join(targetDir, 'features');

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import {
   execSync,
   ExecSyncOptions,
@@ -18,6 +19,7 @@ export class DefaultCommandAdapter implements ICommandAdapter {
   execFileSync(
     file: string,
     args?: ReadonlyArray<string>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options?: any
   ): Buffer | string {
     return execFileSync(file, args, options);
@@ -83,10 +85,10 @@ export class DefaultCommandAdapter implements ICommandAdapter {
         stderr: result.stderr ? String(result.stderr) : '',
         code: result.status,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         stdout: '',
-        stderr: error.message || '',
+        stderr: error instanceof Error ? error.message : String(error),
         code: 1,
       };
     }

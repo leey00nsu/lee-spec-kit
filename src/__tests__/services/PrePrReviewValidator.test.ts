@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrePrReviewValidator } from '../../services/PrePrReviewValidator.js';
 import { CliContext } from '../../utils/cli-context.js';

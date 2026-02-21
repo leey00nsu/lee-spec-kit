@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import fs from 'fs-extra';
 import { IFileSystemAdapter } from '../ports/FileSystemAdapter.js';
 

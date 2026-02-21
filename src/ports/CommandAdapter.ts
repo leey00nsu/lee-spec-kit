@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import {
   SpawnOptions,
   SpawnSyncOptions,
@@ -16,6 +17,7 @@ export interface ICommandAdapter {
   execFileSync(
     file: string,
     args?: ReadonlyArray<string>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options?: any
   ): Buffer | string;
   spawnSync(

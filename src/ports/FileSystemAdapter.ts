@@ -1,3 +1,5 @@
+/* eslint-disable no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface IFileSystemAdapter {
   readFile(filePath: string, encoding?: BufferEncoding): Promise<string>;
   readFileSync(filePath: string, encoding?: BufferEncoding): string;

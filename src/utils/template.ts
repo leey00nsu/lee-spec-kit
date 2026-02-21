@@ -2,7 +2,7 @@ import { IFileSystemAdapter } from '../ports/FileSystemAdapter.js';
 import { walkFiles } from './fs-walk.js';
 
 export async function copyTemplates(
-  fsImpl: any,
+  fsImpl: IFileSystemAdapter,
   src: string,
   dest: string
 ): Promise<void> {
