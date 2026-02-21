@@ -1966,6 +1966,9 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.equal(await pathExists(reportPath), true);
     const decisions = await fs.readFile(reportPath, 'utf-8');
     assert.match(decisions, /Pre-PR Review Log/i);
+    assert.match(decisions, /\*\*Review Scope\*\*/i);
+    assert.match(decisions, /\*\*Main Range\*\*:/i);
+    assert.match(decisions, /\*\*Worktree Changed Files\*\*:/i);
 
     // Default pre-pr-review template is intentionally incomplete.
     // It should not pass the pre-PR gate until findings/residual risks/tests are filled.

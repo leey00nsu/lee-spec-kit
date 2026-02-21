@@ -18,6 +18,19 @@ export interface PrePrReviewEvidence {
   commandsExecuted: string[];
 }
 
+export interface PrePrReviewScope {
+  baseRef: string;
+  mergeBase: string | null;
+  mainRange: string;
+  mainChangedFiles: string[];
+  worktreeChangedFiles: string[];
+}
+
+export interface PrePrReviewValidationResult {
+  evidence: PrePrReviewEvidence;
+  scope: PrePrReviewScope;
+}
+
 function asNonEmptyString(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const trimmed = value.trim();
@@ -29,6 +42,32 @@ function normalizeCommandsExecuted(value: unknown): string[] {
   return value
     .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
     .filter(Boolean);
+}
+
+function normalizeGitPath(value: string): string {
+  return value
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function parseGitPathList(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((entry) => normalizeGitPath(entry))
+    .filter(Boolean);
+}
+
+function uniquePaths(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
 }
 
 function normalizeEvidenceFiles(value: unknown): PrePrReviewEvidence['files'] {
@@ -86,6 +125,14 @@ export class PrePrReviewValidator {
     evidencePath: string,
     projectRoot: string
   ): Promise<PrePrReviewEvidence> {
+    const result = await this.validateEvidenceWithScope(evidencePath, projectRoot);
+    return result.evidence;
+  }
+
+  async validateEvidenceWithScope(
+    evidencePath: string,
+    projectRoot: string
+  ): Promise<PrePrReviewValidationResult> {
     const fullPath = path.resolve(evidencePath);
     if (!(await fs.pathExists(fullPath))) {
       throw createCliError(
@@ -136,15 +183,22 @@ export class PrePrReviewValidator {
       }
     }
 
-    // Verify against changed files
-    const changedFiles = await this.getChangedFiles(projectRoot);
+    // Verify against changed files (main range + worktree range).
+    const scope = await this.collectReviewScope(projectRoot);
+    const changedFiles = uniquePaths([
+      ...scope.mainChangedFiles,
+      ...scope.worktreeChangedFiles,
+    ]);
     const reviewedFiles = new Set(
-      normalizedEvidence.files.map((f: unknown) =>
-        path.relative(
-          projectRoot,
-          path.resolve(projectRoot, (f as { path: string }).path)
+      normalizedEvidence.files
+        .map((f: unknown) =>
+          path.relative(
+            projectRoot,
+            path.resolve(projectRoot, (f as { path: string }).path)
+          )
         )
-      )
+        .map((entry) => normalizeGitPath(entry))
+        .filter(Boolean)
     );
 
     const missingFiles = changedFiles.filter((f) => !reviewedFiles.has(f));
@@ -155,51 +209,141 @@ export class PrePrReviewValidator {
       );
     }
 
-    return normalizedEvidence;
+    return {
+      evidence: normalizedEvidence,
+      scope,
+    };
   }
 
-  private async getChangedFiles(cwd: string): Promise<string[]> {
-    const branchResult = await this.ctx.cmd
-      .runAsync('git', ['rev-parse', '--abbrev-ref', 'origin/HEAD'], { cwd })
-      .catch(() => null);
-    let baseBranch = 'origin/main';
-    if (branchResult && branchResult.code === 0 && branchResult.stdout.trim()) {
-      baseBranch = branchResult.stdout.trim().replace(/^origin\//, '');
+  async collectReviewScope(cwd: string): Promise<PrePrReviewScope> {
+    const baseRef = await this.resolveBaseRef(cwd);
+    const mergeBase = await this.resolveMergeBase(cwd, baseRef);
+    const mainDiff = await this.getMainChangedFiles(cwd, mergeBase);
+    const worktreeDiff = await this.getWorktreeChangedFiles(cwd);
+
+    if (!mainDiff.ok && !worktreeDiff.ok) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        'Unable to determine changed files from git diff. Ensure this is a git repository with accessible history.'
+      );
     }
 
-    let diffTarget = 'HEAD~1';
+    return {
+      baseRef,
+      mergeBase,
+      mainRange: mainDiff.rangeLabel,
+      mainChangedFiles: mainDiff.files,
+      worktreeChangedFiles: worktreeDiff.files,
+    };
+  }
+
+  private async resolveBaseRef(cwd: string): Promise<string> {
     try {
-      const mergeBaseRes = await this.ctx.cmd.runAsync(
+      const result = await this.ctx.cmd.runAsync(
         'git',
-        ['merge-base', 'HEAD', baseBranch],
+        ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
         { cwd }
       );
-      if (mergeBaseRes.code === 0 && mergeBaseRes.stdout.trim()) {
-        diffTarget = mergeBaseRes.stdout.trim();
+      if (result.code === 0) {
+        const value = result.stdout.trim();
+        if (value && value !== 'origin/HEAD') {
+          return value;
+        }
       }
     } catch {
       // ignore
     }
+    return 'origin/main';
+  }
 
-    const targets = [diffTarget, 'HEAD~1', ''];
-    const seen = new Set<string>();
-    for (const target of targets) {
-      if (seen.has(target)) continue;
-      seen.add(target);
-      const args = target
-        ? ['diff', '--name-only', target]
-        : ['diff', '--name-only'];
-      const diffResult = await this.ctx.cmd.runAsync('git', args, { cwd });
-      if (diffResult.code !== 0) continue;
-      return diffResult.stdout
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean);
+  private async resolveMergeBase(
+    cwd: string,
+    baseRef: string
+  ): Promise<string | null> {
+    const candidates = uniquePaths([
+      baseRef,
+      baseRef.replace(/^origin\//, ''),
+      'origin/main',
+      'main',
+    ]);
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      try {
+        const result = await this.ctx.cmd.runAsync(
+          'git',
+          ['merge-base', 'HEAD', candidate],
+          { cwd }
+        );
+        if (result.code !== 0) continue;
+        const mergeBase = normalizeGitPath(result.stdout);
+        if (mergeBase) return mergeBase;
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  }
+
+  private async getMainChangedFiles(
+    cwd: string,
+    mergeBase: string | null
+  ): Promise<{ ok: boolean; rangeLabel: string; files: string[] }> {
+    const ranges = uniquePaths([
+      mergeBase ? `${mergeBase}..HEAD` : '',
+      'HEAD~1..HEAD',
+      'HEAD^..HEAD',
+    ]);
+    for (const range of ranges) {
+      if (!range) continue;
+      try {
+        const result = await this.ctx.cmd.runAsync(
+          'git',
+          ['diff', '--name-only', range],
+          { cwd }
+        );
+        if (result.code !== 0) continue;
+        return {
+          ok: true,
+          rangeLabel: range,
+          files: uniquePaths(parseGitPathList(result.stdout)),
+        };
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      ok: false,
+      rangeLabel: mergeBase ? `${mergeBase}..HEAD` : 'HEAD~1..HEAD',
+      files: [],
+    };
+  }
+
+  private async getWorktreeChangedFiles(
+    cwd: string
+  ): Promise<{ ok: boolean; files: string[] }> {
+    let hasSuccessfulCommand = false;
+    const files: string[] = [];
+
+    const commands: string[][] = [
+      ['diff', '--name-only'],
+      ['diff', '--name-only', '--cached'],
+      ['ls-files', '--others', '--exclude-standard'],
+    ];
+
+    for (const args of commands) {
+      try {
+        const result = await this.ctx.cmd.runAsync('git', args, { cwd });
+        if (result.code !== 0) continue;
+        hasSuccessfulCommand = true;
+        files.push(...parseGitPathList(result.stdout));
+      } catch {
+        // ignore
+      }
     }
 
-    throw createCliError(
-      'VALIDATION_FAILED',
-      'Unable to determine changed files from git diff. Ensure this is a git repository with accessible history.'
-    );
+    return {
+      ok: hasSuccessfulCommand,
+      files: uniquePaths(files),
+    };
   }
 }

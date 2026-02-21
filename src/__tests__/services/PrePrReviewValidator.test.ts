@@ -20,6 +20,59 @@ describe('PrePrReviewValidator', () => {
     validator = new PrePrReviewValidator(mockCtx as unknown as CliContext);
   });
 
+  function setupGitScopeMock(options?: {
+    baseRef?: string;
+    mergeBase?: string;
+    mainDiff?: string;
+    worktreeDiff?: string;
+    cachedDiff?: string;
+    untrackedDiff?: string;
+  }): void {
+    const {
+      baseRef = 'origin/main',
+      mergeBase = 'abc123',
+      mainDiff = '',
+      worktreeDiff = '',
+      cachedDiff = '',
+      untrackedDiff = '',
+    } = options || {};
+    const localBaseRef = baseRef.replace(/^origin\//, '');
+    mockCtx.cmd.runAsync.mockImplementation(async (...callArgs: unknown[]) => {
+      const args = Array.isArray(callArgs[1])
+        ? callArgs[1].map((entry) => String(entry))
+        : [];
+      const key = args.join(' ');
+        if (key === 'rev-parse --abbrev-ref origin/HEAD') {
+          return { code: 0, stdout: `${baseRef}\n` };
+        }
+        if (key === `merge-base HEAD ${baseRef}`) {
+          return { code: 0, stdout: `${mergeBase}\n` };
+        }
+        if (key === `merge-base HEAD ${localBaseRef}`) {
+          return { code: 0, stdout: `${mergeBase}\n` };
+        }
+        if (key === `diff --name-only ${mergeBase}..HEAD`) {
+          return { code: 0, stdout: mainDiff };
+        }
+        if (key === 'diff --name-only HEAD~1..HEAD') {
+          return { code: 0, stdout: mainDiff };
+        }
+        if (key === 'diff --name-only HEAD^..HEAD') {
+          return { code: 0, stdout: mainDiff };
+        }
+        if (key === 'diff --name-only') {
+          return { code: 0, stdout: worktreeDiff };
+        }
+        if (key === 'diff --name-only --cached') {
+          return { code: 0, stdout: cachedDiff };
+        }
+        if (key === 'ls-files --others --exclude-standard') {
+          return { code: 0, stdout: untrackedDiff };
+        }
+        return { code: 1, stdout: '' };
+      });
+  }
+
   it('throws INVALID_ARGUMENT when evidence file does not exist', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(false as never);
     await expect(
@@ -61,7 +114,7 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.readJson).mockResolvedValue({
       files: [{ path: 'a.ts', review: { risk: '0 findings' } }],
     } as never);
-    mockCtx.cmd.runAsync.mockResolvedValue({ code: 0, stdout: 'a.ts\n' });
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
     const result = await validator.validateEvidence('dummy.json', '/root');
     expect(result.files).toHaveLength(1);
   });
@@ -71,7 +124,7 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.readJson).mockResolvedValue({
       files: [{ path: 'a.ts', review: { risk: 'low' } }],
     } as never);
-    mockCtx.cmd.runAsync.mockResolvedValue({ code: 0, stdout: 'a.ts\nb.ts\n' });
+    setupGitScopeMock({ mainDiff: 'a.ts\nb.ts\n' });
     await expect(
       validator.validateEvidence('dummy.json', '/root')
     ).rejects.toThrow(
@@ -87,7 +140,7 @@ describe('PrePrReviewValidator', () => {
         { path: 'b.ts', review: { risk: 'low' } },
       ],
     } as never);
-    mockCtx.cmd.runAsync.mockResolvedValue({ code: 0, stdout: 'a.ts\nb.ts\n' });
+    setupGitScopeMock({ mainDiff: 'a.ts\nb.ts\n' });
     const result = await validator.validateEvidence('dummy.json', '/root');
     expect(result.files).toHaveLength(2);
   });
@@ -97,11 +150,37 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.readJson).mockResolvedValue({
       files: [{ path: 'a.ts', review: { risk: 'low' } }],
     } as never);
-    mockCtx.cmd.runAsync.mockResolvedValue({ code: 0, stdout: 'a.ts\n' });
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
 
     const result = await validator.validateEvidence('dummy.json', '/root');
     expect(result.residualRisks).toBe('Not specified');
     expect(result.commandsExecuted).toEqual([]);
+  });
+
+  it('returns separated main/worktree review scope', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      files: [
+        { path: 'a.ts', review: { risk: 'low' } },
+        { path: 'b.ts', review: { risk: 'low' } },
+      ],
+    } as never);
+    setupGitScopeMock({
+      baseRef: 'origin/main',
+      mergeBase: 'deadbeef',
+      mainDiff: 'a.ts\n',
+      worktreeDiff: 'b.ts\n',
+    });
+
+    const result = await validator.validateEvidenceWithScope(
+      'dummy.json',
+      '/root'
+    );
+    expect(result.scope.baseRef).toBe('origin/main');
+    expect(result.scope.mergeBase).toBe('deadbeef');
+    expect(result.scope.mainRange).toBe('deadbeef..HEAD');
+    expect(result.scope.mainChangedFiles).toEqual(['a.ts']);
+    expect(result.scope.worktreeChangedFiles).toEqual(['b.ts']);
   });
 
   it('throws VALIDATION_FAILED when changed files cannot be determined', async () => {

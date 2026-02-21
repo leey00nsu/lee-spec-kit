@@ -142,6 +142,7 @@ function getPreferredKeys(lang: 'ko' | 'en'): {
 
 import {
   PrePrReviewEvidence,
+  PrePrReviewScope,
   PrePrReviewValidator,
 } from '../services/PrePrReviewValidator.js';
 
@@ -153,6 +154,7 @@ function buildReportContent(input: {
   fallback: string;
   skills: string[];
   evidence: PrePrReviewEvidence;
+  scope: PrePrReviewScope;
 }): string {
   const skills =
     input.skills.length > 0
@@ -179,6 +181,17 @@ function buildReportContent(input: {
       .join('\n');
   }
 
+  const mainScopeFiles =
+    input.scope.mainChangedFiles.length > 0
+      ? input.scope.mainChangedFiles.map((entry) => `    - ${entry}`).join('\n')
+      : '    - (none)';
+  const worktreeScopeFiles =
+    input.scope.worktreeChangedFiles.length > 0
+      ? input.scope.worktreeChangedFiles
+          .map((entry) => `    - ${entry}`)
+          .join('\n')
+      : '    - (none)';
+
   return `## Pre-PR Review Log (${input.date})
 
 - **Feature**: ${input.folderName}
@@ -192,11 +205,30 @@ ${commandsRun}
 - **Residual Risks**:
   - ${input.evidence.residualRisks}
 
+- **Review Scope**:
+  - **Main Base Ref**: ${input.scope.baseRef}
+  - **Main Merge Base**: ${input.scope.mergeBase ?? 'unresolved'}
+  - **Main Range**: ${input.scope.mainRange}
+  - **Main Changed Files**:
+${mainScopeFiles}
+  - **Worktree Changed Files**:
+${worktreeScopeFiles}
+
 - **Findings (Changed Files)**:
 ${filesSection}
 
 - **Trace**: pre-pr-review command executed and synced with tasks.md
 `;
+}
+
+function createFallbackReviewScope(): PrePrReviewScope {
+  return {
+    baseRef: 'origin/main',
+    mergeBase: null,
+    mainRange: 'HEAD~1..HEAD',
+    mainChangedFiles: [],
+    worktreeChangedFiles: [],
+  };
 }
 
 function appendDecisionLog(content: string, entry: string): string {
@@ -312,12 +344,15 @@ async function runPrePrReview(
         : 'blocked until prerequisite risk is resolved');
 
   let evidenceObj: PrePrReviewEvidence | undefined;
+  let reviewScope: PrePrReviewScope = createFallbackReviewScope();
   if (options.evidence) {
     const validator = new PrePrReviewValidator(ctx);
-    evidenceObj = await validator.validateEvidence(
+    const validationResult = await validator.validateEvidenceWithScope(
       options.evidence,
       process.cwd()
     );
+    evidenceObj = validationResult.evidence;
+    reviewScope = validationResult.scope;
   } else if (policy.evidenceMode === 'path_required') {
     throw createCliError(
       'INVALID_ARGUMENT',
@@ -325,6 +360,12 @@ async function runPrePrReview(
     );
   } else {
     evidenceObj = DEFAULT_EVIDENCE_FOR_ANY_MODE;
+    const validator = new PrePrReviewValidator(ctx);
+    try {
+      reviewScope = await validator.collectReviewScope(process.cwd());
+    } catch {
+      reviewScope = createFallbackReviewScope();
+    }
   }
 
   const decisionsPath = path.join(feature.path, 'decisions.md');
@@ -336,6 +377,7 @@ async function runPrePrReview(
     fallback: policy.fallback,
     skills: policy.skills,
     evidence: evidenceObj!,
+    scope: reviewScope,
   });
 
   const decisionsContent = (await fs.pathExists(decisionsPath))
@@ -392,6 +434,7 @@ async function runPrePrReview(
           decisionsPath: normalizePathForDoc(decisionsPath),
           evidencePath,
           decision,
+          reviewScope,
           tasksUpdated: nextTasks !== tasksContent,
         },
         null,
