@@ -27,6 +27,12 @@ interface PrePrReviewOptions {
   json?: boolean;
 }
 
+const DEFAULT_EVIDENCE_FOR_ANY_MODE: PrePrReviewEvidence = {
+  files: [],
+  residualRisks: 'Not specified',
+  commandsExecuted: [],
+};
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -312,11 +318,13 @@ async function runPrePrReview(
       options.evidence,
       process.cwd()
     );
-  } else if (!options.evidence) {
+  } else if (policy.evidenceMode === 'path_required') {
     throw createCliError(
       'INVALID_ARGUMENT',
       '`--evidence <path>` is required. E.g. --evidence review-trace.json'
     );
+  } else {
+    evidenceObj = DEFAULT_EVIDENCE_FOR_ANY_MODE;
   }
 
   const decisionsPath = path.join(feature.path, 'decisions.md');

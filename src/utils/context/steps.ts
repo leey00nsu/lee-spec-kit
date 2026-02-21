@@ -183,6 +183,7 @@ function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
     if (seen.has(abs)) continue;
     seen.add(abs);
     if (!fs.existsSync(abs)) continue;
+    if (!abs.toLowerCase().endsWith('.json')) continue;
     const rel = path.relative(docsRoot, abs).replace(/\\/g, '/');
     if (rel && !rel.startsWith('../')) {
       return rel;

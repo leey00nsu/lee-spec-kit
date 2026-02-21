@@ -1663,10 +1663,10 @@ test('context pre-PR review requires decision before PR step when review is mark
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.match(
-      primaryActionOption(payload).action.cmd,
-      /pre-pr-review.*F001-alpha/
+      primaryActionOption(payload).action.message,
+      /review-trace\.json/i
     );
   });
 });

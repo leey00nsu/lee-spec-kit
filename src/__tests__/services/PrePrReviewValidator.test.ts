@@ -91,4 +91,28 @@ describe('PrePrReviewValidator', () => {
     const result = await validator.validateEvidence('dummy.json', '/root');
     expect(result.files).toHaveLength(2);
   });
+
+  it('normalizes optional evidence fields when omitted', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      files: [{ path: 'a.ts', review: { risk: 'low' } }],
+    } as never);
+    mockCtx.cmd.runAsync.mockResolvedValue({ code: 0, stdout: 'a.ts\n' });
+
+    const result = await validator.validateEvidence('dummy.json', '/root');
+    expect(result.residualRisks).toBe('Not specified');
+    expect(result.commandsExecuted).toEqual([]);
+  });
+
+  it('throws VALIDATION_FAILED when changed files cannot be determined', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      files: [{ path: 'a.ts', review: { risk: 'low' } }],
+    } as never);
+    mockCtx.cmd.runAsync.mockResolvedValue({ code: 1, stdout: '' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/Unable to determine changed files/);
+  });
 });
