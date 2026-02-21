@@ -7,12 +7,7 @@ import {
   runCommand,
   withTempDir,
   pathExists,
-  normalizePathForCompare,
-  setupFakeGhCli,
   setFeatureAsDone,
-  setMultiFeatureAsDone,
-  writeIssueBodyWithoutTodo,
-  writePrBodyWithoutTodo,
   issueApprovalTicket,
   primaryActionOption,
   suggestionOptionByLabel,
@@ -294,7 +289,11 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const updateResult = await runCli(dir, ['update']);
-    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
     assert.doesNotMatch(updateResult.stderr, /\[PRECONDITION_FAILED\]/);
 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
@@ -355,9 +354,16 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     delete config.workflow?.prePrReview;
     delete config.pr;
     delete config.approval;
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
-    const prepAdd = await runCommand(dir, 'git', ['add', 'docs/.lee-spec-kit.json']);
+    const prepAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/.lee-spec-kit.json',
+    ]);
     assert.equal(prepAdd.code, 0, prepAdd.stderr || prepAdd.stdout);
     const prepCommit = await runCommand(dir, 'git', [
       'commit',
@@ -367,7 +373,11 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     assert.equal(prepCommit.code, 0, prepCommit.stderr || prepCommit.stdout);
 
     const updateResult = await runCli(dir, ['update']);
-    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
 
     const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
@@ -376,7 +386,10 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
       'code-review-excellence',
     ]);
-    assert.equal(nextConfig.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.equal(
+      nextConfig.workflow?.prePrReview?.evidenceMode,
+      'path_required'
+    );
     assert.deepEqual(nextConfig.workflow?.prePrReview?.decisionEnum, [
       'approve',
       'changes_requested',
@@ -430,9 +443,16 @@ test('update keeps explicit config values and only fills missing keys', async ()
     config.workflow.prePrReview = { skills: ['custom-skill'] };
     config.pr = { screenshots: { upload: true } };
     config.approval = { mode: 'steps', requireCheckSteps: [10] };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
-    const prepAdd = await runCommand(dir, 'git', ['add', 'docs/.lee-spec-kit.json']);
+    const prepAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/.lee-spec-kit.json',
+    ]);
     assert.equal(prepAdd.code, 0, prepAdd.stderr || prepAdd.stdout);
     const prepCommit = await runCommand(dir, 'git', [
       'commit',
@@ -442,16 +462,28 @@ test('update keeps explicit config values and only fills missing keys', async ()
     assert.equal(prepCommit.code, 0, prepCommit.stderr || prepCommit.stdout);
 
     const updateResult = await runCli(dir, ['update']);
-    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
 
     const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(nextConfig.workflow?.mode, 'local');
     assert.equal(nextConfig.workflow?.codeDirtyScope, 'repo');
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
     assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'custom-handoff');
-    assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, ['custom-skill']);
-    assert.equal(nextConfig.workflow?.prePrReview?.fallback, 'builtin-checklist');
-    assert.equal(nextConfig.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.deepEqual(nextConfig.workflow?.prePrReview?.skills, [
+      'custom-skill',
+    ]);
+    assert.equal(
+      nextConfig.workflow?.prePrReview?.fallback,
+      'builtin-checklist'
+    );
+    assert.equal(
+      nextConfig.workflow?.prePrReview?.evidenceMode,
+      'path_required'
+    );
     assert.deepEqual(nextConfig.workflow?.prePrReview?.decisionEnum, [
       'approve',
       'changes_requested',
@@ -524,7 +556,10 @@ test('context handles no-open state without crashing', async () => {
     assert.equal(Array.isArray(payload.suggestionRequest?.labels), true);
     assert.equal(payload.suggestionRequest.labels.includes('A'), true);
     assert.equal(typeof payload.suggestionRequest?.finalPrompt, 'string');
-    assert.match(payload.suggestionRequest.finalPrompt, /Recommended labels now:/);
+    assert.match(
+      payload.suggestionRequest.finalPrompt,
+      /Recommended labels now:/
+    );
 
     const textResult = await runCli(dir, ['context']);
     assert.equal(textResult.code, 0, textResult.stderr || textResult.stdout);
@@ -563,8 +598,14 @@ test('context --json returns suggestion labels when no features exist', async ()
       suggestionOptionByLabel(payload).summary,
       /Create a new feature|Run onboarding checks/i
     );
-    assert.match(suggestionOptionByLabel(payload).command, /lee-spec-kit (feature|onboard)/);
-    assert.equal(Array.isArray(payload.suggestionRequest?.userFacingLines), true);
+    assert.match(
+      suggestionOptionByLabel(payload).command,
+      /lee-spec-kit (feature|onboard)/
+    );
+    assert.equal(
+      Array.isArray(payload.suggestionRequest?.userFacingLines),
+      true
+    );
     assert.equal(payload.suggestionRequest.userFacingLines.length >= 2, true);
   });
 });
@@ -632,7 +673,13 @@ test('context requires project commit before starting next TODO task', async () 
 
     await setFeatureAsDone(dir, 'F001-alpha');
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
     const tasks = await fs.readFile(tasksPath, 'utf-8');
     const updatedTasks = tasks.replace(
       '- [DONE] T-F001-alpha-01 alpha',
@@ -665,7 +712,11 @@ test('context requires project commit before starting next TODO task', async () 
     ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
-    await fs.writeFile(path.join(dir, 'app.js'), "console.log('dirty');\n", 'utf-8');
+    await fs.writeFile(
+      path.join(dir, 'app.js'),
+      "console.log('dirty');\n",
+      'utf-8'
+    );
 
     const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
     assert.equal(context.code, 0, context.stderr || context.stdout);
@@ -679,10 +730,22 @@ test('context requires project commit before starting next TODO task', async () 
     assert.equal(primaryActionOption(payload).action.scope, 'project');
     assert.equal(primaryActionOption(payload).action.category, 'task_execute');
     assert.doesNotMatch(primaryActionOption(payload).action.cmd, /git add -A/);
-    assert.match(primaryActionOption(payload).action.cmd, /git diff --cached --quiet/);
-    assert.match(primaryActionOption(payload).action.cmd, /git commit -m "feat\([^"]+\): /);
-    assert.match(primaryActionOption(payload).action.cmd, /feat\(F001-alpha\): alpha/);
-    assert.doesNotMatch(primaryActionOption(payload).action.cmd, /T-F001-alpha-01/);
+    assert.match(
+      primaryActionOption(payload).action.cmd,
+      /git diff --cached --quiet/
+    );
+    assert.match(
+      primaryActionOption(payload).action.cmd,
+      /git commit -m "feat\([^"]+\): /
+    );
+    assert.match(
+      primaryActionOption(payload).action.cmd,
+      /feat\(F001-alpha\): alpha/
+    );
+    assert.doesNotMatch(
+      primaryActionOption(payload).action.cmd,
+      /T-F001-alpha-01/
+    );
     assert.match(
       primaryActionOption(payload).detail,
       /^\(project\) commit: feat\(F001-alpha\): alpha$/
@@ -721,17 +784,30 @@ test('context checklist-pending action uses actionable user-facing wording', asy
       'tester@example.com',
     ]);
     assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
-    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
     assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
     await setFeatureAsDone(dir, 'F001-alpha');
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
     const tasks = await fs.readFile(tasksPath, 'utf-8');
     const checklistPending = tasks.replace('- [x] done', '- [ ] done');
     await fs.writeFile(tasksPath, checklistPending, 'utf-8');
 
-    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    const docsAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+    ]);
     assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
     const docsCommit = await runCommand(dir, 'git', [
       'commit',
@@ -754,46 +830,65 @@ test('context checklist-pending action uses actionable user-facing wording', asy
 });
 
 test('context prioritizes docs commit over checklist guidance when checklist is pending and docs are dirty', async () => {
-  await withTempDir('lsk-context-checklist-pending-docs-dirty-priority-', async (dir) => {
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+  await withTempDir(
+    'lsk-context-checklist-pending-docs-dirty-priority-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
-    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
-    await setFeatureAsDone(dir, 'F001-alpha');
+      const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+      assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+      await setFeatureAsDone(dir, 'F001-alpha');
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
-    const tasks = await fs.readFile(tasksPath, 'utf-8');
-    const checklistPending = tasks.replace('- [x] done', '- [ ] done');
-    await fs.writeFile(tasksPath, checklistPending, 'utf-8');
+      const tasksPath = path.join(
+        dir,
+        'docs',
+        'features',
+        'F001-alpha',
+        'tasks.md'
+      );
+      const tasks = await fs.readFile(tasksPath, 'utf-8');
+      const checklistPending = tasks.replace('- [x] done', '- [ ] done');
+      await fs.writeFile(tasksPath, checklistPending, 'utf-8');
 
-    await fs.writeFile(path.join(dir, 'app.js'), "console.log('dirty');\n", 'utf-8');
+      await fs.writeFile(
+        path.join(dir, 'app.js'),
+        "console.log('dirty');\n",
+        'utf-8'
+      );
 
-    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
-    assert.equal(context.code, 0, context.stderr || context.stdout);
-    const payload = JSON.parse(context.stdout.trim());
+      const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+      assert.equal(context.code, 0, context.stderr || context.stdout);
+      const payload = JSON.parse(context.stdout.trim());
 
-    assert.equal(payload.status, 'single_matched');
-    assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, true);
-    assert.equal(payload.matchedFeature.git.projectHasUncommittedChanges, true);
-    assert.equal(primaryActionOption(payload).action.type, 'command');
-    assert.equal(primaryActionOption(payload).action.scope, 'docs');
-    assert.equal(primaryActionOption(payload).action.category, 'docs_commit');
-    assert.match(primaryActionOption(payload).action.cmd, /git commit -m "docs/);
-  });
+      assert.equal(payload.status, 'single_matched');
+      assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, true);
+      assert.equal(
+        payload.matchedFeature.git.projectHasUncommittedChanges,
+        true
+      );
+      assert.equal(primaryActionOption(payload).action.type, 'command');
+      assert.equal(primaryActionOption(payload).action.scope, 'docs');
+      assert.equal(primaryActionOption(payload).action.category, 'docs_commit');
+      assert.match(
+        primaryActionOption(payload).action.cmd,
+        /git commit -m "docs/
+      );
+    }
+  );
 });
 
 test('context parses task IDs and blocks next TODO when strict task commit gate fails', async () => {
@@ -820,7 +915,11 @@ test('context parses task IDs and blocks next TODO when strict task commit gate 
       'tester@example.com',
     ]);
     assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
-    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
     assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
@@ -831,9 +930,19 @@ test('context parses task IDs and blocks next TODO when strict task commit gate 
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.workflow = config.workflow || {};
     config.workflow.taskCommitGate = 'strict';
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
     await fs.writeFile(
       tasksPath,
       `# Tasks: alpha
@@ -913,52 +1022,74 @@ test('context parses task IDs and blocks next TODO when strict task commit gate 
     assert.equal(payload.matchedFeature.lastDoneTask.id, 'T-F001-alpha-02');
     assert.equal(payload.matchedFeature.nextTodoTask.id, 'T-F001-alpha-03');
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
-    assert.match(primaryActionOption(payload).action.message, /1 task = 1 commit/);
-    assert.match(primaryActionOption(payload).action.message, /DONE transitions.*2/);
+    assert.match(
+      primaryActionOption(payload).action.message,
+      /1 task = 1 commit/
+    );
+    assert.match(
+      primaryActionOption(payload).action.message,
+      /DONE transitions.*2/
+    );
   });
 });
 
 test('context strict task commit gate ignores latest commit when DONE transitions are zero', async () => {
-  await withTempDir('lsk-context-task-commit-gate-strict-zero-done-', async (dir) => {
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+  await withTempDir(
+    'lsk-context-task-commit-gate-strict-zero-done-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const gitEmail = await runCommand(dir, 'git', [
-      'config',
-      'user.email',
-      'tester@example.com',
-    ]);
-    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
-    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
-    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+      const gitEmail = await runCommand(dir, 'git', [
+        'config',
+        'user.email',
+        'tester@example.com',
+      ]);
+      assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+      const gitName = await runCommand(dir, 'git', [
+        'config',
+        'user.name',
+        'Tester',
+      ]);
+      assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
-    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
-    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
-    await setFeatureAsDone(dir, 'F001-alpha');
+      const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+      assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+      await setFeatureAsDone(dir, 'F001-alpha');
 
-    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
-    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.workflow = config.workflow || {};
-    config.workflow.taskCommitGate = 'strict';
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.workflow = config.workflow || {};
+      config.workflow.taskCommitGate = 'strict';
+      await fs.writeFile(
+        configPath,
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
+      );
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
-    await fs.writeFile(
-      tasksPath,
-      `# Tasks: alpha
+      const tasksPath = path.join(
+        dir,
+        'docs',
+        'features',
+        'F001-alpha',
+        'tasks.md'
+      );
+      await fs.writeFile(
+        tasksPath,
+        `# Tasks: alpha
 
 ## Local Tracking
 
@@ -973,25 +1104,29 @@ test('context strict task commit gate ignores latest commit when DONE transition
 
 - [ ] done
 `,
-      'utf-8'
-    );
+        'utf-8'
+      );
 
-    const firstAdd = await runCommand(dir, 'git', [
-      'add',
-      'docs/features/F001-alpha',
-      'docs/.lee-spec-kit.json',
-    ]);
-    assert.equal(firstAdd.code, 0, firstAdd.stderr || firstAdd.stdout);
-    const firstCommit = await runCommand(dir, 'git', [
-      'commit',
-      '-m',
-      'docs: set baseline task statuses',
-    ]);
-    assert.equal(firstCommit.code, 0, firstCommit.stderr || firstCommit.stdout);
+      const firstAdd = await runCommand(dir, 'git', [
+        'add',
+        'docs/features/F001-alpha',
+        'docs/.lee-spec-kit.json',
+      ]);
+      assert.equal(firstAdd.code, 0, firstAdd.stderr || firstAdd.stdout);
+      const firstCommit = await runCommand(dir, 'git', [
+        'commit',
+        '-m',
+        'docs: set baseline task statuses',
+      ]);
+      assert.equal(
+        firstCommit.code,
+        0,
+        firstCommit.stderr || firstCommit.stdout
+      );
 
-    await fs.writeFile(
-      tasksPath,
-      `# Tasks: alpha
+      await fs.writeFile(
+        tasksPath,
+        `# Tasks: alpha
 
 ## Local Tracking
 
@@ -1006,32 +1141,49 @@ test('context strict task commit gate ignores latest commit when DONE transition
 
 - [ ] done
 `,
-      'utf-8'
-    );
+        'utf-8'
+      );
 
-    const secondAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
-    assert.equal(secondAdd.code, 0, secondAdd.stderr || secondAdd.stdout);
-    const secondCommit = await runCommand(dir, 'git', [
-      'commit',
-      '-m',
-      'docs: update todo text without done transition',
-    ]);
-    assert.equal(secondCommit.code, 0, secondCommit.stderr || secondCommit.stdout);
+      const secondAdd = await runCommand(dir, 'git', [
+        'add',
+        'docs/features/F001-alpha',
+      ]);
+      assert.equal(secondAdd.code, 0, secondAdd.stderr || secondAdd.stdout);
+      const secondCommit = await runCommand(dir, 'git', [
+        'commit',
+        '-m',
+        'docs: update todo text without done transition',
+      ]);
+      assert.equal(
+        secondCommit.code,
+        0,
+        secondCommit.stderr || secondCommit.stdout
+      );
 
-    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
-    assert.equal(context.code, 0, context.stderr || context.stdout);
-    const payload = JSON.parse(context.stdout.trim());
+      const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+      assert.equal(context.code, 0, context.stderr || context.stdout);
+      const payload = JSON.parse(context.stdout.trim());
 
-    assert.equal(payload.taskCommitGatePolicy, 'strict');
-    assert.equal(primaryActionOption(payload).action.type, 'instruction');
-    assert.match(primaryActionOption(payload).action.message, /Start the next TODO task/);
-    assert.doesNotMatch(primaryActionOption(payload).action.message, /Task commit boundary warning/);
-    assert.doesNotMatch(primaryActionOption(payload).action.message, /DONE transitions.*0/);
-    assert.doesNotMatch(
-      primaryActionOption(payload).action.message,
-      /Before moving to the next TODO task, you must satisfy/
-    );
-  });
+      assert.equal(payload.taskCommitGatePolicy, 'strict');
+      assert.equal(primaryActionOption(payload).action.type, 'instruction');
+      assert.match(
+        primaryActionOption(payload).action.message,
+        /Start the next TODO task/
+      );
+      assert.doesNotMatch(
+        primaryActionOption(payload).action.message,
+        /Task commit boundary warning/
+      );
+      assert.doesNotMatch(
+        primaryActionOption(payload).action.message,
+        /DONE transitions.*0/
+      );
+      assert.doesNotMatch(
+        primaryActionOption(payload).action.message,
+        /Before moving to the next TODO task, you must satisfy/
+      );
+    }
+  );
 });
 
 test('context warn task commit gate allows next TODO with warning', async () => {
@@ -1058,7 +1210,11 @@ test('context warn task commit gate allows next TODO with warning', async () => 
       'tester@example.com',
     ]);
     assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
-    const gitName = await runCommand(dir, 'git', ['config', 'user.name', 'Tester']);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
     assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
@@ -1069,9 +1225,19 @@ test('context warn task commit gate allows next TODO with warning', async () => 
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.workflow = config.workflow || {};
     config.workflow.taskCommitGate = 'warn';
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
     await fs.writeFile(
       tasksPath,
       `# Tasks: alpha
@@ -1131,7 +1297,11 @@ test('context warn task commit gate allows next TODO with warning', async () => 
       'utf-8'
     );
 
-    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha', 'docs/.lee-spec-kit.json']);
+    const docsAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+      'docs/.lee-spec-kit.json',
+    ]);
     assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
     const docsCommit = await runCommand(dir, 'git', [
       'commit',
@@ -1146,8 +1316,14 @@ test('context warn task commit gate allows next TODO with warning', async () => 
 
     assert.equal(payload.taskCommitGatePolicy, 'warn');
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
-    assert.match(primaryActionOption(payload).action.message, /Start the next TODO task/);
-    assert.match(primaryActionOption(payload).action.message, /Task commit boundary warning/);
+    assert.match(
+      primaryActionOption(payload).action.message,
+      /Start the next TODO task/
+    );
+    assert.match(
+      primaryActionOption(payload).action.message,
+      /Task commit boundary warning/
+    );
   });
 });
 
@@ -1168,7 +1344,11 @@ test('context treats docs-only changes as docs dirty (not project dirty) in embe
     ]);
     assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
-    await fs.writeFile(path.join(dir, 'app.js'), "console.log('app');\n", 'utf-8');
+    await fs.writeFile(
+      path.join(dir, 'app.js'),
+      "console.log('app');\n",
+      'utf-8'
+    );
     const baseCommit = await runCommand(dir, 'git', ['add', 'app.js']);
     assert.equal(baseCommit.code, 0, baseCommit.stderr || baseCommit.stdout);
     const initCommit = await runCommand(dir, 'git', ['commit', '-m', 'init']);
@@ -1198,7 +1378,11 @@ test('context treats docs-only changes as docs dirty (not project dirty) in embe
       'add',
       'docs/features/F001-alpha',
     ]);
-    assert.equal(docsCommitAdd.code, 0, docsCommitAdd.stderr || docsCommitAdd.stdout);
+    assert.equal(
+      docsCommitAdd.code,
+      0,
+      docsCommitAdd.stderr || docsCommitAdd.stdout
+    );
     const docsCommit = await runCommand(dir, 'git', [
       'commit',
       '-m',
@@ -1217,15 +1401,22 @@ test('context treats docs-only changes as docs dirty (not project dirty) in embe
     const payload = JSON.parse(result.stdout.trim());
 
     assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, true);
-    assert.equal(payload.matchedFeature.git.projectHasUncommittedChanges, false);
+    assert.equal(
+      payload.matchedFeature.git.projectHasUncommittedChanges,
+      false
+    );
     assert.equal(payload.matchedFeature.completion.workflowDone, false);
     const warnings = payload.matchedFeature.warnings || [];
     assert.equal(
-      warnings.some((warning) => /Docs changes are not committed/i.test(String(warning))),
+      warnings.some((warning) =>
+        /Docs changes are not committed/i.test(String(warning))
+      ),
       true
     );
     assert.equal(
-      warnings.some((warning) => /Project code changes are not committed/i.test(String(warning))),
+      warnings.some((warning) =>
+        /Project code changes are not committed/i.test(String(warning))
+      ),
       false
     );
   });
@@ -1239,24 +1430,44 @@ test('standalone docs dirty marks workflow as not done', async () => {
     await fs.mkdir(docsRoot, { recursive: true });
 
     const gitInitProject = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(gitInitProject.code, 0, gitInitProject.stderr || gitInitProject.stdout);
+    assert.equal(
+      gitInitProject.code,
+      0,
+      gitInitProject.stderr || gitInitProject.stdout
+    );
     const projectEmail = await runCommand(projectRoot, 'git', [
       'config',
       'user.email',
       'tester@example.com',
     ]);
-    assert.equal(projectEmail.code, 0, projectEmail.stderr || projectEmail.stdout);
+    assert.equal(
+      projectEmail.code,
+      0,
+      projectEmail.stderr || projectEmail.stdout
+    );
     const projectName = await runCommand(projectRoot, 'git', [
       'config',
       'user.name',
       'Tester',
     ]);
     assert.equal(projectName.code, 0, projectName.stderr || projectName.stdout);
-    await fs.writeFile(path.join(projectRoot, 'app.js'), "console.log('app');\n", 'utf-8');
+    await fs.writeFile(
+      path.join(projectRoot, 'app.js'),
+      "console.log('app');\n",
+      'utf-8'
+    );
     const projectAdd = await runCommand(projectRoot, 'git', ['add', 'app.js']);
     assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
-    const projectCommit = await runCommand(projectRoot, 'git', ['commit', '-m', 'init']);
-    assert.equal(projectCommit.code, 0, projectCommit.stderr || projectCommit.stdout);
+    const projectCommit = await runCommand(projectRoot, 'git', [
+      'commit',
+      '-m',
+      'init',
+    ]);
+    assert.equal(
+      projectCommit.code,
+      0,
+      projectCommit.stderr || projectCommit.stdout
+    );
 
     const initResult = await runCli(docsRoot, [
       'init',
@@ -1278,7 +1489,12 @@ test('standalone docs dirty marks workflow as not done', async () => {
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const feature = await runCli(docsRoot, ['feature', 'alpha', '--id', 'F001']);
+    const feature = await runCli(docsRoot, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+    ]);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
     await setFeatureAsDone(docsRoot, 'F001-alpha');
 
@@ -1317,8 +1533,14 @@ test('standalone docs dirty marks workflow as not done', async () => {
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const contextPayload = JSON.parse(context.stdout.trim());
     assert.equal(contextPayload.matchedFeature.currentStep, 11);
-    assert.equal(contextPayload.matchedFeature.git.docsHasUncommittedChanges, true);
-    assert.equal(contextPayload.matchedFeature.git.projectHasUncommittedChanges, false);
+    assert.equal(
+      contextPayload.matchedFeature.git.docsHasUncommittedChanges,
+      true
+    );
+    assert.equal(
+      contextPayload.matchedFeature.git.projectHasUncommittedChanges,
+      false
+    );
     assert.equal(contextPayload.matchedFeature.completion.workflowDone, false);
 
     const status = await runCli(docsRoot, ['status', '--json']);
@@ -1428,15 +1650,34 @@ test('context --execute uses staged-only project commit and never stages interna
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
     await setFeatureAsDone(dir, 'F001-alpha');
 
-    const docsAdd = await runCommand(dir, 'git', ['add', 'docs/features/F001-alpha']);
+    const docsAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+    ]);
     assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
-    const docsCommit = await runCommand(dir, 'git', ['commit', '-m', 'docs: setup F001']);
+    const docsCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: setup F001',
+    ]);
     assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
 
-    await fs.writeFile(path.join(dir, 'app.txt'), 'dirty project change\n', 'utf-8');
+    await fs.writeFile(
+      path.join(dir, 'app.txt'),
+      'dirty project change\n',
+      'utf-8'
+    );
 
-    const contextResult = await runCli(dir, ['context', 'F001-alpha', '--json']);
-    assert.equal(contextResult.code, 0, contextResult.stderr || contextResult.stdout);
+    const contextResult = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(
+      contextResult.code,
+      0,
+      contextResult.stderr || contextResult.stdout
+    );
     const contextPayload = JSON.parse(contextResult.stdout.trim());
     assert.equal(
       contextPayload.actionOptions.some(
@@ -1484,7 +1725,10 @@ test('context --execute uses staged-only project commit and never stages interna
     const status = await runCommand(dir, 'git', ['status', '--porcelain']);
     assert.equal(status.code, 0, status.stderr || status.stdout);
     assert.doesNotMatch(status.stdout, /\.lee-spec-kit\.project\.lock/);
-    assert.doesNotMatch(status.stdout, /\.lee-spec-kit\.approval-tickets\.json/);
+    assert.doesNotMatch(
+      status.stdout,
+      /\.lee-spec-kit\.approval-tickets\.json/
+    );
 
     const headFiles = await runCommand(dir, 'git', [
       'show',
@@ -1494,7 +1738,10 @@ test('context --execute uses staged-only project commit and never stages interna
     ]);
     assert.equal(headFiles.code, 0, headFiles.stderr || headFiles.stdout);
     assert.doesNotMatch(headFiles.stdout, /\.lee-spec-kit\.project\.lock/);
-    assert.doesNotMatch(headFiles.stdout, /\.lee-spec-kit\.approval-tickets\.json/);
+    assert.doesNotMatch(
+      headFiles.stdout,
+      /\.lee-spec-kit\.approval-tickets\.json/
+    );
   });
 });
 
@@ -1530,7 +1777,11 @@ test('context --execute-strict fails for instruction-only approved option', asyn
         'pr_status_update',
       ],
     };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1581,19 +1832,60 @@ test('context executes pre_pr_review command and records review evidence', async
         skills: ['code-review-excellence'],
       },
     };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
     await setFeatureAsDone(dir, 'F001-alpha');
 
-    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- **PR Status**: -',
       '- **PR Status**: -\n- **Pre-PR Review**: Pending'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await fs.writeFile(
+      path.join(dir, 'docs', 'review-trace.json'),
+      JSON.stringify(
+        {
+          files: [
+            'docs/.lee-spec-kit.json',
+            'docs/features/F001-alpha/decisions.md',
+            'docs/features/F001-alpha/issue.md',
+            'docs/features/F001-alpha/plan.md',
+            'docs/features/F001-alpha/pr.md',
+            'docs/features/F001-alpha/spec.md',
+            'docs/features/F001-alpha/tasks.md',
+            'docs/review-trace.json',
+          ].map((entryPath) => ({
+            path: entryPath,
+            review: {
+              risk: 'low',
+              security: 'none',
+              perf: 'n/a',
+              maintainability: 'clear',
+              fileLine: '1-40',
+            },
+          })),
+          residualRisks: 'none',
+          commandsExecuted: ['pnpm vitest'],
+        },
+        null,
+        2
+      ) + '\n',
+      'utf-8'
+    );
 
     const docsGitRoot = path.join(dir, 'docs');
     const docsEmail = await runCommand(docsGitRoot, 'git', [
@@ -1612,6 +1904,7 @@ test('context executes pre_pr_review command and records review evidence', async
       'add',
       'features/F001-alpha',
       '.lee-spec-kit.json',
+      'review-trace.json',
     ]);
     assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
     const docsCommit = await runCommand(docsGitRoot, 'git', [
@@ -1625,7 +1918,10 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const contextPayload = JSON.parse(context.stdout.trim());
     assert.equal(contextPayload.matchedFeature.currentStep, 12);
-    assert.equal(primaryActionOption(contextPayload).action.category, 'pre_pr_review');
+    assert.equal(
+      primaryActionOption(contextPayload).action.category,
+      'pre_pr_review'
+    );
     assert.equal(primaryActionOption(contextPayload).action.type, 'command');
 
     const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
@@ -1639,7 +1935,13 @@ test('context executes pre_pr_review command and records review evidence', async
       ticket,
       '--json',
     ]);
-    assert.equal(execute.code, 0, execute.stderr || execute.stdout);
+    if (execute.code !== 0)
+      throw new Error(
+        'EXECUTE FAILED. STDERR: ' +
+          execute.stderr +
+          '\nSTDOUT: ' +
+          execute.stdout
+      );
     const executePayload = JSON.parse(execute.stdout.trim());
     assert.equal(executePayload.status, 'approved_executed');
 
@@ -1649,7 +1951,10 @@ test('context executes pre_pr_review command and records review evidence', async
       tasksAfter,
       /\*\*Pre-PR Evidence\*\*:\s*docs\/features\/F001-alpha\/decisions\.md/
     );
-    assert.match(tasksAfter, /\*\*Pre-PR Decision\*\*:\s*decision:\s*approve\b/);
+    assert.match(
+      tasksAfter,
+      /\*\*Pre-PR Decision\*\*:\s*decision:\s*approve\b/
+    );
 
     const reportPath = path.join(
       dir,
@@ -1664,13 +1969,19 @@ test('context executes pre_pr_review command and records review evidence', async
 
     // Default pre-pr-review template is intentionally incomplete.
     // It should not pass the pre-PR gate until findings/residual risks/tests are filled.
-    const contextAfterExecute = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    const contextAfterExecute = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json',
+    ]);
     assert.equal(
       contextAfterExecute.code,
       0,
       contextAfterExecute.stderr || contextAfterExecute.stdout
     );
-    const contextAfterExecutePayload = JSON.parse(contextAfterExecute.stdout.trim());
+    const contextAfterExecutePayload = JSON.parse(
+      contextAfterExecute.stdout.trim()
+    );
     assert.equal(contextAfterExecutePayload.matchedFeature.currentStep, 11);
     assert.equal(
       primaryActionOption(contextAfterExecutePayload).action.category,
@@ -1694,13 +2005,19 @@ test('context executes pre_pr_review command and records review evidence', async
       docsSyncExecute.stderr || docsSyncExecute.stdout
     );
 
-    const contextAfterDocsSync = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    const contextAfterDocsSync = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json',
+    ]);
     assert.equal(
       contextAfterDocsSync.code,
       0,
       contextAfterDocsSync.stderr || contextAfterDocsSync.stdout
     );
-    const contextAfterDocsSyncPayload = JSON.parse(contextAfterDocsSync.stdout.trim());
+    const contextAfterDocsSyncPayload = JSON.parse(
+      contextAfterDocsSync.stdout.trim()
+    );
     assert.equal(contextAfterDocsSyncPayload.matchedFeature.currentStep, 12);
     assert.equal(
       primaryActionOption(contextAfterDocsSyncPayload).action.category,
@@ -1730,7 +2047,11 @@ test('context --execute requires a ticket from prior approval', async () => {
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.approval = { mode: 'category', default: 'require' };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1738,7 +2059,10 @@ test('context --execute requires a ticket from prior approval', async () => {
     const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const contextPayload = JSON.parse(context.stdout.trim());
-    assert.equal(contextPayload.actionOptions[0].action.requiresUserCheck, true);
+    assert.equal(
+      contextPayload.actionOptions[0].action.requiresUserCheck,
+      true
+    );
 
     const result = await runCli(dir, [
       'context',
@@ -1787,7 +2111,11 @@ test('context --execute can run without ticket when approval policy skips check'
         'pr_status_update',
       ],
     };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1840,7 +2168,8 @@ test('context --execute can run without ticket when approval policy skips check'
     const payload = JSON.parse(result.stdout.trim());
     assert.notEqual(payload.status, 'error');
     assert.equal(
-      payload.status === 'approved_instruction' || payload.status === 'approved_executed',
+      payload.status === 'approved_instruction' ||
+        payload.status === 'approved_executed',
       true
     );
   });
@@ -1867,7 +2196,11 @@ test('context tickets are one-time use for execute', async () => {
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.approval = { mode: 'category', default: 'require' };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1926,7 +2259,11 @@ test('context tickets enforce explicit session binding when provided', async () 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.approval = { mode: 'category', default: 'require' };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1976,7 +2313,11 @@ test('context tickets without stable session binding can execute after approval'
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.approval = { mode: 'category', default: 'require' };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);

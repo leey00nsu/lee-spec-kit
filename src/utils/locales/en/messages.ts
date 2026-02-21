@@ -65,6 +65,8 @@ export const enMessages = {
     'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
   prePrReviewFieldMissing:
     'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
+  prePrReviewRun:
+    'Run the code review agent to generate `review-trace.json`, then execute `pre-pr-review --evidence review-trace.json` to record findings. (CHECK required)',
   prePrReviewEvidenceMissing:
     'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Decision`, `Findings` (or explicit `0 findings`), `Residual Risks`, and `Tests Run`. (CHECK required)',
   prePrReviewDecisionMissing:

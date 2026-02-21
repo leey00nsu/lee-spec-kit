@@ -66,6 +66,8 @@ export const koMessages = {
     'tasks.md에 PR/PR 상태 필드가 없습니다. 템플릿을 최신 포맷으로 업데이트할까요? (확인 필요)',
   prePrReviewFieldMissing:
     'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
+  prePrReviewRun:
+    '코드 리뷰 에이전트를 실행해 `review-trace.json`을 생성한 뒤, `pre-pr-review --evidence review-trace.json`으로 리뷰 결과를 기록하세요. (확인 필요)',
   prePrReviewEvidenceMissing:
     'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`/`Tests Run`을 기록하세요. (확인 필요)',
   prePrReviewDecisionMissing:

@@ -46,16 +46,19 @@ function getApprovalSessionId(): string {
   return '';
 }
 
-function getApprovalTicketPaths(
-  config: ApprovalTicketConfig
-): { runtimePath: string; legacyPath: string } {
+function getApprovalTicketPaths(config: ApprovalTicketConfig): {
+  runtimePath: string;
+  legacyPath: string;
+} {
   return {
     runtimePath: getApprovalTicketStorePath(config.docsDir),
     legacyPath: path.join(config.docsDir, LEGACY_APPROVAL_TICKET_FILENAME),
   };
 }
 
-async function loadApprovalTicketStore(storePath: string): Promise<ApprovalTicketStore> {
+async function loadApprovalTicketStore(
+  storePath: string
+): Promise<ApprovalTicketStore> {
   if (!(await fs.pathExists(storePath))) return { tickets: [] };
   try {
     const parsed = await fs.readJson(storePath);
@@ -107,14 +110,11 @@ async function resolveApprovalTicketStoreAndPath(
 
   const legacyStore = await loadApprovalTicketStore(legacyPath);
   const migrated = pruneApprovalTickets(legacyStore.tickets, nowMs);
-  await saveApprovalTicketStore(
-    runtimePath,
-    {
-      tickets: migrated,
-      updatedAt: new Date(nowMs).toISOString(),
-      migratedFrom: legacyPath,
-    }
-  );
+  await saveApprovalTicketStore(runtimePath, {
+    tickets: migrated,
+    updatedAt: new Date(nowMs).toISOString(),
+    migratedFrom: legacyPath,
+  });
   await fs.remove(legacyPath).catch(() => {
     // Best-effort cleanup of legacy docs-scoped ticket file.
   });
@@ -137,7 +137,10 @@ export function toApprovalActionHash(payload: {
 
 export async function issueApprovalTicket(
   config: ApprovalTicketConfig,
-  payload: Pick<ApprovalTicketRecord, 'contextVersion' | 'actionHash' | 'label' | 'featureRef'>
+  payload: Pick<
+    ApprovalTicketRecord,
+    'contextVersion' | 'actionHash' | 'label' | 'featureRef'
+  >
 ): Promise<ApprovalTicketRecord> {
   const sessionId = getApprovalSessionId();
   const nowMs = Date.now();
@@ -161,13 +164,10 @@ export async function issueApprovalTicket(
       );
       const nextTickets = pruneApprovalTickets(store.tickets, nowMs);
       nextTickets.push(record);
-      await saveApprovalTicketStore(
-        storePath,
-        {
-          tickets: nextTickets,
-          updatedAt: new Date(nowMs).toISOString(),
-        }
-      );
+      await saveApprovalTicketStore(storePath, {
+        tickets: nextTickets,
+        updatedAt: new Date(nowMs).toISOString(),
+      });
       return record;
     },
     { owner: 'context-approval-ticket:issue' }
@@ -201,7 +201,9 @@ export async function consumeApprovalTicket(
         nowMs
       );
       const cleaned = pruneApprovalTickets(store.tickets, nowMs);
-      const index = cleaned.findIndex((entry) => entry.token === normalizedToken);
+      const index = cleaned.findIndex(
+        (entry) => entry.token === normalizedToken
+      );
       if (index < 0) {
         await saveApprovalTicketStore(storePath, {
           tickets: cleaned,

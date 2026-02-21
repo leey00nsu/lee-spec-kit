@@ -1466,14 +1466,10 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.equal(payload.matchedFeature.docs.prePrReviewFieldExists, true);
     assert.equal(payload.matchedFeature.prePrReview.status, 'Pending');
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.equal(primaryActionOption(payload).action.type, 'command');
-    assert.doesNotMatch(
-      primaryActionOption(payload).detail || '',
-      /pre-pr-review/i
-    );
+    assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.match(
-      primaryActionOption(payload).action.cmd,
-      /pre-pr-review.*F001-alpha/
+      primaryActionOption(payload).action.message,
+      /review-trace\.json/i
     );
     assert.equal(payload.prePrReviewPolicy.enabled, true);
     assert.deepEqual(payload.prePrReviewPolicy.skills, [
@@ -1574,10 +1570,10 @@ test('context pre-PR review requires evidence before PR step when review is mark
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
     assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.match(
-      primaryActionOption(payload).action.cmd,
-      /pre-pr-review.*F001-alpha/
+      primaryActionOption(payload).action.message,
+      /review-trace\.json/i
     );
   });
 });

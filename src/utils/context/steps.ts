@@ -2,6 +2,7 @@ import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
 import { tr } from '../i18n.js';
 import { CliContext } from '../cli-context.js';
 import path from 'path';
+import fs from 'fs';
 import {
   resolvePrePrReviewPolicy,
   resolveTaskCommitGatePolicy,
@@ -157,6 +158,38 @@ function buildSelfCliCommand(args: string[]): string {
   const entry = process.argv[1] || 'dist/index.js';
   const base = [process.execPath, entry, '--no-banner', ...args];
   return base.map((arg) => toShellArg(arg)).join(' ');
+}
+
+function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
+  const docsRoot = feature.git.docsGitCwd;
+  const candidates: string[] = [];
+  const explicit = (feature.prePrReview.evidence || '').trim();
+  if (explicit && explicit !== '-') {
+    if (path.isAbsolute(explicit)) {
+      candidates.push(explicit);
+    } else {
+      candidates.push(path.resolve(docsRoot, explicit));
+      candidates.push(path.resolve(process.cwd(), explicit));
+      candidates.push(path.resolve(feature.path, explicit));
+    }
+  }
+  candidates.push(path.resolve(process.cwd(), 'review-trace.json'));
+  candidates.push(path.join(docsRoot, 'review-trace.json'));
+  candidates.push(path.join(feature.path, 'review-trace.json'));
+
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const abs = path.resolve(candidate);
+    if (seen.has(abs)) continue;
+    seen.add(abs);
+    if (!fs.existsSync(abs)) continue;
+    const rel = path.relative(docsRoot, abs).replace(/\\/g, '/');
+    if (rel && !rel.startsWith('../')) {
+      return rel;
+    }
+    return abs.replace(/\\/g, '/');
+  }
+  return null;
 }
 
 function toShellSafeCommitTopic(value: string): string {
@@ -1160,10 +1193,22 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
               },
             ];
           }
+          const evidencePath = resolvePrePrReviewEvidencePath(f);
+          if (!evidencePath) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewRun'),
+              },
+            ];
+          }
           const commandArgs = ['pre-pr-review', f.folderName];
           if (f.type && f.type !== 'single') {
             commandArgs.push('--component', f.type);
           }
+          commandArgs.push('--evidence', evidencePath);
           return [
             {
               type: 'command',
