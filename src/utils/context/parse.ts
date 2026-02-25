@@ -32,6 +32,19 @@ import {
   resolveWorkflowPolicy,
 } from '../workflow.js';
 
+const FEATURE_SCOPE_SPLIT_TASK_THRESHOLD = 40;
+const FEATURE_SCOPE_SPLIT_DECISIONS_LINE_THRESHOLD = 1200;
+const FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_TASK_THRESHOLD = 80;
+const FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_DECISIONS_LINE_THRESHOLD = 2500;
+
+function countDocumentLines(content: string): number {
+  if (!content) return 0;
+  const lines = content.split(/\r?\n/);
+  if (lines.length === 0) return 0;
+  if (lines[lines.length - 1] === '') return lines.length - 1;
+  return lines.length;
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -974,6 +987,7 @@ export async function parseFeature(
   const specPath = path.join(featurePath, 'spec.md');
   const planPath = path.join(featurePath, 'plan.md');
   const tasksPath = path.join(featurePath, 'tasks.md');
+  const decisionsPath = path.join(featurePath, 'decisions.md');
   const issueDocPath = path.join(featurePath, 'issue.md');
   const prDocPath = path.join(featurePath, 'pr.md');
 
@@ -1028,6 +1042,13 @@ export async function parseFeature(
     const content = await ctx.fs.readFile(planPath, 'utf-8');
     const statusValue = extractFirstSpecValue(content, ['상태', 'Status']);
     planStatus = parseDocStatus(statusValue);
+  }
+
+  const decisionsExists = await ctx.fs.pathExists(decisionsPath);
+  let decisionsLineCount = 0;
+  if (decisionsExists) {
+    const content = await ctx.fs.readFile(decisionsPath, 'utf-8');
+    decisionsLineCount = countDocumentLines(content);
   }
 
   const tasksExists = await ctx.fs.pathExists(tasksPath);
@@ -1251,6 +1272,21 @@ export async function parseFeature(
       resolvePrRemoteStatus(ctx, prLink, effectiveProjectGitCwd) || undefined;
   }
 
+  const scopeSplitReasons: FeatureState['scopeSplit']['reasons'] = [];
+  if (tasksSummary.total >= FEATURE_SCOPE_SPLIT_TASK_THRESHOLD) {
+    scopeSplitReasons.push('task_count');
+  }
+  if (decisionsLineCount >= FEATURE_SCOPE_SPLIT_DECISIONS_LINE_THRESHOLD) {
+    scopeSplitReasons.push('decisions_lines');
+  }
+  const scopeSplitSuggested = scopeSplitReasons.length > 0;
+  const scopeSplitRecommendFour =
+    tasksSummary.total >= FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_TASK_THRESHOLD ||
+    decisionsLineCount >=
+      FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_DECISIONS_LINE_THRESHOLD;
+  const scopeSplitRecommendation: FeatureState['scopeSplit']['recommendation'] =
+    !scopeSplitSuggested ? 'none' : scopeSplitRecommendFour ? 'split_4' : 'split_2';
+
   const warnings: string[] = [];
   if (effectiveProjectBranchAvailable === false) {
     warnings.push(tr(lang, 'warnings', 'projectBranchUnavailable'));
@@ -1426,6 +1462,21 @@ export async function parseFeature(
   if (tasksExists && !tasksDocStatusFieldExists) {
     warnings.push(tr(lang, 'warnings', 'legacyTasksDocStatusField'));
   }
+  if (scopeSplitSuggested && tasksSummary.total > tasksSummary.done) {
+    warnings.push(
+      tr(lang, 'warnings', 'featureScopeSplitSuggested', {
+        taskCount: tasksSummary.total,
+        decisionsLineCount,
+        taskThreshold: FEATURE_SCOPE_SPLIT_TASK_THRESHOLD,
+        decisionsThreshold: FEATURE_SCOPE_SPLIT_DECISIONS_LINE_THRESHOLD,
+        recommendFourTaskThreshold:
+          FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_TASK_THRESHOLD,
+        recommendFourDecisionsThreshold:
+          FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_DECISIONS_LINE_THRESHOLD,
+        recommendedIssues: scopeSplitRecommendation === 'split_4' ? 4 : 2,
+      })
+    );
+  }
 
   if (docsEverCommitted && docsHasUncommittedChanges) {
     warnings.push(tr(lang, 'warnings', 'docsUncommittedChanges'));
@@ -1562,6 +1613,20 @@ export async function parseFeature(
     planStatus,
     tasksDocStatus,
     tasks: tasksSummary,
+    scopeSplit: {
+      suggested: scopeSplitSuggested,
+      reasons: scopeSplitReasons,
+      recommendation: scopeSplitRecommendation,
+      taskCount: tasksSummary.total,
+      decisionsLineCount,
+      suggestTaskCountThreshold: FEATURE_SCOPE_SPLIT_TASK_THRESHOLD,
+      suggestDecisionsLineCountThreshold:
+        FEATURE_SCOPE_SPLIT_DECISIONS_LINE_THRESHOLD,
+      recommendSplitFourTaskCountThreshold:
+        FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_TASK_THRESHOLD,
+      recommendSplitFourDecisionsLineCountThreshold:
+        FEATURE_SCOPE_SPLIT_RECOMMEND_FOUR_DECISIONS_LINE_THRESHOLD,
+    },
     activeTask,
     lastDoneTask,
     nextTodoTask,

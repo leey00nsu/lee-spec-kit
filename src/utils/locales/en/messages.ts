@@ -114,6 +114,12 @@ export const enMessages = {
   prReviewMergeCommand:
     'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
   prRequestReview: 'Request review and set/keep PR Status as Review.',
+  featureScopeSplitKeep:
+    'Feature scope is large (tasks: {taskCount}, decisions lines: {decisionsLineCount}; split suggestion threshold: {taskThreshold}/{decisionsThreshold}). Current recommendation is {recommendedIssues} issues. Before deciding, read `{guideCommand}` and evaluate coupling, changed-file overlap, test boundary, and deployment independence. If you keep one issue, tighten scope in tasks.md and move low-priority TODO items out of the active batch.',
+  featureScopeSplitTwo:
+    'Feature scope is large (tasks: {taskCount}, decisions lines: {decisionsLineCount}). Recommendation rule: 40~79 tasks and below the hard threshold usually maps to 2 issues. Follow `{guideCommand}` and split by coupling/file-overlap/test/deploy criteria. For each new issue, document this template: Goal, Included Scope, Excluded Scope, Depends On, PR Done Criteria.',
+  featureScopeSplitFour:
+    'Feature scope is large (tasks: {taskCount}, decisions lines: {decisionsLineCount}). Hard recommendation is 4 issues when tasks >= {recommendFourTaskThreshold} or decisions lines >= {recommendFourDecisionsThreshold}. Follow `{guideCommand}` and split into 4 linked issues with explicit dependency order and sequential PR merges. Use the per-issue template: Goal, Included Scope, Excluded Scope, Depends On, PR Done Criteria.',
   userRequestReplan:
     'You can pause this step and handle a newly requested user requirement first. Summarize it, add it to tasks.md or split it into a separate Feature, then align document statuses and rerun context.',
   featureDone:

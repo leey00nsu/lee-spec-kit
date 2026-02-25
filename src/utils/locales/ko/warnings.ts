@@ -9,6 +9,8 @@ export const koWarnings = {
     '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙은 git-workflow 가이드를 기준으로 확인하세요.',
   projectUncommittedChanges:
     '프로젝트 코드 변경사항이 커밋되지 않았습니다. (추가 코드 커밋 필요)',
+  featureScopeSplitSuggested:
+    'Feature 범위가 단일 이슈로 처리하기에 큽니다. (tasks: {taskCount}, decisions 줄수: {decisionsLineCount}; 분할 제안 기준: tasks {taskThreshold}개 또는 decisions {decisionsThreshold}줄) 현재 권장 분할: {recommendedIssues}개 이슈 (4분할 하드 기준: tasks >= {recommendFourTaskThreshold} 또는 decisions 줄수 >= {recommendFourDecisionsThreshold}).',
   legacyTasksDocStatusField:
     '구버전 tasks.md 포맷입니다. `문서 상태` 필드(Draft/Review/Approved)를 추가해 태스크 승인 단계를 활성화하세요.',
   legacyTasksPrFields:

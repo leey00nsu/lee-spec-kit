@@ -100,6 +100,67 @@ function applyTaskExecutePhaseCheck(
   return false;
 }
 
+function withFeatureScopeSplitOptions(
+  actions: NextAction[],
+  feature: FeatureState,
+  lang: Lang
+): NextAction[] {
+  if (!feature.scopeSplit.suggested) return actions;
+  if (feature.tasks.total === 0 || feature.tasks.done >= feature.tasks.total) {
+    return actions;
+  }
+  if (actions.some((action) => action.category === 'feature_scope_split')) {
+    return actions;
+  }
+
+  const recommendedIssues = feature.scopeSplit.recommendation === 'split_4' ? 4 : 2;
+  const recommendationLabel =
+    feature.scopeSplit.recommendation === 'split_4'
+      ? 'split_4'
+      : feature.scopeSplit.recommendation === 'split_2'
+        ? 'split_2'
+        : 'none';
+  const vars = {
+    taskCount: feature.scopeSplit.taskCount,
+    decisionsLineCount: feature.scopeSplit.decisionsLineCount,
+    taskThreshold: feature.scopeSplit.suggestTaskCountThreshold,
+    decisionsThreshold:
+      feature.scopeSplit.suggestDecisionsLineCountThreshold,
+    recommendFourTaskThreshold:
+      feature.scopeSplit.recommendSplitFourTaskCountThreshold,
+    recommendFourDecisionsThreshold:
+      feature.scopeSplit.recommendSplitFourDecisionsLineCountThreshold,
+    recommendedIssues,
+    recommendationLabel,
+    guideCommand: 'npx lee-spec-kit docs get split-feature --json',
+  };
+
+  return [
+    ...actions,
+    {
+      type: 'instruction',
+      category: 'feature_scope_split',
+      requiresUserCheck: true,
+      uiDetailKey: 'context.actionDetail.featureScopeSplitKeep',
+      message: tr(lang, 'messages', 'featureScopeSplitKeep', vars),
+    },
+    {
+      type: 'instruction',
+      category: 'feature_scope_split',
+      requiresUserCheck: true,
+      uiDetailKey: 'context.actionDetail.featureScopeSplitTwo',
+      message: tr(lang, 'messages', 'featureScopeSplitTwo', vars),
+    },
+    {
+      type: 'instruction',
+      category: 'feature_scope_split',
+      requiresUserCheck: true,
+      uiDetailKey: 'context.actionDetail.featureScopeSplitFour',
+      message: tr(lang, 'messages', 'featureScopeSplitFour', vars),
+    },
+  ];
+}
+
 function withUserRequestReplanOption(
   actions: NextAction[],
   lang: Lang
@@ -132,8 +193,13 @@ export function resolveFeatureProgress(
   for (const definition of ordered) {
     if (!definition.current) continue;
     if (definition.current.when(feature)) {
-      const currentActions = withUserRequestReplanOption(
+      const actionsWithScopeSplit = withFeatureScopeSplitOptions(
         definition.current.actions(feature),
+        feature,
+        lang
+      );
+      const currentActions = withUserRequestReplanOption(
+        actionsWithScopeSplit,
         lang
       );
       const actions = applyApprovalPolicy(

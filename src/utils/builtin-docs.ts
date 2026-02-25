@@ -13,7 +13,8 @@ export type BuiltinDocId =
   | 'create-feature'
   | 'execute-task'
   | 'create-issue'
-  | 'create-pr';
+  | 'create-pr'
+  | 'split-feature';
 
 interface BuiltinDocDefinition {
   id: BuiltinDocId;
@@ -75,12 +76,19 @@ const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
     relativePath: (_, lang) =>
       path.join(lang, 'common', 'agents', 'skills', 'create-pr.md'),
   },
+  {
+    id: 'split-feature',
+    title: { ko: 'feature 분할 가이드', en: 'feature split guide' },
+    relativePath: (_, lang) =>
+      path.join(lang, 'common', 'agents', 'skills', 'split-feature.md'),
+  },
 ];
 
 const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
   agents: [
     'create-feature',
     'execute-task',
+    'split-feature',
     'git-workflow',
     'create-issue',
     'issue-doc',
@@ -91,9 +99,10 @@ const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
   'issue-doc': [],
   'pr-doc': [],
   'create-feature': ['execute-task'],
-  'execute-task': ['git-workflow'],
+  'execute-task': ['git-workflow', 'split-feature'],
   'create-issue': ['issue-doc'],
   'create-pr': ['pr-doc'],
+  'split-feature': [],
 };
 
 const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
@@ -112,6 +121,7 @@ const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
   pr_create: ['create-pr', 'pr-doc', 'git-workflow'],
   pr_status_update: ['create-pr'],
   code_review: ['create-pr'],
+  feature_scope_split: ['split-feature', 'execute-task'],
   worktree_cleanup: ['git-workflow'],
   user_request_replan: ['agents', 'execute-task'],
 };
@@ -132,6 +142,9 @@ export function normalizeBuiltinDocId(input: string): BuiltinDocId | null {
   if (normalized === 'execute-task') return 'execute-task';
   if (normalized === 'create-issue') return 'create-issue';
   if (normalized === 'create-pr') return 'create-pr';
+  if (normalized === 'split-feature' || normalized === 'feature-split') {
+    return 'split-feature';
+  }
   if (normalized === 'agents') return 'agents';
   return null;
 }

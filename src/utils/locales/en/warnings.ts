@@ -9,6 +9,8 @@ export const enWarnings = {
     'Docs changes are not committed. (Additional docs commit needed.) Check commit message rules against the git-workflow guide.',
   projectUncommittedChanges:
     'Project code changes are not committed. (Additional code commit needed.)',
+  featureScopeSplitSuggested:
+    'Feature scope may be too large for one issue (tasks: {taskCount}, decisions lines: {decisionsLineCount}; suggest split at {taskThreshold} tasks or {decisionsThreshold} decision lines). Current recommendation: split into {recommendedIssues} issue units (hard 4-way rule: tasks >= {recommendFourTaskThreshold} or decisions lines >= {recommendFourDecisionsThreshold}).',
   legacyTasksDocStatusField:
     'Legacy tasks.md format detected. Add a `Doc Status` field (Draft/Review/Approved) to enable tasks approval.',
   legacyTasksPrFields:

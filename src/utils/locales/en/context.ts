@@ -103,6 +103,14 @@ export const enContext = {
   'context.actionDetail.codeReviewMergeAfterOk': 'Merge PR after explicit OK',
   'context.actionDetail.codeReviewRequestReview':
     'Request review and keep PR Status as Review',
+  'context.actionDetail.featureScopeSplit':
+    'Review whether this feature should be split into smaller issue units',
+  'context.actionDetail.featureScopeSplitKeep':
+    'Keep current issue scope and continue (after split-guide check)',
+  'context.actionDetail.featureScopeSplitTwo':
+    'Split into 2 linked issues using coupling/file-overlap/test/deploy criteria',
+  'context.actionDetail.featureScopeSplitFour':
+    'Split into 4 linked issues (criteria-based) and merge PRs in dependency order',
   'context.actionDetail.worktreeCleanup':
     'Clean up the completed feature worktree',
   'context.actionDetail.prMetadataMigrate':

@@ -117,6 +117,12 @@ export const koMessages = {
     'npx lee-spec-kit github pr {featureRef} --merge --confirm OK',
   prRequestReview:
     '리뷰어에게 리뷰를 요청하고 PR 상태를 Review로 설정/유지하세요.',
+  featureScopeSplitKeep:
+    'Feature 범위가 큽니다. (tasks: {taskCount}, decisions 줄수: {decisionsLineCount}; 분할 제안 기준: {taskThreshold}/{decisionsThreshold}) 현재 권장 분할은 {recommendedIssues}개 이슈입니다. 먼저 `{guideCommand}`를 확인하고 결합도, 변경 파일 겹침, 테스트 경계, 배포 독립성 기준으로 판단하세요. 이슈를 유지할 경우 tasks.md 범위를 축소하고 저우선 TODO는 활성 배치에서 제외하세요.',
+  featureScopeSplitTwo:
+    'Feature 범위가 큽니다. (tasks: {taskCount}, decisions 줄수: {decisionsLineCount}) 권장 규칙상 40~79 태스크이면서 하드 기준 미만이면 2개 이슈 분할이 기본입니다. `{guideCommand}`를 따라 결합도/파일겹침/테스트/배포 기준으로 분할하세요. 각 이슈에는 다음 템플릿을 기록하세요: 목표, 포함 범위, 제외 범위, 선행 의존성, PR 완료 기준.',
+  featureScopeSplitFour:
+    'Feature 범위가 큽니다. (tasks: {taskCount}, decisions 줄수: {decisionsLineCount}) tasks >= {recommendFourTaskThreshold} 또는 decisions 줄수 >= {recommendFourDecisionsThreshold}이면 4개 이슈 분할을 강하게 권장합니다. `{guideCommand}`를 따라 4개의 연관 이슈로 분리하고 의존 순서를 명시한 뒤 PR을 순차 머지하세요. 각 이슈 템플릿: 목표, 포함 범위, 제외 범위, 선행 의존성, PR 완료 기준.',
   userRequestReplan:
     '현재 단계와 별개로 사용자가 제안한 새 요구를 먼저 반영할 수 있습니다. 요구사항을 요약해 tasks.md에 추가하거나 별도 Feature로 분리한 뒤, 문서 상태를 맞추고 context를 다시 실행하세요.',
   featureDone:

@@ -38,6 +38,7 @@ export const ACTION_CATEGORIES = [
   'pre_pr_review',
   'pr_status_update',
   'code_review',
+  'feature_scope_split',
   'worktree_cleanup',
   'user_request_replan',
   'feature_done',
@@ -87,6 +88,20 @@ export interface CompletionChecklistSummary {
 export type PrePrReviewStatus = 'Pending' | 'Done';
 
 export type PrePrDecisionOutcome = 'approve' | 'changes_requested' | 'blocked';
+export type FeatureScopeSplitReason = 'task_count' | 'decisions_lines';
+export type FeatureScopeSplitRecommendation = 'none' | 'split_2' | 'split_4';
+
+export interface FeatureScopeSplitSignal {
+  suggested: boolean;
+  reasons: FeatureScopeSplitReason[];
+  recommendation: FeatureScopeSplitRecommendation;
+  taskCount: number;
+  decisionsLineCount: number;
+  suggestTaskCountThreshold: number;
+  suggestDecisionsLineCountThreshold: number;
+  recommendSplitFourTaskCountThreshold: number;
+  recommendSplitFourDecisionsLineCountThreshold: number;
+}
 
 export interface FeatureState {
   id?: string;
@@ -118,6 +133,7 @@ export interface FeatureState {
     doing: number;
     done: number;
   };
+  scopeSplit: FeatureScopeSplitSignal;
   activeTask?: TaskRef;
   lastDoneTask?: TaskRef;
   nextTodoTask?: TaskRef;

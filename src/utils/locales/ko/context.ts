@@ -106,6 +106,14 @@ export const koContext = {
     '사용자 승인(OK) 후 PR을 머지하세요',
   'context.actionDetail.codeReviewRequestReview':
     '리뷰 요청을 진행하고 PR 상태를 Review로 유지하세요',
+  'context.actionDetail.featureScopeSplit':
+    '이 Feature를 더 작은 이슈 단위로 분리할지 검토하세요',
+  'context.actionDetail.featureScopeSplitKeep':
+    '분할 가이드를 확인한 뒤 현재 이슈 범위를 유지하고 진행하세요',
+  'context.actionDetail.featureScopeSplitTwo':
+    '결합도/파일겹침/테스트/배포 기준으로 2개 이슈로 분리하세요',
+  'context.actionDetail.featureScopeSplitFour':
+    '기준 기반으로 4개 이슈로 분리하고 의존 순서대로 PR을 머지하세요',
   'context.actionDetail.worktreeCleanup':
     '완료된 feature worktree를 정리하세요',
   'context.actionDetail.prMetadataMigrate':

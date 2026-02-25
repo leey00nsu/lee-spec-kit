@@ -98,6 +98,7 @@ const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
   pr_create: 'context.actionDetail.prCreate',
   pr_status_update: 'context.actionDetail.prStatusUpdate',
   code_review: 'context.actionDetail.codeReview',
+  feature_scope_split: 'context.actionDetail.featureScopeSplit',
   worktree_cleanup: 'context.actionDetail.worktreeCleanup',
   pr_metadata_migrate: 'context.actionDetail.prMetadataMigrate',
   user_request_replan: 'context.actionDetail.userRequestReplan',
