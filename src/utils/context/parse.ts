@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { CliContext } from '../cli-context.js';
 import { tr } from '../i18n.js';
@@ -6,8 +7,10 @@ import {
   getCurrentBranch,
   getGitStatusPorcelain,
   getLastCommitForPath,
+  isManagedWorktreePath,
   isExpectedFeatureBranch,
   isGitPathIgnored,
+  resolveProjectRootFromGitCwd,
 } from './git.js';
 import { resolveFeatureProgress } from './progress.js';
 import {
@@ -554,6 +557,43 @@ export function resetContextParseCaches(): void {
   FEATURE_WORKTREE_CACHE.clear();
 }
 
+function getExpectedWorktreeCandidates(
+  projectGitCwd: string,
+  issueNumber: string,
+  slug: string,
+  folderName: string
+): string[] {
+  const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
+  const names = [`feat-${issueNumber}-${slug}`, `feat-${issueNumber}-${folderName}`];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of names) {
+    const candidate = path.resolve(projectRoot, '.worktrees', name);
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+    out.push(candidate);
+  }
+  return out;
+}
+
+function resolveExistingExpectedWorktreePath(
+  projectGitCwd: string,
+  issueNumber: string,
+  slug: string,
+  folderName: string
+): string | undefined {
+  for (const candidate of getExpectedWorktreeCandidates(
+    projectGitCwd,
+    issueNumber,
+    slug,
+    folderName
+  )) {
+    if (!fs.existsSync(candidate)) continue;
+    return candidate;
+  }
+  return undefined;
+}
+
 function resolveFeatureWorktreePath(
   ctx: CliContext,
   projectGitCwd: string,
@@ -578,6 +618,21 @@ function resolveFeatureWorktreePath(
     return {
       cwd: foundPath,
       branch: getCurrentBranch(ctx, foundPath) || branchName,
+    };
+  }
+  const expectedBranchesSet = new Set(expectedBranches);
+  for (const candidate of getExpectedWorktreeCandidates(
+    projectGitCwd,
+    issueNumber,
+    slug,
+    folderName
+  )) {
+    if (!fs.existsSync(candidate)) continue;
+    const branchName = getCurrentBranch(ctx, candidate);
+    if (!expectedBranchesSet.has(branchName)) continue;
+    return {
+      cwd: candidate,
+      branch: branchName,
     };
   }
   return undefined;
@@ -1013,25 +1068,17 @@ export async function parseFeature(
   let effectiveProjectBranchAvailable = context.projectBranchAvailable;
 
   if (effectiveProjectGitCwd && issueNumber) {
-    const alreadyExpected = isExpectedFeatureBranch(
-      effectiveProjectBranch,
+    const worktree = resolveFeatureWorktreePath(
+      ctx,
+      effectiveProjectGitCwd,
       issueNumber,
       slug,
       folderName
     );
-    if (!alreadyExpected) {
-      const worktree = resolveFeatureWorktreePath(
-        ctx,
-        effectiveProjectGitCwd,
-        issueNumber,
-        slug,
-        folderName
-      );
-      if (worktree) {
-        effectiveProjectGitCwd = worktree.cwd;
-        effectiveProjectBranch = worktree.branch;
-        effectiveProjectBranchAvailable = true;
-      }
+    if (worktree) {
+      effectiveProjectGitCwd = worktree.cwd;
+      effectiveProjectBranch = worktree.branch;
+      effectiveProjectBranchAvailable = true;
     }
   }
 
@@ -1208,25 +1255,17 @@ export async function parseFeature(
   // after parsing tasks so branch detection reflects newly created worktrees
   // even when spec.md still has placeholder issue values.
   if (effectiveProjectGitCwd && issueNumber) {
-    const alreadyExpected = isExpectedFeatureBranch(
-      effectiveProjectBranch,
+    const worktree = resolveFeatureWorktreePath(
+      ctx,
+      effectiveProjectGitCwd,
       issueNumber,
       slug,
       folderName
     );
-    if (!alreadyExpected) {
-      const worktree = resolveFeatureWorktreePath(
-        ctx,
-        effectiveProjectGitCwd,
-        issueNumber,
-        slug,
-        folderName
-      );
-      if (worktree) {
-        effectiveProjectGitCwd = worktree.cwd;
-        effectiveProjectBranch = worktree.branch;
-        effectiveProjectBranchAvailable = true;
-      }
+    if (worktree) {
+      effectiveProjectGitCwd = worktree.cwd;
+      effectiveProjectBranch = worktree.branch;
+      effectiveProjectBranchAvailable = true;
     }
   }
 
@@ -1298,6 +1337,30 @@ export async function parseFeature(
     slug,
     folderName
   );
+  const projectInManagedWorktree = isManagedWorktreePath(effectiveProjectGitCwd);
+  const expectedWorktreePath =
+    effectiveProjectGitCwd && issueNumber
+      ? resolveExistingExpectedWorktreePath(
+          effectiveProjectGitCwd,
+          issueNumber,
+          slug,
+          folderName
+        )
+      : undefined;
+  if (
+    workflowPolicy.requireBranch &&
+    tasksSummary.total > tasksSummary.done &&
+    onExpectedBranch &&
+    !projectInManagedWorktree
+  ) {
+    warnings.push(tr(lang, 'warnings', 'projectExpectedBranchOnMainWorkspace'));
+  } else if (
+    workflowPolicy.requireWorktree &&
+    tasksSummary.total > tasksSummary.done &&
+    !projectInManagedWorktree
+  ) {
+    warnings.push(tr(lang, 'warnings', 'workflowWorktreeRequired'));
+  }
 
   const relativeFeaturePathFromDocs = path.relative(
     context.docsDir,
@@ -1653,6 +1716,8 @@ export async function parseFeature(
       docsGitCwd: context.docsGitCwd,
       projectGitCwd: effectiveProjectGitCwd,
       onExpectedBranch,
+      projectInManagedWorktree,
+      expectedWorktreePath,
       docsEverCommitted,
       docsHasUncommittedChanges,
       projectHasUncommittedChanges,

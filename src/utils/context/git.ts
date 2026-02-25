@@ -170,9 +170,24 @@ interface GitWorktreeEntry {
 }
 
 const GIT_WORKTREE_CACHE = new Map<string, GitWorktreeEntry[]>();
+const WORKTREE_MARKER = `${path.sep}.worktrees${path.sep}`;
 
 export function resetContextGitCaches(): void {
   GIT_WORKTREE_CACHE.clear();
+}
+
+export function isManagedWorktreePath(cwd: string | undefined): boolean {
+  if (!cwd) return false;
+  const normalized = path.resolve(cwd);
+  return normalized.includes(WORKTREE_MARKER);
+}
+
+export function resolveProjectRootFromGitCwd(cwd: string): string {
+  const normalized = path.resolve(cwd);
+  const markerIndex = normalized.lastIndexOf(WORKTREE_MARKER);
+  if (markerIndex <= 0) return normalized;
+  const projectRoot = normalized.slice(0, markerIndex);
+  return projectRoot || normalized;
 }
 
 function getGitTopLevel(ctx: CliContext, cwd: string): string | null {

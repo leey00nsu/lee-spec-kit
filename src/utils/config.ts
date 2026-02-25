@@ -34,6 +34,11 @@ export interface ProjectConfig {
      */
     requireIssue?: boolean;
     requireBranch?: boolean;
+    /**
+     * When true, execute implementation tasks only from managed
+     * `.worktrees/*` directories.
+     */
+    requireWorktree?: boolean;
     requirePr?: boolean;
     requireReview?: boolean;
     /**

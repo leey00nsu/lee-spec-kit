@@ -4,6 +4,7 @@ export interface WorkflowPolicy {
   mode: 'github' | 'local';
   requireIssue: boolean;
   requireBranch: boolean;
+  requireWorktree: boolean;
   requirePr: boolean;
   requireReview: boolean;
   requireMerge: boolean;
@@ -44,6 +45,7 @@ export function resolveWorkflowPolicy(
           mode,
           requireIssue: false,
           requireBranch: false,
+          requireWorktree: false,
           requirePr: false,
           requireReview: false,
           requireMerge: false,
@@ -52,6 +54,7 @@ export function resolveWorkflowPolicy(
           mode,
           requireIssue: true,
           requireBranch: true,
+          requireWorktree: false,
           requirePr: true,
           requireReview: true,
           requireMerge: true,
@@ -62,6 +65,9 @@ export function resolveWorkflowPolicy(
   }
   if (typeof workflow?.requireBranch === 'boolean') {
     policy.requireBranch = workflow.requireBranch;
+  }
+  if (typeof workflow?.requireWorktree === 'boolean') {
+    policy.requireWorktree = workflow.requireWorktree;
   }
   if (typeof workflow?.requirePr === 'boolean') {
     policy.requirePr = workflow.requirePr;
@@ -76,6 +82,9 @@ export function resolveWorkflowPolicy(
   // Branch naming currently depends on issue number: feat/<issue>-<slug>
   if (!policy.requireIssue) {
     policy.requireBranch = false;
+  }
+  if (!policy.requireBranch) {
+    policy.requireWorktree = false;
   }
 
   if (!policy.requirePr) {

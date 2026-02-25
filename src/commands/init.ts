@@ -648,6 +648,7 @@ async function runInit(options: InitOptions): Promise<void> {
         docsRepo,
         workflow: {
           mode: workflowMode,
+          requireWorktree: false,
           codeDirtyScope: 'auto',
           taskCommitGate: 'warn',
           auto: {

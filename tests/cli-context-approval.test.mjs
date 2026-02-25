@@ -281,6 +281,148 @@ test('context auto-detect prefers single expected feature worktree before open-f
   });
 });
 
+test('context gates task execution on main workspace when workflow.requireWorktree=true', async () => {
+  await withTempDir('lsk-context-require-worktree-gate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      ...(config.workflow || {}),
+      requireWorktree: true,
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const featureAlpha = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(
+      featureAlpha.code,
+      0,
+      featureAlpha.stderr || featureAlpha.stdout
+    );
+
+    const specPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'spec.md'
+    );
+    const planPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'plan.md'
+    );
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const tasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #11
+- **Branch**: feat/11-alpha
+- **PR**: -
+- **PR Status**: -
+- **Pre-PR Review**: Pending
+- **Pre-PR Evidence**: -
+- **Pre-PR Decision**: -
+- **PR Review Evidence**: -
+- **PR Review Decision**: -
+
+## Task List
+
+- [TODO][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] done
+`;
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const gitAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/.lee-spec-kit.json',
+      'docs/features/F001-alpha',
+    ]);
+    assert.equal(gitAdd.code, 0, gitAdd.stderr || gitAdd.stdout);
+    const gitCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare requireWorktree gate scenario',
+    ]);
+    assert.equal(gitCommit.code, 0, gitCommit.stderr || gitCommit.stdout);
+    const checkoutFeatureBranch = await runCommand(dir, 'git', [
+      'checkout',
+      '-b',
+      'feat/11-alpha',
+    ]);
+    assert.equal(
+      checkoutFeatureBranch.code,
+      0,
+      checkoutFeatureBranch.stderr || checkoutFeatureBranch.stdout
+    );
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 10);
+
+    const branchCreateOption = payload.actionOptions.find(
+      (option) => option.action.category === 'branch_create'
+    );
+    assert.equal(!!branchCreateOption, true);
+    assert.equal(primaryActionOption(payload).action.category, 'branch_create');
+    assert.match(branchCreateOption.action.message, /requireWorktree|worktree/);
+  });
+});
+
 test('context --json does not force command delegation for branch_create when auto-run is available', async () => {
   await withTempDir(
     'lsk-context-branch-create-delegation-signal-',

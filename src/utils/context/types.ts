@@ -164,6 +164,8 @@ export interface FeatureState {
     docsGitCwd: string;
     projectGitCwd?: string;
     onExpectedBranch: boolean;
+    projectInManagedWorktree: boolean;
+    expectedWorktreePath?: string;
     docsEverCommitted: boolean;
     docsHasUncommittedChanges: boolean;
     projectHasUncommittedChanges: boolean;

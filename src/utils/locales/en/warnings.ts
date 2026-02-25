@@ -1,6 +1,10 @@
 export const enWarnings = {
   projectBranchUnavailable:
     'Cannot determine project branch. (In standalone mode, projectRoot is required.)',
+  projectExpectedBranchOnMainWorkspace:
+    'Feature branch is checked out in the main workspace. Prefer working from a `.worktrees/*` path.',
+  workflowWorktreeRequired:
+    'With `workflow.requireWorktree=true`, task execution is allowed only from `.worktrees/*` paths.',
   docsGitUnavailable:
     'Cannot read git status for the docs repo. (Check repo location / git init.)',
   docsPathIgnored:

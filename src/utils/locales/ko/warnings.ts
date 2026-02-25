@@ -1,6 +1,10 @@
 export const koWarnings = {
   projectBranchUnavailable:
     '프로젝트 브랜치를 확인할 수 없습니다. (standalone 모드에서는 projectRoot가 필요합니다.)',
+  projectExpectedBranchOnMainWorkspace:
+    'feature 브랜치가 메인 워크스페이스에서 체크아웃되어 있습니다. 가능하면 `.worktrees/*` 경로에서 작업하세요.',
+  workflowWorktreeRequired:
+    '`workflow.requireWorktree=true` 설정으로 인해 태스크 실행은 `.worktrees/*` 경로에서만 허용됩니다.',
   docsGitUnavailable:
     'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
   docsPathIgnored:

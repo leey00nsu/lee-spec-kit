@@ -161,6 +161,41 @@ function withFeatureScopeSplitOptions(
   ];
 }
 
+function withExistingWorktreeMoveOption(
+  actions: NextAction[],
+  feature: FeatureState,
+  lang: Lang
+): NextAction[] {
+  if (feature.tasks.total === 0 || feature.tasks.done >= feature.tasks.total) {
+    return actions;
+  }
+  if (feature.git.projectInManagedWorktree) return actions;
+  if (!feature.git.onExpectedBranch) return actions;
+  if (!feature.git.expectedWorktreePath) return actions;
+  if (
+    actions.some(
+      (action) =>
+        action.category === 'branch_create' &&
+        action.type === 'instruction' &&
+        action.message.includes(feature.git.expectedWorktreePath || '')
+    )
+  ) {
+    return actions;
+  }
+  return [
+    ...actions,
+    {
+      type: 'instruction',
+      category: 'branch_create',
+      requiresUserCheck: true,
+      uiDetailKey: 'context.actionDetail.branchCreate',
+      message: tr(lang, 'messages', 'moveToExistingWorktree', {
+        worktreePath: feature.git.expectedWorktreePath,
+      }),
+    },
+  ];
+}
+
 function withUserRequestReplanOption(
   actions: NextAction[],
   lang: Lang
@@ -198,8 +233,13 @@ export function resolveFeatureProgress(
         feature,
         lang
       );
-      const currentActions = withUserRequestReplanOption(
+      const actionsWithWorktreeMove = withExistingWorktreeMoveOption(
         actionsWithScopeSplit,
+        feature,
+        lang
+      );
+      const currentActions = withUserRequestReplanOption(
+        actionsWithWorktreeMove,
         lang
       );
       const actions = applyApprovalPolicy(

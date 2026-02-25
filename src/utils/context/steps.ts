@@ -798,6 +798,65 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
             f.git.onExpectedBranch ||
             f.tasks.done === f.tasks.total),
         actions: (f) => {
+          if (
+            workflowPolicy.requireWorktree &&
+            f.tasks.done < f.tasks.total &&
+            f.issueNumber &&
+            !f.git.projectInManagedWorktree
+          ) {
+            if (f.git.expectedWorktreePath) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'branch_create',
+                  requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.branchCreate',
+                  message: tr(lang, 'messages', 'moveToExistingWorktree', {
+                    worktreePath: f.git.expectedWorktreePath,
+                  }),
+                },
+              ];
+            }
+            if (!f.git.projectGitCwd) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'branch_create',
+                  requiresUserCheck: true,
+                  message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+                },
+              ];
+            }
+            if (f.git.onExpectedBranch) {
+              return [
+                {
+                  type: 'instruction',
+                  category: 'branch_create',
+                  requiresUserCheck: true,
+                  uiDetailKey: 'context.actionDetail.branchCreate',
+                  message: tr(lang, 'messages', 'worktreeRequiredFromMainBranch', {
+                    projectGitCwd: f.git.projectGitCwd,
+                    issueNumber: f.issueNumber,
+                    slug: f.slug,
+                  }),
+                },
+              ];
+            }
+            return [
+              {
+                type: 'command',
+                category: 'branch_create',
+                requiresUserCheck: true,
+                scope: 'project',
+                cwd: f.git.projectGitCwd,
+                cmd: tr(lang, 'messages', 'createBranch', {
+                  projectGitCwd: f.git.projectGitCwd,
+                  issueNumber: f.issueNumber,
+                  slug: f.slug,
+                }),
+              },
+            ];
+          }
           if (f.tasks.total === f.tasks.done && !isCompletionChecklistDone(f)) {
             if (f.git.docsHasUncommittedChanges) {
               return [

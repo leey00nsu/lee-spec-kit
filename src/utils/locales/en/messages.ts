@@ -39,6 +39,10 @@ export const enMessages = {
     'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
   createBranch:
     'cd "{projectGitCwd}" && mkdir -p .worktrees && (git worktree add ".worktrees/feat-{issueNumber}-{slug}" "feat/{issueNumber}-{slug}" || git worktree add -b "feat/{issueNumber}-{slug}" ".worktrees/feat-{issueNumber}-{slug}") && WT="{projectGitCwd}/.worktrees/feat-{issueNumber}-{slug}" && for f in .env .env.local .env.development .env.development.local .env.test .env.test.local .env.production .env.production.local; do [ -f "{projectGitCwd}/$f" ] && [ ! -e "$WT/$f" ] && cp "{projectGitCwd}/$f" "$WT/$f" || true; done && echo "worktree: {projectGitCwd}/.worktrees/feat-{issueNumber}-{slug}"',
+  moveToExistingWorktree:
+    'A matching feature worktree already exists. Move first: `cd "{worktreePath}"`, then re-run context.',
+  worktreeRequiredFromMainBranch:
+    '`workflow.requireWorktree` is enabled, but this feature branch is checked out in the main workspace. Switch the main workspace to a base branch first, then create/reuse `.worktrees/feat-{issueNumber}-{slug}` and continue from that worktree.',
   worktreeCleanupCommand:
     'cd "{projectGitCwd}" && WT="{worktreePath}" && ROOT="$(pwd)" && case "$WT" in "$ROOT"/.worktrees/*) if git worktree list --porcelain | grep -Fxq "worktree $WT"; then git worktree remove --force "$WT" || true; fi; [ -d "$WT" ] && rm -rf "$WT" || true ;; *) echo "skip unsafe worktree path: $WT" ;; esac && git worktree prune && CURRENT_BRANCH=$(git branch --show-current) && DEFAULT_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | cut -d/ -f2-) && TARGET_BRANCH="${DEFAULT_BRANCH:-$CURRENT_BRANCH}" && if [ -n "$TARGET_BRANCH" ]; then git checkout "$TARGET_BRANCH" >/dev/null 2>&1 || true; fi && if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1 && [ -z "$(git status --porcelain)" ]; then git pull --ff-only || true; fi',
   tasksAllDoneButNoChecklist:
