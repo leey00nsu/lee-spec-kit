@@ -525,7 +525,10 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
     "mode": "github",
     "codeDirtyScope": "auto",
     "taskCommitGate": "warn",
-    "prePrReview": { "skills": ["code-review-excellence"] }
+    "prePrReview": {
+      "skills": ["code-review-excellence"],
+      "enforceExecutionEvidence": true
+    }
   },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
@@ -600,6 +603,10 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
     - `path_required`: evidence must be a real existing local path
   - `decisionEnum` (optional): allowed decision outcomes (default: `["approve","changes_requested","blocked"]`)
     - Moving to PR step requires final decision `approve`
+  - `enforceExecutionEvidence` (optional): require proof that a review agent was actually executed (default: `true`)
+    - when `true`, `pre-pr-review` requires `--evidence` and non-empty `commandsExecuted`
+  - `executionCommandPrefixes` (optional): command prefixes to match against `commandsExecuted` (default: `[]`)
+    - when non-empty, at least one executed command must start with one of these prefixes
 - `workflow.auto`:
   - `defaultPreset` (optional): default auto preset used by `flow --request "<text>"` (default: `"pr-handoff"`)
   - `defaultUntilCategories` (optional): default gate categories (takes precedence over `defaultPreset`)
@@ -624,11 +631,20 @@ Example:
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",
       "evidenceMode": "path_required",
-      "decisionEnum": ["approve", "changes_requested", "blocked"]
+      "decisionEnum": ["approve", "changes_requested", "blocked"],
+      "enforceExecutionEvidence": true,
+      "executionCommandPrefixes": []
     }
   }
 }
 ```
+
+Pre-PR execution gate risks and mitigations:
+- Throughput bottleneck: add timeout/retry and a maintainer override route.
+- Cost increase: scope review agent execution by changed files/size threshold.
+- Quality illusion: keep periodic human spot-checks even with automatic review logs.
+- False positives/noise: block only on high-severity findings; keep low-severity as comments.
+- Tool lock-in: standardize output JSON schema so executors can be replaced.
 
 #### Modes
 

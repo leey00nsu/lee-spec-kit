@@ -8,7 +8,10 @@ import {
   resolveTaskCommitGatePolicy,
   resolveWorkflowPolicy,
 } from '../workflow.js';
-import { getCodeReviewPrompt } from '../agent-orchestration.js';
+import {
+  getCodeReviewPrompt,
+  getPrePrReviewPrompt,
+} from '../agent-orchestration.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
   return (
@@ -1260,7 +1263,11 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
                 type: 'instruction',
                 category: 'pre_pr_review',
                 requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewRun'),
+                message: getPrePrReviewPrompt(
+                  lang,
+                  prePrReviewPolicy.skills,
+                  prePrReviewPolicy.fallback
+                ),
               },
             ];
           }

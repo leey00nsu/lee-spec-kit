@@ -574,7 +574,10 @@ npx lee-spec-kit update --force
     "mode": "github",
     "codeDirtyScope": "auto",
     "taskCommitGate": "warn",
-    "prePrReview": { "skills": ["code-review-excellence"] }
+    "prePrReview": {
+      "skills": ["code-review-excellence"],
+      "enforceExecutionEvidence": true
+    }
   },
   "pr": { "screenshots": { "upload": false } },
   "approval": { "mode": "builtin" }
@@ -648,6 +651,10 @@ npx lee-spec-kit update --force
     - `path_required`: 실제 존재하는 로컬 경로만 인정
   - `decisionEnum` (선택): 허용 Decision 값 목록 (기본: `["approve","changes_requested","blocked"]`)
     - PR 단계로 진행하려면 최종 Decision이 `approve`여야 함
+  - `enforceExecutionEvidence` (선택): 리뷰 에이전트 실제 실행 증거 강제 여부 (기본: `true`)
+    - `true`일 때 `pre-pr-review`는 `--evidence`와 비어있지 않은 `commandsExecuted`를 요구
+  - `executionCommandPrefixes` (선택): `commandsExecuted`와 매칭할 명령 prefix 목록 (기본: `[]`)
+    - 비어있지 않으면 실행 명령 중 최소 1개가 해당 prefix로 시작해야 함
 - `workflow.auto`:
   - `defaultPreset` (선택): `flow --request "<요청>"` 실행 시 기본으로 사용할 auto preset 이름 (기본: `"pr-handoff"`)
   - `defaultUntilCategories` (선택): 기본 gate category 목록 (설정 시 `defaultPreset`보다 우선)
@@ -672,11 +679,20 @@ npx lee-spec-kit update --force
       "skills": ["code-review-excellence"],
       "fallback": "builtin-checklist",
       "evidenceMode": "path_required",
-      "decisionEnum": ["approve", "changes_requested", "blocked"]
+      "decisionEnum": ["approve", "changes_requested", "blocked"],
+      "enforceExecutionEvidence": true,
+      "executionCommandPrefixes": []
     }
   }
 }
 ```
+
+Pre-PR 실행 게이트 리스크와 완화:
+- 처리량 병목: 타임아웃/재시도와 maintainer 수동 우회 경로를 함께 둡니다.
+- 비용 증가: 변경 파일/규모 기준으로 리뷰 에이전트 실행 대상을 제한합니다.
+- 품질 착시: 자동 로그가 있어도 주기적 수동 샘플 리뷰를 유지합니다.
+- 오탐/노이즈: high severity만 차단 게이트로 쓰고 나머지는 코멘트로 처리합니다.
+- 도구 종속: 산출물 JSON 스키마를 고정해 실행기를 교체 가능하게 유지합니다.
 
 #### 모드
 

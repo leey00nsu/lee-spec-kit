@@ -21,12 +21,16 @@ function buildStructuredPrePrEvidence(options = {}) {
     ],
     residualRisks = ['no residual risks found in reviewed scope'],
     testsRun = ['pnpm test --filter app (pass)'],
+    commandsExecuted = ['pnpm vitest'],
   } = options;
   const findingsLines = findings.map((item) => `  - ${item}`).join('\n');
   const residualRiskLines = residualRisks
     .map((item) => `  - ${item}`)
     .join('\n');
   const testsRunLines = testsRun.map((item) => `  - ${item}`).join('\n');
+  const commandsExecutedLines = commandsExecuted
+    .map((item) => `  - ${item}`)
+    .join('\n');
   return `## Pre-PR Review Log (2026-02-19)
 
 - **Feature**: F001-alpha
@@ -34,6 +38,8 @@ function buildStructuredPrePrEvidence(options = {}) {
 - **Skills**: code-review-excellence
 - **Decision**: ${decision}
 - **Summary**: validated spec/plan/task alignment and reviewed regression scope
+- **Commands Executed**:
+${commandsExecutedLines}
 - **Findings**:
 ${findingsLines}
 - **Residual Risks**:

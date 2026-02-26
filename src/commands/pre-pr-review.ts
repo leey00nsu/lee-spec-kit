@@ -118,6 +118,10 @@ function normalizePathForDoc(value: string): string {
   return value.replace(/\\/g, '/');
 }
 
+function normalizeShellLikeCommand(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
 function getPreferredKeys(lang: 'ko' | 'en'): {
   review: string;
   evidence: string;
@@ -345,6 +349,12 @@ async function runPrePrReview(
 
   let evidenceObj: PrePrReviewEvidence | undefined;
   let reviewScope: PrePrReviewScope = createFallbackReviewScope();
+  if (policy.enforceExecutionEvidence && !options.evidence) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--evidence <path>` is required when workflow.prePrReview.enforceExecutionEvidence=true.'
+    );
+  }
   if (options.evidence) {
     const validator = new PrePrReviewValidator(ctx);
     const validationResult = await validator.validateEvidenceWithScope(
@@ -365,6 +375,33 @@ async function runPrePrReview(
       reviewScope = await validator.collectReviewScope(process.cwd());
     } catch {
       reviewScope = createFallbackReviewScope();
+    }
+  }
+
+  if (policy.enforceExecutionEvidence) {
+    const normalizedCommands = evidenceObj!.commandsExecuted
+      .map((entry) => normalizeShellLikeCommand(entry))
+      .filter(Boolean);
+    if (normalizedCommands.length === 0) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        'Evidence must include non-empty commandsExecuted entries when workflow.prePrReview.enforceExecutionEvidence=true.'
+      );
+    }
+    if (policy.executionCommandPrefixes.length > 0) {
+      const hasMatchedPrefix = normalizedCommands.some((cmd) =>
+        policy.executionCommandPrefixes.some((prefix) =>
+          cmd
+            .toLowerCase()
+            .startsWith(normalizeShellLikeCommand(prefix).toLowerCase())
+        )
+      );
+      if (!hasMatchedPrefix) {
+        throw createCliError(
+          'VALIDATION_FAILED',
+          `Evidence commandsExecuted must include at least one command starting with workflow.prePrReview.executionCommandPrefixes: ${policy.executionCommandPrefixes.join(', ')}`
+        );
+      }
     }
   }
 

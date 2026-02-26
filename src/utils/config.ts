@@ -98,6 +98,16 @@ export interface ProjectConfig {
        * Allowed decision outcomes recorded in `Pre-PR Decision`.
        */
       decisionEnum?: Array<'approve' | 'changes_requested' | 'blocked'>;
+      /**
+       * When true, enforce that review execution evidence exists and is
+       * traceable via `commandsExecuted`.
+       */
+      enforceExecutionEvidence?: boolean;
+      /**
+       * Optional command prefixes. When configured, at least one
+       * `commandsExecuted` entry must start with one of these prefixes.
+       */
+      executionCommandPrefixes?: string[];
     };
     /**
      * Auto-run policy used by `flow` helper shortcuts.

@@ -222,6 +222,17 @@ function normalizeSkillList(raw: unknown): string[] {
   return [...deduped];
 }
 
+function normalizeStringList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const deduped = new Set<string>();
+  for (const item of raw) {
+    const value = String(item || '').trim();
+    if (!value) continue;
+    deduped.add(value);
+  }
+  return [...deduped];
+}
+
 function normalizeDecisionEnumList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const deduped = new Set<string>();
@@ -334,6 +345,27 @@ async function backfillMissingConfigDefaults(
     ) {
       prePrReview.decisionEnum = normalizedDecisionEnum;
       changedPaths.push('workflow.prePrReview.decisionEnum');
+    }
+  }
+  setIfMissing(
+    prePrReview,
+    'enforceExecutionEvidence',
+    true,
+    'workflow.prePrReview.enforceExecutionEvidence'
+  );
+  if (prePrReview.executionCommandPrefixes === undefined) {
+    prePrReview.executionCommandPrefixes = [];
+    changedPaths.push('workflow.prePrReview.executionCommandPrefixes');
+  } else {
+    const normalizedExecutionCommandPrefixes = normalizeStringList(
+      prePrReview.executionCommandPrefixes
+    );
+    if (
+      JSON.stringify(normalizedExecutionCommandPrefixes) !==
+      JSON.stringify(prePrReview.executionCommandPrefixes)
+    ) {
+      prePrReview.executionCommandPrefixes = normalizedExecutionCommandPrefixes;
+      changedPaths.push('workflow.prePrReview.executionCommandPrefixes');
     }
   }
 

@@ -25,6 +25,8 @@ export interface PrePrReviewPolicy {
   fallback: PrePrReviewFallbackPolicy;
   evidenceMode: PrePrEvidenceMode;
   decisionEnum: PrePrDecisionOutcome[];
+  enforceExecutionEvidence: boolean;
+  executionCommandPrefixes: string[];
 }
 
 const DEFAULT_PRE_PR_REVIEW_SKILLS = ['code-review-excellence'];
@@ -159,6 +161,17 @@ function normalizeDecisionEnumList(input: unknown): PrePrDecisionOutcome[] {
   return [...deduped];
 }
 
+function normalizeCommandPrefixList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const deduped = new Set<string>();
+  for (const raw of input) {
+    const value = String(raw || '').trim();
+    if (!value) continue;
+    deduped.add(value);
+  }
+  return [...deduped];
+}
+
 export function resolvePrePrReviewPolicy(
   workflow?: ProjectConfig['workflow']
 ): PrePrReviewPolicy {
@@ -168,10 +181,17 @@ export function resolvePrePrReviewPolicy(
   const configuredDecisionEnum = normalizeDecisionEnumList(
     configured?.decisionEnum
   );
+  const configuredCommandPrefixes = normalizeCommandPrefixList(
+    configured?.executionCommandPrefixes
+  );
   const configuredEnabled =
     typeof configured?.enabled === 'boolean'
       ? configured.enabled
       : workflowPolicy.requirePr;
+  const configuredExecutionEvidence =
+    typeof configured?.enforceExecutionEvidence === 'boolean'
+      ? configured.enforceExecutionEvidence
+      : true;
 
   return {
     enabled: workflowPolicy.requirePr ? configuredEnabled : false,
@@ -189,5 +209,8 @@ export function resolvePrePrReviewPolicy(
       configuredDecisionEnum.length > 0
         ? configuredDecisionEnum
         : DEFAULT_PRE_PR_DECISION_ENUM,
+    enforceExecutionEvidence: configuredExecutionEvidence,
+    executionCommandPrefixes:
+      configuredCommandPrefixes.length > 0 ? configuredCommandPrefixes : [],
   };
 }

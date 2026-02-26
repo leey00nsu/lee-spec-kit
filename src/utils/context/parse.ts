@@ -318,7 +318,23 @@ function isExplicitZeroFindingsEntry(value: string): boolean {
   );
 }
 
-function hasPrePrReviewLogQuality(content: string): boolean {
+function isNoCommandsPlaceholder(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return true;
+  return (
+    /^none(?:\s+specified)?\b/.test(trimmed) ||
+    /^no\s+commands?\b/.test(trimmed) ||
+    /^n\/a\b/.test(trimmed) ||
+    /^없음\b/.test(trimmed) ||
+    /^명령(?:어)?\s*없음\b/.test(trimmed)
+  );
+}
+
+function hasPrePrReviewLogQuality(
+  content: string,
+  options?: { requireCommandsExecuted?: boolean }
+): boolean {
+  const requireCommandsExecuted = !!options?.requireCommandsExecuted;
   const sections = splitReviewLogSections(content, PRE_PR_REVIEW_LOG_HEADER);
   for (const section of sections) {
     const summaryEntries = collectStructuredReviewEntries(section, [
@@ -370,6 +386,25 @@ function hasPrePrReviewLogQuality(content: string): boolean {
     ]);
     if (!hasValidReviewLogEntries(testsRunEntries)) continue;
 
+    if (requireCommandsExecuted) {
+      const commandsEntries = collectStructuredReviewEntries(section, [
+        'Commands Executed',
+        'Executed Commands',
+        '실행 명령어',
+        '실행 명령',
+      ]);
+      const hasCommandsExecuted = commandsEntries
+        .map((entry) => entry.trim())
+        .some(
+          (entry) =>
+            entry.length > 0 &&
+            !isReviewDraftPlaceholder(entry) &&
+            !isPlaceholderReviewEvidence(entry) &&
+            !isNoCommandsPlaceholder(entry)
+        );
+      if (!hasCommandsExecuted) continue;
+    }
+
     return true;
   }
   return false;
@@ -381,11 +416,12 @@ const PR_REVIEW_LOG_HEADER = /^##\s+(?:PR Review Log|PR 리뷰 로그)\b.*$/gim;
 
 async function hasPrePrReviewLogEvidence(
   ctx: CliContext,
-  candidatePath: string
+  candidatePath: string,
+  options?: { requireCommandsExecuted?: boolean }
 ): Promise<boolean> {
   try {
     const content = await ctx.fs.readFile(candidatePath, 'utf-8');
-    return hasPrePrReviewLogQuality(content);
+    return hasPrePrReviewLogQuality(content, options);
   } catch {
     return false;
   }
@@ -456,12 +492,20 @@ async function isPrePrEvidenceProvided(
     context
   );
 
+  if (policy.enforceExecutionEvidence && !existingEvidencePath) {
+    return false;
+  }
+
   if (policy.evidenceMode !== 'path_required') {
     if (!existingEvidencePath) return true;
-    return hasPrePrReviewLogEvidence(ctx, existingEvidencePath);
+    return hasPrePrReviewLogEvidence(ctx, existingEvidencePath, {
+      requireCommandsExecuted: policy.enforceExecutionEvidence,
+    });
   }
   if (!existingEvidencePath) return false;
-  return hasPrePrReviewLogEvidence(ctx, existingEvidencePath);
+  return hasPrePrReviewLogEvidence(ctx, existingEvidencePath, {
+    requireCommandsExecuted: policy.enforceExecutionEvidence,
+  });
 }
 
 async function isPrReviewEvidenceProvided(
