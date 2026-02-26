@@ -75,6 +75,8 @@ export const enMessages = {
     'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Decision`, `Findings` (or explicit `0 findings`), `Residual Risks`, `Tests Run`, and real executed commands (`commandsExecuted`). (CHECK required)',
   prePrReviewDecisionMissing:
     'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
+  prePrReviewDecisionReconfirm:
+    'Current `Pre-PR Decision` is `{decision}`. After fixing findings, rerun pre-PR review with an explicit decision to avoid replaying the prior state: `{command}` (CHECK required)',
   prReviewEvidenceFieldMissing:
     'tasks.md is missing the `PR Review Evidence` field. Add `- **PR Review Evidence**: -` and continue. (CHECK required)',
   prReviewEvidenceMissing:

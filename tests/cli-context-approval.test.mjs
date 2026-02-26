@@ -2016,10 +2016,13 @@ test('context pre-PR review requires structured evidence content before PR step'
       assert.equal(result.code, 0, result.stderr || result.stdout);
       const payload = JSON.parse(result.stdout.trim());
       assert.equal(payload.matchedFeature.currentStep, 12);
+      const action = primaryActionOption(payload).action;
       assert.equal(
-        primaryActionOption(payload).action.category,
+        action.category,
         'pre_pr_review'
       );
+      assert.equal(action.type, 'instruction');
+      assert.match(action.message || '', /--decision approve/);
     }
   );
 });

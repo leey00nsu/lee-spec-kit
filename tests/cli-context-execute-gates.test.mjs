@@ -2176,6 +2176,75 @@ test('pre-pr-review requires --evidence when execution evidence enforcement is e
   });
 });
 
+test('pre-pr-review requires explicit --decision when previous decision is non-approve', async () => {
+  await withTempDir('lsk-pre-pr-review-explicit-decision-required-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        evidenceMode: 'any',
+        enforceExecutionEvidence: false,
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Done\n- **Pre-PR Evidence**: -\n- **Pre-PR Decision**: decision: changes_requested - follow-up changes required'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const runReview = await runCli(dir, [
+      'pre-pr-review',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(runReview.code, 1, runReview.stderr || runReview.stdout);
+    const payload = JSON.parse(runReview.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'INVALID_ARGUMENT');
+    assert.match(payload.error, /Existing Pre-PR decision is "changes_requested"/);
+    assert.match(payload.error, /explicit --decision/);
+  });
+});
+
 test('context --execute requires a ticket from prior approval', async () => {
   await withTempDir('lsk-context-execute-ticket-required-', async (dir) => {
     const initResult = await runCli(dir, [

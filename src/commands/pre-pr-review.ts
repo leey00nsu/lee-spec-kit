@@ -330,6 +330,16 @@ async function runPrePrReview(
       '`--decision` must be one of: approve, changes_requested, blocked.'
     );
   }
+  if (
+    !explicitDecision &&
+    feature.prePrReview.decisionOutcome &&
+    feature.prePrReview.decisionOutcome !== 'approve'
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      `Existing Pre-PR decision is "${feature.prePrReview.decisionOutcome}". Re-run with explicit --decision to avoid replaying the previous non-approve decision.`
+    );
+  }
   const decision =
     explicitDecision || feature.prePrReview.decisionOutcome || 'approve';
   if (!policy.decisionEnum.includes(decision)) {

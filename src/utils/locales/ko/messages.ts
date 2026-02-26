@@ -76,6 +76,8 @@ export const koMessages = {
     'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`/`Tests Run`/실행 명령(`commandsExecuted`)을 기록하세요. (확인 필요)',
   prePrReviewDecisionMissing:
     'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
+  prePrReviewDecisionReconfirm:
+    '현재 `PR 전 리뷰 Decision`이 `{decision}`입니다. 지적사항을 반영한 뒤 이전 상태 재사용을 막기 위해 명시적으로 Decision을 지정해 재실행하세요: `{command}` (확인 필요)',
   prReviewEvidenceFieldMissing:
     'tasks.md에 `PR 리뷰 Evidence` 필드가 없습니다. `- **PR 리뷰 Evidence**: -` 항목을 추가하고 다시 진행하세요. (확인 필요)',
   prReviewEvidenceMissing:

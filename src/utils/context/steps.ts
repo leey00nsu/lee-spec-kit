@@ -163,6 +163,22 @@ function buildSelfCliCommand(args: string[]): string {
   return base.map((arg) => toShellArg(arg)).join(' ');
 }
 
+function buildPrePrReviewCommandArgs(
+  feature: FeatureState,
+  evidencePath: string,
+  decision?: 'approve' | 'changes_requested' | 'blocked'
+): string[] {
+  const commandArgs = ['pre-pr-review', feature.folderName];
+  if (feature.type && feature.type !== 'single') {
+    commandArgs.push('--component', feature.type);
+  }
+  commandArgs.push('--evidence', evidencePath);
+  if (decision) {
+    commandArgs.push('--decision', decision);
+  }
+  return commandArgs;
+}
+
 function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
   const docsRoot = feature.git.docsGitCwd;
   const candidates: string[] = [];
@@ -1271,11 +1287,25 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
               },
             ];
           }
-          const commandArgs = ['pre-pr-review', f.folderName];
-          if (f.type && f.type !== 'single') {
-            commandArgs.push('--component', f.type);
+          if (
+            f.prePrReview.decisionOutcome &&
+            f.prePrReview.decisionOutcome !== 'approve'
+          ) {
+            return [
+              {
+                type: 'instruction',
+                category: 'pre_pr_review',
+                requiresUserCheck: true,
+                message: tr(lang, 'messages', 'prePrReviewDecisionReconfirm', {
+                  decision: f.prePrReview.decisionOutcome,
+                  command: buildSelfCliCommand(
+                    buildPrePrReviewCommandArgs(f, evidencePath, 'approve')
+                  ),
+                }),
+              },
+            ];
           }
-          commandArgs.push('--evidence', evidencePath);
+          const commandArgs = buildPrePrReviewCommandArgs(f, evidencePath);
           return [
             {
               type: 'command',
