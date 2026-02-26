@@ -35,6 +35,10 @@ export const enMessages = {
     'Commit PR review fixes. Stage only review-fix files, then commit with `fix(#{issueNumber}): <review-fix-summary>`. `<review-fix-summary>` must describe review comments resolved in this commit (do not reuse task titles).',
   reviewFixCommitGuidance:
     'Commit PR review fixes. Stage only review-fix files, then commit with `fix(review): <review-fix-summary>`. `<review-fix-summary>` must describe review comments resolved in this commit (do not reuse task titles).',
+  prePrFixCommitIssueGuidance:
+    'Commit fixes requested by pre-PR review. Stage only pre-PR fix files, then commit with `fix(#{issueNumber}): <pre-pr-fix-summary>`. `<pre-pr-fix-summary>` must describe findings resolved from pre-PR review.',
+  prePrFixCommitGuidance:
+    'Commit fixes requested by pre-PR review. Stage only pre-PR fix files, then commit with `fix(pre-pr): <pre-pr-fix-summary>`. `<pre-pr-fix-summary>` must describe findings resolved from pre-PR review.',
   standaloneNeedsProjectRoot:
     'Standalone mode requires projectRoot. (npx lee-spec-kit config --project-root ...)',
   createBranch:
@@ -75,6 +79,8 @@ export const enMessages = {
     'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Decision`, `Findings` (or explicit `0 findings`), `Residual Risks`, `Tests Run`, and real executed commands (`commandsExecuted`). (CHECK required)',
   prePrReviewDecisionMissing:
     'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
+  prePrReviewFixRequired:
+    'Current `Pre-PR Decision` is `{decision}`. Apply the requested fixes from pre-PR findings before moving to PR creation. (CHECK required)',
   prePrReviewDecisionReconfirm:
     'Current `Pre-PR Decision` is `{decision}`. After fixing findings, rerun pre-PR review with an explicit decision to avoid replaying the prior state: `{command}` (CHECK required)',
   prReviewEvidenceFieldMissing:

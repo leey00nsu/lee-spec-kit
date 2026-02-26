@@ -55,6 +55,21 @@ function isReviewIterationPhase(
   );
 }
 
+function isPrePrFixIterationPhase(
+  feature: FeatureState,
+  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
+  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
+): boolean {
+  return (
+    prePrReviewPolicy.enabled &&
+    workflowPolicy.requirePr &&
+    feature.prePrReview.status === 'Done' &&
+    !!feature.prePrReview.decisionOutcome &&
+    feature.prePrReview.decisionOutcome !== 'approve' &&
+    (!isPrMetadataConfigured(feature) || !feature.pr.link)
+  );
+}
+
 function isPrePrReviewSatisfied(
   feature: FeatureState,
   prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
@@ -181,6 +196,7 @@ function buildPrePrReviewCommandArgs(
 
 function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
   const docsRoot = feature.git.docsGitCwd;
+  const docsParent = path.dirname(docsRoot);
   const candidates: string[] = [];
   const explicit = (feature.prePrReview.evidence || '').trim();
   if (explicit && explicit !== '-') {
@@ -188,8 +204,16 @@ function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
       candidates.push(explicit);
     } else {
       candidates.push(path.resolve(docsRoot, explicit));
+      candidates.push(path.resolve(docsParent, explicit));
       candidates.push(path.resolve(process.cwd(), explicit));
       candidates.push(path.resolve(feature.path, explicit));
+      const normalizedExplicit = explicit.replace(/\\/g, '/');
+      if (normalizedExplicit.startsWith('docs/')) {
+        const withoutDocsPrefix = normalizedExplicit.slice('docs/'.length);
+        if (withoutDocsPrefix) {
+          candidates.push(path.resolve(docsRoot, withoutDocsPrefix));
+        }
+      }
     }
   }
   candidates.push(path.resolve(process.cwd(), 'review-trace.json'));
@@ -232,6 +256,27 @@ function resolveProjectCommitTopic(feature: FeatureState): string {
   );
   const topic = withoutTaskId || normalizeCommitTopicText(feature.folderName);
   return toShellSafeCommitTopic(topic);
+}
+
+function getReviewFixCommitGuidance(
+  feature: FeatureState,
+  lang: Lang,
+  options?: { prePr?: boolean }
+): string {
+  const prePr = !!options?.prePr;
+  if (prePr) {
+    return feature.issueNumber
+      ? tr(lang, 'messages', 'prePrFixCommitIssueGuidance', {
+          issueNumber: feature.issueNumber,
+        })
+      : tr(lang, 'messages', 'prePrFixCommitGuidance');
+  }
+
+  return feature.issueNumber
+    ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
+        issueNumber: feature.issueNumber,
+      })
+    : tr(lang, 'messages', 'reviewFixCommitGuidance');
 }
 
 function resolveManagedWorktreeCleanupPaths(
@@ -902,7 +947,16 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
             }
 
             if (f.git.projectHasUncommittedChanges) {
-              if (isReviewIterationPhase(f, workflowPolicy)) {
+              const reviewIterationPhase = isReviewIterationPhase(
+                f,
+                workflowPolicy
+              );
+              const prePrFixIterationPhase = isPrePrFixIterationPhase(
+                f,
+                workflowPolicy,
+                prePrReviewPolicy
+              );
+              if (reviewIterationPhase || prePrFixIterationPhase) {
                 if (!f.git.projectGitCwd) {
                   return [
                     {
@@ -922,14 +976,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
                     type: 'instruction',
                     category: 'review_fix_commit',
                     requiresUserCheck: true,
-                    message: f.issueNumber
-                      ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
-                          projectGitCwd: f.git.projectGitCwd,
-                          issueNumber: f.issueNumber,
-                        })
-                      : tr(lang, 'messages', 'reviewFixCommitGuidance', {
-                          projectGitCwd: f.git.projectGitCwd,
-                        }),
+                    message: getReviewFixCommitGuidance(f, lang, {
+                      prePr: prePrFixIterationPhase,
+                    }),
                   },
                 ];
               }
@@ -1179,7 +1228,16 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
             ];
           }
 
-          if (isReviewIterationPhase(f, workflowPolicy)) {
+          const reviewIterationPhase = isReviewIterationPhase(
+            f,
+            workflowPolicy
+          );
+          const prePrFixIterationPhase = isPrePrFixIterationPhase(
+            f,
+            workflowPolicy,
+            prePrReviewPolicy
+          );
+          if (reviewIterationPhase || prePrFixIterationPhase) {
             if (!f.git.projectGitCwd) {
               return [
                 {
@@ -1194,14 +1252,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
                 type: 'instruction',
                 category: 'review_fix_commit',
                 requiresUserCheck: true,
-                message: f.issueNumber
-                  ? tr(lang, 'messages', 'reviewFixCommitIssueGuidance', {
-                      projectGitCwd: f.git.projectGitCwd,
-                      issueNumber: f.issueNumber,
-                    })
-                  : tr(lang, 'messages', 'reviewFixCommitGuidance', {
-                      projectGitCwd: f.git.projectGitCwd,
-                    }),
+                message: getReviewFixCommitGuidance(f, lang, {
+                  prePr: prePrFixIterationPhase,
+                }),
               },
             ];
           }
@@ -1272,6 +1325,31 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
               },
             ];
           }
+          if (
+            f.prePrReview.decisionOutcome &&
+            f.prePrReview.decisionOutcome !== 'approve'
+          ) {
+            const rerunEvidencePath =
+              resolvePrePrReviewEvidencePath(f) || 'review-trace.json';
+            const rerunCommand = buildSelfCliCommand(
+              buildPrePrReviewCommandArgs(f, rerunEvidencePath, 'approve')
+            );
+            return [
+              {
+                type: 'instruction',
+                category: 'review_fix_commit',
+                requiresUserCheck: true,
+                message: `${tr(lang, 'messages', 'prePrReviewFixRequired', {
+                  decision: f.prePrReview.decisionOutcome,
+                })}\n${getReviewFixCommitGuidance(f, lang, {
+                  prePr: true,
+                })}\n${tr(lang, 'messages', 'prePrReviewDecisionReconfirm', {
+                  decision: f.prePrReview.decisionOutcome,
+                  command: rerunCommand,
+                })}`,
+              },
+            ];
+          }
           const evidencePath = resolvePrePrReviewEvidencePath(f);
           if (!evidencePath) {
             return [
@@ -1284,24 +1362,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
                   prePrReviewPolicy.skills,
                   prePrReviewPolicy.fallback
                 ),
-              },
-            ];
-          }
-          if (
-            f.prePrReview.decisionOutcome &&
-            f.prePrReview.decisionOutcome !== 'approve'
-          ) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: tr(lang, 'messages', 'prePrReviewDecisionReconfirm', {
-                  decision: f.prePrReview.decisionOutcome,
-                  command: buildSelfCliCommand(
-                    buildPrePrReviewCommandArgs(f, evidencePath, 'approve')
-                  ),
-                }),
               },
             ];
           }

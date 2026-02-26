@@ -353,8 +353,11 @@ function hasPrePrReviewLogQuality(
 
     const findingsEntries = collectStructuredReviewEntries(section, [
       'Findings',
+      'Findings (Changed Files)',
       '지적사항',
       '지적 사항',
+      '지적사항 (변경 파일)',
+      '지적 사항 (변경 파일)',
     ]);
     const hasActionableFindings = findingsEntries
       .map((entry) => entry.trim())
@@ -363,7 +366,7 @@ function hasPrePrReviewLogQuality(
           entry.length > 0 &&
           !isReviewDraftPlaceholder(entry) &&
           !isPlaceholderReviewEvidence(entry) &&
-          /\S+:\d+/.test(entry)
+          (/\S+:\d+/.test(entry) || /\b[Ll]ines?\s+\d+/.test(entry))
       );
     const hasExplicitZeroFindings = findingsEntries.some((entry) =>
       isExplicitZeroFindingsEntry(entry)
@@ -384,15 +387,18 @@ function hasPrePrReviewLogQuality(
       '실행 테스트',
       '테스트 실행',
     ]);
-    if (!hasValidReviewLogEntries(testsRunEntries)) continue;
+    const commandsEntries = collectStructuredReviewEntries(section, [
+      'Commands Executed',
+      'Executed Commands',
+      '실행 명령어',
+      '실행 명령',
+    ]);
+    const hasTestsRunEntries =
+      hasValidReviewLogEntries(testsRunEntries) ||
+      hasValidReviewLogEntries(commandsEntries);
+    if (!hasTestsRunEntries) continue;
 
     if (requireCommandsExecuted) {
-      const commandsEntries = collectStructuredReviewEntries(section, [
-        'Commands Executed',
-        'Executed Commands',
-        '실행 명령어',
-        '실행 명령',
-      ]);
       const hasCommandsExecuted = commandsEntries
         .map((entry) => entry.trim())
         .some(
@@ -460,6 +466,13 @@ function resolveLocalEvidencePathCandidates(
     candidates.add(path.resolve(context.featurePath, evidencePath));
     candidates.add(path.resolve(context.docsDir, evidencePath));
     candidates.add(path.resolve(path.dirname(context.docsDir), evidencePath));
+    const normalizedEvidencePath = evidencePath.replace(/\\/g, '/');
+    if (normalizedEvidencePath.startsWith('docs/')) {
+      const withoutDocsPrefix = normalizedEvidencePath.slice('docs/'.length);
+      if (withoutDocsPrefix) {
+        candidates.add(path.resolve(context.docsDir, withoutDocsPrefix));
+      }
+    }
   }
   return [...candidates];
 }

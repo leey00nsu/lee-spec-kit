@@ -165,10 +165,31 @@ function buildReportContent(input: {
       ? input.skills.join(', ')
       : 'code-review-excellence';
 
+  const normalizedCommands = input.evidence.commandsExecuted
+    .map((entry) => normalizeShellLikeCommand(entry))
+    .filter(Boolean);
   const commandsRun =
-    input.evidence.commandsExecuted.length > 0
-      ? input.evidence.commandsExecuted.map((c) => `  - \`${c}\``).join('\n')
+    normalizedCommands.length > 0
+      ? normalizedCommands.map((c) => `  - \`${c}\``).join('\n')
       : '  - None specified';
+  const testCommandTokens = [
+    'test',
+    'vitest',
+    'jest',
+    'playwright',
+    'cypress',
+    'tsc',
+    'biome check',
+    'eslint',
+    'audit',
+  ];
+  const testsRunCommands = normalizedCommands.filter((entry) => {
+    const lowered = entry.toLowerCase();
+    return testCommandTokens.some((token) => lowered.includes(token));
+  });
+  const testsRun = (testsRunCommands.length > 0 ? testsRunCommands : normalizedCommands)
+    .map((entry) => `  - \`${entry}\` -> executed`)
+    .join('\n');
 
   let filesSection = '';
   if (input.evidence.files.length === 0) {
@@ -206,6 +227,9 @@ function buildReportContent(input: {
 - **Commands Executed**:
 ${commandsRun}
 
+- **Tests Run**:
+${testsRun || '  - Not recorded'}
+
 - **Residual Risks**:
   - ${input.evidence.residualRisks}
 
@@ -218,7 +242,7 @@ ${mainScopeFiles}
   - **Worktree Changed Files**:
 ${worktreeScopeFiles}
 
-- **Findings (Changed Files)**:
+- **Findings**:
 ${filesSection}
 
 - **Trace**: pre-pr-review command executed and synced with tasks.md

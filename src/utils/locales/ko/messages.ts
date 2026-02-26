@@ -35,6 +35,10 @@ export const koMessages = {
     'PR 리뷰 수정 커밋을 진행하세요. 리뷰 반영 파일만 스테이징한 뒤 `fix(#{issueNumber}): <review-fix-summary>` 형식으로 커밋하세요. `<review-fix-summary>`에는 이번 커밋에서 실제로 해결한 리뷰 항목 요약을 작성하세요. (태스크 제목 재사용 금지)',
   reviewFixCommitGuidance:
     'PR 리뷰 수정 커밋을 진행하세요. 리뷰 반영 파일만 스테이징한 뒤 `fix(review): <review-fix-summary>` 형식으로 커밋하세요. `<review-fix-summary>`에는 이번 커밋에서 실제로 해결한 리뷰 항목 요약을 작성하세요. (태스크 제목 재사용 금지)',
+  prePrFixCommitIssueGuidance:
+    'pre-PR 리뷰 지적사항 수정 커밋을 진행하세요. pre-PR 수정 파일만 스테이징한 뒤 `fix(#{issueNumber}): <pre-pr-fix-summary>` 형식으로 커밋하세요. `<pre-pr-fix-summary>`에는 pre-PR에서 해결한 지적사항을 작성하세요.',
+  prePrFixCommitGuidance:
+    'pre-PR 리뷰 지적사항 수정 커밋을 진행하세요. pre-PR 수정 파일만 스테이징한 뒤 `fix(pre-pr): <pre-pr-fix-summary>` 형식으로 커밋하세요. `<pre-pr-fix-summary>`에는 pre-PR에서 해결한 지적사항을 작성하세요.',
   standaloneNeedsProjectRoot:
     'standalone 모드에서는 projectRoot 설정이 필요합니다. (npx lee-spec-kit config --project-root ...)',
   createBranch:
@@ -76,6 +80,8 @@ export const koMessages = {
     'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`/`Tests Run`/실행 명령(`commandsExecuted`)을 기록하세요. (확인 필요)',
   prePrReviewDecisionMissing:
     'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
+  prePrReviewFixRequired:
+    '현재 `PR 전 리뷰 Decision`이 `{decision}`입니다. PR 생성 단계로 이동하기 전에 pre-PR 지적사항을 코드에 반영하세요. (확인 필요)',
   prePrReviewDecisionReconfirm:
     '현재 `PR 전 리뷰 Decision`이 `{decision}`입니다. 지적사항을 반영한 뒤 이전 상태 재사용을 막기 위해 명시적으로 Decision을 지정해 재실행하세요: `{command}` (확인 필요)',
   prReviewEvidenceFieldMissing:

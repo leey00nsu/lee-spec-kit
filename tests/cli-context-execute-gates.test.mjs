@@ -1970,8 +1970,6 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.match(decisions, /\*\*Main Range\*\*:/i);
     assert.match(decisions, /\*\*Worktree Changed Files\*\*:/i);
 
-    // Default pre-pr-review template is intentionally incomplete.
-    // It should not pass the pre-PR gate until findings/residual risks/tests are filled.
     const contextAfterExecute = await runCli(dir, [
       'context',
       'F001-alpha',
