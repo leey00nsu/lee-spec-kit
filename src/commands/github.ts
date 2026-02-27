@@ -122,8 +122,20 @@ export function githubCommand(program: Command): void {
             kindLabel: ghService.tg(config.lang, 'kindIssue'),
             lang: config.lang,
           });
-          const body = preparedBody.body;
-          const bodyFile = preparedBody.bodyFile;
+          const body = ghService.stripIssueDraftMetadataSection(preparedBody.body);
+          let bodyFile = preparedBody.bodyFile;
+          if (options.create && body !== preparedBody.body) {
+            const sanitizedBodyFile = ghService.toBodyFilePath(
+              undefined,
+              'issue',
+              config.docsDir,
+              `${feature.type}-issue-sanitized`,
+              config.lang
+            );
+            await fs.ensureDir(path.dirname(sanitizedBodyFile));
+            await fs.writeFile(sanitizedBodyFile, body, 'utf-8');
+            bodyFile = sanitizedBodyFile;
+          }
           const title =
             options.title?.trim() ||
             (preparedBody.source === 'workflow-ready'
@@ -373,8 +385,22 @@ export function githubCommand(program: Command): void {
             kindLabel: ghService.tg(config.lang, 'kindPr'),
             lang: config.lang,
           });
-          let body = preparedBody.body;
+          let body = ghService.stripWorkflowDraftMetadataSection(
+            preparedBody.body
+          );
           let bodyFile = preparedBody.bodyFile;
+          if (options.create && body !== preparedBody.body) {
+            const sanitizedBodyFile = ghService.toBodyFilePath(
+              undefined,
+              'pr',
+              config.docsDir,
+              `${feature.type}-pr-sanitized`,
+              config.lang
+            );
+            await fs.ensureDir(path.dirname(sanitizedBodyFile));
+            await fs.writeFile(sanitizedBodyFile, body, 'utf-8');
+            bodyFile = sanitizedBodyFile;
+          }
           const title =
             options.title?.trim() ||
             (preparedBody.source === 'workflow-ready'

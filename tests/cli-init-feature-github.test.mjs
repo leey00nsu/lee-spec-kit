@@ -535,13 +535,15 @@ issue.md custom overview should be used as-is.
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'ISSUE_CREATED');
-    assert.equal(
+    assert.notEqual(
       await normalizePathForCompare(payload.bodyFile),
       await normalizePathForCompare(issueDocPath)
     );
     assert.equal(payload.title, 'issue.md title should be used');
     assert.deepEqual(payload.labels, ['enhancement', 'bug']);
     assert.match(payload.body, /issue\.md custom overview should be used as-is\./);
+    assert.doesNotMatch(payload.body, /^## Metadata$/m);
+    assert.doesNotMatch(payload.body, /^- \*\*Status\*\*:/m);
     assert.doesNotMatch(payload.body, /## Labels/);
 
     const log = await fs.readFile(fakeGh.logPath, 'utf-8');
@@ -625,6 +627,21 @@ explicit issue.md body-file overview
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'ISSUE_CREATED');
+    assert.notEqual(
+      await normalizePathForCompare(payload.bodyFile),
+      await normalizePathForCompare(issueDocPath)
+    );
+    assert.doesNotMatch(payload.body, /^## Metadata$/m);
+    assert.doesNotMatch(payload.body, /^- \*\*Status\*\*:/m);
+    assert.match(payload.body, /explicit issue\.md body-file overview/i);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      new RegExp(
+        `--body-file ${String(payload.bodyFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
+    );
   });
 });
 
@@ -1325,12 +1342,14 @@ flowchart TD
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
-    assert.equal(
+    assert.notEqual(
       await normalizePathForCompare(payload.bodyFile),
       await normalizePathForCompare(prDocPath)
     );
     assert.equal(payload.title, 'pr.md title should be used');
     assert.match(payload.body, /pr\.md custom overview should be used as-is\./);
+    assert.doesNotMatch(payload.body, /^## Metadata$/m);
+    assert.doesNotMatch(payload.body, /^- \*\*Status\*\*:/m);
     assert.doesNotMatch(payload.body, /^### Tests Run$/m);
 
     const log = await fs.readFile(fakeGh.logPath, 'utf-8');
@@ -1522,6 +1541,21 @@ flowchart TD
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
+    assert.notEqual(
+      await normalizePathForCompare(payload.bodyFile),
+      await normalizePathForCompare(prDocPath)
+    );
+    assert.match(payload.body, /explicit pr\.md body-file overview/i);
+    assert.doesNotMatch(payload.body, /^## Metadata$/m);
+    assert.doesNotMatch(payload.body, /^- \*\*Status\*\*:/m);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      new RegExp(
+        `--body-file ${String(payload.bodyFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
+    );
   });
 });
 

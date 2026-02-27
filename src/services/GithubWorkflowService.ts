@@ -619,11 +619,61 @@ export function extractMarkdownByHeadings(
   return lines.slice(start, end).join('\n');
 }
 
+export function removeMarkdownByHeadings(
+  content: string,
+  headings: string[],
+  levels: number[]
+): string {
+  const targets = new Set(headings.map((heading) => normalizeHeading(heading)));
+  const lines = content.split('\n');
+  const levelSet = new Set(levels);
+  let start = -1;
+  let startLevel = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/^\s*(#{2,6})\s+(.+?)\s*$/);
+    if (!match) continue;
+    const level = match[1].length;
+    if (!levelSet.has(level)) continue;
+    if (!targets.has(normalizeHeading(match[2]))) continue;
+    start = i;
+    startLevel = level;
+    break;
+  }
+
+  if (start < 0) return content;
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    const heading = lines[i].match(/^\s*(#{2,6})\s+(.+?)\s*$/);
+    if (!heading) continue;
+    const level = heading[1].length;
+    if (level <= startLevel) {
+      end = i;
+      break;
+    }
+  }
+
+  const next = [...lines.slice(0, start), ...lines.slice(end)].join('\n');
+  const hasTrailingNewline = /\n$/.test(content);
+  const normalized = next.replace(/\n{3,}/g, '\n\n').trimEnd();
+  if (!normalized) return '';
+  return hasTrailingNewline ? `${normalized}\n` : normalized;
+}
+
 export function extractMarkdownSection(
   content: string,
   headings: string[]
 ): string | undefined {
   return extractMarkdownByHeadings(content, headings, [2]);
+}
+
+export function stripIssueDraftMetadataSection(content: string): string {
+  return stripWorkflowDraftMetadataSection(content);
+}
+
+export function stripWorkflowDraftMetadataSection(content: string): string {
+  return removeMarkdownByHeadings(content, ['Metadata', '메타데이터'], [2]);
 }
 
 export function isTemplateLine(line: string): boolean {
