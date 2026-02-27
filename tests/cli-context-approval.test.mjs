@@ -2759,6 +2759,16 @@ process.exit(0);
       assert.equal(primaryActionOption(payload).action.type, 'command');
       assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
       assert.equal(primaryActionOption(payload).action.operationType, 'remote');
+      assert.equal(
+        payload.agentOrchestration?.currentActionShouldDelegate,
+        false
+      );
+      assert.equal(
+        payload.agentOrchestration?.subAgentHandoff?.required,
+        false
+      );
+      assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
+      assert.equal(payload.agentOrchestration?.subAgentHandoff?.cmd, null);
       assert.match(
         primaryActionOption(payload).action.cmd || '',
         /--merge --confirm OK/

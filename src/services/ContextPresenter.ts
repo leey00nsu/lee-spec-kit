@@ -112,9 +112,14 @@ export function shouldDelegateCurrentAction(actionOptions: ActionOption[]): {
   const primaryOption = actionOptions[0];
   const primaryCategory = primaryOption?.action?.category || null;
   const longRunningSet = new Set<string>(LONG_RUNNING_DELEGATION_CATEGORIES);
+  const isCommand = primaryOption?.action?.type === 'command';
+  const isRemoteCommand =
+    isCommand && primaryOption?.action?.operationType === 'remote';
   const shouldDelegate =
     !!primaryCategory &&
     longRunningSet.has(primaryCategory) &&
+    isCommand &&
+    !isRemoteCommand &&
     !isTaskExecuteProjectCommitCommand(primaryOption);
   return {
     shouldDelegate,
