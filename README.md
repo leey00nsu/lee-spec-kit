@@ -490,6 +490,27 @@ npx lee-spec-kit status --strict
 - `DONE`: 태스크는 모두 완료됐지만 워크플로우 요구사항이 완전히 충족되진 않음
 - `WORKFLOW_DONE`: 구현 + 워크플로우 요구사항까지 모두 충족
 
+### PRD 요구사항 추적
+
+PRD 요구사항 ID(`PRD-FR-001` 등)와 Feature `tasks.md` 태그(`[PRD-FR-001]`)를 기반으로 PRD 커버리지를 집계합니다.
+
+```bash
+# 터미널에 출력
+npx lee-spec-kit requirements
+
+# alias
+npx lee-spec-kit prd
+
+# 에이전트용 JSON 출력
+npx lee-spec-kit requirements --json
+
+# 파일로 저장 (docs/prd/status.md)
+npx lee-spec-kit requirements --write
+
+# 이슈가 있으면 종료 코드 1 (unknown refs / unmapped tasks / untracked requirements)
+npx lee-spec-kit requirements --strict --json
+```
+
 ### 공통 옵션
 
 ```bash

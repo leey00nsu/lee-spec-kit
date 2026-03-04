@@ -7,6 +7,7 @@
   - `[TODO] → [DOING]`: share task title first + user approval (OK)
   - `[DOING] → [DONE]`: share result/verification first + user approval (OK)
 - **Priority**: P0(urgent) > P1(high) > P2(medium) > P3(low)
+- **PRD mapping (recommended)**: add a PRD requirement ID tag like `[PRD-FR-001]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
 
 ---
 
@@ -45,7 +46,7 @@
 > Copy and use the format below.
 
 ```markdown
-- [TODO][P1] T-F{number}-01 {Task Title}
+- [TODO][P1][PRD-FR-001] T-F{number}-01 {Task Title}
   - Date: YYYY-MM-DD
   - Acceptance:
     - (verification condition)

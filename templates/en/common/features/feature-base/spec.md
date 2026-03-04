@@ -55,3 +55,4 @@
 ## Related Documents
 
 - PRD: `../../prd/`
+- PRD Refs: - (e.g. `PRD-FR-001`, `PRD-US-002`)

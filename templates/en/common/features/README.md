@@ -60,6 +60,14 @@ npx lee-spec-kit status --write
 
 ---
 
+## PRD Requirement Traceability (Recommended)
+
+- Assign stable requirement IDs in PRD docs (`docs/prd/*.md`) like `PRD-FR-001`.
+- Link each task line in `tasks.md` with a tag like `[PRD-FR-001]`. For non-PRD tasks, use `[NON-PRD]`.
+- Coverage report: `npx lee-spec-kit requirements` (alias: `npx lee-spec-kit prd`)
+
+---
+
 ## Status Glossary
 
 | Scope | Field | Values |

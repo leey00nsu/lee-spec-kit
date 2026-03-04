@@ -60,6 +60,14 @@ npx lee-spec-kit status --write
 
 ---
 
+## PRD 요구사항 추적 (권장)
+
+- PRD 문서(`docs/prd/*.md`)에 `PRD-FR-001` 같은 요구사항 ID를 부여하세요.
+- `tasks.md`의 각 태스크 라인에 `[PRD-FR-001]` 태그로 연결하세요. PRD와 무관한 태스크는 `[NON-PRD]`를 사용하세요.
+- 커버리지 리포트: `npx lee-spec-kit requirements` (alias: `npx lee-spec-kit prd`)
+
+---
+
 ## 상태 용어 정리
 
 | 구분 | 필드 | 값 |

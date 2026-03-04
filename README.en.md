@@ -464,6 +464,26 @@ Status values distinguish implementation vs workflow completion:
 - `DONE`: all tasks are marked done, but workflow requirements are not fully satisfied
 - `WORKFLOW_DONE`: implementation + workflow requirements are both satisfied
 
+### PRD Requirement Traceability
+
+Aggregate PRD coverage from PRD requirement IDs (e.g. `PRD-FR-001`) and Feature `tasks.md` bracket tags (e.g. `[PRD-FR-001]`).
+
+```bash
+npx lee-spec-kit requirements
+
+# alias
+npx lee-spec-kit prd
+
+# JSON output for agents
+npx lee-spec-kit requirements --json
+
+# Write report (docs/prd/status.md)
+npx lee-spec-kit requirements --write
+
+# Exit code 1 when issues exist (unknown refs / unmapped tasks / untracked requirements)
+npx lee-spec-kit requirements --strict --json
+```
+
 ### Global Option
 
 ```bash
