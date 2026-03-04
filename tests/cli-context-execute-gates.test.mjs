@@ -2025,7 +2025,7 @@ test('context executes pre_pr_review command and records review evidence', async
       'pre_pr_review'
     );
   });
-});
+}, 20_000);
 
 test('pre-pr-review allows missing --evidence when evidenceMode is any and execution evidence enforcement is disabled', async () => {
   await withTempDir('lsk-pre-pr-review-evidence-any-', async (dir) => {

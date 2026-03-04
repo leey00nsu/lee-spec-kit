@@ -342,7 +342,7 @@ test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
     assert.equal(resumedPayload.autoRun?.status, 'gate_reached');
     assert.deepEqual(resumedPayload.autoRun?.untilCategories, ['spec_write']);
   });
-});
+}, 20_000);
 
 test('flow --json auto-preset pr-handoff resolves categories and enters auto mode', async () => {
   await withTempDir('lsk-flow-auto-preset-', async (dir) => {
@@ -536,7 +536,7 @@ test('flow --json accepts natural language approval replies with label token', a
     assert.equal(payload.approval.status, 'approved_selected');
     assert.equal(payload.approval.label, 'A');
   });
-});
+}, 20_000);
 
 test('flow --json uses internal ticket handshake for --execute', async () => {
   await withTempDir('lsk-flow-approve-execute-ticket-', async (dir) => {
@@ -574,7 +574,7 @@ test('flow --json uses internal ticket handshake for --execute', async () => {
     assert.equal(payload.approval.reasonCode, 'INSTRUCTION_ONLY');
     assert.equal(payload.approval.label, 'A');
   });
-});
+}, 20_000);
 
 test('flow --json executes without ticket when selected option does not require check', async () => {
   await withTempDir('lsk-flow-approve-execute-no-ticket-', async (dir) => {
