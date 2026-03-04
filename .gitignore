@@ -25,5 +25,8 @@ coverage/
 tmp/
 temp/
 
+# Git worktrees (project-local)
+.worktrees/
+
 # Local demos
 demo/
