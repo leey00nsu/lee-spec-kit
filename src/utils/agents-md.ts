@@ -5,130 +5,102 @@ export const LEE_SPEC_KIT_AGENTS_END = '<!-- lee-spec-kit:end -->';
 
 type DocsRepoMode = 'embedded' | 'standalone';
 
+// Canonical lee-spec-kit agent workflow instructions.
+// Keep this in sync with `/Users/leeyoonsu/.codex/AGENTS.md` (global Codex agents).
+const CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT = `Use lee-spec-kit workflow only when explicitly detected.
+
+Detection gate (always first):
+
+1. Run \`npx lee-spec-kit detect --json\`
+2. Apply lee-spec-kit rules only if:
+   - \`status === "ok"\` AND
+   - \`isLeeSpecKitProject === true\`
+
+If detection is false or unusable (\`status !== "ok"\` / parse fail / command fail):
+
+- Skip all lee-spec-kit-specific instructions and commands for this workspace.
+- Continue with normal non-lee-spec-kit workflow.
+
+Session doc cache rule:
+
+- Keep an in-session cache of read docs (key: doc \`id\` or exact \`requiredDocs[*].command\`).
+- If a required doc is already read in this session, do not re-run the same doc command.
+- Re-run only when refresh conditions are met.
+
+On session start OR after context compression/reset:
+
+1. Run \`npx lee-spec-kit detect --json\`
+2. If detected, run \`npx lee-spec-kit docs get agents --json\` once
+3. If work is already in progress, run \`npx lee-spec-kit context --json-compact\` immediately (use \`--json\` only when full-detail debugging fields are required)
+4. From both outputs, follow \`requiredDocs[*].command\` only for docs not yet read in this session
+5. Complete unread required docs before taking any action
+
+Before doing any task:
+
+1. Run \`npx lee-spec-kit detect --json\`
+2. If detected, run \`npx lee-spec-kit context --json-compact\` first (use \`--json\` only when full-detail debugging fields are required)
+3. Follow \`requiredDocs[*].command\` only for docs not yet read in this session
+4. Do not re-run \`npx lee-spec-kit docs get agents --json\` by default
+5. Re-run \`npx lee-spec-kit docs get agents --json\` only when:
+   - session start/reset happened, or
+   - user explicitly requested policy refresh, or
+   - \`npx lee-spec-kit update\` was run, or
+   - policy/config changed
+6. Re-run a previously read \`requiredDocs[*].command\` only when:
+   - session start/reset happened, or
+   - user explicitly requested refresh, or
+   - policy/config changed, or
+   - \`context --json-compact\` (or \`context --json\`) returns a new required doc command not in the current session cache
+
+Auto-run continuity (main/sub-agent orchestration):
+
+- CLI is the state source (\`context\`/\`flow\`), not a sub-agent manager.
+- Main agent may delegate execution to sub-agents, but main agent owns pause/resume and approval boundaries.
+- After context compression/reset, do not ask the user to reconfirm the last command by default.
+- Resume priority after compression/reset:
+  1. If latest \`flow --json-compact\` (or \`flow --json\`) output includes \`autoRun.run.resumeCommand\`, run that first.
+  2. Else if it includes \`autoRun.resume.flowCommand\`, run that.
+  3. Else run \`npx lee-spec-kit context --json-compact\` (fallback: \`--json\`) and continue from current \`actionOptions\`/\`autoRun\`.
+- Pause and report to user only when:
+  - \`approvalRequest.required === true\`, or
+  - \`autoRun.reasonCode\` is \`AUTO_GATE_REACHED\` or \`AUTO_MANUAL_REQUIRED\`, or
+  - command execution fails (non-zero/error), or
+  - user explicitly asks to pause.
+
+User-facing output rule (state-aware):
+
+- Treat approval as a separate state.
+- Approval-waiting state means:
+  - \`context --json-compact\` (or \`context --json\`) includes one or more \`actionOptions\`, and
+  - you are explicitly waiting for user approval before execution.
+
+In approval-waiting state:
+
+1. Show \`actionOptions[*].approvalPrompt\` lines (at minimum, the primary label line like \`A: ...\`) exactly as provided.
+2. End with \`approvalRequest.finalPrompt\` exactly as provided.
+3. Do not paraphrase or omit these lines.
+4. Prefer \`approvalRequest.userFacingLines\` as the source for user-facing approval text.
+
+In non-approval state (progress updates, analysis, tool execution logs, unrelated Q&A):
+
+- Do NOT append \`approvalRequest.finalPrompt\`.
+- Do NOT ask for \`<LABEL>\` / \`<LABEL> OK\`.
+- Do NOT show labels unless the user asked for current options.
+
+If approval is still pending after answering an unrelated question:
+
+- First answer the question.
+- Then re-open approval using both:
+  - \`actionOptions[*].approvalPrompt\` (label meaning included), and
+  - \`approvalRequest.finalPrompt\` (format line).
+- Never output \`finalPrompt\` alone without the matching \`A: ...\` prompt.`;
+
 function renderManagedBlock(lang: 'ko' | 'en', docsRepo: DocsRepoMode): string {
-  const lines: string[] = [];
-  lines.push(LEE_SPEC_KIT_AGENTS_BEGIN);
-  lines.push(
-    lang === 'ko'
-      ? '<!-- 이 블록은 lee-spec-kit이 관리합니다. 직접 수정하지 마세요. -->'
-      : '<!-- This block is managed by lee-spec-kit. Do not edit manually. -->'
-  );
-  lines.push('');
-
-  if (lang === 'ko') {
-    lines.push('## lee-spec-kit (감지/재개 규칙)');
-    lines.push('');
-    lines.push('lee-spec-kit 워크플로우는 `detect`로 감지된 경우에만 적용합니다.');
-    lines.push('');
-    lines.push('### Detection Gate (항상 먼저)');
-    lines.push('');
-    lines.push('1. `npx lee-spec-kit detect --json` 실행');
-    lines.push('2. 아래 조건이 모두 만족할 때만 lee-spec-kit 규칙/명령을 적용:');
-    lines.push('   - `status === "ok"`');
-    lines.push('   - `isLeeSpecKitProject === true`');
-    lines.push('3. 감지 실패/파싱 실패/명령 실패 시:');
-    lines.push('   - lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행');
-    if (docsRepo === 'standalone') {
-      lines.push('');
-      lines.push('Standalone docs에서 `detect`가 실패하면:');
-      lines.push('- `docs/` 폴더가 있는 워크스페이스 루트에서 실행하거나');
-      lines.push('- `LEE_SPEC_KIT_DOCS_DIR=<docs 경로>` 환경변수를 설정합니다.');
-    }
-
-    lines.push('');
-    lines.push('### 세션 시작 또는 컨텍스트 압축/리셋 후');
-    lines.push('');
-    lines.push('1. `npx lee-spec-kit detect --json`');
-    lines.push('2. 감지 성공 시:');
-    lines.push('   - (세션당 1회) `npx lee-spec-kit docs get agents --json`');
-    lines.push('   - `npx lee-spec-kit context --json-compact`');
-    lines.push('   - `requiredDocs[*].command` 중 이번 세션에 아직 읽지 않은 문서만 실행(캐시)');
-    lines.push('3. 재개 우선순위:');
-    lines.push('   - `autoRun.run.resumeCommand`가 있으면 그 명령');
-    lines.push('   - else `autoRun.resume.flowCommand`');
-    lines.push('   - else `npx lee-spec-kit context --json-compact`');
-
-    lines.push('');
-    lines.push('### 작업 시작 전 (매 태스크/단계)');
-    lines.push('');
-    lines.push('1. `npx lee-spec-kit detect --json`');
-    lines.push('2. 감지 성공 시 `npx lee-spec-kit context --json-compact`');
-    lines.push('3. `requiredDocs[*].command` 중 읽지 않은 문서만 실행');
-    lines.push('4. `docs get agents --json`는 기본적으로 재실행하지 않음');
-    lines.push('   - 예외: 세션 시작/리셋, 사용자 요청, `lee-spec-kit update` 후, 정책/설정 변경');
-
-    lines.push('');
-    lines.push('### 승인 대기 상태 출력 (중요)');
-    lines.push('');
-    lines.push('`approvalRequest.required === true`이면:');
-    lines.push('- `actionOptions[*].approvalPrompt`를 원문 그대로 출력');
-    lines.push('- 마지막 줄에 `approvalRequest.finalPrompt`를 원문 그대로 출력');
-    lines.push('- 의역/요약 금지');
-
-    lines.push('');
-    lines.push('정책/세부 규칙 SSOT:');
-    lines.push('- `docs/agents/custom.md`');
-    lines.push('- `docs/agents/agents.md`');
-  } else {
-    lines.push('## lee-spec-kit (detection / resume rules)');
-    lines.push('');
-    lines.push('Apply lee-spec-kit workflow only when it is explicitly detected via `detect`.');
-    lines.push('');
-    lines.push('### Detection Gate (always first)');
-    lines.push('');
-    lines.push('1. Run `npx lee-spec-kit detect --json`');
-    lines.push('2. Apply lee-spec-kit rules/commands only if:');
-    lines.push('   - `status === "ok"`');
-    lines.push('   - `isLeeSpecKitProject === true`');
-    lines.push('3. If detection is false/unusable (parse fail / command fail):');
-    lines.push('   - Skip lee-spec-kit-specific workflow and proceed normally');
-    if (docsRepo === 'standalone') {
-      lines.push('');
-      lines.push('If `detect` fails in standalone docs setups:');
-      lines.push('- run from the workspace root that contains the `docs/` folder, or');
-      lines.push('- set `LEE_SPEC_KIT_DOCS_DIR=<path-to-docs>`.');
-    }
-
-    lines.push('');
-    lines.push('### On Session Start OR After Context Compression/Reset');
-    lines.push('');
-    lines.push('1. Run `npx lee-spec-kit detect --json`');
-    lines.push('2. If detected:');
-    lines.push('   - (once per session) run `npx lee-spec-kit docs get agents --json`');
-    lines.push('   - run `npx lee-spec-kit context --json-compact`');
-    lines.push('   - from `requiredDocs[*].command`, run only unread docs (cache)');
-    lines.push('3. Resume priority:');
-    lines.push('   - if `autoRun.run.resumeCommand` exists, run it');
-    lines.push('   - else `autoRun.resume.flowCommand`');
-    lines.push('   - else `npx lee-spec-kit context --json-compact`');
-
-    lines.push('');
-    lines.push('### Before Doing Any Task');
-    lines.push('');
-    lines.push('1. Run `npx lee-spec-kit detect --json`');
-    lines.push('2. If detected, run `npx lee-spec-kit context --json-compact`');
-    lines.push('3. From `requiredDocs[*].command`, run only unread docs');
-    lines.push('4. Do not re-run `docs get agents --json` by default');
-    lines.push('   - Exceptions: session start/reset, user requested refresh, after `lee-spec-kit update`, policy/config changed');
-
-    lines.push('');
-    lines.push('### Approval-Waiting Output (important)');
-    lines.push('');
-    lines.push('When `approvalRequest.required === true`:');
-    lines.push('- Show `actionOptions[*].approvalPrompt` verbatim');
-    lines.push('- End with `approvalRequest.finalPrompt` verbatim');
-    lines.push('- Do not paraphrase');
-
-    lines.push('');
-    lines.push('Policy SSOT:');
-    lines.push('- `docs/agents/custom.md`');
-    lines.push('- `docs/agents/agents.md`');
-  }
-
-  lines.push(LEE_SPEC_KIT_AGENTS_END);
-  lines.push('');
-
-  return lines.join('\n') + '\n';
+  // Intentionally do not localize: this block must stay aligned with the
+  // canonical global agent instructions to avoid behavioral drift.
+  void lang;
+  void docsRepo;
+  return `${LEE_SPEC_KIT_AGENTS_BEGIN}\n${CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT}\n${LEE_SPEC_KIT_AGENTS_END}\n\n`;
 }
 
 export async function upsertLeeSpecKitAgentsMd(
@@ -139,8 +111,7 @@ export async function upsertLeeSpecKitAgentsMd(
 
   const exists = await fs.pathExists(filePath);
   if (!exists) {
-    const content = ['# Agent Instructions', '', block].join('\n');
-    await fs.writeFile(filePath, content, 'utf-8');
+    await fs.writeFile(filePath, block, 'utf-8');
     return { changed: true, action: 'created' };
   }
 
