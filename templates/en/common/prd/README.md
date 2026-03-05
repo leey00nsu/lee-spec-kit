@@ -29,6 +29,18 @@ Example:
 ### PRD-US-002: Admin can view metrics
 ```
 
+## Change Rules (Add/Change/Deprecate Requirements)
+
+When requirements change, it must be obvious what needs updating.
+
+- **Stable IDs**:
+  - Do not renumber or reuse IDs.
+  - Prefer marking a requirement as `Deprecated` (with reason / replacement IDs) over deleting it.
+  - If requirements split/merge, keep the original ID and add new IDs, then document the relationship in PRD.
+- **Cascade updates (required)**:
+  - If the PRD change affects an in-flight Feature, update the Feature SSOT too: `spec.md` (`PRD Refs`), `tasks.md` (task tags), and `plan.md`/`decisions.md` when applicable.
+  - If no Feature exists yet, keep an Idea doc (`docs/ideas/*.md`) with `PRD Refs` so it remains traceable before promotion.
+
 ## Example Files
 
 - `{project-name}-prd.md` - Main PRD document

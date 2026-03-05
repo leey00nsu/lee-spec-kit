@@ -38,6 +38,35 @@ npx lee-spec-kit context --json-compact
 
 ---
 
+## SSOT Relationship (PRD / Ideas / Features)
+
+To avoid ambiguity, treat the following as the single source of truth (SSOT).
+
+- **PRD (`docs/prd/`)**: requirements SSOT
+  - Assign stable IDs per requirement: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
+  - Keep IDs stable (prefer marking as Deprecated over deleting; do not renumber).
+- **Ideas (`docs/ideas/`)**: pre-Feature SSOT (hypotheses/experiments/candidates)
+  - Put `PRD Refs:` at the top (example: `PRD-FR-001, PRD-US-002`).
+  - Once promoted, the SSOT moves to `docs/features/` and the idea should be archived.
+- **Features (`docs/features/`)**: implementation scope/progress SSOT
+  - `spec.md`: scope + `PRD Refs` (the PRD IDs this feature covers)
+  - `tasks.md`: map each task line to PRD IDs via bracket tags like `[PRD-FR-001]`, or tag non-PRD tasks as `[NON-PRD]`
+  - `decisions.md`: record changes/trade-offs/requirement changes (why it changed) with evidence links
+
+## Change Protocol (When Requirements/Scope Change Mid-Work)
+
+When requirements/scope change, the “what to update” must be explicit in docs. Minimum checklist:
+
+1. **PRD changes** (add/change/deprecate requirements):
+   - `docs/prd/*.md`: add/update/deprecate the affected IDs
+2. **If still in Idea stage**:
+   - `docs/ideas/*.md`: update `PRD Refs` and in/out scope
+3. **If already a Feature**:
+   - `docs/features/.../spec.md`: update `PRD Refs` + reflect scope change summary
+   - `docs/features/.../tasks.md`: add tasks for the change + tag each task as `[PRD-...]` or `[NON-PRD]`
+   - `docs/features/.../plan.md`: update if architecture/testing strategy changed
+   - `docs/features/.../decisions.md`: record why/what changed + evidence (commit/PR/test)
+
 ## CLI Config (`.lee-spec-kit.json`)
 
 When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs root (default: `docs/`).

@@ -56,3 +56,4 @@
 
 - PRD: `../../prd/`
 - PRD Refs: - (e.g. `PRD-FR-001`, `PRD-US-002`)
+  - When requirements/scope change, update PRD docs + this field + `tasks.md` task tags together.

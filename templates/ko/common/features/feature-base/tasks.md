@@ -54,6 +54,19 @@
     - [ ] (서브 태스크)
 ```
 
+(권장) 요구사항/범위 변경 태스크:
+
+중간 변경은 **새 태스크로 추가**하고, 어떤 문서를 함께 업데이트해야 하는지 `Impact Docs`로 명시합니다.
+
+```markdown
+- [TODO][P1][PRD-FR-001][CHANGE] T-F{번호}-02 {태스크 제목} (요구사항/범위 변경)
+  - Impact Docs:
+    - docs/prd/... (요구사항 변경이 있으면)
+    - spec.md (PRD Refs/AC/스코프)
+    - plan.md (아키텍처/테스트 전략)
+    - decisions.md (변경 사유 + Evidence)
+```
+
 ---
 
 ## 완료 조건

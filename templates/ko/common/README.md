@@ -38,6 +38,35 @@ npx lee-spec-kit context --json-compact
 
 ---
 
+## SSOT 관계 (PRD / Ideas / Features)
+
+문서 간 관계가 모호해지지 않도록, 아래를 “SSOT(단일 기준)”로 사용합니다.
+
+- **PRD (`docs/prd/`)**: 요구사항 SSOT
+  - 요구사항마다 ID를 부여합니다: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
+  - ID는 안정적으로 유지합니다. (삭제 대신 `Deprecated` 표기 권장, 재번호 부여 금지)
+- **Ideas (`docs/ideas/`)**: Feature 전 단계 SSOT (가설/실험/후보)
+  - Idea 문서 상단에 `PRD Refs:`를 기록합니다. (예: `PRD-FR-001, PRD-US-002`)
+  - Feature로 승격되면 SSOT는 `docs/features/`로 이동하고, Idea는 archive로 정리합니다.
+- **Features (`docs/features/`)**: 구현 범위/진행 SSOT
+  - `spec.md`: 범위 정의 + `PRD Refs`(기능이 커버하는 PRD ID 목록)
+  - `tasks.md`: 태스크 단위로 PRD ID를 태그(`[PRD-FR-001]`)로 매핑하거나, PRD 무관 태스크는 `[NON-PRD]`로 표시
+  - `decisions.md`: 변경/트레이드오프/요구사항 변경(왜 바뀌었는지) 기록 + Evidence 링크
+
+## 변경 프로토콜 (중간에 요구사항/기능이 추가·변경될 때)
+
+요구사항/범위가 변하면, “무엇을 고쳐야 하는지”가 문서로 남아야 합니다. 최소 아래를 지킵니다.
+
+1. **PRD 변경** (요구사항 추가/수정/폐기):
+   - `docs/prd/*.md`: 해당 ID 추가/수정/Deprecated 표기
+2. **Idea 단계라면**:
+   - `docs/ideas/*.md`: `PRD Refs` 및 범위(포함/제외) 갱신
+3. **Feature 단계라면**:
+   - `docs/features/.../spec.md`: `PRD Refs` 갱신 + 스코프 변경 요약 반영
+   - `docs/features/.../tasks.md`: 변경을 반영하는 새 태스크 추가 + 각 태스크에 `[PRD-...]` 또는 `[NON-PRD]` 태그 부여
+   - `docs/features/.../plan.md`: 아키텍처/테스트 전략이 바뀌면 함께 갱신
+   - `docs/features/.../decisions.md`: 변경 사유/결정/영향 범위 + Evidence(커밋/PR/테스트) 기록
+
 ## CLI 설정 파일 (`.lee-spec-kit.json`)
 
 `lee-spec-kit init`을 실행하면 문서 루트(기본: `docs/`)에 `.lee-spec-kit.json`이 생성됩니다.

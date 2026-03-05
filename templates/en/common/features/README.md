@@ -68,6 +68,20 @@ npx lee-spec-kit status --write
 
 ---
 
+## Change Protocol (When Requirements/Scope Change Mid-Feature)
+
+When things change mid-work, it must be explicit what was updated.
+
+- Record changes as **new tasks** (do not edit `[DONE]` tasks; create a new task instead).
+- Every change task must be tagged as `[PRD-...]` or `[NON-PRD]`. (Recommended: also add `[CHANGE]`.)
+- If the change impacts PRD/spec/plan, update these too:
+  - `docs/prd/*.md` (add/update/deprecate requirement IDs)
+  - `spec.md` (`PRD Refs`, scope/AC)
+  - `plan.md` (architecture/testing strategy)
+  - `decisions.md` (why it changed + evidence)
+
+---
+
 ## Status Glossary
 
 | Scope | Field | Values |

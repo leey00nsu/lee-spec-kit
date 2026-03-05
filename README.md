@@ -494,6 +494,15 @@ npx lee-spec-kit status --strict
 
 PRD 요구사항 ID(`PRD-FR-001` 등)와 Feature `tasks.md` 태그(`[PRD-FR-001]`)를 기반으로 PRD 커버리지를 집계합니다.
 
+SSOT(단일 기준) 권장:
+- PRD(`docs/prd/`): 요구사항 SSOT (ID 안정성 유지)
+- Ideas(`docs/ideas/`): Feature 전 단계 (상단에 `PRD Refs` 기록)
+- Features(`docs/features/`): 구현/진행 SSOT (`spec.md`의 `PRD Refs`, `tasks.md`의 태스크 태그, `decisions.md`의 변경 기록)
+
+중간에 요구사항/범위가 바뀌면 최소 아래를 함께 갱신하세요:
+- PRD 문서 + `spec.md`의 `PRD Refs` + `tasks.md`의 태스크 태그
+- (필요 시) `plan.md`, `decisions.md`
+
 ```bash
 # 터미널에 출력
 npx lee-spec-kit requirements

@@ -468,6 +468,15 @@ Status values distinguish implementation vs workflow completion:
 
 Aggregate PRD coverage from PRD requirement IDs (e.g. `PRD-FR-001`) and Feature `tasks.md` bracket tags (e.g. `[PRD-FR-001]`).
 
+Recommended SSOT:
+- PRD (`docs/prd/`): requirements SSOT (keep stable IDs)
+- Ideas (`docs/ideas/`): pre-Feature stage (record `PRD Refs` at the top)
+- Features (`docs/features/`): implementation/progress SSOT (`PRD Refs` in `spec.md`, task tags in `tasks.md`, change records in `decisions.md`)
+
+When requirements/scope change mid-work, update at minimum:
+- PRD docs + `spec.md` `PRD Refs` + `tasks.md` task tags
+- (when applicable) `plan.md`, `decisions.md`
+
 ```bash
 npx lee-spec-kit requirements
 

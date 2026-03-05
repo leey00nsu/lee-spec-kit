@@ -54,6 +54,19 @@
     - [ ] (subtask)
 ```
 
+(Recommended) Requirement/scope change task:
+
+Record mid-work changes as **new tasks**, and explicitly list which docs need updating via `Impact Docs`.
+
+```markdown
+- [TODO][P1][PRD-FR-001][CHANGE] T-F{number}-02 {Task Title} (requirement/scope change)
+  - Impact Docs:
+    - docs/prd/... (when requirements change)
+    - spec.md (PRD Refs/AC/scope)
+    - plan.md (architecture/testing strategy)
+    - decisions.md (why it changed + evidence)
+```
+
 ---
 
 ## Completion Criteria
