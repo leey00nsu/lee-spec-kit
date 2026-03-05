@@ -124,6 +124,40 @@ test('init --non-interactive works with explicit flags without --yes', async () 
     assert.equal(config.projectType, 'single');
     assert.equal(config.lang, 'en');
     assert.equal(config.workflow?.mode, 'local');
+
+    const agentsMdPath = path.join(dir, 'AGENTS.md');
+    const agentsMd = await fs.readFile(agentsMdPath, 'utf-8');
+    assert.match(agentsMd, /<!-- lee-spec-kit:begin -->/);
+  });
+});
+
+test('init appends lee-spec-kit managed block to existing AGENTS.md', async () => {
+  await withTempDir('lsk-init-agents-append-', async (dir) => {
+    const agentsMdPath = path.join(dir, 'AGENTS.md');
+    await fs.writeFile(agentsMdPath, '# Existing Instructions\n\nKeep this.\n', 'utf-8');
+
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const agentsMd = await fs.readFile(agentsMdPath, 'utf-8');
+    assert.match(agentsMd, /# Existing Instructions/);
+    assert.match(agentsMd, /Keep this\./);
+    assert.match(agentsMd, /<!-- lee-spec-kit:begin -->/);
+    assert.match(agentsMd, /<!-- lee-spec-kit:end -->/);
   });
 });
 

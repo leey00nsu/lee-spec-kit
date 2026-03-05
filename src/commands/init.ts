@@ -24,6 +24,7 @@ import { getInitLockPath, withFileLock } from '../utils/lock.js';
 import { getLocalDateString } from '../utils/date.js';
 import { pruneEngineManagedDocs } from '../utils/engine-managed-docs.js';
 import { runGitOrThrow } from '../utils/git-run.js';
+import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
 import {
   getComponentFeaturesReadme,
   parseComponentProjectRootsOption,
@@ -48,6 +49,20 @@ function checkGitRepo(cwd: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function getGitTopLevelOrNull(cwd: string): string | null {
+  try {
+    const out = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const value = String(out || '').trim();
+    return value ? value : null;
+  } catch {
+    return null;
   }
 }
 
@@ -687,11 +702,69 @@ async function runInit(options: InitOptions): Promise<void> {
       const configPath = path.join(targetDir, '.lee-spec-kit.json');
       await fs.writeJson(configPath, config, { spaces: 2 });
 
+      // Ensure project-scoped agent entrypoint exists (idempotent managed block).
+      // - embedded: write to repo root (git toplevel when available) so it can be committed.
+      // - standalone: write to docs repo root and optionally to project roots when they are inside cwd.
+      const extraCommitPathsAbs: string[] = [];
+      try {
+        if (docsRepo === 'embedded') {
+          const repoRoot = getGitTopLevelOrNull(cwd) || cwd;
+          const agentsMdPath = path.join(repoRoot, 'AGENTS.md');
+          const result = await upsertLeeSpecKitAgentsMd(agentsMdPath, {
+            lang,
+            docsRepo,
+          });
+          if (result.changed) extraCommitPathsAbs.push(agentsMdPath);
+        } else {
+          // Docs repo root (always safe).
+          await upsertLeeSpecKitAgentsMd(path.join(targetDir, 'AGENTS.md'), {
+            lang,
+            docsRepo,
+          });
+
+          // Also seed project roots when paths are local to this workspace.
+          const roots: string[] = [];
+          if (typeof projectRoot === 'string') {
+            roots.push(projectRoot);
+          } else if (projectRoot && typeof projectRoot === 'object') {
+            roots.push(...Object.values(projectRoot));
+          }
+
+          const resolvedCwd = path.resolve(cwd);
+          for (const raw of roots) {
+            const value = String(raw || '').trim();
+            if (!value) continue;
+            const abs = path.resolve(cwd, value);
+            if (abs === resolvedCwd || abs.startsWith(`${resolvedCwd}${path.sep}`)) {
+              if (await fs.pathExists(abs)) {
+                const stat = await fs.stat(abs);
+                if (stat.isDirectory()) {
+                  await upsertLeeSpecKitAgentsMd(path.join(abs, 'AGENTS.md'), {
+                    lang,
+                    docsRepo,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Best-effort: do not fail init due to agent docs.
+      }
+
       console.log(chalk.green(tr(lang, 'cli', 'init.log.docsCreated')));
       console.log();
 
       // Git 초기화
-      await initGit(cwd, targetDir, docsRepo, lang, pushDocs, docsRemote);
+      await initGit(
+        cwd,
+        targetDir,
+        docsRepo,
+        lang,
+        pushDocs,
+        docsRemote,
+        extraCommitPathsAbs
+      );
 
       console.log(chalk.blue(tr(lang, 'cli', 'init.log.nextStepsTitle')));
       console.log(
@@ -713,12 +786,14 @@ async function initGit(
   docsRepo: 'embedded' | 'standalone',
   lang: 'ko' | 'en',
   pushDocs?: boolean,
-  docsRemote?: string
+  docsRemote?: string,
+  extraCommitPathsAbs: string[] = []
 ): Promise<void> {
   try {
-    // embedded: manage git in current workspace
+    // embedded: manage git at repo root (if available)
     // standalone: manage git in docs directory itself
-    const gitWorkdir = docsRepo === 'standalone' ? targetDir : cwd;
+    const embeddedRoot = getGitTopLevelOrNull(cwd) || cwd;
+    const gitWorkdir = docsRepo === 'standalone' ? targetDir : embeddedRoot;
 
     const getCachedStagedFiles = (workdir: string): string[] | null => {
       try {
@@ -790,7 +865,7 @@ async function initGit(
 
     // docs 폴더 스테이징
     const relativePath =
-      docsRepo === 'standalone' ? '.' : path.relative(cwd, targetDir);
+      docsRepo === 'standalone' ? '.' : path.relative(gitWorkdir, targetDir);
     const stagedBeforeAdd = getCachedStagedFiles(gitWorkdir);
     if (relativePath === '.' && stagedBeforeAdd && stagedBeforeAdd.length > 0) {
       console.log(chalk.yellow(tr(lang, 'cli', 'init.warn.stagedChangesSkip')));
@@ -819,17 +894,25 @@ async function initGit(
       return;
     }
 
-    runGitOrThrow(['add', relativePath], gitWorkdir);
+    const extraRelativePaths = extraCommitPathsAbs
+      .map((absPath) => path.relative(gitWorkdir, absPath))
+      .map((p) => p.replace(/\\/g, '/').trim())
+      .filter((p) => !!p && p !== '.' && !p.startsWith('../'));
 
-    // 커밋
-    // pathspec을 사용해 "docs만" 커밋 (다른 staged 변경이 있어도 포함되지 않음)
+    const pathsToStage = [relativePath, ...extraRelativePaths];
+    for (const p of pathsToStage) {
+      runGitOrThrow(['add', p], gitWorkdir);
+    }
+
+    // Commit only the docs scaffold + explicitly allowed extra files
+    // (pathspec prevents unrelated staged changes from being included).
     runGitOrThrow(
       [
         'commit',
         '-m',
         'init: docs 구조 초기화 (lee-spec-kit)',
         '--',
-        relativePath,
+        ...pathsToStage,
       ],
       gitWorkdir
     );
