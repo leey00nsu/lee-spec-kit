@@ -24,7 +24,9 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - **[DOING] 상태인 태스크가 있다면**: 해당 태스크를 최우선으로 완료하세요.
 - 태스크 상태 전환 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다.
 - 승인 대기 여부는 `context --json-compact`의 `approvalRequest.required`를 SSOT로 따릅니다. (`--json`은 상세 디버깅이 필요할 때만 사용) `false`면 라벨 승인 없이 진행하고, `true`면 라벨 규칙(`A`, `A OK`)으로 승인 후 진행합니다.
-- 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 선택적 서브 에이전트 실행**입니다. 짧은 단계(spec/plan/tasks 승인, 이슈/PR 메타 동기화 등)는 메인 에이전트가 직접 처리하고, 장시간 루프(`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run)는 서브 에이전트에 위임합니다.
+- 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 서브에이전트 소유 run 상태의 우선 위임 실행**입니다. `context --json-compact`에 `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`가 있으면 그것을 실행 상태 SSOT로 사용합니다.
+- 메인 에이전트는 승인 경계, 상태 전이, record/commit 단계, 원격 작업을 담당합니다. `subagent` 소유 command substate(예: `task_run`, `pre_pr_review_run`, auto-run handoff command)는 서브 에이전트 실행이 기본입니다.
+- `pre_pr_review`는 `pre_pr_review_run`(서브 에이전트 리뷰 실행)과 `pre_pr_review_record`(메인 에이전트의 결과 기록)로 분리됩니다.
 - `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
 - `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
 - `agentOrchestration.subAgentHandoff`를 최소 handoff 계약(`featureRef`, `category`, `cwd`, `cmd`)으로 사용합니다.

@@ -24,7 +24,9 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - Treat `approvalRequest.required` from `context --json-compact` as SSOT for approval waiting (`--json` only when full-detail debugging fields are required).
   - `false`: continue without label approval.
   - `true`: wait for label-token approval (`A`, `A OK`) before execution.
-- Default execution model is **main-agent orchestration + selective sub-agent execution**. Keep short steps (spec/plan/tasks approvals, issue/PR metadata sync) in the main agent, and delegate long-running loops (`task_execute`, `code_review`, `review_fix_commit`, `pre_pr_review`, auto-run) to a sub-agent.
+- Default execution model is **main-agent orchestration + sub-agent-first execution for sub-agent-owned run states**. Use `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase` from `context --json-compact` as the execution-state SSOT when present.
+- Main agent owns approval boundaries, state transitions, record/commit steps, and remote operations. Sub-agent execution is the default for command substates owned by `subagent` (for example `task_run`, `pre_pr_review_run`, and auto-run handoff commands).
+- `pre_pr_review` is split into `pre_pr_review_run` (sub-agent review execution) and `pre_pr_review_record` (main-agent recording of evidence/results).
 - When `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
 - Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Use `agentOrchestration.subAgentHandoff` as the minimal handoff contract (`featureRef`, `category`, `cwd`, `cmd`).

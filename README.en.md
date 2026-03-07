@@ -294,7 +294,8 @@ Use `context --json` only when full-detail debugging fields are required.
 - `approvalRequest`: ready-to-use approval/execute guidance (`labels`, `approveCommand`, `executeCommand`, `options[]`)
 - `requiredDocs`: built-in docs to read before the current action (`id`, `command`)
 - `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
-- `agentOrchestration`: main-agent (conversation/approval) + sub-agent (execution) contract (`mode`, `delegationPolicy`, `delegateCommandExecution`, `longRunningCategories`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`)
+- `agentOrchestration`: main-agent (conversation/approval) + sub-agent (execution) contract (`mode`, `delegationPolicy`, `delegateCommandExecution`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`, `subAgentHandoff`)
+- `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: current step-internal execution state for owner/phase-aware orchestration
 
 **Advanced/reference fields (automation edge cases or debugging)**
 
@@ -405,8 +406,8 @@ Auto gate mode rules:
 - If the current action set is instruction-only (no executable command), auto-run may stop with `AUTO_MANUAL_REQUIRED`. This is an automation boundary, not a CLI crash.
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
 - In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, and `autoRun.resume`.
-- Inspect JSON `agentOrchestration` for main/sub-agent responsibilities and pause/report boundaries.
-  - When `delegateCommandExecution: "long_running_only"`, keep short steps in the main agent and delegate only categories listed in `longRunningCategories`.
+- Inspect JSON `agentOrchestration` and `matchedFeature.currentSubstate*` for main/sub-agent responsibilities and pause/report boundaries.
+  - Prefer `matchedFeature.currentSubstateOwner` as the delegation signal when present. `longRunningCategories` remains legacy/fallback metadata for older non-substate paths.
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
 
 Agent resume rules (recommended):
@@ -556,7 +557,7 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
     "taskCommitGate": "warn",
     "prePrReview": {
       "skills": ["code-review-excellence"],
-      "enforceExecutionEvidence": true
+      "enforceExecutionEvidence": false
     }
   },
   "pr": { "screenshots": { "upload": false } },
@@ -632,9 +633,10 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
     - `path_required`: evidence must be a real existing local path
   - `decisionEnum` (optional): allowed decision outcomes (default: `["approve","changes_requested","blocked"]`)
     - Moving to PR step requires final decision `approve`
-  - `enforceExecutionEvidence` (optional): require proof that a review agent was actually executed (default: `true`)
+  - `enforceExecutionEvidence` (optional): require proof that a review agent was actually executed (default: `false`)
     - when `true`, `pre-pr-review` requires `--evidence` and non-empty `commandsExecuted`
-  - `executionCommandPrefixes` (optional): command prefixes to match against `commandsExecuted` (default: `[]`)
+    - when `false`, implementation-quality review fields remain required, while `commandsExecuted` is optional review evidence
+  - `executionCommandPrefixes` (optional): command prefixes to match against `commandsExecuted` when execution evidence is enforced (default: `[]`)
     - when non-empty, at least one executed command must start with one of these prefixes
 - `workflow.auto`:
   - `defaultPreset` (optional): default auto preset used by `flow --request "<text>"` (default: `"pr-handoff"`)
@@ -661,7 +663,7 @@ Example:
       "fallback": "builtin-checklist",
       "evidenceMode": "path_required",
       "decisionEnum": ["approve", "changes_requested", "blocked"],
-      "enforceExecutionEvidence": true,
+      "enforceExecutionEvidence": false,
       "executionCommandPrefixes": []
     }
   }

@@ -32,13 +32,13 @@ Prohibited:
 
 ## 🧾 Label Response Contract (SSOT)
 
-- End **every user-facing reply** with current status + available labels.
+- Treat approval-waiting as a separate state. Approval-waiting means `context --json-compact` (or `context --json`) exposes executable `actionOptions[]` and you are explicitly waiting for user approval.
 - Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
 - When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
-- Use `actionOptions[].detail` or command `cmd` **verbatim**. Do not paraphrase.
-- Even when the user asks something else, append the same label block at the end if executable labels exist.
-- If no executable labels exist, print `Available labels: none` and guide re-check with `npx lee-spec-kit context`.
+- In approval-waiting state, show `actionOptions[*].approvalPrompt` lines exactly as provided and end with `approvalRequest.finalPrompt` exactly as provided. Prefer `approvalRequest.userFacingLines` when available.
+- In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.
+- If approval is still pending after answering an unrelated question, answer first, then re-open approval with both the matching `actionOptions[*].approvalPrompt` lines and `approvalRequest.finalPrompt`.
 - If user input does not contain a valid label, do not execute; request label selection again.
 - For approved command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
 - If `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
@@ -48,7 +48,7 @@ Prohibited:
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution).
 - When fallback is used, report a one-line fallback reason to the user before running the command in the main agent.
 
-Output format:
+Approval-waiting output format:
 
 ```text
 Current status: <reasonCode or brief state>

@@ -313,7 +313,8 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `approvalRequest`: 승인 요청/실행에 바로 사용하는 안내 데이터 (`labels`, `approveCommand`, `executeCommand`, `options[]`)
 - `requiredDocs`: 현재 액션 전에 읽어야 할 CLI 내장 문서 목록 (`id`, `command`)
 - `checkPolicy`: 승인 검증 정책 (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion` 등)
-- `agentOrchestration`: 메인(대화/승인) + 서브(명령 실행) 역할 분리 계약 (`mode`, `delegationPolicy`, `delegateCommandExecution`, `longRunningCategories`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`)
+- `agentOrchestration`: 메인(대화/승인) + 서브(명령 실행) 역할 분리 계약 (`mode`, `delegationPolicy`, `delegateCommandExecution`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`, `subAgentHandoff`)
+- `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: step 내부 실행 상태와 owner/phase 기반 오케스트레이션 판단용 필드
 
 **고급/참고 필드 (자동화 고급 시나리오 또는 디버깅용)**
 
@@ -424,8 +425,8 @@ npx lee-spec-kit flow --strict
 - 현재 액션이 instruction-only라 command 자동 실행이 불가능하면 `AUTO_MANUAL_REQUIRED`로 멈출 수 있습니다. (CLI 오류가 아니라 자동화 경계 도달 상태)
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
 - JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
-- JSON `agentOrchestration`으로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
-  - `delegateCommandExecution: "long_running_only"`면 짧은 단계는 메인이 처리하고, `longRunningCategories`에 해당하는 장시간 루프만 서브 에이전트 위임을 권장합니다.
+- JSON `agentOrchestration`과 `matchedFeature.currentSubstate*`로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
+  - 위임 판단은 가능하면 `matchedFeature.currentSubstateOwner`를 우선 사용하세요. `longRunningCategories`는 substate가 없는 레거시 경로용 fallback 메타데이터입니다.
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
 
 에이전트 재개 규칙(권장):
@@ -606,7 +607,7 @@ npx lee-spec-kit update --force
     "taskCommitGate": "warn",
     "prePrReview": {
       "skills": ["code-review-excellence"],
-      "enforceExecutionEvidence": true
+      "enforceExecutionEvidence": false
     }
   },
   "pr": { "screenshots": { "upload": false } },
@@ -681,9 +682,10 @@ npx lee-spec-kit update --force
     - `path_required`: 실제 존재하는 로컬 경로만 인정
   - `decisionEnum` (선택): 허용 Decision 값 목록 (기본: `["approve","changes_requested","blocked"]`)
     - PR 단계로 진행하려면 최종 Decision이 `approve`여야 함
-  - `enforceExecutionEvidence` (선택): 리뷰 에이전트 실제 실행 증거 강제 여부 (기본: `true`)
+  - `enforceExecutionEvidence` (선택): 리뷰 에이전트 실제 실행 증거 강제 여부 (기본: `false`)
     - `true`일 때 `pre-pr-review`는 `--evidence`와 비어있지 않은 `commandsExecuted`를 요구
-  - `executionCommandPrefixes` (선택): `commandsExecuted`와 매칭할 명령 prefix 목록 (기본: `[]`)
+    - `false`일 때도 구현 품질 리뷰 필드는 필수이며, `commandsExecuted`는 선택적 보조 evidence입니다
+  - `executionCommandPrefixes` (선택): 실행 증거를 강제할 때 `commandsExecuted`와 매칭할 명령 prefix 목록 (기본: `[]`)
     - 비어있지 않으면 실행 명령 중 최소 1개가 해당 prefix로 시작해야 함
 - `workflow.auto`:
   - `defaultPreset` (선택): `flow --request "<요청>"` 실행 시 기본으로 사용할 auto preset 이름 (기본: `"pr-handoff"`)
@@ -710,7 +712,7 @@ npx lee-spec-kit update --force
       "fallback": "builtin-checklist",
       "evidenceMode": "path_required",
       "decisionEnum": ["approve", "changes_requested", "blocked"],
-      "enforceExecutionEvidence": true,
+      "enforceExecutionEvidence": false,
       "executionCommandPrefixes": []
     }
   }

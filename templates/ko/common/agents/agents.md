@@ -32,13 +32,13 @@
 
 ## 🧾 라벨 응답 계약 (SSOT)
 
-- 사용자에게 보내는 **모든 응답의 마지막**에 현재 상태 + 선택 가능한 라벨을 표시합니다.
+- 승인 대기 상태를 별도 상태로 취급합니다. 승인 대기란 `context --json-compact`(또는 `context --json`)에 실행 가능한 `actionOptions[]`가 있고, 현재 사용자의 승인을 기다리는 경우를 의미합니다.
 - 기준 데이터는 최신 `npx lee-spec-kit context --json-compact`를 기본으로 사용하고, 상세 필드가 필요할 때만 `context --json` 또는 `flow --json`을 사용합니다. (`flow`는 기본적으로 `--json-compact` 우선)
 - `flow --json-compact`(또는 `flow --json`)의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
 - `AUTO_MANUAL_REQUIRED`는 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
-- 라벨 설명은 `actionOptions[].detail` 또는 command `cmd`를 **원문 그대로** 사용합니다. (요약/의역 금지)
-- 사용자가 다른 질문을 하더라도, 실행 가능한 라벨이 있으면 응답 마지막에 동일 블록을 다시 표시합니다.
-- 실행 가능한 라벨이 없으면 `선택 가능: 없음` + `npx lee-spec-kit context` 재확인을 안내합니다.
+- 승인 대기 상태에서는 `actionOptions[*].approvalPrompt`를 원문 그대로 보여주고, 마지막에는 `approvalRequest.finalPrompt`를 원문 그대로 붙입니다. 가능하면 `approvalRequest.userFacingLines`를 우선 사용합니다.
+- 비승인 상태의 진행 보고/분석/일반 답변에서는 라벨 블록이나 `approvalRequest.finalPrompt`를 덧붙이지 않습니다. 현재 옵션을 사용자가 직접 물었을 때만 예외입니다.
+- 관련 없는 질문에 먼저 답한 뒤에도 승인이 여전히 필요하면, 답변 후 `actionOptions[*].approvalPrompt`와 `approvalRequest.finalPrompt`를 함께 다시 제시합니다.
 - 사용자 입력에 유효 라벨이 없으면 실행하지 말고 라벨 선택을 다시 요청합니다.
 - 승인된 command 옵션 실행은 `flow --approve <LABEL> --execute` 1회 호출을 기본으로 하며, `context --approve`와 `context --execute --ticket`를 턴/세션 사이로 분리하지 않습니다.
 - `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
@@ -48,7 +48,7 @@
 - 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다.
 - fallback을 사용할 때는 메인 실행 전에 fallback 사유를 사용자에게 한 줄로 먼저 알립니다.
 
-출력 형식:
+승인 대기 상태 출력 형식:
 
 ```text
 현재 상태: <reasonCode 또는 상태 요약>
