@@ -25,8 +25,10 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
   - `false`: continue without label approval.
   - `true`: wait for label-token approval (`A`, `A OK`) before execution.
 - Default execution model is **main-agent orchestration + sub-agent-first execution for sub-agent-owned run states**. Use `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase` from `context --json-compact` as the execution-state SSOT when present.
-- Main agent owns approval boundaries, state transitions, record/commit steps, and remote operations. Sub-agent execution is the default for command substates owned by `subagent` (for example `task_run`, `pre_pr_review_run`, and auto-run handoff commands).
+- Main agent owns approval boundaries, state transitions, record/commit steps, and remote operations. Sub-agent execution is the default for command substates owned by `subagent` (for example `task_run`, `pre_pr_review_run`, `code_review_run`, and auto-run handoff commands).
 - `pre_pr_review` is split into `pre_pr_review_run` (sub-agent review execution) and `pre_pr_review_record` (main-agent recording of evidence/results).
+- PR review follows the same pattern: `code_review_run` is the sub-agent review/fix execution state, and the merge/push/final decision stays in the main-agent finalize state.
+- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT. `currentActionShouldDelegate` remains a compatibility mirror.
 - When `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
 - Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Use `agentOrchestration.subAgentHandoff` as the minimal handoff contract (`featureRef`, `category`, `cwd`, `cmd`).
@@ -37,7 +39,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - If auto execution stops, treat `autoRun.resume` from `flow --json-compact` (or `flow --json`) as SSOT. After interruption/compression, resume with `autoRun.resume.flowCommand`; if needed, check current state first with `autoRun.resume.contextCommand`.
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json-compact` and report whether `approvalRequest.required` is now true.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
-- Follow user-facing response format (including the final status/label block in every reply) from `agents.md` **"Label Response Contract (SSOT)"**.
+- Follow `agents.md` **"Label Response Contract (SSOT)"**. Show label prompts only in approval-waiting state, and reuse the exact CLI-provided approval lines instead of paraphrasing them.
 - For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
 
 ### Step 3: Update tasks.md (only what you did)

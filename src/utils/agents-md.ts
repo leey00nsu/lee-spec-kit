@@ -80,6 +80,7 @@ In approval-waiting state:
 2. End with \`approvalRequest.finalPrompt\` exactly as provided.
 3. Do not paraphrase or omit these lines.
 4. Prefer \`approvalRequest.userFacingLines\` as the source for user-facing approval text.
+5. Prefer \`matchedFeature.currentSubstateOwner\` plus \`agentOrchestration.subAgentHandoff\` as the delegation SSOT. Treat \`currentActionShouldDelegate\` as a compatibility mirror for older consumers.
 
 In non-approval state (progress updates, analysis, tool execution logs, unrelated Q&A):
 

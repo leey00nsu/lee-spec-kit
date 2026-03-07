@@ -36,7 +36,8 @@ Prohibited:
 - Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
 - When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
-- In approval-waiting state, show `actionOptions[*].approvalPrompt` lines exactly as provided and end with `approvalRequest.finalPrompt` exactly as provided. Prefer `approvalRequest.userFacingLines` when available.
+- In approval-waiting state, show `actionOptions[*].approvalPrompt` lines exactly as provided and end with `approvalRequest.finalPrompt` exactly as provided. Prefer `approvalRequest.userFacingLines` when available. Do not add your own rewritten label summary before or between those lines.
+- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT. Treat `currentActionShouldDelegate` as a compatibility mirror for older consumers.
 - In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.
 - If approval is still pending after answering an unrelated question, answer first, then re-open approval with both the matching `actionOptions[*].approvalPrompt` lines and `approvalRequest.finalPrompt`.
 - If user input does not contain a valid label, do not execute; request label selection again.
@@ -48,15 +49,7 @@ Prohibited:
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution).
 - When fallback is used, report a one-line fallback reason to the user before running the command in the main agent.
 
-Approval-waiting output format:
-
-```text
-Current status: <reasonCode or brief state>
-Available labels:
-A: <detail>
-B: <detail>
-Reply format: "<LABEL>" or "<LABEL> OK"
-```
+Approval-waiting output must reuse the exact CLI-provided prompt lines. Do not invent a custom wrapper such as `Current status:` / `Available labels:` if the CLI did not provide those lines.
 
 ---
 

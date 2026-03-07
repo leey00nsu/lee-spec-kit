@@ -36,7 +36,8 @@
 - 기준 데이터는 최신 `npx lee-spec-kit context --json-compact`를 기본으로 사용하고, 상세 필드가 필요할 때만 `context --json` 또는 `flow --json`을 사용합니다. (`flow`는 기본적으로 `--json-compact` 우선)
 - `flow --json-compact`(또는 `flow --json`)의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
 - `AUTO_MANUAL_REQUIRED`는 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
-- 승인 대기 상태에서는 `actionOptions[*].approvalPrompt`를 원문 그대로 보여주고, 마지막에는 `approvalRequest.finalPrompt`를 원문 그대로 붙입니다. 가능하면 `approvalRequest.userFacingLines`를 우선 사용합니다.
+- 승인 대기 상태에서는 `actionOptions[*].approvalPrompt`를 원문 그대로 보여주고, 마지막에는 `approvalRequest.finalPrompt`를 원문 그대로 붙입니다. 가능하면 `approvalRequest.userFacingLines`를 우선 사용합니다. 이 사이에 에이전트가 임의로 다시 쓴 라벨 요약을 끼워 넣지 않습니다.
+- 위임 판단 SSOT는 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 우선 사용하세요. `currentActionShouldDelegate`는 구형 소비자를 위한 compatibility mirror입니다.
 - 비승인 상태의 진행 보고/분석/일반 답변에서는 라벨 블록이나 `approvalRequest.finalPrompt`를 덧붙이지 않습니다. 현재 옵션을 사용자가 직접 물었을 때만 예외입니다.
 - 관련 없는 질문에 먼저 답한 뒤에도 승인이 여전히 필요하면, 답변 후 `actionOptions[*].approvalPrompt`와 `approvalRequest.finalPrompt`를 함께 다시 제시합니다.
 - 사용자 입력에 유효 라벨이 없으면 실행하지 말고 라벨 선택을 다시 요청합니다.
@@ -48,15 +49,7 @@
 - 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다.
 - fallback을 사용할 때는 메인 실행 전에 fallback 사유를 사용자에게 한 줄로 먼저 알립니다.
 
-승인 대기 상태 출력 형식:
-
-```text
-현재 상태: <reasonCode 또는 상태 요약>
-선택 가능:
-A: <detail>
-B: <detail>
-응답 형식: "<LABEL>" 또는 "<LABEL> OK"
-```
+승인 대기 상태 출력은 CLI가 제공한 승인 문구를 그대로 재사용해야 합니다. CLI가 주지 않은 `현재 상태:` / `선택 가능:` 같은 래퍼 문구를 에이전트가 임의로 만들어 붙이지 마세요.
 
 ---
 

@@ -313,7 +313,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `approvalRequest`: 승인 요청/실행에 바로 사용하는 안내 데이터 (`labels`, `approveCommand`, `executeCommand`, `options[]`)
 - `requiredDocs`: 현재 액션 전에 읽어야 할 CLI 내장 문서 목록 (`id`, `command`)
 - `checkPolicy`: 승인 검증 정책 (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion` 등)
-- `agentOrchestration`: 메인(대화/승인) + 서브(명령 실행) 역할 분리 계약 (`mode`, `delegationPolicy`, `delegateCommandExecution`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`, `subAgentHandoff`)
+- `agentOrchestration`: 메인(대화/승인) + 서브(명령 실행) 역할 분리 계약. 현재 SSOT는 `subAgentHandoff`와 `matchedFeature.currentSubstate*`이며, `delegateCommandExecution`/`longRunningCategories`/`currentActionShouldDelegate`는 compatibility field입니다.
 - `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: step 내부 실행 상태와 owner/phase 기반 오케스트레이션 판단용 필드
 
 **고급/참고 필드 (자동화 고급 시나리오 또는 디버깅용)**
@@ -426,7 +426,7 @@ npx lee-spec-kit flow --strict
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
 - JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
 - JSON `agentOrchestration`과 `matchedFeature.currentSubstate*`로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
-  - 위임 판단은 가능하면 `matchedFeature.currentSubstateOwner`를 우선 사용하세요. `longRunningCategories`는 substate가 없는 레거시 경로용 fallback 메타데이터입니다.
+  - 위임 판단은 `matchedFeature.currentSubstateOwner`와 `subAgentHandoff`를 우선 사용하세요. `longRunningCategories`와 `currentActionShouldDelegate`는 substate가 없는 레거시 경로용 compatibility 메타데이터입니다.
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
 
 에이전트 재개 규칙(권장):
@@ -738,9 +738,9 @@ Pre-PR 실행 게이트 리스크와 완화:
 - `requireCheckCategories` (`category`만): 확인을 **항상** 요구할 category 목록 (예: `["pr_create"]`, `["*"]`)
 - `skipCheckCategories` (`category`만): 확인을 **절대** 요구하지 않을 category 목록 (예: `["docs_commit"]`, `["*"]`)
 - `requireCheckSteps` (`steps`만): 확인이 필요한 step 번호 목록 (예: `[3, 5, 12]`)
-- `taskExecuteCheck` (선택): `task_execute` 확인 정책 (`both` | `start_only`, 기본: `both`)
-  - `both`: TODO→DOING, DOING→DONE 모두 승인 필요
-  - `start_only`: TODO→DOING만 승인 필요, DOING→DONE은 기본 승인 생략
+- `taskExecuteCheck` (선택): 레거시 `task_execute` 시작/완료 phase 호환용 확인 정책 (`both` | `start_only`, 기본: `both`)
+  - `both`: 기존 `task_execute` 호환 경로에서 TODO→DOING, DOING→DONE 모두 승인 필요
+  - `start_only`: 기존 `task_execute` 호환 경로에서 TODO→DOING만 승인 필요, DOING→DONE은 기본 승인 생략
 
 #### category 예시
 

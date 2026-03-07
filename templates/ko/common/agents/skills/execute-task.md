@@ -25,8 +25,10 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 태스크 상태 전환 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다.
 - 승인 대기 여부는 `context --json-compact`의 `approvalRequest.required`를 SSOT로 따릅니다. (`--json`은 상세 디버깅이 필요할 때만 사용) `false`면 라벨 승인 없이 진행하고, `true`면 라벨 규칙(`A`, `A OK`)으로 승인 후 진행합니다.
 - 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 서브에이전트 소유 run 상태의 우선 위임 실행**입니다. `context --json-compact`에 `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`가 있으면 그것을 실행 상태 SSOT로 사용합니다.
-- 메인 에이전트는 승인 경계, 상태 전이, record/commit 단계, 원격 작업을 담당합니다. `subagent` 소유 command substate(예: `task_run`, `pre_pr_review_run`, auto-run handoff command)는 서브 에이전트 실행이 기본입니다.
+- 메인 에이전트는 승인 경계, 상태 전이, record/commit 단계, 원격 작업을 담당합니다. `subagent` 소유 command substate(예: `task_run`, `pre_pr_review_run`, `code_review_run`, auto-run handoff command)는 서브 에이전트 실행이 기본입니다.
 - `pre_pr_review`는 `pre_pr_review_run`(서브 에이전트 리뷰 실행)과 `pre_pr_review_record`(메인 에이전트의 결과 기록)로 분리됩니다.
+- PR 리뷰도 같은 패턴입니다. `code_review_run`은 서브 에이전트 리뷰/수정 실행 상태이고, push/merge/최종 결정은 메인 에이전트 finalize 상태에 남깁니다.
+- 위임 판단은 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 SSOT로 우선 사용하세요. `currentActionShouldDelegate`는 compatibility mirror로 남아 있습니다.
 - `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
 - `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
 - `agentOrchestration.subAgentHandoff`를 최소 handoff 계약(`featureRef`, `category`, `cwd`, `cmd`)으로 사용합니다.
@@ -37,7 +39,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - auto 실행이 중단되면 `flow --json-compact`(또는 `flow --json`)의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.
 - `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
-- 사용자 응답 포맷(매 응답 말미의 상태/라벨 표시 포함)은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다.
+- 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.
 - 승인된 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
 
 ### 3단계: 기록 및 반복 (Record & Loop)

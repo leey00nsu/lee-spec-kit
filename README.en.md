@@ -294,7 +294,7 @@ Use `context --json` only when full-detail debugging fields are required.
 - `approvalRequest`: ready-to-use approval/execute guidance (`labels`, `approveCommand`, `executeCommand`, `options[]`)
 - `requiredDocs`: built-in docs to read before the current action (`id`, `command`)
 - `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
-- `agentOrchestration`: main-agent (conversation/approval) + sub-agent (execution) contract (`mode`, `delegationPolicy`, `delegateCommandExecution`, `fallbackToMainAgentWhenSubAgentUnavailable`, `pauseAndReportWhen`, `resumePriority`, `subAgentHandoff`)
+- `agentOrchestration`: main-agent (conversation/approval) + sub-agent (execution) contract. The current SSOT is `subAgentHandoff` plus `matchedFeature.currentSubstate*`; `delegateCommandExecution`, `longRunningCategories`, and `currentActionShouldDelegate` are compatibility fields.
 - `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: current step-internal execution state for owner/phase-aware orchestration
 
 **Advanced/reference fields (automation edge cases or debugging)**
@@ -407,7 +407,7 @@ Auto gate mode rules:
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
 - In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, and `autoRun.resume`.
 - Inspect JSON `agentOrchestration` and `matchedFeature.currentSubstate*` for main/sub-agent responsibilities and pause/report boundaries.
-  - Prefer `matchedFeature.currentSubstateOwner` as the delegation signal when present. `longRunningCategories` remains legacy/fallback metadata for older non-substate paths.
+  - Prefer `matchedFeature.currentSubstateOwner` plus `subAgentHandoff` as the delegation signal when present. `longRunningCategories` and `currentActionShouldDelegate` remain legacy compatibility metadata for older non-substate paths.
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
 
 Agent resume rules (recommended):
@@ -689,9 +689,9 @@ Pre-PR execution gate risks and mitigations:
 - `requireCheckCategories` (`category` only): categories that **always** require CHECK (e.g. `["pr_create"]`, `["*"]`)
 - `skipCheckCategories` (`category` only): categories that **never** require CHECK (e.g. `["docs_commit"]`, `["*"]`)
 - `requireCheckSteps` (`steps` only): step numbers that require CHECK (e.g. `[3, 5, 12]`)
-- `taskExecuteCheck` (optional): `task_execute` approval policy (`both` | `start_only`, default: `both`)
-  - `both`: require approval for both TODO→DOING and DOING→DONE transitions
-  - `start_only`: require approval only for TODO→DOING, skip default approval for DOING→DONE
+- `taskExecuteCheck` (optional): legacy `task_execute` start/complete phase compatibility override (`both` | `start_only`, default: `both`)
+  - `both`: on legacy `task_execute` compatibility paths, require approval for both TODO→DOING and DOING→DONE transitions
+  - `start_only`: on legacy `task_execute` compatibility paths, require approval only for TODO→DOING and skip default approval for DOING→DONE
 
 #### category examples
 
