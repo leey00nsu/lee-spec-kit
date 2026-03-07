@@ -1985,6 +1985,10 @@ test('context executes pre_pr_review command and records review evidence', async
     );
     assert.equal(contextAfterExecutePayload.matchedFeature.currentStep, 11);
     assert.equal(
+      contextAfterExecutePayload.matchedFeature.prePrReview.evidenceProvided,
+      true
+    );
+    assert.equal(
       primaryActionOption(contextAfterExecutePayload).action.category,
       'docs_commit'
     );
@@ -2019,10 +2023,10 @@ test('context executes pre_pr_review command and records review evidence', async
     const contextAfterDocsSyncPayload = JSON.parse(
       contextAfterDocsSync.stdout.trim()
     );
-    assert.equal(contextAfterDocsSyncPayload.matchedFeature.currentStep, 12);
+    assert.equal(contextAfterDocsSyncPayload.matchedFeature.currentStep, 13);
     assert.equal(
       primaryActionOption(contextAfterDocsSyncPayload).action.category,
-      'pre_pr_review'
+      'pr_create'
     );
   });
 }, 20_000);

@@ -318,6 +318,20 @@ function isExplicitZeroFindingsEntry(value: string): boolean {
   );
 }
 
+function isExplicitNoResidualRiskEntry(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return false;
+  return (
+    trimmed === 'none' ||
+    trimmed === 'no residual risk' ||
+    trimmed === 'no residual risks' ||
+    trimmed === 'no residual risks found' ||
+    trimmed === 'no residual risks found in reviewed scope' ||
+    trimmed === '잔여 리스크 없음' ||
+    trimmed === '잔여 위험 없음'
+  );
+}
+
 function isNoCommandsPlaceholder(value: string): boolean {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return true;
@@ -379,7 +393,16 @@ function hasPrePrReviewLogQuality(
       '잔여 리스크',
       '잔여 위험',
     ]);
-    if (!hasValidReviewLogEntries(residualRiskEntries)) continue;
+    const hasResidualRiskEntries = residualRiskEntries
+      .map((entry) => entry.trim())
+      .some(
+        (entry) =>
+          isExplicitNoResidualRiskEntry(entry) ||
+          (entry.length > 0 &&
+            !isReviewDraftPlaceholder(entry) &&
+            !isPlaceholderReviewEvidence(entry))
+      );
+    if (!hasResidualRiskEntries) continue;
 
     const testsRunEntries = collectStructuredReviewEntries(section, [
       'Tests Run',
