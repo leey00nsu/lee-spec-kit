@@ -99,12 +99,12 @@ export interface ProjectConfig {
        */
       decisionEnum?: Array<'approve' | 'changes_requested' | 'blocked'>;
       /**
-       * When true, enforce that review execution evidence exists and is
-       * traceable via `commandsExecuted`.
+       * When true, require optional command evidence for extra audit/targeted
+       * verification and trace it via `commandsExecuted`.
        */
       enforceExecutionEvidence?: boolean;
       /**
-       * Optional command prefixes. When configured, at least one
+       * Optional command prefixes. When configured, at least one recorded
        * `commandsExecuted` entry must start with one of these prefixes.
        */
       executionCommandPrefixes?: string[];

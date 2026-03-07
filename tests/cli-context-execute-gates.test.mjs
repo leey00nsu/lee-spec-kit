@@ -1859,6 +1859,13 @@ test('context executes pre_pr_review command and records review evidence', async
       path.join(dir, 'docs', 'review-trace.json'),
       JSON.stringify(
         {
+          summary:
+            'validated the implementation against the approved feature goal and checked quality risks',
+          featureIntentSummary:
+            'the feature should complete the documented scope without introducing unrelated behavior',
+          implementationFit:
+            'the current implementation follows the expected docs and module boundaries',
+          missingCases: 'no significant missing cases identified',
           files: [
             'docs/.lee-spec-kit.json',
             'docs/features/F001-alpha/decisions.md',
@@ -1879,7 +1886,6 @@ test('context executes pre_pr_review command and records review evidence', async
             },
           })),
           residualRisks: 'none',
-          commandsExecuted: ['pnpm vitest'],
         },
         null,
         2

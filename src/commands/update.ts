@@ -350,7 +350,7 @@ async function backfillMissingConfigDefaults(
   setIfMissing(
     prePrReview,
     'enforceExecutionEvidence',
-    true,
+    false,
     'workflow.prePrReview.enforceExecutionEvidence'
   );
   if (prePrReview.executionCommandPrefixes === undefined) {

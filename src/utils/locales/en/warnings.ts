@@ -58,7 +58,7 @@ export const enWarnings = {
   workflowPrePrReviewNotDone:
     'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
   workflowPrePrEvidenceMissing:
-    'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Point to an existing file and include `Pre-PR Review Log` with non-placeholder `Summary`, `Decision`, `Findings` (or explicit `0 findings`), `Residual Risks`, and `Tests Run`.)',
+    'Implementation is done but `Pre-PR Evidence` is empty/invalid. (Point to an existing file and include `Pre-PR Review Log` with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`.)',
   workflowPrePrDecisionMissing:
     'Implementation is done but `Pre-PR Decision` is empty/invalid. (Use `decision: approve|changes_requested|blocked ...`.)',
   workflowPrePrDecisionNotApproved:

@@ -674,7 +674,7 @@ async function runInit(options: InitOptions): Promise<void> {
             fallback: 'builtin-checklist',
             evidenceMode: 'path_required',
             decisionEnum: ['approve', 'changes_requested', 'blocked'],
-            enforceExecutionEvidence: true,
+            enforceExecutionEvidence: false,
             executionCommandPrefixes: [],
           },
         },

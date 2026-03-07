@@ -191,7 +191,7 @@ export function resolvePrePrReviewPolicy(
   const configuredExecutionEvidence =
     typeof configured?.enforceExecutionEvidence === 'boolean'
       ? configured.enforceExecutionEvidence
-      : true;
+      : false;
 
   return {
     enabled: workflowPolicy.requirePr ? configuredEnabled : false,

@@ -21,11 +21,11 @@ Always run this checklist in Pre-PR review. Treat it as the minimum baseline, th
 1. Review alignment with `spec.md` / `plan.md` / `tasks.md` and confirm implementation still matches the original goal.
 2. Inspect regression, exception handling, critical/security risks, side effects, user flow impact, and release readiness.
 3. Check maintainability: split oversized functions/files when needed, reuse/integrate existing code where appropriate, and remove obsolete code.
-4. Run related test/verification commands (or explicitly record why they were not run).
-5. Run the review agent first and generate `review-trace.json` with non-empty `commandsExecuted`, then run `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`.
+4. Judge whether the implementation actually fits the feature intent and scope documented in `spec.md` / `plan.md` / `tasks.md`.
+5. Run the review agent first and generate `review-trace.json`, then run `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`.
 6. `Pre-PR Evidence` should point to a real existing path. (default: `workflow.prePrReview.evidenceMode=path_required`)
-7. With `workflow.prePrReview.enforceExecutionEvidence=true` (default), `commandsExecuted` is required and cannot be empty.
-8. In `decisions.md`, include a `Pre-PR Review Log` section with non-placeholder `Summary` and `Decision` entries.
+7. Record `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Findings`, and `Residual Risks` with non-placeholder content.
+8. Use `commandsExecuted` only for optional audit/targeted verification that you actually chose to run during review.
 9. In code-review stage, keep `PR Review Evidence/Decision` aligned with `decisions.md` by adding a `PR Review Log` section with `Summary` and `Decision`.
 10. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
 11. Ensure the final decision is `approve` before moving to PR creation.

@@ -318,6 +318,20 @@ function isExplicitZeroFindingsEntry(value: string): boolean {
   );
 }
 
+function isExplicitNoMissingCasesEntry(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return false;
+  return (
+    trimmed === 'none' ||
+    trimmed === 'no missing cases' ||
+    trimmed === 'no significant missing cases' ||
+    trimmed === 'no significant missing cases identified' ||
+    trimmed === 'no notable gaps identified' ||
+    trimmed === '누락 케이스 없음' ||
+    trimmed === '부족한 점 없음'
+  );
+}
+
 function isExplicitNoResidualRiskEntry(value: string): boolean {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return false;
@@ -358,6 +372,39 @@ function hasPrePrReviewLogQuality(
       '노트',
     ]);
     if (!hasValidReviewLogEntries(summaryEntries)) continue;
+
+    const featureIntentEntries = collectStructuredReviewEntries(section, [
+      'Feature Intent Summary',
+      'Feature Intent',
+      '기능 의도 요약',
+      '기능 의도',
+    ]);
+    if (!hasValidReviewLogEntries(featureIntentEntries)) continue;
+
+    const implementationFitEntries = collectStructuredReviewEntries(section, [
+      'Implementation Fit',
+      'Implementation Assessment',
+      '구현 적합성',
+      '구현 평가',
+    ]);
+    if (!hasValidReviewLogEntries(implementationFitEntries)) continue;
+
+    const missingCasesEntries = collectStructuredReviewEntries(section, [
+      'Missing Cases',
+      'Gaps',
+      '누락 케이스',
+      '부족한 점',
+    ]);
+    const hasMissingCasesEntries = missingCasesEntries
+      .map((entry) => entry.trim())
+      .some(
+        (entry) =>
+          isExplicitNoMissingCasesEntry(entry) ||
+          (entry.length > 0 &&
+            !isReviewDraftPlaceholder(entry) &&
+            !isPlaceholderReviewEvidence(entry))
+      );
+    if (!hasMissingCasesEntries) continue;
 
     const decisionEntries = collectStructuredReviewEntries(section, [
       'Decision',
@@ -404,24 +451,13 @@ function hasPrePrReviewLogQuality(
       );
     if (!hasResidualRiskEntries) continue;
 
-    const testsRunEntries = collectStructuredReviewEntries(section, [
-      'Tests Run',
-      'Test Run',
-      '실행 테스트',
-      '테스트 실행',
-    ]);
-    const commandsEntries = collectStructuredReviewEntries(section, [
-      'Commands Executed',
-      'Executed Commands',
-      '실행 명령어',
-      '실행 명령',
-    ]);
-    const hasTestsRunEntries =
-      hasValidReviewLogEntries(testsRunEntries) ||
-      hasValidReviewLogEntries(commandsEntries);
-    if (!hasTestsRunEntries) continue;
-
     if (requireCommandsExecuted) {
+      const commandsEntries = collectStructuredReviewEntries(section, [
+        'Commands Executed',
+        'Executed Commands',
+        '실행 명령어',
+        '실행 명령',
+      ]);
       const hasCommandsExecuted = commandsEntries
         .map((entry) => entry.trim())
         .some(

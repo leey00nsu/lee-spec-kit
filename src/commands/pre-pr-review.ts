@@ -28,6 +28,12 @@ interface PrePrReviewOptions {
 }
 
 const DEFAULT_EVIDENCE_FOR_ANY_MODE: PrePrReviewEvidence = {
+  summary: 'manual pre-PR quality review completed',
+  featureIntentSummary:
+    'reviewed the feature against the approved docs and intended scope',
+  implementationFit:
+    'the implementation appears aligned with the documented feature intent',
+  missingCases: 'no significant missing cases identified',
   files: [],
   residualRisks: 'Not specified',
   commandsExecuted: [],
@@ -154,7 +160,6 @@ function buildReportContent(input: {
   folderName: string;
   date: string;
   decision: PrePrDecisionOutcome;
-  note: string;
   fallback: string;
   skills: string[];
   evidence: PrePrReviewEvidence;
@@ -170,26 +175,10 @@ function buildReportContent(input: {
     .filter(Boolean);
   const commandsRun =
     normalizedCommands.length > 0
-      ? normalizedCommands.map((c) => `  - \`${c}\``).join('\n')
-      : '  - None specified';
-  const testCommandTokens = [
-    'test',
-    'vitest',
-    'jest',
-    'playwright',
-    'cypress',
-    'tsc',
-    'biome check',
-    'eslint',
-    'audit',
-  ];
-  const testsRunCommands = normalizedCommands.filter((entry) => {
-    const lowered = entry.toLowerCase();
-    return testCommandTokens.some((token) => lowered.includes(token));
-  });
-  const testsRun = (testsRunCommands.length > 0 ? testsRunCommands : normalizedCommands)
-    .map((entry) => `  - \`${entry}\` -> executed`)
-    .join('\n');
+      ? `- **Commands Executed**:\n${normalizedCommands
+          .map((c) => `  - \`${c}\``)
+          .join('\n')}\n\n`
+      : '';
 
   let filesSection = '';
   if (input.evidence.files.length === 0) {
@@ -223,12 +212,11 @@ function buildReportContent(input: {
 - **Baseline**: ${input.fallback}
 - **Skills**: ${skills}
 - **Decision**: ${input.decision}
-- **Summary**: ${input.note}
-- **Commands Executed**:
+- **Summary**: ${input.evidence.summary}
+- **Feature Intent Summary**: ${input.evidence.featureIntentSummary}
+- **Implementation Fit**: ${input.evidence.implementationFit}
+- **Missing Cases**: ${input.evidence.missingCases}
 ${commandsRun}
-
-- **Tests Run**:
-${testsRun || '  - Not recorded'}
 
 - **Residual Risks**:
   - ${input.evidence.residualRisks}
@@ -373,14 +361,6 @@ async function runPrePrReview(
     );
   }
 
-  const note =
-    options.note?.trim() ||
-    (decision === 'approve'
-      ? 'baseline review completed'
-      : decision === 'changes_requested'
-        ? 'follow-up changes are required before PR creation'
-        : 'blocked until prerequisite risk is resolved');
-
   let evidenceObj: PrePrReviewEvidence | undefined;
   let reviewScope: PrePrReviewScope = createFallbackReviewScope();
   if (policy.enforceExecutionEvidence && !options.evidence) {
@@ -411,6 +391,15 @@ async function runPrePrReview(
       reviewScope = createFallbackReviewScope();
     }
   }
+
+  const note =
+    options.note?.trim() ||
+    evidenceObj?.summary ||
+    (decision === 'approve'
+      ? 'implementation quality review completed'
+      : decision === 'changes_requested'
+        ? 'follow-up changes are required before PR creation'
+        : 'blocked until prerequisite risk is resolved');
 
   if (policy.enforceExecutionEvidence) {
     const normalizedCommands = evidenceObj!.commandsExecuted
@@ -444,7 +433,6 @@ async function runPrePrReview(
     folderName: feature.folderName,
     date,
     decision,
-    note,
     fallback: policy.fallback,
     skills: policy.skills,
     evidence: evidenceObj!,

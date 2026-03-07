@@ -807,6 +807,7 @@ test('init writes workflow.codeDirtyScope=auto, warn taskCommitGate, and default
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
     assert.equal(config.workflow?.prePrReview?.fallback, 'builtin-checklist');
     assert.equal(config.workflow?.prePrReview?.evidenceMode, 'path_required');
+    assert.equal(config.workflow?.prePrReview?.enforceExecutionEvidence, false);
     assert.deepEqual(config.workflow?.prePrReview?.decisionEnum, [
       'approve',
       'changes_requested',

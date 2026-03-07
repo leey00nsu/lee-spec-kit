@@ -4,6 +4,10 @@ import { createCliError } from '../utils/cli-error.js';
 import fs from 'fs-extra';
 
 export interface PrePrReviewEvidence {
+  summary: string;
+  featureIntentSummary: string;
+  implementationFit: string;
+  missingCases: string;
   files: Array<{
     path: string;
     review: {
@@ -35,6 +39,15 @@ function asNonEmptyString(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const trimmed = value.trim();
   return trimmed || fallback;
+}
+
+function asRequiredNonEmptyString(value: unknown, field: string): string {
+  const normalized = asNonEmptyString(value, '');
+  if (normalized) return normalized;
+  throw createCliError(
+    'VALIDATION_FAILED',
+    `Evidence JSON ${field} is required.`
+  );
 }
 
 function normalizeCommandsExecuted(value: unknown): string[] {
@@ -152,6 +165,19 @@ export class PrePrReviewValidator {
     }
 
     const normalizedEvidence: PrePrReviewEvidence = {
+      summary: asRequiredNonEmptyString(evidence.summary, '"summary"'),
+      featureIntentSummary: asRequiredNonEmptyString(
+        evidence.featureIntentSummary,
+        '"featureIntentSummary"'
+      ),
+      implementationFit: asRequiredNonEmptyString(
+        evidence.implementationFit,
+        '"implementationFit"'
+      ),
+      missingCases: asRequiredNonEmptyString(
+        evidence.missingCases,
+        '"missingCases"'
+      ),
       files: normalizeEvidenceFiles(evidence.files),
       residualRisks: asNonEmptyString(evidence.residualRisks, 'Not specified'),
       commandsExecuted: normalizeCommandsExecuted(evidence.commandsExecuted),

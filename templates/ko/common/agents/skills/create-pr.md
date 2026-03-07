@@ -21,11 +21,11 @@ Pre-PR 리뷰에서 항상 수행하는 최소 기준입니다. 가능한 경우
 1. `spec.md` / `plan.md` / `tasks.md` 기준으로 변경 범위 정합성을 확인하고, 구현이 원래 목적에 맞는지 점검합니다.
 2. 회귀/예외 처리, 크리티컬·보안 리스크, 사이드 이펙트, 사용자 흐름 영향, 배포 준비도를 점검합니다.
 3. 유지보수성을 점검합니다: 큰 함수/파일은 필요 시 분리하고, 기존 코드 재사용·통합 가능성을 확인하며, 불필요해진 코드를 정리합니다.
-4. 관련 테스트/검증 명령을 실행합니다. 실행하지 못했다면 사유를 명시합니다.
-5. 리뷰 에이전트를 먼저 실행해 비어있지 않은 `commandsExecuted`를 포함한 `review-trace.json`을 만든 뒤 `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`을 실행합니다.
+4. 현재 구현이 `spec.md` / `plan.md` / `tasks.md`에 기록된 feature 의도와 범위에 실제로 맞는지 평가합니다.
+5. 리뷰 에이전트를 먼저 실행해 `review-trace.json`을 만든 뒤 `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`을 실행합니다.
 6. `PR 전 리뷰 Evidence`는 실제 존재하는 문서 경로를 사용합니다. (`workflow.prePrReview.evidenceMode=path_required` 기본)
-7. `workflow.prePrReview.enforceExecutionEvidence=true`(기본)일 때 `commandsExecuted`는 필수이며 비어있을 수 없습니다.
-8. `decisions.md`에 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`) 섹션을 두고 `Summary`/`Decision`을 placeholder 없이 기록합니다.
+7. `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Findings`, `Residual Risks`를 placeholder 없이 기록합니다.
+8. 리뷰 중에 audit/타깃 검증 명령을 실제로 실행했다면 그때만 `commandsExecuted`에 기록합니다.
 9. 코드리뷰 단계에서도 `PR 리뷰 Evidence/Decision`과 `decisions.md`를 동기화하고 `PR Review Log`(또는 `PR 리뷰 로그`)의 `Summary`/`Decision`을 기록합니다.
 10. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.
 11. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.

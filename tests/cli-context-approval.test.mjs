@@ -15,37 +15,44 @@ import {
 
 function buildStructuredPrePrEvidence(options = {}) {
   const {
+    summary = 'validated the implementation against the feature goal and reviewed code quality risks',
+    featureIntentSummary = 'the feature is intended to persist the approved user flow without expanding scope',
+    implementationFit = 'the implementation fits the feature intent and reuses the expected module boundaries',
+    missingCases = ['no significant missing cases identified'],
     decision = 'approve',
     findings = [
       'src/app/store.ts:88 | severity: medium | fix: required | note: guard stale snapshot write',
     ],
     residualRisks = ['no residual risks found in reviewed scope'],
-    testsRun = ['pnpm test --filter app (pass)'],
-    commandsExecuted = ['pnpm vitest'],
+    commandsExecuted = [],
   } = options;
+  const missingCasesLines = missingCases.map((item) => `  - ${item}`).join('\n');
   const findingsLines = findings.map((item) => `  - ${item}`).join('\n');
   const residualRiskLines = residualRisks
     .map((item) => `  - ${item}`)
     .join('\n');
-  const testsRunLines = testsRun.map((item) => `  - ${item}`).join('\n');
-  const commandsExecutedLines = commandsExecuted
-    .map((item) => `  - ${item}`)
-    .join('\n');
+  const commandsExecutedBlock =
+    commandsExecuted.length > 0
+      ? `- **Commands Executed**:\n${commandsExecuted
+          .map((item) => `  - ${item}`)
+          .join('\n')}\n`
+      : '';
   return `## Pre-PR Review Log (2026-02-19)
 
 - **Feature**: F001-alpha
 - **Baseline**: builtin-checklist
 - **Skills**: code-review-excellence
 - **Decision**: ${decision}
-- **Summary**: validated spec/plan/task alignment and reviewed regression scope
-- **Commands Executed**:
-${commandsExecutedLines}
+- **Summary**: ${summary}
+- **Feature Intent Summary**: ${featureIntentSummary}
+- **Implementation Fit**: ${implementationFit}
+- **Missing Cases**:
+${missingCasesLines}
+${commandsExecutedBlock}
 - **Findings**:
 ${findingsLines}
 - **Residual Risks**:
 ${residualRiskLines}
-- **Tests Run**:
-${testsRunLines}
 - **Trace**: manual review completed
 `;
 }
