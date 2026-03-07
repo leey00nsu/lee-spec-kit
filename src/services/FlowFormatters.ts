@@ -49,7 +49,7 @@ export interface AgentOrchestrationPolicy {
   preferredResumeCommand: string | null;
   subAgentHandoff: {
     required: boolean;
-    mode: 'auto_run' | null;
+    mode: 'command' | 'auto_run' | null;
     featureRef: string | null;
     category: string | null;
     cwd: string | null;
@@ -67,6 +67,7 @@ export interface AgentOrchestrationPolicy {
 
 const LONG_RUNNING_DELEGATION_CATEGORIES = [
   'task_execute',
+  'code_review_run',
   'code_review',
   'review_fix_commit',
   'pre_pr_review_run',
@@ -120,6 +121,10 @@ export function toCompactFlowActionOption(
     operationType: option.action.operationType,
     requiresUserCheck: !!option.action.requiresUserCheck,
   };
+
+  if (option.action.taskExecutePhase) {
+    base.taskExecutePhase = option.action.taskExecutePhase;
+  }
 
   if (option.action.type === 'command') {
     base.scope = option.action.scope;
@@ -243,13 +248,13 @@ export function buildAgentOrchestrationPolicy(
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
       'Run the same execution loop directly when sub-agent is unavailable',
-      'Delegate only long-running command/auto loops to sub-agents',
+      'Prefer substate-owner routing when available and keep fallback control in main',
       'Report only on approval/manual/error boundaries',
     ],
     subAgentResponsibilities: [
-      'Run flow/context command loops',
-      'Execute selected atomic command actions',
-      'Return structured status and errors to main agent',
+      'Run only delegated command/auto loops',
+      'Execute only currently selected atomic command actions',
+      'Return structured status to main agent',
     ],
     pauseAndReportWhen: [
       'approvalRequest.required=true',

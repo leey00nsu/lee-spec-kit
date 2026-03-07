@@ -90,7 +90,7 @@ export interface ProjectConfig {
       fallback?: 'builtin-checklist';
       /**
        * Evidence validation policy.
-       * - any: any non-placeholder value
+       * - any: any valid non-placeholder review evidence, including direct record mode
        * - path_required: require a local file path that exists
        */
       evidenceMode?: 'any' | 'path_required';

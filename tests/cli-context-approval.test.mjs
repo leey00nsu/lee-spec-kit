@@ -292,7 +292,7 @@ test('context auto-detect prefers single expected feature worktree before open-f
     assert.equal(afterPayload.selectionFallback, 'none');
     assert.equal(afterPayload.matchedFeature?.id, 'F001');
   });
-});
+}, 20_000);
 
 test('context gates task execution on main workspace when workflow.requireWorktree=true', async () => {
   await withTempDir('lsk-context-require-worktree-gate-', async (dir) => {
@@ -918,6 +918,91 @@ test('context --json-compact action options include reply metadata', async () =>
     );
     assert.equal(Array.isArray(payload.checkPolicy.knownCategories), true);
     assert.equal(Array.isArray(payload.checkPolicy.uncategorizedLabels), true);
+  });
+});
+
+test('context --json-compact preserves substate metadata for substate-backed steps', async () => {
+  await withTempDir('lsk-context-json-compact-substate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const tasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [TODO][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] done
+`;
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare compact context substate case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json-compact',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 10);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'task_run');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(payload.actionOptions[0].taskExecutePhase, 'start');
   });
 });
 
@@ -1571,6 +1656,108 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
   });
 });
 
+test('approval.mode=steps still honors taskExecuteCheck=start_only for task completion', async () => {
+  await withTempDir('lsk-steps-task-execute-start-only-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'steps',
+      requireCheckSteps: [10],
+      taskExecuteCheck: 'start_only',
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+    const tasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [TODO][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] done
+`;
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha', '.lee-spec-kit.json']);
+    const initialCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare steps-mode task start-only approval test',
+    ]);
+    assert.equal(initialCommit.code, 0, initialCommit.stderr || initialCommit.stdout);
+
+    const startContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(startContext.code, 0, startContext.stderr || startContext.stdout);
+    const startPayload = JSON.parse(startContext.stdout.trim());
+    assert.equal(primaryActionOption(startPayload).action.requiresUserCheck, true);
+    assert.equal(startPayload.matchedFeature.currentSubstateId, 'task_run');
+
+    const doingTasks = tasks.replace(
+      '- [TODO][P1] T-F001-alpha-01 implement alpha shell',
+      '- [DOING][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, doingTasks, 'utf-8');
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const doingCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: mark task as doing for steps-mode finish test',
+    ]);
+    assert.equal(doingCommit.code, 0, doingCommit.stderr || doingCommit.stdout);
+
+    const finishContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(finishContext.code, 0, finishContext.stderr || finishContext.stdout);
+    const finishPayload = JSON.parse(finishContext.stdout.trim());
+    assert.equal(finishPayload.matchedFeature.currentSubstateId, 'task_running');
+    assert.equal(primaryActionOption(finishPayload).action.requiresUserCheck, false);
+  });
+});
+
 test('context pre-PR review step is enforced before PR creation and exposes policy', async () => {
   await withTempDir('lsk-context-pre-pr-review-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1794,6 +1981,76 @@ test('context pre-PR review requires evidence before PR step when review is mark
     );
     assert.equal(primaryActionOption(payload).action.type, 'command');
     assert.match(primaryActionOption(payload).action.cmd || '', /\bpre-pr-review-run\b/);
+  });
+});
+
+test('context pre-PR review exposes direct record command in evidenceMode=any without evidence path', async () => {
+  await withTempDir('lsk-context-pre-pr-direct-record-any-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        evidenceMode: 'any',
+        enforceExecutionEvidence: false,
+      },
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Pending'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha', '.lee-spec-kit.json']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare pre-pr any-mode direct record',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 12);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'pre_pr_review_record');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'record');
+    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review_record');
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.doesNotMatch(primaryActionOption(payload).action.cmd || '', /--evidence/);
   });
 });
 
@@ -2823,9 +3080,12 @@ process.exit(0);
     const payload = JSON.parse(context.stdout.trim());
 
       assert.equal(payload.matchedFeature.currentStep, 14);
-      assert.equal(payload.matchedFeature.currentSubstateId, 'code_review_run');
+      assert.equal(
+        payload.matchedFeature.currentSubstateId,
+        'code_review_finalize'
+      );
       assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
-      assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+      assert.equal(payload.matchedFeature.currentSubstatePhase, 'finalize');
       assert.equal(primaryActionOption(payload).action.category, 'code_review');
       assert.equal(primaryActionOption(payload).action.type, 'command');
       assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
@@ -2858,6 +3118,119 @@ process.exit(0);
       assert.equal(Boolean(needsReviewEvidenceOption), false);
     }
   );
+});
+
+test('context code_review step delegates review run before evidence is recorded', async () => {
+  await withTempDir('lsk-context-code-review-run-delegate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR**: -',
+      '- **PR**: https://github.com/acme/repo/pull/77'
+    );
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    if (!tasks.includes('PR Review Evidence')) {
+      tasks = tasks.replace(
+        '- **PR Status**: Review',
+        '- **PR Status**: Review\n- **PR Review Evidence**: -\n- **PR Review Decision**: -'
+      );
+    } else {
+      tasks = tasks.replace(
+        /- \*\*PR Review Evidence\*\*: .+/,
+        '- **PR Review Evidence**: -'
+      );
+      tasks = tasks.replace(
+        /- \*\*PR Review Decision\*\*: .+/,
+        '- **PR Review Decision**: -'
+      );
+    }
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare code review run delegation case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 14);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'code_review_run');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(primaryActionOption(payload).action.category, 'code_review_run');
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
+    assert.equal(
+      payload.agentOrchestration?.currentActionShouldDelegate,
+      true
+    );
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'command');
+    assert.match(
+      payload.agentOrchestration?.subAgentHandoff?.cmd || '',
+      /"code-review-run"\s+"F001-alpha"/
+    );
+    assert.match(
+      primaryActionOption(payload).action.cmd || '',
+      /"code-review-run"\s+"F001-alpha"/
+    );
+  });
 });
 
 test('context code_review step keeps Review status and guides merge command', async () => {

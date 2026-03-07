@@ -517,7 +517,7 @@ async function runFlow(
   );
   console.log(
     chalk.gray(
-      `- Orchestration: ${agentOrchestration.mode}, delegate long-running loops to sub-agent`
+      `- Orchestration: ${agentOrchestration.mode}, prefer substate-owner delegation and fall back to legacy long-running categories`
     )
   );
 

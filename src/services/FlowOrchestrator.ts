@@ -562,8 +562,10 @@ export async function runAutoUntilCategory(
       continue;
     }
 
-    const gateOption = actionOptions.find((option) =>
-      gateSet.has(option.action.category || '')
+    const gateOption = actionOptions.find(
+      (option) =>
+        gateSet.has(option.action.category || '') &&
+        !!option.action.requiresUserCheck
     );
     if (gateOption) {
       const contextPayload = runSelfCliJson(contextArgs, true) as

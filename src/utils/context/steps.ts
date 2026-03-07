@@ -179,14 +179,16 @@ function buildSelfCliCommand(args: string[]): string {
 
 function buildPrePrReviewCommandArgs(
   feature: FeatureState,
-  evidencePath: string,
+  evidencePath?: string,
   decision?: 'approve' | 'changes_requested' | 'blocked'
 ): string[] {
   const commandArgs = ['pre-pr-review', feature.folderName];
   if (feature.type && feature.type !== 'single') {
     commandArgs.push('--component', feature.type);
   }
-  commandArgs.push('--evidence', evidencePath);
+  if (evidencePath) {
+    commandArgs.push('--evidence', evidencePath);
+  }
   if (decision) {
     commandArgs.push('--decision', decision);
   }
@@ -206,6 +208,14 @@ function buildTaskRunCommandArgs(
   taskId: string
 ): string[] {
   const commandArgs = ['task-run', feature.folderName, '--task', taskId];
+  if (feature.type && feature.type !== 'single') {
+    commandArgs.push('--component', feature.type);
+  }
+  return commandArgs;
+}
+
+function buildCodeReviewRunCommandArgs(feature: FeatureState): string[] {
+  const commandArgs = ['code-review-run', feature.folderName];
   if (feature.type && feature.type !== 'single') {
     commandArgs.push('--component', feature.type);
   }
@@ -958,12 +968,16 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     isPrePrReviewCurrent(f) &&
     f.docs.prePrReviewFieldExists &&
     !isPrePrReviewFixRequired(f) &&
-    !resolvePrePrReviewEvidencePath(f);
+    !resolvePrePrReviewEvidencePath(f) &&
+    (prePrReviewPolicy.evidenceMode === 'path_required' ||
+      prePrReviewPolicy.enforceExecutionEvidence);
   const isPrePrReviewRecord = (f: FeatureState): boolean =>
     isPrePrReviewCurrent(f) &&
     f.docs.prePrReviewFieldExists &&
     !isPrePrReviewFixRequired(f) &&
-    !!resolvePrePrReviewEvidencePath(f);
+    (!!resolvePrePrReviewEvidencePath(f) ||
+      (prePrReviewPolicy.evidenceMode === 'any' &&
+        !prePrReviewPolicy.enforceExecutionEvidence));
   const getPrePrReviewMetadataActions = (): NextAction[] => [
     {
       type: 'instruction',
@@ -1008,7 +1022,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   ];
   const getPrePrReviewRecordActions = (f: FeatureState): NextAction[] => {
     const evidencePath = resolvePrePrReviewEvidencePath(f);
-    if (!evidencePath) return [];
     return [
       {
         type: 'command',
@@ -1084,14 +1097,35 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   const isCodeReviewRun = (f: FeatureState): boolean =>
     isCodeReviewCurrent(f) &&
     f.pr.status === 'Review' &&
-    !isCodeReviewSyncApproved(f) &&
+    workflowPolicy.requireReview &&
     !isCodeReviewNeedEvidenceField(f) &&
-    !isCodeReviewNeedEvidence(f) &&
-    !isCodeReviewNeedDecisionField(f) &&
-    !isCodeReviewNeedDecision(f);
+    !f.prReview.evidenceProvided &&
+    !f.prReview.decisionProvided;
+  const isCodeReviewFinalize = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    !isCodeReviewSyncApproved(f) &&
+    (!workflowPolicy.requireReview ||
+      (f.pr.status === 'Review' &&
+        !isCodeReviewNeedEvidenceField(f) &&
+        !isCodeReviewNeedEvidence(f) &&
+        !isCodeReviewNeedDecisionField(f) &&
+        !isCodeReviewNeedDecision(f) &&
+        f.prReview.evidenceProvided &&
+        f.prReview.decisionProvided));
   const isCodeReviewRequestReview = (f: FeatureState): boolean =>
     isCodeReviewCurrent(f) && !!f.pr.status && f.pr.status !== 'Review';
-  const getCodeReviewRunActions = (f: FeatureState): NextAction[] => {
+  const getCodeReviewRunActions = (f: FeatureState): NextAction[] => [
+    {
+      type: 'command',
+      category: 'code_review_run',
+      operationType: 'local',
+      requiresUserCheck: true,
+      scope: 'docs',
+      cwd: f.git.docsGitCwd,
+      cmd: buildSelfCliCommand(buildCodeReviewRunCommandArgs(f)),
+    },
+  ];
+  const getCodeReviewFinalizeActions = (f: FeatureState): NextAction[] => {
     const remoteBlockReasons = getPrReviewRemoteBlockReasons(f, lang);
     const remoteUnavailable =
       workflowPolicy.mode === 'github' &&
@@ -1818,6 +1852,15 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           ],
         },
         {
+          id: 'code_review_run',
+          phase: 'run',
+          owner: 'subagent',
+          mode: 'command',
+          category: 'code_review_run',
+          when: (f) => isCodeReviewRun(f),
+          actions: (f) => getCodeReviewRunActions(f),
+        },
+        {
           id: 'code_review_need_evidence',
           phase: 'blocked',
           owner: 'main',
@@ -1869,13 +1912,13 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           ],
         },
         {
-          id: 'code_review_run',
-          phase: 'run',
+          id: 'code_review_finalize',
+          phase: 'finalize',
           owner: 'main',
           mode: 'instruction',
           category: 'code_review',
-          when: (f) => isCodeReviewRun(f),
-          actions: (f) => getCodeReviewRunActions(f),
+          when: (f) => isCodeReviewFinalize(f),
+          actions: (f) => getCodeReviewFinalizeActions(f),
         },
         {
           id: 'code_review_request_review',

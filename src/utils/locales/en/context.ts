@@ -31,7 +31,7 @@ export const enContext = {
   'context.autoRunCommandHint':
     'Auto-run command (config-based gate): {command}',
   'context.subAgentOrchestrationHint':
-    'Main-agent orchestration: keep short steps in the main agent, and delegate only long-running loops (task_execute/code_review/review_fix_commit/pre_pr_review_run or auto mode) to a sub-agent.',
+    'Main-agent orchestration: prefer `matchedFeature.currentSubstateOwner` when present. Keep main-owned states in the main agent, delegate subagent-owned command states, and use long-running categories only as a legacy fallback.',
   'context.commandDetail.branchCreateWithWorktree':
     '({scope}) create or reuse worktree {worktree} for branch {branch}',
   'context.commandDetail.branchCreateWithBranch':

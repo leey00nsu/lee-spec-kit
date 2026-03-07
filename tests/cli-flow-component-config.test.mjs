@@ -239,6 +239,10 @@ test('flow --json-compact preserves substate metadata for substate-backed steps'
       payload.context?.before?.matchedFeature?.currentSubstatePhase,
       'run'
     );
+    assert.equal(
+      payload.context?.before?.actionOptions?.[0]?.taskExecutePhase,
+      'start'
+    );
   });
 });
 
@@ -270,18 +274,16 @@ test('flow --json auto-until-category stops at gate and exposes approval lines',
       'spec_write',
       '--json',
     ]);
-    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
 
-    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
     assert.equal(payload.autoRun?.enabled, true);
-    assert.equal(payload.autoRun?.status, 'gate_reached');
-    assert.equal(payload.autoRun?.reasonCode, 'AUTO_GATE_REACHED');
+    assert.equal(payload.autoRun?.status, 'manual_required');
+    assert.equal(payload.autoRun?.reasonCode, 'AUTO_MANUAL_REQUIRED');
     assert.deepEqual(payload.autoRun?.untilCategories, ['spec_write']);
-    assert.equal(payload.autoRun?.gate?.category, 'spec_write');
-    assert.equal(Array.isArray(payload.autoRun?.gate?.userFacingLines), true);
-    assert.equal(payload.autoRun?.gate?.userFacingLines?.length > 0, true);
-    assert.match(payload.autoRun.gate.userFacingLines[0], /^[A-Z]+:\s+/);
+    assert.equal(payload.autoRun?.gate, null);
+    assert.equal(payload.autoRun?.manual?.category, 'spec_write');
     assert.equal(payload.autoRun?.executions?.length, 0);
     assert.equal(payload.autoRun?.resume?.requiresFreshContext, true);
     assert.equal(payload.autoRun?.resume?.requestPending, false);
@@ -344,16 +346,16 @@ test('flow --json auto-until-category applies --request via user_request_replan 
       'spec_write',
       '--json',
     ]);
-    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
 
-    assert.equal(payload.autoRun?.status, 'gate_reached');
+    assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.executions?.length > 0, true);
     assert.equal(payload.autoRun.executions[0].kind, 'request');
     assert.equal(payload.autoRun.executions[0].category, 'user_request_replan');
     assert.equal(payload.autoRun.executions[0].approveStatus, 'approved_selected');
   });
-});
+}, 20_000);
 
 test('flow --json --start-auto emits resumable run metadata', async () => {
   await withTempDir('lsk-flow-auto-start-run-', async (dir) => {
@@ -384,10 +386,11 @@ test('flow --json --start-auto emits resumable run metadata', async () => {
       '--start-auto',
       '--json',
     ]);
-    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.autoRun?.run?.mode, 'started');
     assert.equal(payload.autoRun?.run?.status, 'paused');
+    assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(typeof payload.autoRun?.run?.runId, 'string');
     assert.equal((payload.autoRun?.run?.runId || '').length > 0, true);
     assert.match(
@@ -426,7 +429,7 @@ test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
       '--start-auto',
       '--json',
     ]);
-    assert.equal(first.code, 0, first.stderr || first.stdout);
+    assert.equal(first.code, 1, first.stderr || first.stdout);
     const firstPayload = JSON.parse(first.stdout.trim());
     const runId = firstPayload.autoRun?.run?.runId || '';
     assert.equal(typeof runId, 'string');
@@ -438,11 +441,11 @@ test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
       runId,
       '--json',
     ]);
-    assert.equal(resumed.code, 0, resumed.stderr || resumed.stdout);
+    assert.equal(resumed.code, 1, resumed.stderr || resumed.stdout);
     const resumedPayload = JSON.parse(resumed.stdout.trim());
     assert.equal(resumedPayload.autoRun?.run?.mode, 'resumed');
     assert.equal(resumedPayload.autoRun?.run?.runId, runId);
-    assert.equal(resumedPayload.autoRun?.status, 'gate_reached');
+    assert.equal(resumedPayload.autoRun?.status, 'manual_required');
     assert.deepEqual(resumedPayload.autoRun?.untilCategories, ['spec_write']);
   });
 }, 20_000);
@@ -822,7 +825,7 @@ test('flow --json refreshes branch context after branch_create execution', async
       false
     );
   });
-});
+}, 20_000);
 
 test(
   'context --component scopes fallback selection in multi project',

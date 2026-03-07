@@ -15,6 +15,7 @@ import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
 import { onboardCommand } from './commands/onboard.js';
 import { prePrReviewCommand } from './commands/pre-pr-review.js';
+import { codeReviewRunCommand } from './commands/code-review-run.js';
 import { requirementsCommand } from './commands/requirements.js';
 import { taskRunCommand } from './commands/task-run.js';
 import { getBanner } from './utils/banner.js';
@@ -97,6 +98,7 @@ docsCommand(program);
 detectCommand(program);
 onboardCommand(program);
 prePrReviewCommand(program);
+codeReviewRunCommand(program);
 taskRunCommand(program);
 requirementsCommand(program);
 

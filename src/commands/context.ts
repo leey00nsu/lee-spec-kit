@@ -725,7 +725,10 @@ async function runContext(
     (option) => option.action.type === 'command'
   );
   const longRunningDelegation =
-    presenter.shouldDelegateCurrentAction(actionOptions);
+    presenter.shouldDelegateCurrentAction(
+      actionOptions,
+      f.currentSubstateOwner
+    );
   const showOptionLabels = hasCheckAction;
   console.log(chalk.green(chalk.bold('👉 Next Options (Atomic):')));
   let hasDocsCommand = false;

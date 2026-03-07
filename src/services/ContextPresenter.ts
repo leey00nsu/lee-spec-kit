@@ -91,6 +91,7 @@ export interface AgentOrchestrationPolicy {
 
 export const LONG_RUNNING_DELEGATION_CATEGORIES = [
   'task_execute',
+  'code_review_run',
   'code_review',
   'review_fix_commit',
   'pre_pr_review_run',
@@ -198,11 +199,11 @@ export function buildAgentOrchestrationPolicy(
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
       'Run the same execution loop directly when sub-agent is unavailable',
-      'Delegate only long-running command/auto loops to sub-agents',
+      'Prefer substate-owner routing when available and keep fallback control in main',
       'Report only on approval/manual/error boundaries',
     ],
     subAgentResponsibilities: [
-      'Run flow/context command loops',
+      'Run only delegated command/auto loops',
       'Execute only currently selected atomic command actions',
       'Return structured status to main agent',
     ],
@@ -213,8 +214,8 @@ export function buildAgentOrchestrationPolicy(
       'command execution error',
     ],
     resumePriority: [
-      'flow --resume <RUN_ID>',
-      'autoRun.resume.flowCommand',
+      'latest flow --json-compact: autoRun.run.resumeCommand',
+      'latest flow --json-compact: autoRun.resume.flowCommand',
       'context --json-compact',
     ],
     subAgentHandoff: {
@@ -696,6 +697,9 @@ export function toCompactFeature(
     type: feature.type,
     path: feature.path,
     currentStep: feature.currentStep,
+    currentSubstateId: feature.currentSubstateId,
+    currentSubstateOwner: feature.currentSubstateOwner,
+    currentSubstatePhase: feature.currentSubstatePhase,
     nextAction: feature.nextAction,
     completion: feature.completion,
     specStatus: feature.specStatus,
@@ -763,6 +767,10 @@ export function toCompactActionOption(
     operationType: option.action.operationType,
     requiresUserCheck: !!option.action.requiresUserCheck,
   };
+
+  if (option.action.taskExecutePhase) {
+    base.taskExecutePhase = option.action.taskExecutePhase;
+  }
 
   if (option.action.type === 'command') {
     base.scope = option.action.scope;

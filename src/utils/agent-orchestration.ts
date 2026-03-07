@@ -16,8 +16,8 @@ export function getPrePrReviewPrompt(
 5. 기본 베이스라인은 '${fallbackText}'이며, 'create-pr' 문서의 'Pre-PR 기본 체크리스트' 섹션을 수행하세요.
 6. 우선순위 스킬: ${skills.length > 0 ? skills.join(', ') : '없음'} 로 심화 검토를 진행하세요.
 7. 추가 검증이 꼭 필요할 때만 audit/타깃 명령을 실행하고, 실행했다면 \`commandsExecuted\`에 기록하세요.
-8. 지적사항이 남아 있으면 먼저 'npx lee-spec-kit pre-pr-review <feature> --evidence review-trace.json --decision changes_requested' 로 기록하고 코드를 수정하세요.
-9. 수정/재검증 후 최종 승인 시점에 'npx lee-spec-kit pre-pr-review <feature> --evidence review-trace.json --decision approve' 를 실행하세요.`;
+8. 지적사항이 남아 있으면 먼저 'npx lee-spec-kit pre-pr-review <feature> --evidence review-trace.json --decision changes_requested' 로 기록하세요. 단, \`workflow.prePrReview.evidenceMode=any\` 이고 실행 증거 강제가 없으면 \`--evidence\` 없이 직접 기록해도 됩니다.
+9. 수정/재검증 후 최종 승인 시점에 'npx lee-spec-kit pre-pr-review <feature> --decision approve' 를 실행하세요. \`path_required\` 정책일 때만 \`--evidence review-trace.json\` 을 함께 붙이세요.`;
   }
   return `Conduct a pre-PR code review.
 1. Read \`spec.md\`, \`plan.md\`, and \`tasks.md\` first, then summarize the feature goal, scope, and done criteria.
@@ -29,8 +29,8 @@ export function getPrePrReviewPrompt(
 5. The baseline is '${fallbackText}'. Always perform the 'Pre-PR Core Checklist' section of the 'create-pr' document.
 6. Priority skills: ${skills.length > 0 ? skills.join(', ') : 'None'} for deeper technical review.
 7. Run extra audit/targeted verification only when the review needs more evidence, and record those commands in \`commandsExecuted\` when used.
-8. If unresolved findings remain, first record them with 'npx lee-spec-kit pre-pr-review <feature> --evidence review-trace.json --decision changes_requested' and apply code fixes.
-9. After fixes and re-validation, run 'npx lee-spec-kit pre-pr-review <feature> --evidence review-trace.json --decision approve' for final pre-PR approval.`;
+8. If unresolved findings remain, first record them with 'npx lee-spec-kit pre-pr-review <feature> --evidence review-trace.json --decision changes_requested'. When \`workflow.prePrReview.evidenceMode=any\` and execution evidence is not enforced, direct record mode without \`--evidence\` is also valid.
+9. After fixes and re-validation, run 'npx lee-spec-kit pre-pr-review <feature> --decision approve' for final pre-PR approval. Add \`--evidence review-trace.json\` only when the active evidence policy requires a path.`;
 }
 
 export function getCodeReviewPrompt(lang: Lang): string {

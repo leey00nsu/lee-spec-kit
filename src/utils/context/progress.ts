@@ -55,7 +55,16 @@ function applyApprovalPolicy(
         .filter((n) => Number.isFinite(n))
     );
     const requiresUserCheck = required.has(step);
-    return actions.map((a) => ({ ...a, requiresUserCheck }));
+    return actions.map((action) => ({
+      ...action,
+      requiresUserCheck: applyTaskExecutePhaseCheck(
+        action,
+        requiresUserCheck,
+        taskExecuteCheckPolicy,
+        false,
+        currentSubstatePhase
+      ),
+    }));
   }
 
   const requiredCategories = new Set(

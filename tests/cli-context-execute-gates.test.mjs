@@ -2130,6 +2130,139 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
   });
 });
 
+test('pre-pr-review-run record commands include --component in multi projects', async () => {
+  await withTempDir('lsk-pre-pr-review-run-multi-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'multi',
+      '--components',
+      'app,api',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const feature = await runCli(dir, [
+      'feature',
+      '--component',
+      'app',
+      'alpha',
+      '--id',
+      'F001',
+    ]);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const runReview = await runCli(dir, [
+      'pre-pr-review-run',
+      'F001-alpha',
+      '--component',
+      'app',
+      '--json',
+    ]);
+    assert.equal(runReview.code, 0, runReview.stderr || runReview.stdout);
+    const payload = JSON.parse(runReview.stdout.trim());
+    assert.match(
+      payload.recordCommands?.changesRequested || '',
+      /\bpre-pr-review F001-alpha --component app --evidence review-trace\.json --decision changes_requested\b/
+    );
+    assert.match(
+      payload.recordCommands?.approve || '',
+      /\bpre-pr-review F001-alpha --component app --evidence review-trace\.json --decision approve\b/
+    );
+  });
+});
+
+test('code-review-run returns sub-agent handoff prompt', async () => {
+  await withTempDir('lsk-code-review-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR**: -',
+      '- **PR**: https://github.com/acme/repo/pull/77'
+    );
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    if (!tasks.includes('PR Review Evidence')) {
+      tasks = tasks.replace(
+        '- **PR Status**: Review',
+        '- **PR Status**: Review\n- **PR Review Evidence**: -\n- **PR Review Decision**: -'
+      );
+    } else {
+      tasks = tasks.replace(
+        /- \*\*PR Review Evidence\*\*: .+/,
+        '- **PR Review Evidence**: -'
+      );
+      tasks = tasks.replace(
+        /- \*\*PR Review Decision\*\*: .+/,
+        '- **PR Review Decision**: -'
+      );
+    }
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const runReview = await runCli(dir, [
+      'code-review-run',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(runReview.code, 0, runReview.stderr || runReview.stdout);
+    const payload = JSON.parse(runReview.stdout.trim());
+    assert.equal(payload.reasonCode, 'CODE_REVIEW_RUN_READY');
+    assert.equal(payload.feature, 'F001-alpha');
+    assert.equal(payload.substateId, 'code_review_run');
+    assert.equal(payload.owner, 'subagent');
+    assert.equal(payload.nextMainState, 'code_review_finalize');
+    assert.match(payload.prompt || '', /PR Review Evidence/i);
+    assert.match(payload.prompt || '', /PR Review Decision/i);
+  });
+});
+
 test('task-run marks TODO task as DOING and returns sub-agent handoff prompt', async () => {
   await withTempDir('lsk-task-run-', async (dir) => {
     const initResult = await runCli(dir, [

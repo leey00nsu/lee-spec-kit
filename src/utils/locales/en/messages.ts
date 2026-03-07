@@ -74,7 +74,7 @@ export const enMessages = {
   prePrReviewFieldMissing:
     'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
   prePrReviewRun:
-    'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks`. Then execute `pre-pr-review --evidence review-trace.json` to record findings. (CHECK required)',
+    'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks`. Then record findings with `pre-pr-review`; use `--evidence review-trace.json` when the active evidence policy requires a path. (CHECK required)',
   prePrReviewEvidenceMissing:
     'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`. (CHECK required)',
   prePrReviewDecisionMissing:
