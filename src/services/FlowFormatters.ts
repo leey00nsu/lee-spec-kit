@@ -16,6 +16,9 @@ export interface CompactFlowFeatureSummary {
   planStatus?: string;
   tasksDocStatus?: string;
   currentStep: number;
+  currentSubstateId?: string;
+  currentSubstateOwner?: string;
+  currentSubstatePhase?: string;
   completion: {
     implementationDone: boolean;
     workflowDone: boolean;
@@ -66,7 +69,7 @@ const LONG_RUNNING_DELEGATION_CATEGORIES = [
   'task_execute',
   'code_review',
   'review_fix_commit',
-  'pre_pr_review',
+  'pre_pr_review_run',
 ];
 
 export function getFeatureRef(
@@ -89,6 +92,9 @@ export function toCompactFlowFeature(
     planStatus: feature.planStatus,
     tasksDocStatus: feature.tasksDocStatus,
     currentStep: feature.currentStep,
+    currentSubstateId: feature.currentSubstateId,
+    currentSubstateOwner: feature.currentSubstateOwner,
+    currentSubstatePhase: feature.currentSubstatePhase,
     completion: {
       implementationDone: feature.completion.implementationDone,
       workflowDone: feature.completion.workflowDone,

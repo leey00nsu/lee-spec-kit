@@ -35,7 +35,8 @@ export const ACTION_CATEGORIES = [
   'review_fix_commit',
   'pr_create',
   'pr_metadata_migrate',
-  'pre_pr_review',
+  'pre_pr_review_run',
+  'pre_pr_review_record',
   'pr_status_update',
   'code_review',
   'feature_scope_split',
@@ -49,6 +50,17 @@ export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
 
 export type OperationType = 'local' | 'remote' | 'manual';
 export type TaskExecutePhase = 'start' | 'complete';
+export type StepOwner = 'main' | 'subagent';
+export type StepMode = 'command' | 'instruction' | 'remote';
+export type StepPhase =
+  | 'ready'
+  | 'run'
+  | 'running'
+  | 'finalize'
+  | 'record'
+  | 'commit_pending'
+  | 'blocked'
+  | 'done';
 
 export type NextAction =
   | {
@@ -206,14 +218,28 @@ export interface StepDefinition {
     done: (feature: FeatureState) => boolean;
     detail?: (feature: FeatureState) => string;
   };
+  substates?: StepSubstate[];
   current?: {
     when: (feature: FeatureState) => boolean;
     actions: (feature: FeatureState) => NextAction[];
   };
 }
 
+export interface StepSubstate {
+  id: string;
+  phase: StepPhase;
+  owner: StepOwner;
+  mode: StepMode;
+  category: ActionCategory;
+  when: (feature: FeatureState) => boolean;
+  actions: (feature: FeatureState) => NextAction[];
+}
+
 export interface FeatureContext extends FeatureState {
   currentStep: number;
+  currentSubstateId?: string;
+  currentSubstateOwner?: StepOwner;
+  currentSubstatePhase?: StepPhase;
   actions: NextAction[];
   nextAction: string;
   warnings: string[];

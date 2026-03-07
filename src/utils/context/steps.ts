@@ -10,7 +10,6 @@ import {
 } from '../workflow.js';
 import {
   getCodeReviewPrompt,
-  getPrePrReviewPrompt,
 } from '../agent-orchestration.js';
 
 function isCompletionChecklistDone(feature: FeatureState): boolean {
@@ -190,6 +189,25 @@ function buildPrePrReviewCommandArgs(
   commandArgs.push('--evidence', evidencePath);
   if (decision) {
     commandArgs.push('--decision', decision);
+  }
+  return commandArgs;
+}
+
+function buildPrePrReviewRunCommandArgs(feature: FeatureState): string[] {
+  const commandArgs = ['pre-pr-review-run', feature.folderName];
+  if (feature.type && feature.type !== 'single') {
+    commandArgs.push('--component', feature.type);
+  }
+  return commandArgs;
+}
+
+function buildTaskRunCommandArgs(
+  feature: FeatureState,
+  taskId: string
+): string[] {
+  const commandArgs = ['task-run', feature.folderName, '--task', taskId];
+  if (feature.type && feature.type !== 'single') {
+    commandArgs.push('--component', feature.type);
   }
   return commandArgs;
 }
@@ -515,6 +533,654 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   const workflowPolicy = resolveWorkflowPolicy(workflow);
   const prePrReviewPolicy = resolvePrePrReviewPolicy(workflow);
   const taskCommitGatePolicy = resolveTaskCommitGatePolicy(workflow);
+  const isTaskExecuteCurrent = (f: FeatureState): boolean =>
+    f.docs.tasksExists &&
+    f.tasks.total > 0 &&
+    (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)) &&
+    isTasksDocApproved(f) &&
+    (!workflowPolicy.requireBranch ||
+      f.git.onExpectedBranch ||
+      f.tasks.done === f.tasks.total);
+  const isTaskExecuteWorktreeBlocked = (f: FeatureState): boolean =>
+    isTaskExecuteCurrent(f) &&
+    workflowPolicy.requireWorktree &&
+    f.tasks.done < f.tasks.total &&
+    !!f.issueNumber &&
+    !f.git.projectInManagedWorktree;
+  const isTaskExecuteFinalize = (f: FeatureState): boolean =>
+    isTaskExecuteCurrent(f) &&
+    f.tasks.total === f.tasks.done &&
+    !isCompletionChecklistDone(f);
+  const isTaskExecuteCommitPending = (f: FeatureState): boolean =>
+    isTaskExecuteCurrent(f) &&
+    ((isTaskExecuteFinalize(f) &&
+      (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges)) ||
+      (!!f.nextTodoTask &&
+        (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges)));
+  const isTaskExecuteStrictGateBlocked = (f: FeatureState): boolean => {
+    if (!isTaskExecuteCurrent(f) || !f.nextTodoTask) return false;
+    if (taskCommitGatePolicy === 'off' || !f.lastDoneTask || !f.git.docsGitCwd) {
+      return false;
+    }
+    const commitGate = checkTaskCommitGate(ctx, f);
+    return (
+      !commitGate.pass &&
+      shouldBlockTaskCommitGate(taskCommitGatePolicy, commitGate)
+    );
+  };
+  const isTaskExecuteBlocked = (f: FeatureState): boolean =>
+    isTaskExecuteWorktreeBlocked(f) ||
+    isTaskExecuteStrictGateBlocked(f) ||
+    (isTaskExecuteCurrent(f) &&
+      ((isTaskExecuteFinalize(f) &&
+        f.git.projectHasUncommittedChanges &&
+        !f.git.projectGitCwd) ||
+        (!!f.nextTodoTask &&
+          f.git.projectHasUncommittedChanges &&
+          !f.git.projectGitCwd)));
+  const getTaskExecuteBlockedActions = (f: FeatureState): NextAction[] => {
+    if (isTaskExecuteWorktreeBlocked(f)) {
+      if (f.git.expectedWorktreePath) {
+        return [
+          {
+            type: 'instruction',
+            category: 'branch_create',
+            requiresUserCheck: true,
+            uiDetailKey: 'context.actionDetail.branchCreate',
+            message: tr(lang, 'messages', 'moveToExistingWorktree', {
+              worktreePath: f.git.expectedWorktreePath,
+            }),
+          },
+        ];
+      }
+      if (!f.git.projectGitCwd) {
+        return [
+          {
+            type: 'instruction',
+            category: 'branch_create',
+            requiresUserCheck: true,
+            message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+          },
+        ];
+      }
+      if (f.git.onExpectedBranch) {
+        return [
+          {
+            type: 'instruction',
+            category: 'branch_create',
+            requiresUserCheck: true,
+            uiDetailKey: 'context.actionDetail.branchCreate',
+            message: tr(lang, 'messages', 'worktreeRequiredFromMainBranch', {
+              projectGitCwd: f.git.projectGitCwd,
+              issueNumber: f.issueNumber,
+              slug: f.slug,
+            }),
+          },
+        ];
+      }
+      return [
+        {
+          type: 'command',
+          category: 'branch_create',
+          requiresUserCheck: true,
+          scope: 'project',
+          cwd: f.git.projectGitCwd,
+          cmd: tr(lang, 'messages', 'createBranch', {
+            projectGitCwd: f.git.projectGitCwd,
+            issueNumber: f.issueNumber,
+            slug: f.slug,
+          }),
+        },
+      ];
+    }
+
+    if (isTaskExecuteStrictGateBlocked(f) && f.nextTodoTask) {
+      const commitGate = checkTaskCommitGate(ctx, f);
+      const reasonText = getTaskCommitGateReasonText(lang, commitGate);
+      return [
+        {
+          type: 'instruction',
+          category: 'task_execute',
+          requiresUserCheck: true,
+          message: tr(lang, 'messages', 'taskCommitGateStrictBlock', {
+            reason: reasonText,
+          }),
+        },
+      ];
+    }
+
+    return [
+      {
+        type: 'instruction',
+        category: 'task_execute',
+        message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+      },
+    ];
+  };
+  const getTaskExecuteFinalizeActions = (f: FeatureState): NextAction[] => {
+    if (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges) {
+      return getTaskExecuteCommitPendingActions(f);
+    }
+
+    const actions: NextAction[] = [
+      {
+        type: 'instruction' as const,
+        category: 'task_execute',
+        requiresUserCheck: true,
+        message: !f.completionChecklist
+          ? tr(lang, 'messages', 'tasksAllDoneButNoChecklist')
+          : tr(lang, 'messages', 'tasksAllDoneButChecklist', {
+              checked: f.completionChecklist.checked,
+              total: f.completionChecklist.total,
+            }),
+      },
+    ];
+
+    if (!isPrMetadataConfigured(f)) {
+      actions.push({
+        type: 'instruction' as const,
+        category: 'pr_metadata_migrate',
+        requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.prMetadataMigratePrFields',
+        message: tr(lang, 'messages', 'prLegacyAsk'),
+      });
+    }
+
+    return actions;
+  };
+  const getTaskExecuteRunningActions = (f: FeatureState): NextAction[] => [
+    {
+      type: 'command',
+      category: 'task_execute',
+      operationType: 'local',
+      requiresUserCheck: true,
+      taskExecutePhase: 'complete',
+      uiDetailKey: 'context.actionDetail.taskExecuteContinue',
+      scope: 'docs',
+      cwd: f.git.docsGitCwd,
+      cmd: buildSelfCliCommand(
+        buildTaskRunCommandArgs(
+          f,
+          f.activeTask?.id || `T-${f.folderName}-active`
+        )
+      ),
+    },
+  ];
+  const getTaskExecuteCommitPendingActions = (
+    f: FeatureState
+  ): NextAction[] => {
+    if (f.git.docsHasUncommittedChanges) {
+      return [
+        {
+          type: 'command',
+          category: 'docs_commit',
+          requiresUserCheck: true,
+          scope: 'docs',
+          cwd: f.git.docsGitCwd,
+          cmd: f.issueNumber
+            ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
+                docsGitCwd: f.git.docsGitCwd,
+                featurePath: f.docs.featurePathFromDocs,
+                issueNumber: f.issueNumber,
+                folderName: f.folderName,
+              })
+            : tr(lang, 'messages', 'docsCommitUpdate', {
+                docsGitCwd: f.git.docsGitCwd,
+                featurePath: f.docs.featurePathFromDocs,
+                folderName: f.folderName,
+              }),
+        },
+      ];
+    }
+
+    if (f.git.projectHasUncommittedChanges) {
+      const reviewIterationPhase = isReviewIterationPhase(f, workflowPolicy);
+      const prePrFixIterationPhase = isPrePrFixIterationPhase(
+        f,
+        workflowPolicy,
+        prePrReviewPolicy
+      );
+      if (reviewIterationPhase || prePrFixIterationPhase) {
+        if (!f.git.projectGitCwd) {
+          return [
+            {
+              type: 'instruction',
+              category: 'review_fix_commit',
+              message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+            },
+          ];
+        }
+
+        return [
+          {
+            type: 'instruction',
+            category: 'review_fix_commit',
+            requiresUserCheck: true,
+            message: getReviewFixCommitGuidance(f, lang, {
+              prePr: prePrFixIterationPhase,
+            }),
+          },
+        ];
+      }
+
+      if (!f.git.projectGitCwd) {
+        return [
+          {
+            type: 'instruction',
+            category: 'task_execute',
+            message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+          },
+        ];
+      }
+
+      return [
+        {
+          type: 'command',
+          category: 'task_execute',
+          requiresUserCheck: true,
+          scope: 'project',
+          cwd: f.git.projectGitCwd,
+          cmd: f.issueNumber
+            ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
+                projectGitCwd: f.git.projectGitCwd,
+                issueNumber: f.issueNumber,
+                folderName: f.folderName,
+                commitTopic: resolveProjectCommitTopic(f),
+              })
+            : tr(lang, 'messages', 'projectCommitUpdate', {
+                projectGitCwd: f.git.projectGitCwd,
+                folderName: f.folderName,
+                commitTopic: resolveProjectCommitTopic(f),
+              }),
+        },
+      ];
+    }
+
+    return [];
+  };
+  const getTaskExecuteRunActions = (f: FeatureState): NextAction[] => {
+    if (
+      taskCommitGatePolicy !== 'off' &&
+      f.lastDoneTask &&
+      f.nextTodoTask &&
+      f.git.docsGitCwd
+    ) {
+      const commitGate = checkTaskCommitGate(ctx, f);
+      if (!commitGate.pass) {
+        const reasonText = getTaskCommitGateReasonText(lang, commitGate);
+        return [
+          {
+            type: 'instruction',
+            category: 'task_execute',
+            requiresUserCheck: true,
+            taskExecutePhase: 'start',
+            message: `${tr(lang, 'messages', 'startNextTodoTask', {
+              title: f.nextTodoTask.title,
+              done: f.tasks.done,
+              total: f.tasks.total,
+            })}\n${tr(lang, 'messages', 'taskCommitGateWarnProceed', {
+              reason: reasonText,
+            })}`,
+          },
+        ];
+      }
+    }
+
+    return [
+      {
+        type: 'command',
+        category: 'task_execute',
+        operationType: 'local',
+        requiresUserCheck: true,
+        taskExecutePhase: 'start',
+        uiDetailKey: 'context.actionDetail.taskExecuteRun',
+        scope: 'docs',
+        cwd: f.git.docsGitCwd,
+        cmd: buildSelfCliCommand(
+          buildTaskRunCommandArgs(
+            f,
+            f.nextTodoTask?.id || `T-${f.folderName}-next`
+          )
+        ),
+      },
+    ];
+  };
+  const isPostTaskSyncCurrent = (f: FeatureState): boolean =>
+    isImplementationDone(f) &&
+    (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges);
+  const isPostTaskSyncDocs = (f: FeatureState): boolean =>
+    isPostTaskSyncCurrent(f) && f.git.docsHasUncommittedChanges;
+  const isPostTaskSyncReviewFix = (f: FeatureState): boolean =>
+    isPostTaskSyncCurrent(f) &&
+    !f.git.docsHasUncommittedChanges &&
+    f.git.projectHasUncommittedChanges &&
+    (isReviewIterationPhase(f, workflowPolicy) ||
+      isPrePrFixIterationPhase(f, workflowPolicy, prePrReviewPolicy));
+  const isPostTaskSyncProject = (f: FeatureState): boolean =>
+    isPostTaskSyncCurrent(f) &&
+    !f.git.docsHasUncommittedChanges &&
+    f.git.projectHasUncommittedChanges &&
+    !isPostTaskSyncReviewFix(f);
+  const getPostTaskSyncDocsActions = (f: FeatureState): NextAction[] => [
+    {
+      type: 'command',
+      category: 'docs_commit',
+      requiresUserCheck: true,
+      scope: 'docs',
+      cwd: f.git.docsGitCwd,
+      cmd: f.issueNumber
+        ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
+            docsGitCwd: f.git.docsGitCwd,
+            featurePath: f.docs.featurePathFromDocs,
+            issueNumber: f.issueNumber,
+            folderName: f.folderName,
+          })
+        : tr(lang, 'messages', 'docsCommitUpdate', {
+            docsGitCwd: f.git.docsGitCwd,
+            featurePath: f.docs.featurePathFromDocs,
+            folderName: f.folderName,
+          }),
+    },
+  ];
+  const getPostTaskSyncReviewFixActions = (f: FeatureState): NextAction[] => {
+    const prePr = isPrePrFixIterationPhase(f, workflowPolicy, prePrReviewPolicy);
+    if (!f.git.projectGitCwd) {
+      return [
+        {
+          type: 'instruction',
+          category: 'review_fix_commit',
+          message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+        },
+      ];
+    }
+    return [
+      {
+        type: 'instruction',
+        category: 'review_fix_commit',
+        requiresUserCheck: true,
+        message: getReviewFixCommitGuidance(f, lang, {
+          prePr,
+        }),
+      },
+    ];
+  };
+  const getPostTaskSyncProjectActions = (f: FeatureState): NextAction[] => {
+    if (!f.git.projectGitCwd) {
+      return [
+        {
+          type: 'instruction',
+          category: 'task_execute',
+          message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+        },
+      ];
+    }
+
+    return [
+      {
+        type: 'command',
+        category: 'task_execute',
+        requiresUserCheck: true,
+        scope: 'project',
+        cwd: f.git.projectGitCwd,
+        cmd: f.issueNumber
+          ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
+              projectGitCwd: f.git.projectGitCwd,
+              issueNumber: f.issueNumber,
+              folderName: f.folderName,
+              commitTopic: resolveProjectCommitTopic(f),
+            })
+          : tr(lang, 'messages', 'projectCommitUpdate', {
+              projectGitCwd: f.git.projectGitCwd,
+              folderName: f.folderName,
+              commitTopic: resolveProjectCommitTopic(f),
+            }),
+      },
+    ];
+  };
+  const isPrePrReviewCurrent = (f: FeatureState): boolean =>
+    prePrReviewPolicy.enabled &&
+    workflowPolicy.requirePr &&
+    f.docs.tasksExists &&
+    f.tasks.total > 0 &&
+    f.tasks.total === f.tasks.done &&
+    isCompletionChecklistDone(f) &&
+    !f.git.docsHasUncommittedChanges &&
+    !f.git.projectHasUncommittedChanges &&
+    (!isPrMetadataConfigured(f) || !f.pr.link) &&
+    !isPrePrReviewSatisfied(f, prePrReviewPolicy);
+  const isPrePrReviewMetadataMissing = (f: FeatureState): boolean =>
+    isPrePrReviewCurrent(f) && !f.docs.prePrReviewFieldExists;
+  const isPrePrReviewFixRequired = (f: FeatureState): boolean =>
+    isPrePrReviewCurrent(f) &&
+    !!f.prePrReview.decisionOutcome &&
+    f.prePrReview.decisionOutcome !== 'approve';
+  const isPrePrReviewRun = (f: FeatureState): boolean =>
+    isPrePrReviewCurrent(f) &&
+    f.docs.prePrReviewFieldExists &&
+    !isPrePrReviewFixRequired(f) &&
+    !resolvePrePrReviewEvidencePath(f);
+  const isPrePrReviewRecord = (f: FeatureState): boolean =>
+    isPrePrReviewCurrent(f) &&
+    f.docs.prePrReviewFieldExists &&
+    !isPrePrReviewFixRequired(f) &&
+    !!resolvePrePrReviewEvidencePath(f);
+  const getPrePrReviewMetadataActions = (): NextAction[] => [
+    {
+      type: 'instruction',
+      category: 'pr_metadata_migrate',
+      requiresUserCheck: true,
+      uiDetailKey: 'context.actionDetail.prMetadataMigratePrePrReviewField',
+      message: tr(lang, 'messages', 'prePrReviewFieldMissing'),
+    },
+  ];
+  const getPrePrReviewFixActions = (f: FeatureState): NextAction[] => {
+    const rerunEvidencePath =
+      resolvePrePrReviewEvidencePath(f) || 'review-trace.json';
+    const rerunCommand = buildSelfCliCommand(
+      buildPrePrReviewCommandArgs(f, rerunEvidencePath, 'approve')
+    );
+    return [
+      {
+        type: 'instruction',
+        category: 'review_fix_commit',
+        requiresUserCheck: true,
+        message: `${tr(lang, 'messages', 'prePrReviewFixRequired', {
+          decision: f.prePrReview.decisionOutcome,
+        })}\n${getReviewFixCommitGuidance(f, lang, {
+          prePr: true,
+        })}\n${tr(lang, 'messages', 'prePrReviewDecisionReconfirm', {
+          decision: f.prePrReview.decisionOutcome,
+          command: rerunCommand,
+        })}`,
+      },
+    ];
+  };
+  const getPrePrReviewRunActions = (f: FeatureState): NextAction[] => [
+    {
+      type: 'command',
+      category: 'pre_pr_review_run',
+      operationType: 'local',
+      requiresUserCheck: true,
+      scope: 'docs',
+      cwd: f.git.docsGitCwd,
+      cmd: buildSelfCliCommand(buildPrePrReviewRunCommandArgs(f)),
+    },
+  ];
+  const getPrePrReviewRecordActions = (f: FeatureState): NextAction[] => {
+    const evidencePath = resolvePrePrReviewEvidencePath(f);
+    if (!evidencePath) return [];
+    return [
+      {
+        type: 'command',
+        category: 'pre_pr_review_record',
+        operationType: 'local',
+        requiresUserCheck: true,
+        scope: 'docs',
+        cwd: f.git.docsGitCwd,
+        cmd: buildSelfCliCommand(buildPrePrReviewCommandArgs(f, evidencePath)),
+      },
+    ];
+  };
+  const isPrCreateCurrent = (f: FeatureState): boolean =>
+    workflowPolicy.requirePr &&
+    f.docs.tasksExists &&
+    f.tasks.total > 0 &&
+    f.tasks.total === f.tasks.done &&
+    isCompletionChecklistDone(f) &&
+    (!isPrMetadataConfigured(f) || !f.pr.link);
+  const isPrCreateMetadataMissing = (f: FeatureState): boolean =>
+    isPrCreateCurrent(f) && !isPrMetadataConfigured(f);
+  const isPrCreateDocMissing = (f: FeatureState): boolean =>
+    isPrCreateCurrent(f) && isPrMetadataConfigured(f) && !f.docs.prDocExists;
+  const isPrCreateReady = (f: FeatureState): boolean =>
+    isPrCreateCurrent(f) &&
+    isPrMetadataConfigured(f) &&
+    !!f.docs.prDocExists &&
+    f.docs.prDocStatus === 'Ready';
+  const isPrCreatePrepare = (f: FeatureState): boolean =>
+    isPrCreateCurrent(f) &&
+    isPrMetadataConfigured(f) &&
+    !!f.docs.prDocExists &&
+    f.docs.prDocStatus !== 'Ready';
+  const isCodeReviewCurrent = (f: FeatureState): boolean =>
+    workflowPolicy.requireMerge &&
+    isPrMetadataConfigured(f) &&
+    !!f.pr.link &&
+    f.pr.status !== 'Approved';
+  const isCodeReviewStatusMissing = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) && !f.pr.status;
+  const isCodeReviewSyncApproved = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    workflowPolicy.requireReview &&
+    !!f.pr.remote?.available &&
+    f.pr.remote.isMerged;
+  const isCodeReviewNeedEvidenceField = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    workflowPolicy.requireReview &&
+    !f.docs.prReviewEvidenceFieldExists;
+  const isCodeReviewNeedEvidence = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    workflowPolicy.requireReview &&
+    !isCodeReviewNeedEvidenceField(f) &&
+    !f.prReview.evidenceProvided;
+  const isCodeReviewNeedDecisionField = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    workflowPolicy.requireReview &&
+    !isCodeReviewNeedEvidenceField(f) &&
+    f.prReview.evidenceProvided &&
+    !f.docs.prReviewDecisionFieldExists;
+  const isCodeReviewNeedDecision = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    workflowPolicy.requireReview &&
+    !isCodeReviewNeedEvidenceField(f) &&
+    f.prReview.evidenceProvided &&
+    !isCodeReviewNeedDecisionField(f) &&
+    !f.prReview.decisionProvided;
+  const isCodeReviewRun = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    !isCodeReviewSyncApproved(f) &&
+    !isCodeReviewNeedEvidenceField(f) &&
+    !isCodeReviewNeedEvidence(f) &&
+    !isCodeReviewNeedDecisionField(f) &&
+    !isCodeReviewNeedDecision(f);
+  const isCodeReviewRequestReview = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) && !!f.pr.status && f.pr.status !== 'Review';
+  const getCodeReviewRunActions = (f: FeatureState): NextAction[] => {
+    const remoteBlockReasons = getPrReviewRemoteBlockReasons(f, lang);
+    const remoteUnavailable =
+      workflowPolicy.mode === 'github' &&
+      !!f.pr.link &&
+      (!f.pr.remote || !f.pr.remote.available);
+    const actions: NextAction[] = [];
+
+    if (workflowPolicy.requireReview) {
+      actions.push({
+        type: 'instruction',
+        category: 'code_review',
+        requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.codeReviewResolve',
+        message: getCodeReviewPrompt(lang),
+      });
+    }
+
+    if (!f.git.projectGitCwd) {
+      actions.push({
+        type: 'instruction',
+        category: 'code_review',
+        requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.codeReviewNeedProjectRoot',
+        message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
+      });
+    } else if ((f.git.projectBranchAhead || 0) > 0) {
+      actions.push({
+        type: 'command',
+        category: 'code_review',
+        requiresUserCheck: true,
+        scope: 'project',
+        cwd: f.git.projectGitCwd,
+        cmd: tr(lang, 'messages', 'prReviewPush', {
+          projectGitCwd: f.git.projectGitCwd,
+        }),
+      });
+    }
+
+    if (remoteBlockReasons.length > 0 || remoteUnavailable) {
+      const reasons = [...remoteBlockReasons];
+      if (remoteUnavailable) {
+        reasons.push(tr(lang, 'messages', 'prReviewRemoteReasonUnavailable'));
+      }
+      actions.push({
+        type: 'instruction',
+        category: 'code_review',
+        requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.codeReviewRemoteBlocked',
+        message: tr(lang, 'messages', 'prReviewRemoteBlocked', {
+          reasons: reasons.join('; '),
+        }),
+      });
+    } else if (f.git.docsGitCwd) {
+      actions.push({
+        type: 'command',
+        category: 'code_review',
+        requiresUserCheck: true,
+        operationType: 'remote',
+        scope: 'docs',
+        cwd: f.git.docsGitCwd,
+        cmd: tr(lang, 'messages', 'prReviewMergeCommand', {
+          featureRef: f.id || f.folderName,
+        }),
+      });
+    } else {
+      actions.push({
+        type: 'instruction',
+        category: 'code_review',
+        requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.codeReviewMergeAfterOk',
+        message: tr(lang, 'messages', 'prReviewMerge', {
+          featureRef: f.id || f.folderName,
+        }),
+      });
+    }
+
+    if (actions.length > 0) return actions;
+    return [
+      {
+        type: 'instruction',
+        category: 'code_review',
+        requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.codeReviewMergeAfterOk',
+        message: tr(lang, 'messages', 'prReviewMerge', {
+          featureRef: f.id || f.folderName,
+        }),
+      },
+    ];
+  };
 
   return [
     {
@@ -852,331 +1518,64 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
         detail: (f) =>
           f.tasks.total > 0 ? `(${f.tasks.done}/${f.tasks.total})` : '',
       },
-      current: {
-        when: (f) =>
-          f.docs.tasksExists &&
-          f.tasks.total > 0 &&
-          (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)) &&
-          isTasksDocApproved(f) &&
-          (!workflowPolicy.requireBranch ||
-            f.git.onExpectedBranch ||
-            f.tasks.done === f.tasks.total),
-        actions: (f) => {
-          if (
-            workflowPolicy.requireWorktree &&
-            f.tasks.done < f.tasks.total &&
-            f.issueNumber &&
-            !f.git.projectInManagedWorktree
-          ) {
-            if (f.git.expectedWorktreePath) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'branch_create',
-                  requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.branchCreate',
-                  message: tr(lang, 'messages', 'moveToExistingWorktree', {
-                    worktreePath: f.git.expectedWorktreePath,
-                  }),
-                },
-              ];
-            }
-            if (!f.git.projectGitCwd) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'branch_create',
-                  requiresUserCheck: true,
-                  message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
-                },
-              ];
-            }
-            if (f.git.onExpectedBranch) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'branch_create',
-                  requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.branchCreate',
-                  message: tr(lang, 'messages', 'worktreeRequiredFromMainBranch', {
-                    projectGitCwd: f.git.projectGitCwd,
-                    issueNumber: f.issueNumber,
-                    slug: f.slug,
-                  }),
-                },
-              ];
-            }
-            return [
-              {
-                type: 'command',
-                category: 'branch_create',
-                requiresUserCheck: true,
-                scope: 'project',
-                cwd: f.git.projectGitCwd,
-                cmd: tr(lang, 'messages', 'createBranch', {
-                  projectGitCwd: f.git.projectGitCwd,
-                  issueNumber: f.issueNumber,
-                  slug: f.slug,
-                }),
-              },
-            ];
-          }
-          if (f.tasks.total === f.tasks.done && !isCompletionChecklistDone(f)) {
-            if (f.git.docsHasUncommittedChanges) {
-              return [
-                {
-                  type: 'command',
-                  category: 'docs_commit',
-                  requiresUserCheck: true,
-                  scope: 'docs',
-                  cwd: f.git.docsGitCwd,
-                  cmd: f.issueNumber
-                    ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
-                        docsGitCwd: f.git.docsGitCwd,
-                        featurePath: f.docs.featurePathFromDocs,
-                        issueNumber: f.issueNumber,
-                        folderName: f.folderName,
-                      })
-                    : tr(lang, 'messages', 'docsCommitUpdate', {
-                        docsGitCwd: f.git.docsGitCwd,
-                        featurePath: f.docs.featurePathFromDocs,
-                        folderName: f.folderName,
-                      }),
-                },
-              ];
-            }
-
-            if (f.git.projectHasUncommittedChanges) {
-              const reviewIterationPhase = isReviewIterationPhase(
-                f,
-                workflowPolicy
-              );
-              const prePrFixIterationPhase = isPrePrFixIterationPhase(
-                f,
-                workflowPolicy,
-                prePrReviewPolicy
-              );
-              if (reviewIterationPhase || prePrFixIterationPhase) {
-                if (!f.git.projectGitCwd) {
-                  return [
-                    {
-                      type: 'instruction',
-                      category: 'review_fix_commit',
-                      message: tr(
-                        lang,
-                        'messages',
-                        'standaloneNeedsProjectRoot'
-                      ),
-                    },
-                  ];
-                }
-
-                return [
-                  {
-                    type: 'instruction',
-                    category: 'review_fix_commit',
-                    requiresUserCheck: true,
-                    message: getReviewFixCommitGuidance(f, lang, {
-                      prePr: prePrFixIterationPhase,
-                    }),
-                  },
-                ];
-              }
-
-              if (!f.git.projectGitCwd) {
-                return [
-                  {
-                    type: 'instruction',
-                    category: 'task_execute',
-                    message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
-                  },
-                ];
-              }
-
-              return [
-                {
-                  type: 'command',
-                  category: 'task_execute',
-                  requiresUserCheck: true,
-                  scope: 'project',
-                  cwd: f.git.projectGitCwd,
-                  cmd: f.issueNumber
-                    ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
-                        projectGitCwd: f.git.projectGitCwd,
-                        issueNumber: f.issueNumber,
-                        folderName: f.folderName,
-                        commitTopic: resolveProjectCommitTopic(f),
-                      })
-                    : tr(lang, 'messages', 'projectCommitUpdate', {
-                        projectGitCwd: f.git.projectGitCwd,
-                        folderName: f.folderName,
-                        commitTopic: resolveProjectCommitTopic(f),
-                      }),
-                },
-              ];
-            }
-
-            const actions: NextAction[] = [
-              {
-                type: 'instruction' as const,
-                category: 'task_execute',
-                requiresUserCheck: true,
-                message: !f.completionChecklist
-                  ? tr(lang, 'messages', 'tasksAllDoneButNoChecklist')
-                  : tr(lang, 'messages', 'tasksAllDoneButChecklist', {
-                      checked: f.completionChecklist.checked,
-                      total: f.completionChecklist.total,
-                    }),
-              },
-            ];
-
-            if (!isPrMetadataConfigured(f)) {
-              actions.push({
-                type: 'instruction' as const,
-                category: 'pr_metadata_migrate',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.prMetadataMigratePrFields',
-                message: tr(lang, 'messages', 'prLegacyAsk'),
-              });
-            }
-
-            return actions;
-          }
-          if (f.activeTask) {
-            return [
-              {
-                type: 'instruction',
-                category: 'task_execute',
-                requiresUserCheck: true,
-                taskExecutePhase: 'complete',
-                message: tr(lang, 'messages', 'finishDoingTask', {
-                  title: f.activeTask.title,
-                  done: f.tasks.done,
-                  total: f.tasks.total,
-                }),
-              },
-            ];
-          }
-          if (f.nextTodoTask) {
-            if (f.git.docsHasUncommittedChanges) {
-              return [
-                {
-                  type: 'command',
-                  category: 'docs_commit',
-                  requiresUserCheck: true,
-                  scope: 'docs',
-                  cwd: f.git.docsGitCwd,
-                  cmd: f.issueNumber
-                    ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
-                        docsGitCwd: f.git.docsGitCwd,
-                        featurePath: f.docs.featurePathFromDocs,
-                        issueNumber: f.issueNumber,
-                        folderName: f.folderName,
-                      })
-                    : tr(lang, 'messages', 'docsCommitUpdate', {
-                        docsGitCwd: f.git.docsGitCwd,
-                        featurePath: f.docs.featurePathFromDocs,
-                        folderName: f.folderName,
-                      }),
-                },
-              ];
-            }
-            if (f.git.projectHasUncommittedChanges) {
-              if (!f.git.projectGitCwd) {
-                return [
-                  {
-                    type: 'instruction',
-                    category: 'task_execute',
-                    message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
-                  },
-                ];
-              }
-              return [
-                {
-                  type: 'command',
-                  category: 'task_execute',
-                  requiresUserCheck: true,
-                  scope: 'project',
-                  cwd: f.git.projectGitCwd,
-                  cmd: f.issueNumber
-                    ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
-                        projectGitCwd: f.git.projectGitCwd,
-                        issueNumber: f.issueNumber,
-                        folderName: f.folderName,
-                        commitTopic: resolveProjectCommitTopic(f),
-                      })
-                    : tr(lang, 'messages', 'projectCommitUpdate', {
-                        projectGitCwd: f.git.projectGitCwd,
-                        folderName: f.folderName,
-                        commitTopic: resolveProjectCommitTopic(f),
-                      }),
-                },
-              ];
-            }
-
-            if (taskCommitGatePolicy !== 'off' && f.lastDoneTask) {
-              if (!f.git.docsGitCwd) {
-                return [];
-              }
-
-              const commitGate = checkTaskCommitGate(ctx, f);
-              if (!commitGate.pass) {
-                const reasonText = getTaskCommitGateReasonText(
-                  lang,
-                  commitGate
-                );
-                if (
-                  shouldBlockTaskCommitGate(taskCommitGatePolicy, commitGate)
-                ) {
-                  return [
-                    {
-                      type: 'instruction',
-                      category: 'task_execute',
-                      requiresUserCheck: true,
-                      message: tr(
-                        lang,
-                        'messages',
-                        'taskCommitGateStrictBlock',
-                        {
-                          reason: reasonText,
-                        }
-                      ),
-                    },
-                  ];
-                }
-                return [
-                  {
-                    type: 'instruction',
-                    category: 'task_execute',
-                    requiresUserCheck: true,
-                    taskExecutePhase: 'start',
-                    message: `${tr(lang, 'messages', 'startNextTodoTask', {
-                      title: f.nextTodoTask.title,
-                      done: f.tasks.done,
-                      total: f.tasks.total,
-                    })}\n${tr(lang, 'messages', 'taskCommitGateWarnProceed', {
-                      reason: reasonText,
-                    })}`,
-                  },
-                ];
-              }
-            }
-
-            return [
-              {
-                type: 'instruction',
-                category: 'task_execute',
-                requiresUserCheck: true,
-                taskExecutePhase: 'start',
-                message: tr(lang, 'messages', 'startNextTodoTask', {
-                  title: f.nextTodoTask.title,
-                  done: f.tasks.done,
-                  total: f.tasks.total,
-                }),
-              },
-            ];
-          }
-          return [
+      substates: [
+        {
+          id: 'task_blocked',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'task_execute',
+          when: (f) => isTaskExecuteBlocked(f),
+          actions: (f) => getTaskExecuteBlockedActions(f),
+        },
+        {
+          id: 'task_finalize',
+          phase: 'finalize',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'task_execute',
+          when: (f) =>
+            isTaskExecuteFinalize(f) && !isTaskExecuteCommitPending(f),
+          actions: (f) => getTaskExecuteFinalizeActions(f),
+        },
+        {
+          id: 'task_running',
+          phase: 'running',
+          owner: 'subagent',
+          mode: 'command',
+          category: 'task_execute',
+          when: (f) => isTaskExecuteCurrent(f) && !!f.activeTask,
+          actions: (f) => getTaskExecuteRunningActions(f),
+        },
+        {
+          id: 'task_commit_pending',
+          phase: 'commit_pending',
+          owner: 'main',
+          mode: 'command',
+          category: 'task_execute',
+          when: (f) => isTaskExecuteCommitPending(f),
+          actions: (f) => getTaskExecuteCommitPendingActions(f),
+        },
+        {
+          id: 'task_run',
+          phase: 'run',
+          owner: 'subagent',
+          mode: 'command',
+          category: 'task_execute',
+          when: (f) =>
+            isTaskExecuteCurrent(f) &&
+            !!f.nextTodoTask &&
+            !isTaskExecuteCommitPending(f),
+          actions: (f) => getTaskExecuteRunActions(f),
+        },
+        {
+          id: 'task_ready_fallback',
+          phase: 'ready',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'task_execute',
+          when: (f) => isTaskExecuteCurrent(f),
+          actions: (f) => [
             {
               type: 'instruction',
               category: 'task_execute',
@@ -1186,9 +1585,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
                 total: f.tasks.total,
               }),
             },
-          ];
+          ],
         },
-      },
+      ],
     },
     {
       step: 11,
@@ -1198,100 +1597,35 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           !f.git.docsHasUncommittedChanges &&
           !f.git.projectHasUncommittedChanges,
       },
-      current: {
-        when: (f) =>
-          isImplementationDone(f) &&
-          (f.git.docsHasUncommittedChanges ||
-            f.git.projectHasUncommittedChanges),
-        actions: (f) => {
-          if (f.git.docsHasUncommittedChanges) {
-            return [
-              {
-                type: 'command',
-                category: 'docs_commit',
-                requiresUserCheck: true,
-                scope: 'docs',
-                cwd: f.git.docsGitCwd,
-                cmd: f.issueNumber
-                  ? tr(lang, 'messages', 'docsCommitIssueUpdate', {
-                      docsGitCwd: f.git.docsGitCwd,
-                      featurePath: f.docs.featurePathFromDocs,
-                      issueNumber: f.issueNumber,
-                      folderName: f.folderName,
-                    })
-                  : tr(lang, 'messages', 'docsCommitUpdate', {
-                      docsGitCwd: f.git.docsGitCwd,
-                      featurePath: f.docs.featurePathFromDocs,
-                      folderName: f.folderName,
-                    }),
-              },
-            ];
-          }
-
-          const reviewIterationPhase = isReviewIterationPhase(
-            f,
-            workflowPolicy
-          );
-          const prePrFixIterationPhase = isPrePrFixIterationPhase(
-            f,
-            workflowPolicy,
-            prePrReviewPolicy
-          );
-          if (reviewIterationPhase || prePrFixIterationPhase) {
-            if (!f.git.projectGitCwd) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'review_fix_commit',
-                  message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
-                },
-              ];
-            }
-            return [
-              {
-                type: 'instruction',
-                category: 'review_fix_commit',
-                requiresUserCheck: true,
-                message: getReviewFixCommitGuidance(f, lang, {
-                  prePr: prePrFixIterationPhase,
-                }),
-              },
-            ];
-          }
-
-          if (!f.git.projectGitCwd) {
-            return [
-              {
-                type: 'instruction',
-                category: 'task_execute',
-                message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
-              },
-            ];
-          }
-
-          return [
-            {
-              type: 'command',
-              category: 'task_execute',
-              requiresUserCheck: true,
-              scope: 'project',
-              cwd: f.git.projectGitCwd,
-              cmd: f.issueNumber
-                ? tr(lang, 'messages', 'projectCommitIssueUpdate', {
-                    projectGitCwd: f.git.projectGitCwd,
-                    issueNumber: f.issueNumber,
-                    folderName: f.folderName,
-                    commitTopic: resolveProjectCommitTopic(f),
-                  })
-                : tr(lang, 'messages', 'projectCommitUpdate', {
-                    projectGitCwd: f.git.projectGitCwd,
-                    folderName: f.folderName,
-                    commitTopic: resolveProjectCommitTopic(f),
-                  }),
-            },
-          ];
+      substates: [
+        {
+          id: 'post_task_sync_docs',
+          phase: 'commit_pending',
+          owner: 'main',
+          mode: 'command',
+          category: 'docs_commit',
+          when: (f) => isPostTaskSyncDocs(f),
+          actions: (f) => getPostTaskSyncDocsActions(f),
         },
-      },
+        {
+          id: 'review_fix_loop',
+          phase: 'commit_pending',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'review_fix_commit',
+          when: (f) => isPostTaskSyncReviewFix(f),
+          actions: (f) => getPostTaskSyncReviewFixActions(f),
+        },
+        {
+          id: 'post_task_sync_project',
+          phase: 'commit_pending',
+          owner: 'main',
+          mode: 'command',
+          category: 'task_execute',
+          when: (f) => isPostTaskSyncProject(f),
+          actions: (f) => getPostTaskSyncProjectActions(f),
+        },
+      ],
     },
     {
       step: 12,
@@ -1299,86 +1633,44 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       checklist: {
         done: (f) => isPrePrReviewSatisfied(f, prePrReviewPolicy),
       },
-      current: {
-        when: (f) =>
-          prePrReviewPolicy.enabled &&
-          workflowPolicy.requirePr &&
-          f.docs.tasksExists &&
-          f.tasks.total > 0 &&
-          f.tasks.total === f.tasks.done &&
-          isCompletionChecklistDone(f) &&
-          !f.git.docsHasUncommittedChanges &&
-          !f.git.projectHasUncommittedChanges &&
-          (!isPrMetadataConfigured(f) || !f.pr.link) &&
-          !isPrePrReviewSatisfied(f, prePrReviewPolicy),
-        actions: (f) => {
-          if (!prePrReviewPolicy.enabled) return [];
-          if (!f.docs.prePrReviewFieldExists) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pr_metadata_migrate',
-                requiresUserCheck: true,
-                uiDetailKey:
-                  'context.actionDetail.prMetadataMigratePrePrReviewField',
-                message: tr(lang, 'messages', 'prePrReviewFieldMissing'),
-              },
-            ];
-          }
-          if (
-            f.prePrReview.decisionOutcome &&
-            f.prePrReview.decisionOutcome !== 'approve'
-          ) {
-            const rerunEvidencePath =
-              resolvePrePrReviewEvidencePath(f) || 'review-trace.json';
-            const rerunCommand = buildSelfCliCommand(
-              buildPrePrReviewCommandArgs(f, rerunEvidencePath, 'approve')
-            );
-            return [
-              {
-                type: 'instruction',
-                category: 'review_fix_commit',
-                requiresUserCheck: true,
-                message: `${tr(lang, 'messages', 'prePrReviewFixRequired', {
-                  decision: f.prePrReview.decisionOutcome,
-                })}\n${getReviewFixCommitGuidance(f, lang, {
-                  prePr: true,
-                })}\n${tr(lang, 'messages', 'prePrReviewDecisionReconfirm', {
-                  decision: f.prePrReview.decisionOutcome,
-                  command: rerunCommand,
-                })}`,
-              },
-            ];
-          }
-          const evidencePath = resolvePrePrReviewEvidencePath(f);
-          if (!evidencePath) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pre_pr_review',
-                requiresUserCheck: true,
-                message: getPrePrReviewPrompt(
-                  lang,
-                  prePrReviewPolicy.skills,
-                  prePrReviewPolicy.fallback
-                ),
-              },
-            ];
-          }
-          const commandArgs = buildPrePrReviewCommandArgs(f, evidencePath);
-          return [
-            {
-              type: 'command',
-              category: 'pre_pr_review',
-              operationType: 'local',
-              requiresUserCheck: true,
-              scope: 'docs',
-              cwd: f.git.docsGitCwd,
-              cmd: buildSelfCliCommand(commandArgs),
-            },
-          ];
+      substates: [
+        {
+          id: 'pre_pr_review_migrate',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_metadata_migrate',
+          when: (f) => isPrePrReviewMetadataMissing(f),
+          actions: () => getPrePrReviewMetadataActions(),
         },
-      },
+        {
+          id: 'pre_pr_fix_required',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'review_fix_commit',
+          when: (f) => isPrePrReviewFixRequired(f),
+          actions: (f) => getPrePrReviewFixActions(f),
+        },
+        {
+          id: 'pre_pr_review_run',
+          phase: 'run',
+          owner: 'subagent',
+          mode: 'command',
+          category: 'pre_pr_review_run',
+          when: (f) => isPrePrReviewRun(f),
+          actions: (f) => getPrePrReviewRunActions(f),
+        },
+        {
+          id: 'pre_pr_review_record',
+          phase: 'record',
+          owner: 'main',
+          mode: 'command',
+          category: 'pre_pr_review_record',
+          when: (f) => isPrePrReviewRecord(f),
+          actions: (f) => getPrePrReviewRecordActions(f),
+        },
+      ],
     },
     {
       step: 13,
@@ -1388,53 +1680,70 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           !workflowPolicy.requirePr ||
           (isPrMetadataConfigured(f) && !!f.pr.link),
       },
-      current: {
-        when: (f) =>
-          workflowPolicy.requirePr &&
-          f.docs.tasksExists &&
-          f.tasks.total > 0 &&
-          f.tasks.total === f.tasks.done &&
-          isCompletionChecklistDone(f) &&
-          (!isPrMetadataConfigured(f) || !f.pr.link),
-        actions: (f) => {
-          if (!isPrMetadataConfigured(f)) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pr_metadata_migrate',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.prMetadataMigratePrFields',
-                message: tr(lang, 'messages', 'prLegacyAsk'),
-              },
-            ];
-          }
-          if (!f.docs.prDocExists) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pr_create',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.prCreateRequiredSequence',
-                message: tr(lang, 'messages', 'prCreateRequiredSequence', {
-                  featureRef: f.id || f.folderName,
-                }),
-              },
-            ];
-          }
-          if (f.docs.prDocStatus === 'Ready') {
-            return [
-              {
-                type: 'instruction',
-                category: 'pr_create',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.prCreateExecuteFromDoc',
-                message: tr(lang, 'messages', 'prCreateExecuteFromDoc', {
-                  featureRef: f.id || f.folderName,
-                }),
-              },
-            ];
-          }
-          return [
+      substates: [
+        {
+          id: 'pr_create_metadata_missing',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_metadata_migrate',
+          when: (f) => isPrCreateMetadataMissing(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'pr_metadata_migrate',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.prMetadataMigratePrFields',
+              message: tr(lang, 'messages', 'prLegacyAsk'),
+            },
+          ],
+        },
+        {
+          id: 'pr_create_doc_missing',
+          phase: 'ready',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_create',
+          when: (f) => isPrCreateDocMissing(f),
+          actions: (f) => [
+            {
+              type: 'instruction',
+              category: 'pr_create',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.prCreateRequiredSequence',
+              message: tr(lang, 'messages', 'prCreateRequiredSequence', {
+                featureRef: f.id || f.folderName,
+              }),
+            },
+          ],
+        },
+        {
+          id: 'pr_create_ready',
+          phase: 'ready',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_create',
+          when: (f) => isPrCreateReady(f),
+          actions: (f) => [
+            {
+              type: 'instruction',
+              category: 'pr_create',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.prCreateExecuteFromDoc',
+              message: tr(lang, 'messages', 'prCreateExecuteFromDoc', {
+                featureRef: f.id || f.folderName,
+              }),
+            },
+          ],
+        },
+        {
+          id: 'pr_create_prepare',
+          phase: 'ready',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_create',
+          when: (f) => isPrCreatePrepare(f),
+          actions: (f) => [
             {
               type: 'instruction',
               category: 'pr_create',
@@ -1444,9 +1753,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
                 featureRef: f.id || f.folderName,
               }),
             },
-          ];
+          ],
         },
-      },
+      ],
     },
     {
       step: 14,
@@ -1456,195 +1765,135 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           !workflowPolicy.requireMerge ||
           (isPrMetadataConfigured(f) && f.pr.status === 'Approved'),
       },
-      current: {
-        when: (f) =>
-          workflowPolicy.requireMerge &&
-          isPrMetadataConfigured(f) &&
-          !!f.pr.link &&
-          f.pr.status !== 'Approved',
-        actions: (f) => {
-          if (!f.pr.status) {
-            return [
-              {
-                type: 'instruction',
-                category: 'pr_status_update',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.prStatusUpdateSetReview',
-                message: tr(lang, 'messages', 'prFillStatus'),
-              },
-            ];
-          }
-          if (f.pr.status === 'Review') {
-            if (
-              workflowPolicy.requireReview &&
-              f.pr.remote?.available &&
-              f.pr.remote.isMerged
-            ) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'pr_status_update',
-                  requiresUserCheck: true,
-                  uiDetailKey:
-                    'context.actionDetail.prStatusUpdateSyncApproved',
-                  message: tr(lang, 'messages', 'prReviewMergedSyncStatus'),
-                },
-              ];
-            }
-            if (
-              workflowPolicy.requireReview &&
-              !f.docs.prReviewEvidenceFieldExists
-            ) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'code_review',
-                  requiresUserCheck: true,
-                  uiDetailKey:
-                    'context.actionDetail.codeReviewNeedEvidenceField',
-                  message: tr(lang, 'messages', 'prReviewEvidenceFieldMissing'),
-                },
-              ];
-            }
-            if (workflowPolicy.requireReview && !f.prReview.evidenceProvided) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'code_review',
-                  requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.codeReviewNeedEvidence',
-                  message: tr(lang, 'messages', 'prReviewEvidenceMissing'),
-                },
-              ];
-            }
-            if (
-              workflowPolicy.requireReview &&
-              !f.docs.prReviewDecisionFieldExists
-            ) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'code_review',
-                  requiresUserCheck: true,
-                  uiDetailKey:
-                    'context.actionDetail.codeReviewNeedDecisionField',
-                  message: tr(lang, 'messages', 'prReviewDecisionFieldMissing'),
-                },
-              ];
-            }
-            if (workflowPolicy.requireReview && !f.prReview.decisionProvided) {
-              return [
-                {
-                  type: 'instruction',
-                  category: 'code_review',
-                  requiresUserCheck: true,
-                  uiDetailKey: 'context.actionDetail.codeReviewNeedDecision',
-                  message: tr(lang, 'messages', 'prReviewDecisionMissing'),
-                },
-              ];
-            }
-
-            const remoteBlockReasons = getPrReviewRemoteBlockReasons(f, lang);
-            const remoteUnavailable =
-              workflowPolicy.mode === 'github' &&
-              !!f.pr.link &&
-              (!f.pr.remote || !f.pr.remote.available);
-            const actions: NextAction[] = [];
-
-            if (workflowPolicy.requireReview) {
-              actions.push({
-                type: 'instruction',
-                category: 'code_review',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.codeReviewResolve',
-                message: getCodeReviewPrompt(lang),
-              });
-            }
-
-            if (!f.git.projectGitCwd) {
-              actions.push({
-                type: 'instruction',
-                category: 'code_review',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.codeReviewNeedProjectRoot',
-                message: tr(lang, 'messages', 'standaloneNeedsProjectRoot'),
-              });
-            } else if ((f.git.projectBranchAhead || 0) > 0) {
-              actions.push({
-                type: 'command',
-                category: 'code_review',
-                requiresUserCheck: true,
-                scope: 'project',
-                cwd: f.git.projectGitCwd,
-                cmd: tr(lang, 'messages', 'prReviewPush', {
-                  projectGitCwd: f.git.projectGitCwd,
-                }),
-              });
-            }
-
-            if (remoteBlockReasons.length > 0 || remoteUnavailable) {
-              const reasons = [...remoteBlockReasons];
-              if (remoteUnavailable) {
-                reasons.push(
-                  tr(lang, 'messages', 'prReviewRemoteReasonUnavailable')
-                );
-              }
-              actions.push({
-                type: 'instruction',
-                category: 'code_review',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.codeReviewRemoteBlocked',
-                message: tr(lang, 'messages', 'prReviewRemoteBlocked', {
-                  reasons: reasons.join('; '),
-                }),
-              });
-            } else if (f.git.docsGitCwd) {
-              actions.push({
-                type: 'command',
-                category: 'code_review',
-                requiresUserCheck: true,
-                operationType: 'remote',
-                scope: 'docs',
-                cwd: f.git.docsGitCwd,
-                cmd: tr(lang, 'messages', 'prReviewMergeCommand', {
-                  featureRef: f.id || f.folderName,
-                }),
-              });
-            } else {
-              actions.push({
-                type: 'instruction',
-                category: 'code_review',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.codeReviewMergeAfterOk',
-                message: tr(lang, 'messages', 'prReviewMerge', {
-                  featureRef: f.id || f.folderName,
-                }),
-              });
-            }
-
-            if (actions.length > 0) return actions;
-            return [
-              {
-                type: 'instruction',
-                category: 'code_review',
-                requiresUserCheck: true,
-                uiDetailKey: 'context.actionDetail.codeReviewMergeAfterOk',
-                message: tr(lang, 'messages', 'prReviewMerge', {
-                  featureRef: f.id || f.folderName,
-                }),
-              },
-            ];
-          }
-          return [
+      substates: [
+        {
+          id: 'code_review_status_missing',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_status_update',
+          when: (f) => isCodeReviewStatusMissing(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'pr_status_update',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.prStatusUpdateSetReview',
+              message: tr(lang, 'messages', 'prFillStatus'),
+            },
+          ],
+        },
+        {
+          id: 'code_review_sync_approved',
+          phase: 'record',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'pr_status_update',
+          when: (f) => isCodeReviewSyncApproved(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'pr_status_update',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.prStatusUpdateSyncApproved',
+              message: tr(lang, 'messages', 'prReviewMergedSyncStatus'),
+            },
+          ],
+        },
+        {
+          id: 'code_review_need_evidence_field',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'code_review',
+          when: (f) => isCodeReviewNeedEvidenceField(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'code_review',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.codeReviewNeedEvidenceField',
+              message: tr(lang, 'messages', 'prReviewEvidenceFieldMissing'),
+            },
+          ],
+        },
+        {
+          id: 'code_review_need_evidence',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'code_review',
+          when: (f) => isCodeReviewNeedEvidence(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'code_review',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.codeReviewNeedEvidence',
+              message: tr(lang, 'messages', 'prReviewEvidenceMissing'),
+            },
+          ],
+        },
+        {
+          id: 'code_review_need_decision_field',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'code_review',
+          when: (f) => isCodeReviewNeedDecisionField(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'code_review',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.codeReviewNeedDecisionField',
+              message: tr(lang, 'messages', 'prReviewDecisionFieldMissing'),
+            },
+          ],
+        },
+        {
+          id: 'code_review_need_decision',
+          phase: 'blocked',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'code_review',
+          when: (f) => isCodeReviewNeedDecision(f),
+          actions: () => [
+            {
+              type: 'instruction',
+              category: 'code_review',
+              requiresUserCheck: true,
+              uiDetailKey: 'context.actionDetail.codeReviewNeedDecision',
+              message: tr(lang, 'messages', 'prReviewDecisionMissing'),
+            },
+          ],
+        },
+        {
+          id: 'code_review_run',
+          phase: 'run',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'code_review',
+          when: (f) => isCodeReviewRun(f),
+          actions: (f) => getCodeReviewRunActions(f),
+        },
+        {
+          id: 'code_review_request_review',
+          phase: 'ready',
+          owner: 'main',
+          mode: 'instruction',
+          category: 'code_review',
+          when: (f) => isCodeReviewRequestReview(f),
+          actions: () => [
             {
               type: 'instruction',
               category: 'code_review',
               uiDetailKey: 'context.actionDetail.codeReviewRequestReview',
               message: tr(lang, 'messages', 'prRequestReview'),
             },
-          ];
+          ],
         },
-      },
+      ],
     },
     {
       step: 15,

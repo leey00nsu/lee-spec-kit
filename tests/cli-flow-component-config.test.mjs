@@ -139,6 +139,109 @@ test('flow --json-compact returns reduced payload for agents', async () => {
   });
 });
 
+test('flow --json-compact preserves substate metadata for substate-backed steps', async () => {
+  await withTempDir('lsk-flow-json-compact-substate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const todoTasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [TODO][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] done
+`;
+    await fs.writeFile(tasksPath, todoTasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare flow compact substate case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['flow', 'F001-alpha', '--json-compact']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.context?.before?.matchedFeature?.currentStep, 10);
+    assert.equal(
+      payload.context?.before?.matchedFeature?.currentSubstateId,
+      'task_run'
+    );
+    assert.equal(
+      payload.context?.before?.matchedFeature?.currentSubstateOwner,
+      'subagent'
+    );
+    assert.equal(
+      payload.context?.before?.matchedFeature?.currentSubstatePhase,
+      'run'
+    );
+  });
+});
+
 test('flow --json auto-until-category stops at gate and exposes approval lines', async () => {
   await withTempDir('lsk-flow-auto-until-gate-', async (dir) => {
     const initResult = await runCli(dir, [

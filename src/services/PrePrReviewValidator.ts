@@ -8,6 +8,9 @@ export interface PrePrReviewEvidence {
   featureIntentSummary: string;
   implementationFit: string;
   missingCases: string;
+  specAlignmentChecked: boolean;
+  findingCount: number;
+  blockingFindings: number;
   files: Array<{
     path: string;
     review: {
@@ -47,6 +50,24 @@ function asRequiredNonEmptyString(value: unknown, field: string): string {
   throw createCliError(
     'VALIDATION_FAILED',
     `Evidence JSON ${field} is required.`
+  );
+}
+
+function asRequiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value === 'boolean') return value;
+  throw createCliError(
+    'VALIDATION_FAILED',
+    `Evidence JSON ${field} must be a boolean.`
+  );
+}
+
+function asRequiredNonNegativeInteger(value: unknown, field: string): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  throw createCliError(
+    'VALIDATION_FAILED',
+    `Evidence JSON ${field} must be a non-negative integer.`
   );
 }
 
@@ -178,10 +199,29 @@ export class PrePrReviewValidator {
         evidence.missingCases,
         '"missingCases"'
       ),
+      specAlignmentChecked: asRequiredBoolean(
+        evidence.specAlignmentChecked,
+        '"specAlignmentChecked"'
+      ),
+      findingCount: asRequiredNonNegativeInteger(
+        evidence.findingCount,
+        '"findingCount"'
+      ),
+      blockingFindings: asRequiredNonNegativeInteger(
+        evidence.blockingFindings,
+        '"blockingFindings"'
+      ),
       files: normalizeEvidenceFiles(evidence.files),
       residualRisks: asNonEmptyString(evidence.residualRisks, 'Not specified'),
       commandsExecuted: normalizeCommandsExecuted(evidence.commandsExecuted),
     };
+
+    if (normalizedEvidence.blockingFindings > normalizedEvidence.findingCount) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        'Evidence JSON "blockingFindings" cannot be greater than "findingCount".'
+      );
+    }
 
     // Check placeholder texts
     const contentString = JSON.stringify(normalizedEvidence).toLowerCase();

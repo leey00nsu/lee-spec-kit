@@ -12,6 +12,7 @@ import {
   resolvePrePrReviewPolicy,
 } from '../utils/workflow.js';
 import { getLocalDateString } from '../utils/date.js';
+import { getPrePrReviewPrompt } from '../utils/agent-orchestration.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -27,6 +28,11 @@ interface PrePrReviewOptions {
   json?: boolean;
 }
 
+interface PrePrReviewRunOptions {
+  component?: string;
+  json?: boolean;
+}
+
 const DEFAULT_EVIDENCE_FOR_ANY_MODE: PrePrReviewEvidence = {
   summary: 'manual pre-PR quality review completed',
   featureIntentSummary:
@@ -34,6 +40,9 @@ const DEFAULT_EVIDENCE_FOR_ANY_MODE: PrePrReviewEvidence = {
   implementationFit:
     'the implementation appears aligned with the documented feature intent',
   missingCases: 'no significant missing cases identified',
+  specAlignmentChecked: true,
+  findingCount: 0,
+  blockingFindings: 0,
   files: [],
   residualRisks: 'Not specified',
   commandsExecuted: [],
@@ -216,6 +225,9 @@ function buildReportContent(input: {
 - **Feature Intent Summary**: ${input.evidence.featureIntentSummary}
 - **Implementation Fit**: ${input.evidence.implementationFit}
 - **Missing Cases**: ${input.evidence.missingCases}
+- **Spec Alignment Checked**: ${input.evidence.specAlignmentChecked ? 'yes' : 'no'}
+- **Finding Count**: ${input.evidence.findingCount}
+- **Blocking Findings**: ${input.evidence.blockingFindings}
 ${commandsRun}
 
 - **Residual Risks**:
@@ -255,6 +267,41 @@ function appendDecisionLog(content: string, entry: string): string {
 
 export function prePrReviewCommand(program: Command): void {
   program
+    .command('pre-pr-review-run [feature-name]')
+    .description('Prepare the pre-PR review handoff prompt for agent execution')
+    .option('--component <component>', 'Component name for multi projects')
+    .option('--json', 'Output JSON')
+    .action(
+      async (
+        featureName: string | undefined,
+        options: PrePrReviewRunOptions
+      ) => {
+        try {
+          await runPrePrReviewRun(featureName, options);
+        } catch (error) {
+          const config = await getConfig(process.cwd());
+          const lang = config?.lang ?? DEFAULT_LANG;
+          const cliError = toCliError(error);
+          const suggestions = getCliErrorSuggestions(cliError.code, lang);
+          if (options.json) {
+            console.log(
+              JSON.stringify({
+                status: 'error',
+                reasonCode: cliError.code,
+                error: cliError.message,
+                suggestions,
+              })
+            );
+          } else {
+            console.error(chalk.red(`[${cliError.code}] ${cliError.message}`));
+            printCliErrorSuggestions(suggestions, lang);
+          }
+          process.exitCode = 1;
+        }
+      }
+    );
+
+  program
     .command('pre-pr-review [feature-name]')
     .description('Run and record pre-PR review evidence for a feature')
     .option('--component <component>', 'Component name for multi projects')
@@ -293,10 +340,15 @@ export function prePrReviewCommand(program: Command): void {
     );
 }
 
-async function runPrePrReview(
+async function resolvePrePrFeatureContext(
   featureName: string | undefined,
-  options: PrePrReviewOptions
-): Promise<void> {
+  component: string | undefined
+): Promise<{
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>;
+  ctx: Awaited<ReturnType<typeof createCliContext>>;
+  state: Awaited<ReturnType<typeof resolveContextSelection>>;
+  feature: NonNullable<Awaited<ReturnType<typeof resolveContextSelection>>['matchedFeature']>;
+}> {
   const config = await getConfig(process.cwd());
   if (!config) {
     throw createCliError(
@@ -306,14 +358,10 @@ async function runPrePrReview(
   }
 
   const selectionOptions = {
-    component: resolveComponentOption(options.component),
+    component: resolveComponentOption(component),
   };
   const ctx = (await createCliContext({ cwd: process.cwd() }))!;
-  const state = await resolveContextSelection(
-    ctx,
-    featureName,
-    selectionOptions
-  );
+  const state = await resolveContextSelection(ctx, featureName, selectionOptions);
   if (state.status !== 'single_matched' || !state.matchedFeature) {
     throw createCliError(
       'CONTEXT_SELECTION_REQUIRED',
@@ -321,7 +369,70 @@ async function runPrePrReview(
     );
   }
 
-  const feature = state.matchedFeature;
+  return {
+    config,
+    ctx,
+    state,
+    feature: state.matchedFeature,
+  };
+}
+
+async function runPrePrReviewRun(
+  featureName: string | undefined,
+  options: PrePrReviewRunOptions
+): Promise<void> {
+  const { config, feature } = await resolvePrePrFeatureContext(
+    featureName,
+    options.component
+  );
+  const policy = resolvePrePrReviewPolicy(config.workflow);
+  const prompt = getPrePrReviewPrompt(
+    config.lang,
+    policy.skills,
+    policy.fallback
+  );
+  const featureRef = feature.folderName;
+  const changesRequestedCommand = `npx lee-spec-kit pre-pr-review ${featureRef} --evidence review-trace.json --decision changes_requested`;
+  const approveCommand = `npx lee-spec-kit pre-pr-review ${featureRef} --evidence review-trace.json --decision approve`;
+
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          status: 'ready',
+          reasonCode: 'PRE_PR_REVIEW_RUN_READY',
+          feature: featureRef,
+          skills: policy.skills,
+          fallback: policy.fallback,
+          evidenceFile: 'review-trace.json',
+          prompt,
+          recordCommands: {
+            changesRequested: changesRequestedCommand,
+            approve: approveCommand,
+          },
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  console.log(prompt);
+  console.log();
+  console.log(`Evidence file: review-trace.json`);
+  console.log(`Record changes requested: ${changesRequestedCommand}`);
+  console.log(`Record approval: ${approveCommand}`);
+}
+
+async function runPrePrReview(
+  featureName: string | undefined,
+  options: PrePrReviewOptions
+): Promise<void> {
+  const { config, ctx, feature } = await resolvePrePrFeatureContext(
+    featureName,
+    options.component
+  );
   if (!feature.docs.tasksExists) {
     throw createCliError(
       'PRECONDITION_FAILED',
@@ -400,6 +511,21 @@ async function runPrePrReview(
       : decision === 'changes_requested'
         ? 'follow-up changes are required before PR creation'
         : 'blocked until prerequisite risk is resolved');
+
+  if (decision === 'approve') {
+    if (!evidenceObj!.specAlignmentChecked) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        'Cannot approve pre-PR review when specAlignmentChecked=false.'
+      );
+    }
+    if (evidenceObj!.blockingFindings > 0) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        'Cannot approve pre-PR review while blockingFindings is greater than 0.'
+      );
+    }
+  }
 
   if (policy.enforceExecutionEvidence) {
     const normalizedCommands = evidenceObj!.commandsExecuted

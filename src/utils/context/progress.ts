@@ -1,5 +1,12 @@
 import { tr } from '../i18n.js';
-import { FeatureState, Lang, NextAction, StepDefinition } from './types.js';
+import {
+  FeatureState,
+  Lang,
+  NextAction,
+  StepDefinition,
+  StepOwner,
+  StepPhase,
+} from './types.js';
 import { ProjectConfig } from '../config.js';
 
 function normalizeApprovalToken(value: string | undefined): string {
@@ -9,7 +16,8 @@ function normalizeApprovalToken(value: string | undefined): string {
 function applyApprovalPolicy(
   step: number,
   actions: NextAction[],
-  approval?: ProjectConfig['approval']
+  approval?: ProjectConfig['approval'],
+  currentSubstatePhase?: StepPhase
 ): NextAction[] {
   const taskExecuteCheckPolicy = approval?.taskExecuteCheck === 'start_only'
     ? 'start_only'
@@ -20,7 +28,9 @@ function applyApprovalPolicy(
       requiresUserCheck: applyTaskExecutePhaseCheck(
         action,
         Boolean(action.requiresUserCheck),
-        taskExecuteCheckPolicy
+        taskExecuteCheckPolicy,
+        false,
+        currentSubstatePhase
       ),
     }));
   }
@@ -31,7 +41,9 @@ function applyApprovalPolicy(
       requiresUserCheck: applyTaskExecutePhaseCheck(
         action,
         Boolean(action.requiresUserCheck),
-        taskExecuteCheckPolicy
+        taskExecuteCheckPolicy,
+        false,
+        currentSubstatePhase
       ),
     }));
   }
@@ -81,7 +93,8 @@ function applyApprovalPolicy(
         a,
         requiresUserCheck,
         taskExecuteCheckPolicy,
-        explicitlyRequired
+        explicitlyRequired,
+        currentSubstatePhase
       ),
     };
   });
@@ -91,11 +104,15 @@ function applyTaskExecutePhaseCheck(
   action: NextAction,
   requiresUserCheck: boolean,
   policy: 'both' | 'start_only',
-  explicitlyRequired = false
+  explicitlyRequired = false,
+  currentSubstatePhase?: StepPhase
 ): boolean {
   if (policy !== 'start_only') return requiresUserCheck;
   if (action.category !== 'task_execute') return requiresUserCheck;
-  if (action.taskExecutePhase !== 'complete') return requiresUserCheck;
+  const isCompletionPhase =
+    currentSubstatePhase === 'running' ||
+    (!currentSubstatePhase && action.taskExecutePhase === 'complete');
+  if (!isCompletionPhase) return requiresUserCheck;
   if (explicitlyRequired) return requiresUserCheck;
   return false;
 }
@@ -221,11 +238,51 @@ export function resolveFeatureProgress(
   approval?: ProjectConfig['approval']
 ): {
   currentStep: number;
+  currentSubstateId?: string;
+  currentSubstateOwner?: StepOwner;
+  currentSubstatePhase?: StepPhase;
   actions: NextAction[];
   nextAction: string;
 } {
   const ordered = [...stepDefinitions].sort((a, b) => a.step - b.step);
   for (const definition of ordered) {
+    if (definition.substates && definition.substates.length > 0) {
+      const matchedSubstate = definition.substates.find((substate) =>
+        substate.when(feature)
+      );
+      if (matchedSubstate) {
+        const actionsWithScopeSplit = withFeatureScopeSplitOptions(
+          matchedSubstate.actions(feature),
+          feature,
+          lang
+        );
+        const actionsWithWorktreeMove = withExistingWorktreeMoveOption(
+          actionsWithScopeSplit,
+          feature,
+          lang
+        );
+        const currentActions = withUserRequestReplanOption(
+          actionsWithWorktreeMove,
+          lang
+        );
+        const actions = applyApprovalPolicy(
+          definition.step,
+          currentActions,
+          approval,
+          matchedSubstate.phase
+        );
+        return {
+          currentStep: definition.step,
+          currentSubstateId: matchedSubstate.id,
+          currentSubstateOwner: matchedSubstate.owner,
+          currentSubstatePhase: matchedSubstate.phase,
+          actions,
+          nextAction: actions
+            .map((a) => (a.type === 'command' ? a.cmd : a.message))
+            .join('\n'),
+        };
+      }
+    }
     if (!definition.current) continue;
     if (definition.current.when(feature)) {
       const actionsWithScopeSplit = withFeatureScopeSplitOptions(

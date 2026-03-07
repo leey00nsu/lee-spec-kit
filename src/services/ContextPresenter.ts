@@ -93,7 +93,7 @@ export const LONG_RUNNING_DELEGATION_CATEGORIES = [
   'task_execute',
   'code_review',
   'review_fix_commit',
-  'pre_pr_review',
+  'pre_pr_review_run',
 ] as const;
 
 export function isTaskExecuteProjectCommitCommand(
@@ -108,6 +108,13 @@ export function isTaskExecuteProjectCommitCommand(
 export function shouldDelegateCurrentAction(actionOptions: ActionOption[]): {
   shouldDelegate: boolean;
   category: string | null;
+}
+export function shouldDelegateCurrentAction(
+  actionOptions: ActionOption[],
+  currentSubstateOwner?: FeatureContext['currentSubstateOwner']
+): {
+  shouldDelegate: boolean;
+  category: string | null;
 } {
   const primaryOption = actionOptions[0];
   const primaryCategory = primaryOption?.action?.category || null;
@@ -115,9 +122,13 @@ export function shouldDelegateCurrentAction(actionOptions: ActionOption[]): {
   const isCommand = primaryOption?.action?.type === 'command';
   const isRemoteCommand =
     isCommand && primaryOption?.action?.operationType === 'remote';
-  const shouldDelegate =
+  const ownerDelegates = currentSubstateOwner === 'subagent';
+  const legacyCategoryDelegates =
+    !currentSubstateOwner &&
     !!primaryCategory &&
-    longRunningSet.has(primaryCategory) &&
+    longRunningSet.has(primaryCategory);
+  const shouldDelegate =
+    (ownerDelegates || legacyCategoryDelegates) &&
     isCommand &&
     !isRemoteCommand &&
     !isTaskExecuteProjectCommitCommand(primaryOption);
@@ -131,9 +142,13 @@ export function buildAgentOrchestrationPolicy(
   actionOptions: ActionOption[],
   autoRunAvailable: boolean,
   autoRunCommand: string,
-  featureRef: string | null
+  featureRef: string | null,
+  currentSubstateOwner?: FeatureContext['currentSubstateOwner']
 ): AgentOrchestrationPolicy {
-  const delegation = shouldDelegateCurrentAction(actionOptions);
+  const delegation = shouldDelegateCurrentAction(
+    actionOptions,
+    currentSubstateOwner
+  );
   const primaryOption = actionOptions[0];
   const delegatedCommandOption =
     primaryOption &&

@@ -30,7 +30,7 @@ export const koContext = {
     'config 기준으로 승인 필요 카테고리 전까지 연속 실행하세요: {categories}',
   'context.autoRunCommandHint': '자동 실행 명령(config 게이트): {command}',
   'context.subAgentOrchestrationHint':
-    '메인 에이전트 오케스트레이션: 짧은 단계는 메인이 직접 수행하고, 장시간 루프(task_execute/code_review/review_fix_commit/pre_pr_review 또는 auto)는 서브 에이전트에 위임하세요.',
+    '메인 에이전트 오케스트레이션: 짧은 단계는 메인이 직접 수행하고, 장시간 루프(task_execute/code_review/review_fix_commit/pre_pr_review_run 또는 auto)는 서브 에이전트에 위임하세요.',
   'context.commandDetail.branchCreateWithWorktree':
     '({scope}) worktree {worktree}를 사용해 브랜치 {branch}를 생성하거나 재사용하세요',
   'context.commandDetail.branchCreateWithBranch':
@@ -42,7 +42,9 @@ export const koContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) 리뷰 수정 커밋을 push하세요',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) Pre-PR 리뷰를 실행하고 decisions.md와 tasks.md를 동기화하세요',
+    '({scope}) 서브 에이전트 실행용 Pre-PR 리뷰 handoff를 시작하세요',
+  'context.commandDetail.prePrReviewRecord':
+    '({scope}) Pre-PR 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
   'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
   'context.actionDetail.featureFolder':
@@ -69,9 +71,16 @@ export const koContext = {
   'context.actionDetail.issueCreateFromDoc':
     'Ready 상태 issue.md로 이슈를 생성하고 번호를 동기화하세요',
   'context.actionDetail.taskExecute': '현재 태스크를 진행하세요',
+  'context.actionDetail.taskExecuteRun':
+    '서브 에이전트 구현용 task 실행 handoff를 시작하세요',
+  'context.actionDetail.taskExecuteContinue':
+    '진행 중인 task 실행을 서브 에이전트 handoff로 이어가세요',
   'context.actionDetail.reviewFixCommit':
     '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
-  'context.actionDetail.prePrReview': 'PR 전 리뷰를 수행하고 결과를 기록하세요',
+  'context.actionDetail.prePrReviewRun':
+    'PR 전 리뷰를 수행하고 review-trace.json evidence를 생성하세요',
+  'context.actionDetail.prePrReviewRecord':
+    'PR 전 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.actionDetail.prCreate':
     'PR을 생성하고 tasks 기.md의 PR 정보를 맞추세요',
   'context.actionDetail.prCreateRequiredSequence':

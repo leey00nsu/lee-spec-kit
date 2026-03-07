@@ -74,9 +74,9 @@ export const enMessages = {
   prePrReviewFieldMissing:
     'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
   prePrReviewRun:
-    'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Findings`, and `Residual Risks`. Then execute `pre-pr-review --evidence review-trace.json` to record findings. (CHECK required)',
+    'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks`. Then execute `pre-pr-review --evidence review-trace.json` to record findings. (CHECK required)',
   prePrReviewEvidenceMissing:
-    'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`. (CHECK required)',
+    'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`. (CHECK required)',
   prePrReviewDecisionMissing:
     'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
   prePrReviewFixRequired:

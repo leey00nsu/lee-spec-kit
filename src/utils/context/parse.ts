@@ -1867,12 +1867,28 @@ export async function parseFeature(
     },
   };
 
-  const { currentStep, actions, nextAction } = resolveFeatureProgress(
+  const {
+    currentStep,
+    currentSubstateId,
+    currentSubstateOwner,
+    currentSubstatePhase,
+    actions,
+    nextAction,
+  } = resolveFeatureProgress(
     featureState,
     options.stepDefinitions,
     lang,
     options.approval
   );
 
-  return { ...featureState, currentStep, actions, nextAction, warnings };
+  return {
+    ...featureState,
+    currentStep,
+    currentSubstateId,
+    currentSubstateOwner,
+    currentSubstatePhase,
+    actions,
+    nextAction,
+    warnings,
+  };
 }

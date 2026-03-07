@@ -24,8 +24,8 @@ export function getPrePrReviewPrompt(
 2. Split and check the review scope.
    - Main scope: 'git diff --name-only $(git merge-base HEAD origin/main)..HEAD'
    - Worktree scope: 'git diff --name-only', 'git diff --name-only --cached', 'git ls-files --others --exclude-standard'
-3. Evaluate whether the implementation actually fits the feature intent. Capture concrete \`featureIntentSummary\`, \`implementationFit\`, \`missingCases\`, and \`residualRisks\`.
-4. Generate a 'review-trace.json' file for all changed files, including evaluations for risk, security, perf, maintainability, and specific fileLine locators.
+3. Evaluate whether the implementation actually fits the feature intent. Capture concrete \`featureIntentSummary\`, \`implementationFit\`, \`missingCases\`, and \`residualRisks\`, and explicitly set \`specAlignmentChecked\`.
+4. Generate a 'review-trace.json' file for all changed files, including \`findingCount\`, \`blockingFindings\`, evaluations for risk, security, perf, maintainability, and specific fileLine locators.
 5. The baseline is '${fallbackText}'. Always perform the 'Pre-PR Core Checklist' section of the 'create-pr' document.
 6. Priority skills: ${skills.length > 0 ? skills.join(', ') : 'None'} for deeper technical review.
 7. Run extra audit/targeted verification only when the review needs more evidence, and record those commands in \`commandsExecuted\` when used.

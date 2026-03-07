@@ -722,6 +722,12 @@ test('context requires project commit before starting next TODO task', async () 
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const payload = JSON.parse(context.stdout.trim());
 
+    assert.equal(payload.matchedFeature.currentSubstateId, 'task_commit_pending');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+    assert.equal(
+      payload.matchedFeature.currentSubstatePhase,
+      'commit_pending'
+    );
     assert.equal(payload.status, 'single_matched');
     assert.equal(typeof payload.matchedFeature.currentStep, 'number');
     assert.equal(payload.matchedFeature.git.docsHasUncommittedChanges, false);
@@ -821,6 +827,9 @@ test('context checklist-pending action uses actionable user-facing wording', asy
     const payload = JSON.parse(context.stdout.trim());
 
     assert.equal(typeof payload.matchedFeature.currentStep, 'number');
+    assert.equal(payload.matchedFeature.currentSubstateId, 'task_finalize');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'finalize');
     assert.equal(primaryActionOption(payload).action.type, 'instruction');
     assert.match(
       primaryActionOption(payload).action.message,
@@ -1165,22 +1174,15 @@ test('context strict task commit gate ignores latest commit when DONE transition
       const payload = JSON.parse(context.stdout.trim());
 
       assert.equal(payload.taskCommitGatePolicy, 'strict');
-      assert.equal(primaryActionOption(payload).action.type, 'instruction');
+      assert.equal(primaryActionOption(payload).action.type, 'command');
+      assert.equal(primaryActionOption(payload).action.category, 'task_execute');
       assert.match(
-        primaryActionOption(payload).action.message,
-        /Start the next TODO task/
+        primaryActionOption(payload).action.cmd || '',
+        /"task-run"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-02"/
       );
-      assert.doesNotMatch(
-        primaryActionOption(payload).action.message,
-        /Task commit boundary warning/
-      );
-      assert.doesNotMatch(
-        primaryActionOption(payload).action.message,
-        /DONE transitions.*0/
-      );
-      assert.doesNotMatch(
-        primaryActionOption(payload).action.message,
-        /Before moving to the next TODO task, you must satisfy/
+      assert.equal(
+        payload.agentOrchestration?.currentActionShouldDelegate,
+        true
       );
     }
   );
@@ -1866,6 +1868,9 @@ test('context executes pre_pr_review command and records review evidence', async
           implementationFit:
             'the current implementation follows the expected docs and module boundaries',
           missingCases: 'no significant missing cases identified',
+          specAlignmentChecked: true,
+          findingCount: 0,
+          blockingFindings: 0,
           files: [
             'docs/.lee-spec-kit.json',
             'docs/features/F001-alpha/decisions.md',
@@ -1925,10 +1930,24 @@ test('context executes pre_pr_review command and records review evidence', async
     const contextPayload = JSON.parse(context.stdout.trim());
     assert.equal(contextPayload.matchedFeature.currentStep, 12);
     assert.equal(
+      contextPayload.matchedFeature.currentSubstateId,
+      'pre_pr_review_record'
+    );
+    assert.equal(contextPayload.matchedFeature.currentSubstateOwner, 'main');
+    assert.equal(contextPayload.matchedFeature.currentSubstatePhase, 'record');
+    assert.equal(
       primaryActionOption(contextPayload).action.category,
-      'pre_pr_review'
+      'pre_pr_review_record'
     );
     assert.equal(primaryActionOption(contextPayload).action.type, 'command');
+    assert.equal(
+      contextPayload.agentOrchestration?.currentActionShouldDelegate,
+      false
+    );
+    assert.equal(
+      contextPayload.agentOrchestration?.subAgentHandoff?.required,
+      false
+    );
 
     const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
     const execute = await runCli(dir, [
@@ -2031,11 +2050,200 @@ test('context executes pre_pr_review command and records review evidence', async
     );
     assert.equal(contextAfterDocsSyncPayload.matchedFeature.currentStep, 13);
     assert.equal(
+      contextAfterDocsSyncPayload.matchedFeature.currentSubstateId,
+      'pr_create_prepare'
+    );
+    assert.equal(
+      contextAfterDocsSyncPayload.matchedFeature.currentSubstateOwner,
+      'main'
+    );
+    assert.equal(
+      contextAfterDocsSyncPayload.matchedFeature.currentSubstatePhase,
+      'ready'
+    );
+    assert.equal(
       primaryActionOption(contextAfterDocsSyncPayload).action.category,
       'pr_create'
     );
-  });
+});
 }, 20_000);
+
+test('pre-pr-review-run returns agent handoff prompt and record commands', async () => {
+  await withTempDir('lsk-pre-pr-review-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const runReview = await runCli(dir, [
+      'pre-pr-review-run',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(runReview.code, 0, runReview.stderr || runReview.stdout);
+    const payload = JSON.parse(runReview.stdout.trim());
+    assert.equal(payload.status, 'ready');
+    assert.equal(payload.reasonCode, 'PRE_PR_REVIEW_RUN_READY');
+    assert.equal(payload.feature, 'F001-alpha');
+    assert.equal(payload.evidenceFile, 'review-trace.json');
+    assert.match(payload.prompt || '', /review-trace\.json/i);
+    assert.match(
+      payload.recordCommands?.changesRequested || '',
+      /\bpre-pr-review F001-alpha --evidence review-trace\.json --decision changes_requested\b/
+    );
+    assert.match(
+      payload.recordCommands?.approve || '',
+      /\bpre-pr-review F001-alpha --evidence review-trace\.json --decision approve\b/
+    );
+  });
+});
+
+test('task-run marks TODO task as DOING and returns sub-agent handoff prompt', async () => {
+  await withTempDir('lsk-task-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'spec.md'
+    );
+    const planPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'plan.md'
+    );
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **Doc Status**: -',
+      '- **Doc Status**: Approved'
+    );
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAdd = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare task-run handoff',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const runTask = await runCli(dir, [
+      'task-run',
+      'F001-alpha',
+      '--task',
+      'T-F001-alpha-01',
+      '--json',
+    ]);
+    assert.equal(runTask.code, 0, runTask.stderr || runTask.stdout);
+    const payload = JSON.parse(runTask.stdout.trim());
+    assert.equal(payload.status, 'ready');
+    assert.equal(payload.reasonCode, 'TASK_RUN_READY');
+    assert.equal(payload.taskId, 'T-F001-alpha-01');
+    assert.equal(payload.mode, 'start');
+    assert.equal(payload.substateId, 'task_run');
+    assert.equal(payload.owner, 'subagent');
+    assert.equal(payload.nextMainState, 'task_finalize');
+    assert.equal(payload.tasksUpdated, true);
+    assert.match(payload.prompt || '', /Use sub-agents by default/i);
+
+    const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(tasksAfter, /\[DOING\]\[P1\] T-F001-alpha-01 implement alpha shell/);
+  });
+});
 
 test('pre-pr-review allows missing --evidence when evidenceMode is any and execution evidence enforcement is disabled', async () => {
   await withTempDir('lsk-pre-pr-review-evidence-any-', async (dir) => {
@@ -2250,6 +2458,119 @@ test('pre-pr-review requires explicit --decision when previous decision is non-a
     assert.equal(payload.reasonCode, 'INVALID_ARGUMENT');
     assert.match(payload.error, /Existing Pre-PR decision is "changes_requested"/);
     assert.match(payload.error, /explicit --decision/);
+  });
+});
+
+test('pre-pr-review rejects approve when blocking findings remain in evidence', async () => {
+  await withTempDir('lsk-pre-pr-review-blocking-findings-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Pending'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    await fs.writeFile(
+      path.join(dir, 'docs', 'review-trace.json'),
+      JSON.stringify(
+        {
+          summary: 'review completed with a blocking architecture issue',
+          featureIntentSummary:
+            'the feature should preserve the documented workflow boundaries',
+          implementationFit:
+            'the main implementation is close, but one blocking gap remains',
+          missingCases: 'session recovery path still misses the documented constraint',
+          specAlignmentChecked: true,
+          findingCount: 1,
+          blockingFindings: 1,
+          files: [
+            'docs/.lee-spec-kit.json',
+            'docs/features/F001-alpha/decisions.md',
+            'docs/features/F001-alpha/issue.md',
+            'docs/features/F001-alpha/plan.md',
+            'docs/features/F001-alpha/pr.md',
+            'docs/features/F001-alpha/spec.md',
+            'docs/features/F001-alpha/tasks.md',
+            'docs/review-trace.json',
+          ].map((entryPath) => ({
+            path: entryPath,
+            review: {
+              risk: entryPath.endsWith('tasks.md') ? 'high' : 'low',
+              security: 'none',
+              perf: 'n/a',
+              maintainability:
+                entryPath.endsWith('tasks.md')
+                  ? 'follow-up needed'
+                  : 'clear',
+              fileLine: '1-40',
+            },
+          })),
+          residualRisks: 'blocking architecture issue remains unresolved',
+        },
+        null,
+        2
+      ) + '\n',
+      'utf-8'
+    );
+
+    const runReview = await runCli(dir, [
+      'pre-pr-review',
+      'F001-alpha',
+      '--evidence',
+      'docs/review-trace.json',
+      '--decision',
+      'approve',
+      '--json',
+    ]);
+    assert.equal(runReview.code, 1);
+    const payload = JSON.parse(runReview.stdout.trim());
+    assert.equal(payload.reasonCode, 'VALIDATION_FAILED');
+    assert.match(payload.error, /blockingFindings/i);
   });
 });
 

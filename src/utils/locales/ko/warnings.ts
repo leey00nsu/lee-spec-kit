@@ -58,7 +58,7 @@ export const koWarnings = {
   workflowPrePrReviewNotDone:
     '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
   workflowPrePrEvidenceMissing:
-    '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (`Pre-PR Review Log`/`PR 전 리뷰 로그`에 placeholder가 아닌 `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`가 있는 실제 경로를 기록하세요.)',
+    '완료 상태이지만 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. (`Pre-PR Review Log`/`PR 전 리뷰 로그`에 placeholder가 아닌 `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`가 있는 실제 경로를 기록하세요.)',
   workflowPrePrDecisionMissing:
     '완료 상태이지만 `PR 전 리뷰 Decision`이 비어있거나 형식이 올바르지 않습니다. (`decision: approve|changes_requested|blocked ...` 형식)',
   workflowPrePrDecisionNotApproved:

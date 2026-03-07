@@ -31,7 +31,7 @@ export const enContext = {
   'context.autoRunCommandHint':
     'Auto-run command (config-based gate): {command}',
   'context.subAgentOrchestrationHint':
-    'Main-agent orchestration: keep short steps in the main agent, and delegate only long-running loops (task_execute/code_review/review_fix_commit/pre_pr_review or auto mode) to a sub-agent.',
+    'Main-agent orchestration: keep short steps in the main agent, and delegate only long-running loops (task_execute/code_review/review_fix_commit/pre_pr_review_run or auto mode) to a sub-agent.',
   'context.commandDetail.branchCreateWithWorktree':
     '({scope}) create or reuse worktree {worktree} for branch {branch}',
   'context.commandDetail.branchCreateWithBranch':
@@ -43,7 +43,9 @@ export const enContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) push review-fix commits',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) run pre-PR review and sync decisions.md + tasks.md',
+    '({scope}) launch pre-PR review handoff for sub-agent execution',
+  'context.commandDetail.prePrReviewRecord':
+    '({scope}) record pre-PR review evidence into decisions.md + tasks.md',
   'context.actionSummary.runDocsCommand': 'Run docs command',
   'context.actionSummary.runProjectCommand': 'Run project command',
   'context.actionDetail.featureFolder':
@@ -70,9 +72,16 @@ export const enContext = {
   'context.actionDetail.issueCreateFromDoc':
     'Create GitHub Issue from ready issue.md and sync Issue',
   'context.actionDetail.taskExecute': 'Proceed with the current task',
+  'context.actionDetail.taskExecuteRun':
+    'Launch task execution handoff for sub-agent implementation',
+  'context.actionDetail.taskExecuteContinue':
+    'Continue in-progress task execution via sub-agent handoff',
   'context.actionDetail.reviewFixCommit':
     'Create a review-fix commit with resolved feedback summary',
-  'context.actionDetail.prePrReview': 'Run pre-PR review and record results',
+  'context.actionDetail.prePrReviewRun':
+    'Run pre-PR review and generate review-trace.json evidence',
+  'context.actionDetail.prePrReviewRecord':
+    'Record pre-PR review evidence into decisions.md and tasks.md',
   'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
   'context.actionDetail.prCreateRequiredSequence':
     'Complete PR 2-step flow: prepare draft + OK, then create and sync',

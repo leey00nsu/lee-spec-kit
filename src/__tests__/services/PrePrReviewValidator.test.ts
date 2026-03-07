@@ -73,6 +73,21 @@ describe('PrePrReviewValidator', () => {
       });
   }
 
+  function buildEvidenceFields(
+    overrides: Partial<Record<string, unknown>> = {}
+  ): Record<string, unknown> {
+    return {
+      summary: 'implementation quality review completed',
+      featureIntentSummary: 'feature intent matches docs',
+      implementationFit: 'implementation fits the approved scope',
+      missingCases: 'no significant missing cases identified',
+      specAlignmentChecked: true,
+      findingCount: 0,
+      blockingFindings: 0,
+      ...overrides,
+    };
+  }
+
   it('throws INVALID_ARGUMENT when evidence file does not exist', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(false as never);
     await expect(
@@ -82,12 +97,7 @@ describe('PrePrReviewValidator', () => {
 
   it('throws VALIDATION_FAILED when files array is missing', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
-    vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
-    } as never);
+    vi.mocked(fs.readJson).mockResolvedValue(buildEvidenceFields() as never);
     await expect(
       validator.validateEvidence('dummy.json', '/root')
     ).rejects.toThrow(/missing a required "files" array/);
@@ -96,10 +106,7 @@ describe('PrePrReviewValidator', () => {
   it('throws VALIDATION_FAILED for TODO placeholder', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields(),
       files: [{ path: 'a.ts', review: { risk: 'TODO: fill this' } }],
     } as never);
     await expect(
@@ -110,10 +117,7 @@ describe('PrePrReviewValidator', () => {
   it('throws VALIDATION_FAILED for isolated 0 findings placeholder', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields(),
       files: [{ path: 'a.ts', review: { risk: 'high' } }],
       residualRisks: '0 findings',
     } as never);
@@ -136,10 +140,7 @@ describe('PrePrReviewValidator', () => {
   it('allows 0 findings if properly formatted inside files array', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields(),
       files: [{ path: 'a.ts', review: { risk: '0 findings' } }],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\n' });
@@ -150,10 +151,9 @@ describe('PrePrReviewValidator', () => {
   it('throws VALIDATION_FAILED if changed files are missing from evidence', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'session timeout handling is not fully covered',
+      ...buildEvidenceFields({
+        missingCases: 'session timeout handling is not fully covered',
+      }),
       files: [{ path: 'a.ts', review: { risk: 'low' } }],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\nb.ts\n' });
@@ -167,10 +167,9 @@ describe('PrePrReviewValidator', () => {
   it('passes validation when evidence covers all changed files without placeholders', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields({
+        findingCount: 2,
+      }),
       files: [
         { path: 'a.ts', review: { risk: 'low' } },
         { path: 'b.ts', review: { risk: 'low' } },
@@ -184,10 +183,7 @@ describe('PrePrReviewValidator', () => {
   it('normalizes optional evidence fields when omitted', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields(),
       files: [{ path: 'a.ts', review: { risk: 'low' } }],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\n' });
@@ -200,10 +196,9 @@ describe('PrePrReviewValidator', () => {
   it('returns separated main/worktree review scope', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields({
+        findingCount: 2,
+      }),
       files: [
         { path: 'a.ts', review: { risk: 'low' } },
         { path: 'b.ts', review: { risk: 'low' } },
@@ -230,10 +225,7 @@ describe('PrePrReviewValidator', () => {
   it('throws VALIDATION_FAILED when changed files cannot be determined', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      summary: 'implementation quality review completed',
-      featureIntentSummary: 'feature intent matches docs',
-      implementationFit: 'implementation fits the approved scope',
-      missingCases: 'no significant missing cases identified',
+      ...buildEvidenceFields(),
       files: [{ path: 'a.ts', review: { risk: 'low' } }],
     } as never);
     mockCtx.cmd.runAsync.mockResolvedValue({ code: 1, stdout: '' });
@@ -241,5 +233,19 @@ describe('PrePrReviewValidator', () => {
     await expect(
       validator.validateEvidence('dummy.json', '/root')
     ).rejects.toThrow(/Unable to determine changed files/);
+  });
+
+  it('throws VALIDATION_FAILED when blockingFindings exceeds findingCount', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      ...buildEvidenceFields({
+        findingCount: 1,
+        blockingFindings: 2,
+      }),
+      files: [{ path: 'a.ts', review: { risk: 'high' } }],
+    } as never);
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/blockingFindings.*findingCount/i);
   });
 });

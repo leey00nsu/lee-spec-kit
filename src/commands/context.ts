@@ -191,7 +191,8 @@ async function runContext(
     state.actionOptions,
     autoRunPlan.available,
     autoRunPlan.command,
-    state.matchedFeature?.folderName || null
+    state.matchedFeature?.folderName || null,
+    state.matchedFeature?.currentSubstateOwner
   );
 
   if (options.approve || options.execute) {

@@ -24,7 +24,7 @@ Pre-PR 리뷰에서 항상 수행하는 최소 기준입니다. 가능한 경우
 4. 현재 구현이 `spec.md` / `plan.md` / `tasks.md`에 기록된 feature 의도와 범위에 실제로 맞는지 평가합니다.
 5. 리뷰 에이전트를 먼저 실행해 `review-trace.json`을 만든 뒤 `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`을 실행합니다.
 6. `PR 전 리뷰 Evidence`는 실제 존재하는 문서 경로를 사용합니다. (`workflow.prePrReview.evidenceMode=path_required` 기본)
-7. `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Findings`, `Residual Risks`를 placeholder 없이 기록합니다.
+7. `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, `Residual Risks`를 placeholder 없이 기록합니다.
 8. 리뷰 중에 audit/타깃 검증 명령을 실제로 실행했다면 그때만 `commandsExecuted`에 기록합니다.
 9. 코드리뷰 단계에서도 `PR 리뷰 Evidence/Decision`과 `decisions.md`를 동기화하고 `PR Review Log`(또는 `PR 리뷰 로그`)의 `Summary`/`Decision`을 기록합니다.
 10. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.

@@ -426,6 +426,9 @@ test('context gates task execution on main workspace when workflow.requireWorktr
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const payload = JSON.parse(context.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 10);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'task_blocked');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'blocked');
 
     const branchCreateOption = payload.actionOptions.find(
       (option) => option.action.category === 'branch_create'
@@ -1481,6 +1484,17 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       primaryActionOption(startPayload).action.category,
       'task_execute'
     );
+    assert.equal(startPayload.matchedFeature.currentSubstateId, 'task_run');
+    assert.equal(
+      startPayload.matchedFeature.currentSubstateOwner,
+      'subagent'
+    );
+    assert.equal(startPayload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(primaryActionOption(startPayload).action.type, 'command');
+    assert.match(
+      primaryActionOption(startPayload).action.cmd || '',
+      /"task-run"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-01"/
+    );
     assert.equal(
       primaryActionOption(startPayload).action.taskExecutePhase,
       'start'
@@ -1489,6 +1503,15 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       primaryActionOption(startPayload).action.requiresUserCheck,
       true
     );
+    assert.equal(
+      startPayload.agentOrchestration?.currentActionShouldDelegate,
+      true
+    );
+    assert.equal(
+      startPayload.agentOrchestration?.subAgentHandoff?.required,
+      true
+    );
+    assert.equal(startPayload.agentOrchestration?.subAgentHandoff?.mode, 'command');
 
     const doingTasks = todoTasks.replace(
       '- [TODO][P1] T-F001-alpha-01 implement alpha shell',
@@ -1522,6 +1545,17 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       primaryActionOption(finishPayload).action.category,
       'task_execute'
     );
+    assert.equal(finishPayload.matchedFeature.currentSubstateId, 'task_running');
+    assert.equal(
+      finishPayload.matchedFeature.currentSubstateOwner,
+      'subagent'
+    );
+    assert.equal(finishPayload.matchedFeature.currentSubstatePhase, 'running');
+    assert.equal(primaryActionOption(finishPayload).action.type, 'command');
+    assert.match(
+      primaryActionOption(finishPayload).action.cmd || '',
+      /"task-run"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-01"/
+    );
     assert.equal(
       primaryActionOption(finishPayload).action.taskExecutePhase,
       'complete'
@@ -1529,6 +1563,10 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
     assert.equal(
       primaryActionOption(finishPayload).action.requiresUserCheck,
       false
+    );
+    assert.equal(
+      finishPayload.agentOrchestration?.currentActionShouldDelegate,
+      true
     );
   });
 });
@@ -1618,13 +1656,36 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
 
     assert.equal(payload.status, 'single_matched');
     assert.equal(payload.matchedFeature.currentStep, 12);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'pre_pr_review_run');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
     assert.equal(payload.matchedFeature.docs.prePrReviewFieldExists, true);
     assert.equal(payload.matchedFeature.prePrReview.status, 'Pending');
-    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.equal(primaryActionOption(payload).action.type, 'instruction');
+    assert.equal(
+      primaryActionOption(payload).action.category,
+      'pre_pr_review_run'
+    );
+    assert.equal(primaryActionOption(payload).action.type, 'command');
     assert.match(
-      primaryActionOption(payload).action.message,
-      /review-trace\.json/i
+      primaryActionOption(payload).action.cmd || '',
+      /\bpre-pr-review-run\b/
+    );
+    assert.match(
+      primaryActionOption(payload).detail,
+      /pre-PR review handoff|Pre-PR 리뷰 handoff/i
+    );
+    assert.equal(
+      payload.agentOrchestration?.currentActionShouldDelegate,
+      true
+    );
+    assert.equal(
+      payload.agentOrchestration?.subAgentHandoff?.required,
+      true
+    );
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'command');
+    assert.match(
+      payload.agentOrchestration?.subAgentHandoff?.cmd || '',
+      /\bpre-pr-review-run\b/
     );
     assert.equal(payload.prePrReviewPolicy.enabled, true);
     assert.deepEqual(payload.prePrReviewPolicy.skills, [
@@ -1724,12 +1785,15 @@ test('context pre-PR review requires evidence before PR step when review is mark
     assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
-    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.equal(primaryActionOption(payload).action.type, 'instruction');
-    assert.match(
-      primaryActionOption(payload).action.message,
-      /review-trace\.json/i
+    assert.equal(payload.matchedFeature.currentSubstateId, 'pre_pr_review_run');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(
+      primaryActionOption(payload).action.category,
+      'pre_pr_review_run'
     );
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.match(primaryActionOption(payload).action.cmd || '', /\bpre-pr-review-run\b/);
   });
 });
 
@@ -1817,12 +1881,12 @@ test('context pre-PR review requires decision before PR step when review is mark
     assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.matchedFeature.currentStep, 12);
-    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review');
-    assert.equal(primaryActionOption(payload).action.type, 'instruction');
-    assert.match(
-      primaryActionOption(payload).action.message,
-      /review-trace\.json/i
+    assert.equal(
+      primaryActionOption(payload).action.category,
+      'pre_pr_review_run'
     );
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+    assert.match(primaryActionOption(payload).action.cmd || '', /\bpre-pr-review-run\b/);
   });
 });
 
@@ -2120,12 +2184,9 @@ test('context pre-PR review requires structured evidence content before PR step'
       const payload = JSON.parse(result.stdout.trim());
       assert.equal(payload.matchedFeature.currentStep, 12);
       const action = primaryActionOption(payload).action;
-      assert.equal(
-        action.category,
-        'pre_pr_review'
-      );
-      assert.equal(action.type, 'instruction');
-      assert.match(action.message || '', /--decision approve/);
+      assert.equal(action.category, 'pre_pr_review_run');
+      assert.equal(action.type, 'command');
+      assert.match(action.cmd || '', /\bpre-pr-review-run\b/);
     }
   );
 });
@@ -2759,9 +2820,12 @@ process.exit(0);
         PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
       });
       assert.equal(context.code, 0, context.stderr || context.stdout);
-      const payload = JSON.parse(context.stdout.trim());
+    const payload = JSON.parse(context.stdout.trim());
 
       assert.equal(payload.matchedFeature.currentStep, 14);
+      assert.equal(payload.matchedFeature.currentSubstateId, 'code_review_run');
+      assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+      assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
       assert.equal(primaryActionOption(payload).action.category, 'code_review');
       assert.equal(primaryActionOption(payload).action.type, 'command');
       assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
@@ -3972,6 +4036,9 @@ test('context uses review-fix commit guidance when project is dirty during PR re
       const payload = JSON.parse(context.stdout.trim());
 
       assert.equal(payload.matchedFeature.currentStep, 11);
+      assert.equal(payload.matchedFeature.currentSubstateId, 'review_fix_loop');
+      assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+      assert.equal(payload.matchedFeature.currentSubstatePhase, 'commit_pending');
       assert.equal(primaryActionOption(payload).action.type, 'instruction');
       assert.equal(
         primaryActionOption(payload).action.category,

@@ -95,6 +95,8 @@ const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
   tasks_approve: 'context.actionDetail.tasksApprove',
   issue_create: 'context.actionDetail.issueCreate',
   review_fix_commit: 'context.actionDetail.reviewFixCommit',
+  pre_pr_review_run: 'context.actionDetail.prePrReviewRun',
+  pre_pr_review_record: 'context.actionDetail.prePrReviewRecord',
   pr_create: 'context.actionDetail.prCreate',
   pr_status_update: 'context.actionDetail.prStatusUpdate',
   code_review: 'context.actionDetail.codeReview',
@@ -249,7 +251,12 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
         });
       }
     }
-    if (action.category === 'pre_pr_review') {
+    if (action.category === 'pre_pr_review_record') {
+      return tr(lang, 'cli', 'context.commandDetail.prePrReviewRecord', {
+        scope: action.scope,
+      });
+    }
+    if (action.category === 'pre_pr_review_run') {
       return tr(lang, 'cli', 'context.commandDetail.prePrReviewRun', {
         scope: action.scope,
       });

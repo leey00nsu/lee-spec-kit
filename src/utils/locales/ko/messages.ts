@@ -75,9 +75,9 @@ export const koMessages = {
   prePrReviewFieldMissing:
     'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
   prePrReviewRun:
-    '코드 리뷰 에이전트를 실행해 `spec.md`/`plan.md`/`tasks.md` 대비 구현 적합성을 검토하고, `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Findings`/`Residual Risks`가 포함된 `review-trace.json`을 생성한 뒤 `pre-pr-review --evidence review-trace.json`으로 리뷰 결과를 기록하세요. (확인 필요)',
+    '코드 리뷰 에이전트를 실행해 `spec.md`/`plan.md`/`tasks.md` 대비 구현 적합성을 검토하고, `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Findings`/`Residual Risks`가 포함된 `review-trace.json`을 생성한 뒤 `pre-pr-review --evidence review-trace.json`으로 리뷰 결과를 기록하세요. (확인 필요)',
   prePrReviewEvidenceMissing:
-    'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`를 기록하세요. (확인 필요)',
+    'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`를 기록하세요. (확인 필요)',
   prePrReviewDecisionMissing:
     'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
   prePrReviewFixRequired:
