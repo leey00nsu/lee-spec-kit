@@ -15,7 +15,7 @@ export const enContext = {
   'context.actionOptionHint':
     'Label reply rules: answer as `A`, `A OK`, or `A proceed`',
   'context.actionExplainHint':
-    'Before requesting approval, explain what each label will run/change with a one-line summary.',
+    'Use the exact approval lines from the CLI first. Add extra explanation only if the user asks, and do not paraphrase the approval prompts.',
   'context.finalLabelPrompt':
     'Available labels now: {labels}. Reply using label-token rules (`A`, `A OK`, `A proceed`). (e.g. `{example}`)',
   'context.finalLabelPromptWithRequest':
@@ -46,6 +46,8 @@ export const enContext = {
     '({scope}) launch pre-PR review handoff for sub-agent execution',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) record pre-PR review evidence into decisions.md + tasks.md',
+  'context.commandDetail.codeReviewRun':
+    '({scope}) launch PR review handoff for sub-agent execution',
   'context.actionSummary.runDocsCommand': 'Run docs command',
   'context.actionSummary.runProjectCommand': 'Run project command',
   'context.actionDetail.featureFolder':
@@ -82,6 +84,8 @@ export const enContext = {
     'Run pre-PR review and generate review-trace.json evidence',
   'context.actionDetail.prePrReviewRecord':
     'Record pre-PR review evidence into decisions.md and tasks.md',
+  'context.actionDetail.codeReviewRun':
+    'Run PR review and prepare review evidence/fix summary',
   'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
   'context.actionDetail.prCreateRequiredSequence':
     'Complete PR 2-step flow: prepare draft + OK, then create and sync',

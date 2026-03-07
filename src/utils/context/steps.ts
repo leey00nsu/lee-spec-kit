@@ -1557,7 +1557,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'task_blocked',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'task_execute',
           when: (f) => isTaskExecuteBlocked(f),
           actions: (f) => getTaskExecuteBlockedActions(f),
@@ -1566,7 +1565,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'task_finalize',
           phase: 'finalize',
           owner: 'main',
-          mode: 'instruction',
           category: 'task_execute',
           when: (f) =>
             isTaskExecuteFinalize(f) && !isTaskExecuteCommitPending(f),
@@ -1576,7 +1574,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'task_running',
           phase: 'running',
           owner: 'subagent',
-          mode: 'command',
           category: 'task_execute',
           when: (f) => isTaskExecuteCurrent(f) && !!f.activeTask,
           actions: (f) => getTaskExecuteRunningActions(f),
@@ -1585,7 +1582,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'task_commit_pending',
           phase: 'commit_pending',
           owner: 'main',
-          mode: 'command',
           category: 'task_execute',
           when: (f) => isTaskExecuteCommitPending(f),
           actions: (f) => getTaskExecuteCommitPendingActions(f),
@@ -1594,7 +1590,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'task_run',
           phase: 'run',
           owner: 'subagent',
-          mode: 'command',
           category: 'task_execute',
           when: (f) =>
             isTaskExecuteCurrent(f) &&
@@ -1606,7 +1601,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'task_ready_fallback',
           phase: 'ready',
           owner: 'main',
-          mode: 'instruction',
           category: 'task_execute',
           when: (f) => isTaskExecuteCurrent(f),
           actions: (f) => [
@@ -1636,7 +1630,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'post_task_sync_docs',
           phase: 'commit_pending',
           owner: 'main',
-          mode: 'command',
           category: 'docs_commit',
           when: (f) => isPostTaskSyncDocs(f),
           actions: (f) => getPostTaskSyncDocsActions(f),
@@ -1645,7 +1638,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'review_fix_loop',
           phase: 'commit_pending',
           owner: 'main',
-          mode: 'instruction',
           category: 'review_fix_commit',
           when: (f) => isPostTaskSyncReviewFix(f),
           actions: (f) => getPostTaskSyncReviewFixActions(f),
@@ -1654,7 +1646,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'post_task_sync_project',
           phase: 'commit_pending',
           owner: 'main',
-          mode: 'command',
           category: 'task_execute',
           when: (f) => isPostTaskSyncProject(f),
           actions: (f) => getPostTaskSyncProjectActions(f),
@@ -1672,7 +1663,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pre_pr_review_migrate',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_metadata_migrate',
           when: (f) => isPrePrReviewMetadataMissing(f),
           actions: () => getPrePrReviewMetadataActions(),
@@ -1681,7 +1671,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pre_pr_fix_required',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'review_fix_commit',
           when: (f) => isPrePrReviewFixRequired(f),
           actions: (f) => getPrePrReviewFixActions(f),
@@ -1690,7 +1679,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pre_pr_review_run',
           phase: 'run',
           owner: 'subagent',
-          mode: 'command',
           category: 'pre_pr_review_run',
           when: (f) => isPrePrReviewRun(f),
           actions: (f) => getPrePrReviewRunActions(f),
@@ -1699,7 +1687,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pre_pr_review_record',
           phase: 'record',
           owner: 'main',
-          mode: 'command',
           category: 'pre_pr_review_record',
           when: (f) => isPrePrReviewRecord(f),
           actions: (f) => getPrePrReviewRecordActions(f),
@@ -1719,7 +1706,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pr_create_metadata_missing',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_metadata_migrate',
           when: (f) => isPrCreateMetadataMissing(f),
           actions: () => [
@@ -1736,7 +1722,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pr_create_doc_missing',
           phase: 'ready',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_create',
           when: (f) => isPrCreateDocMissing(f),
           actions: (f) => [
@@ -1755,7 +1740,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pr_create_ready',
           phase: 'ready',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_create',
           when: (f) => isPrCreateReady(f),
           actions: (f) => [
@@ -1774,7 +1758,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'pr_create_prepare',
           phase: 'ready',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_create',
           when: (f) => isPrCreatePrepare(f),
           actions: (f) => [
@@ -1804,7 +1787,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_status_missing',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_status_update',
           when: (f) => isCodeReviewStatusMissing(f),
           actions: () => [
@@ -1821,7 +1803,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_sync_approved',
           phase: 'record',
           owner: 'main',
-          mode: 'instruction',
           category: 'pr_status_update',
           when: (f) => isCodeReviewSyncApproved(f),
           actions: () => [
@@ -1838,7 +1819,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_need_evidence_field',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'code_review',
           when: (f) => isCodeReviewNeedEvidenceField(f),
           actions: () => [
@@ -1855,7 +1835,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_run',
           phase: 'run',
           owner: 'subagent',
-          mode: 'command',
           category: 'code_review_run',
           when: (f) => isCodeReviewRun(f),
           actions: (f) => getCodeReviewRunActions(f),
@@ -1864,7 +1843,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_need_evidence',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'code_review',
           when: (f) => isCodeReviewNeedEvidence(f),
           actions: () => [
@@ -1881,7 +1859,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_need_decision_field',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'code_review',
           when: (f) => isCodeReviewNeedDecisionField(f),
           actions: () => [
@@ -1898,7 +1875,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_need_decision',
           phase: 'blocked',
           owner: 'main',
-          mode: 'instruction',
           category: 'code_review',
           when: (f) => isCodeReviewNeedDecision(f),
           actions: () => [
@@ -1915,7 +1891,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_finalize',
           phase: 'finalize',
           owner: 'main',
-          mode: 'instruction',
           category: 'code_review',
           when: (f) => isCodeReviewFinalize(f),
           actions: (f) => getCodeReviewFinalizeActions(f),
@@ -1924,7 +1899,6 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           id: 'code_review_request_review',
           phase: 'ready',
           owner: 'main',
-          mode: 'instruction',
           category: 'code_review',
           when: (f) => isCodeReviewRequestReview(f),
           actions: () => [

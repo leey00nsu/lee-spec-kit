@@ -1,6 +1,10 @@
 import chalk from 'chalk';
 import { createHash } from 'crypto';
-import { FeatureContext, ACTION_CATEGORIES } from '../utils/context.js';
+import {
+  FeatureContext,
+  ACTION_CATEGORIES,
+  LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES,
+} from '../utils/context.js';
 import {
   ActionOption,
   ContextSelectionOptions,
@@ -59,10 +63,13 @@ export interface AutoRunPlan {
 export interface AgentOrchestrationPolicy {
   mode: 'main_orchestrates_subagent_execution';
   delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
+  /** @deprecated Compatibility mirror; prefer matchedFeature.currentSubstateOwner + subAgentHandoff. */
   delegateCommandExecution: 'long_running_only';
   delegateAutoRunExecution: true;
   fallbackToMainAgentWhenSubAgentUnavailable: true;
+  /** @deprecated Compatibility metadata for non-substate clients. */
   longRunningCategories: string[];
+  /** @deprecated Compatibility mirror of the primary delegation decision. */
   currentActionShouldDelegate: boolean;
   autoRunDelegationAvailable: boolean;
   autoRunShouldDelegate: boolean;
@@ -89,14 +96,6 @@ export interface AgentOrchestrationPolicy {
   };
 }
 
-export const LONG_RUNNING_DELEGATION_CATEGORIES = [
-  'task_execute',
-  'code_review_run',
-  'code_review',
-  'review_fix_commit',
-  'pre_pr_review_run',
-] as const;
-
 export function isTaskExecuteProjectCommitCommand(
   option: ActionOption | undefined
 ): boolean {
@@ -119,7 +118,9 @@ export function shouldDelegateCurrentAction(
 } {
   const primaryOption = actionOptions[0];
   const primaryCategory = primaryOption?.action?.category || null;
-  const longRunningSet = new Set<string>(LONG_RUNNING_DELEGATION_CATEGORIES);
+  const longRunningSet = new Set<string>(
+    LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES
+  );
   const isCommand = primaryOption?.action?.type === 'command';
   const isRemoteCommand =
     isCommand && primaryOption?.action?.operationType === 'remote';
@@ -191,7 +192,7 @@ export function buildAgentOrchestrationPolicy(
     delegateCommandExecution: 'long_running_only',
     delegateAutoRunExecution: true,
     fallbackToMainAgentWhenSubAgentUnavailable: true,
-    longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
+    longRunningCategories: [...LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES],
     currentActionShouldDelegate: delegation.shouldDelegate,
     autoRunDelegationAvailable: autoRunAvailable,
     autoRunShouldDelegate: shouldDelegateAutoRunNow,

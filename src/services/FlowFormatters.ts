@@ -4,6 +4,7 @@ import {
   ContextSelectionState,
   toReasonCode,
 } from '../utils/context-selection.js';
+import { LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES } from '../utils/context.js';
 import { AutoRunSummary } from './FlowOrchestrator.js';
 
 export interface CompactFlowFeatureSummary {
@@ -39,9 +40,11 @@ export interface CompactFlowFeatureSummary {
 export interface AgentOrchestrationPolicy {
   mode: 'main_orchestrates_subagent_execution';
   delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
+  /** @deprecated Compatibility mirror; prefer matchedFeature.currentSubstateOwner + subAgentHandoff. */
   delegateCommandExecution: 'long_running_only';
   delegateAutoRunExecution: true;
   fallbackToMainAgentWhenSubAgentUnavailable: true;
+  /** @deprecated Compatibility metadata for non-substate clients. */
   longRunningCategories: string[];
   mainAgentResponsibilities: string[];
   subAgentResponsibilities: string[];
@@ -64,14 +67,6 @@ export interface AgentOrchestrationPolicy {
     } | null;
   };
 }
-
-const LONG_RUNNING_DELEGATION_CATEGORIES = [
-  'task_execute',
-  'code_review_run',
-  'code_review',
-  'review_fix_commit',
-  'pre_pr_review_run',
-];
 
 export function getFeatureRef(
   feature: Pick<ContextSelectionState['features'][number], 'folderName'>
@@ -244,7 +239,7 @@ export function buildAgentOrchestrationPolicy(
     delegateCommandExecution: 'long_running_only',
     delegateAutoRunExecution: true,
     fallbackToMainAgentWhenSubAgentUnavailable: true,
-    longRunningCategories: [...LONG_RUNNING_DELEGATION_CATEGORIES],
+    longRunningCategories: [...LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES],
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
       'Run the same execution loop directly when sub-agent is unavailable',

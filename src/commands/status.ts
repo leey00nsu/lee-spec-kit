@@ -25,6 +25,11 @@ interface FeatureInfo {
   issue: string;
   status: string;
   progress: string;
+  step: number;
+  substate: string;
+  substateOwner: string;
+  substatePhase: string;
+  nextAction: string;
   path: string;
   implementationDone: boolean;
   workflowDone: boolean;
@@ -113,6 +118,11 @@ async function runStatus(options: StatusOptions): Promise<void> {
       issue,
       status,
       progress: `${done}/${total}`,
+      step: f.currentStep,
+      substate: f.currentSubstateId || '-',
+      substateOwner: f.currentSubstateOwner || '-',
+      substatePhase: f.currentSubstatePhase || '-',
+      nextAction: f.nextAction,
       path: relPath,
       implementationDone: f.completion.implementationDone,
       workflowDone: f.completion.workflowDone,
@@ -167,8 +177,10 @@ async function runStatus(options: StatusOptions): Promise<void> {
   features.sort((a, b) => a.id.localeCompare(b.id));
 
   // 테이블 출력
-  const header = '| ID | Name | Repo | Issue | Status | Progress | Path |';
-  const separator = '| --- | --- | --- | --- | --- | --- | --- |';
+  const header =
+    '| ID | Name | Repo | Issue | Status | Progress | Step | Substate | Path |';
+  const separator =
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |';
 
   console.log();
   console.log(header);
@@ -183,7 +195,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
             ? chalk.yellow
             : chalk.gray;
     console.log(
-      `| ${f.id} | ${f.name} | ${f.repo} | ${f.issue} | ${statusColor(f.status)} | ${f.progress} | ${f.path} |`
+      `| ${f.id} | ${f.name} | ${f.repo} | ${f.issue} | ${statusColor(f.status)} | ${f.progress} | ${f.step} | ${f.substate} | ${f.path} |`
     );
   }
   console.log();
@@ -203,7 +215,7 @@ async function runStatus(options: StatusOptions): Promise<void> {
       separator,
       ...features.map(
         (f) =>
-          `| ${f.id} | ${f.name} | ${f.repo} | ${f.issue} | ${f.status} | ${f.progress} | ${f.path} |`
+          `| ${f.id} | ${f.name} | ${f.repo} | ${f.issue} | ${f.status} | ${f.progress} | ${f.step} | ${f.substate} | ${f.path} |`
       ),
       '',
     ].join('\n');

@@ -15,7 +15,7 @@ export const koContext = {
   'context.actionOptionHint':
     '라벨 응답 규칙: `A`, `A OK`, `A 진행해` 중 하나의 형식으로 응답',
   'context.actionExplainHint':
-    '승인 요청 전, 각 라벨이 무엇을 실행/변경하는지 한 줄 요약과 함께 설명하세요.',
+    'CLI가 준 승인 문구를 먼저 그대로 보여주세요. 추가 설명은 사용자가 물을 때만 덧붙이고, 승인 문구 자체는 바꾸지 마세요.',
   'context.finalLabelPrompt':
     '현재 선택 가능한 라벨: {labels}. 라벨 응답 규칙(`A`, `A OK`, `A 진행해`)으로 응답하세요. (예: `{example}`)',
   'context.finalLabelPromptWithRequest':
@@ -45,6 +45,8 @@ export const koContext = {
     '({scope}) 서브 에이전트 실행용 Pre-PR 리뷰 handoff를 시작하세요',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) Pre-PR 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
+  'context.commandDetail.codeReviewRun':
+    '({scope}) 서브 에이전트 실행용 PR 리뷰 handoff를 시작하세요',
   'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
   'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
   'context.actionDetail.featureFolder':
@@ -81,6 +83,8 @@ export const koContext = {
     'PR 전 리뷰를 수행하고 review-trace.json evidence를 생성하세요',
   'context.actionDetail.prePrReviewRecord':
     'PR 전 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
+  'context.actionDetail.codeReviewRun':
+    'PR 리뷰를 수행하고 리뷰 evidence/수정 요약을 준비하세요',
   'context.actionDetail.prCreate':
     'PR을 생성하고 tasks 기.md의 PR 정보를 맞추세요',
   'context.actionDetail.prCreateRequiredSequence':

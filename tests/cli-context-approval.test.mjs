@@ -3233,6 +3233,178 @@ test('context code_review step delegates review run before evidence is recorded'
   });
 });
 
+test('status --json includes substate metadata for review-run workflow states', async () => {
+  await withTempDir('lsk-status-substate-review-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR**: -',
+      '- **PR**: https://github.com/acme/repo/pull/77'
+    );
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    if (!tasks.includes('PR Review Evidence')) {
+      tasks = tasks.replace(
+        '- **PR Status**: Review',
+        '- **PR Status**: Review\n- **PR Review Evidence**: -\n- **PR Review Decision**: -'
+      );
+    }
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare status substate review run case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['status', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.features[0].step, 14);
+    assert.equal(payload.features[0].substate, 'code_review_run');
+    assert.equal(payload.features[0].substateOwner, 'subagent');
+    assert.equal(payload.features[0].substatePhase, 'run');
+    assert.equal(typeof payload.features[0].nextAction, 'string');
+  });
+});
+
+test('view shows substate details for review-run workflow states', async () => {
+  await withTempDir('lsk-view-substate-review-run-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        enabled: false,
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR**: -',
+      '- **PR**: https://github.com/acme/repo/pull/77'
+    );
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    if (!tasks.includes('PR Review Evidence')) {
+      tasks = tasks.replace(
+        '- **PR Status**: Review',
+        '- **PR Status**: Review\n- **PR Review Evidence**: -\n- **PR Review Decision**: -'
+      );
+    }
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+      '.lee-spec-kit.json',
+    ]);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare view substate review run case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, ['view', 'F001-alpha']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /- Step: 14/);
+    assert.match(result.stdout, /- Substate: code_review_run/);
+    assert.match(result.stdout, /- Owner: subagent/);
+    assert.match(result.stdout, /- Phase: run/);
+  });
+});
+
 test('context code_review step keeps Review status and guides merge command', async () => {
   await withTempDir('lsk-context-code-review-merge-guidance-', async (dir) => {
     const initResult = await runCli(dir, [

@@ -7,14 +7,16 @@ export type {
   NextAction,
   OperationType,
   PrePrReviewStatus,
-  StepMode,
   StepDefinition,
   StepOwner,
   StepPhase,
   StepSubstate,
   TaskRef,
 } from './types.js';
-export { ACTION_CATEGORIES } from './types.js';
+export {
+  ACTION_CATEGORIES,
+  LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES,
+} from './types.js';
 
 export { getStepDefinitions, getStepsMap } from './steps.js';
 export { resolveFeatureProgress } from './progress.js';

@@ -170,7 +170,8 @@ export interface ProjectConfig {
      */
     skipOkCategories?: string[];
     /**
-     * task_execute approval phase policy.
+     * Legacy task_execute phase override for approval policy.
+     * Applies only to task_execute start/complete compatibility handling.
      * - both (default): require checks for both TODO->DOING and DOING->DONE phases.
      * - start_only: require checks only for TODO->DOING phase.
      */

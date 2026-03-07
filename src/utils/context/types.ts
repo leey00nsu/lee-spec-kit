@@ -38,6 +38,7 @@ export const ACTION_CATEGORIES = [
   'pre_pr_review_run',
   'pre_pr_review_record',
   'pr_status_update',
+  'code_review_run',
   'code_review',
   'feature_scope_split',
   'worktree_cleanup',
@@ -47,11 +48,17 @@ export const ACTION_CATEGORIES = [
 ] as const;
 
 export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
+export const LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES = [
+  'task_execute',
+  'code_review_run',
+  'code_review',
+  'review_fix_commit',
+  'pre_pr_review_run',
+] as const;
 
 export type OperationType = 'local' | 'remote' | 'manual';
 export type TaskExecutePhase = 'start' | 'complete';
 export type StepOwner = 'main' | 'subagent';
-export type StepMode = 'command' | 'instruction' | 'remote';
 export type StepPhase =
   | 'ready'
   | 'run'
@@ -59,8 +66,7 @@ export type StepPhase =
   | 'finalize'
   | 'record'
   | 'commit_pending'
-  | 'blocked'
-  | 'done';
+  | 'blocked';
 
 export type NextAction =
   | {
@@ -229,7 +235,6 @@ export interface StepSubstate {
   id: string;
   phase: StepPhase;
   owner: StepOwner;
-  mode: StepMode;
   category: ActionCategory;
   when: (feature: FeatureState) => boolean;
   actions: (feature: FeatureState) => NextAction[];

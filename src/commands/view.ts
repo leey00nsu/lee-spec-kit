@@ -146,8 +146,11 @@ async function runView(
         : f.completion.implementationDone
           ? chalk.cyan('DONE')
           : chalk.yellow('IN_PROGRESS');
+      const substateText = f.currentSubstateId
+        ? `${f.currentSubstateId} (${f.currentSubstateOwner ?? '-'} / ${f.currentSubstatePhase ?? '-'})`
+        : '-';
       console.log(
-        `- ${f.folderName} (${f.tasks.done}/${f.tasks.total}) ${statusText} step:${f.currentStep}`
+        `- ${f.folderName} (${f.tasks.done}/${f.tasks.total}) ${statusText} step:${f.currentStep} substate:${substateText}`
       );
       console.log(chalk.gray(`  next: ${f.nextAction}`));
     }
@@ -176,6 +179,9 @@ async function runView(
   console.log(`- State: ${stateLabel}`);
   console.log(`- Progress: ${completion}`);
   console.log(`- Step: ${f.currentStep}`);
+  console.log(`- Substate: ${f.currentSubstateId ?? '-'}`);
+  console.log(`- Owner: ${f.currentSubstateOwner ?? '-'}`);
+  console.log(`- Phase: ${f.currentSubstatePhase ?? '-'}`);
   const nextSummary =
     state.actionOptions.length > 0
       ? state.actionOptions[0].detail

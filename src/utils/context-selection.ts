@@ -80,6 +80,7 @@ const LOCAL_ACTION_CATEGORIES: ReadonlySet<ActionCategory> = new Set([
   'branch_create',
   'task_execute',
   'review_fix_commit',
+  'code_review_run',
   'worktree_cleanup',
 ]);
 
@@ -99,6 +100,7 @@ const ACTION_DETAIL_KEY_BY_CATEGORY: Partial<Record<ActionCategory, string>> = {
   pre_pr_review_record: 'context.actionDetail.prePrReviewRecord',
   pr_create: 'context.actionDetail.prCreate',
   pr_status_update: 'context.actionDetail.prStatusUpdate',
+  code_review_run: 'context.actionDetail.codeReviewRun',
   code_review: 'context.actionDetail.codeReview',
   feature_scope_split: 'context.actionDetail.featureScopeSplit',
   worktree_cleanup: 'context.actionDetail.worktreeCleanup',
@@ -258,6 +260,11 @@ function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
     }
     if (action.category === 'pre_pr_review_run') {
       return tr(lang, 'cli', 'context.commandDetail.prePrReviewRun', {
+        scope: action.scope,
+      });
+    }
+    if (action.category === 'code_review_run') {
+      return tr(lang, 'cli', 'context.commandDetail.codeReviewRun', {
         scope: action.scope,
       });
     }
