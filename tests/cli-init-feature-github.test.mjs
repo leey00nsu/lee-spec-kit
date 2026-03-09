@@ -876,6 +876,101 @@ test('github pr default title includes feature ref instead of generic implementa
   });
 });
 
+test('github pr --create strips markdown formatting from ready pr.md title metadata', async () => {
+  await withTempDir('lsk-github-pr-title-sanitize-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'daily-theme-hall-of-fame',
+      '--id',
+      'F013',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const prDocPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F013-daily-theme-hall-of-fame',
+      'pr.md'
+    );
+    const prDoc = `# PR Draft: daily-theme-hall-of-fame
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: \`feat:\` **daily-theme-hall-of-fame** ([PR](https://example.com))
+- **Base**: main
+- **Created**: 2026-03-09
+
+## Overview
+
+ready pr.md title metadata should be sanitized before gh pr create.
+
+## Changes
+
+- [ ] sanitize markdown title
+
+## Tests
+
+- [ ] title metadata regression
+
+## Architecture Diagram
+
+\`\`\`mermaid
+flowchart TD
+  A[Metadata] --> B[Sanitized Title]
+\`\`\`
+
+## Related Docs
+
+- Spec: \`docs/features/F013-daily-theme-hall-of-fame/spec.md\`
+- Tasks: \`docs/features/F013-daily-theme-hall-of-fame/tasks.md\`
+`;
+    await fs.writeFile(prDocPath, prDoc, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F013-daily-theme-hall-of-fame',
+        '--create',
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(
+      log,
+      /--title feat: daily-theme-hall-of-fame \(PR\)/
+    );
+    assert.doesNotMatch(log, /--title .*`/);
+    assert.doesNotMatch(log, /--title .*\*\*/);
+    assert.doesNotMatch(log, /--title .*\[PR\]\(/);
+  });
+});
+
 test('github issue --create runs gh from standalone project root', async () => {
   await withTempDir('lsk-github-issue-standalone-cwd-', async (dir) => {
     const projectRoot = path.join(dir, 'project');

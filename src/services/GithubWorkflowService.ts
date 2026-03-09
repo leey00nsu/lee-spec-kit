@@ -185,6 +185,20 @@ export function sanitizeDraftMetadataValue(
   return value;
 }
 
+export function sanitizeDraftTitleValue(
+  raw: string | undefined
+): string | undefined {
+  const value = sanitizeDraftMetadataValue(raw);
+  if (!value) return undefined;
+  const normalized = value
+    .replace(/`/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized || undefined;
+}
+
 export function parseWorkflowDraftStatus(
   raw: string | undefined
 ): 'draft' | 'ready' | undefined {
@@ -207,7 +221,7 @@ export function parseWorkflowDraftMetadata(
   const status = parseWorkflowDraftStatus(
     extractDraftMetadataValue(content, ['Status', '상태'])
   );
-  const title = sanitizeDraftMetadataValue(
+  const title = sanitizeDraftTitleValue(
     extractDraftMetadataValue(content, ['Title', '제목', 'PR Title', 'PR 제목'])
   );
   const labels = sanitizeDraftMetadataValue(
