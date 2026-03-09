@@ -469,7 +469,7 @@ test('github issue --create succeeds with --confirm OK', async () => {
       '--lang',
       'en',
       '--workflow',
-      'local',
+      'github',
       '--dir',
       './docs',
     ]);
@@ -505,6 +505,89 @@ test('github issue --create succeeds with --confirm OK', async () => {
 
     const log = await fs.readFile(fakeGh.logPath, 'utf-8');
     assert.match(log, /^issue create /m);
+  });
+});
+
+test('github issue/pr create sync workflow draft docs so later PR body gets close keyword', async () => {
+  await withTempDir('lsk-github-issue-syncs-for-pr-close-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const issueBodyFile = path.join(dir, 'tmp-issue-body.md');
+    const prBodyFile = path.join(dir, 'tmp-pr-body.md');
+    await writeIssueBodyWithoutTodo(issueBodyFile);
+    await writePrBodyWithoutTodo(prBodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const issueCreate = await runCli(
+      dir,
+      [
+        'github',
+        'issue',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        issueBodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(issueCreate.code, 0, issueCreate.stderr || issueCreate.stdout);
+    const issuePayload = JSON.parse(issueCreate.stdout.trim());
+    assert.equal(issuePayload.reasonCode, 'ISSUE_CREATED');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(tasksContent, /^- \*\*Issue\*\*: #123$/m);
+    const issueDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'issue.md');
+    const issueDocContent = await fs.readFile(issueDocPath, 'utf-8');
+    assert.match(issueDocContent, /^- \*\*Issue\*\*: #123$/m);
+
+    const prCreate = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        prBodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(prCreate.code, 0, prCreate.stderr || prCreate.stdout);
+    const prPayload = JSON.parse(prCreate.stdout.trim());
+    assert.equal(prPayload.reasonCode, 'PR_CREATED_SYNCED');
+    assert.match(prPayload.body, /\nCloses #123\n$/);
+
+    const prDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md');
+    const prDocContent = await fs.readFile(prDocPath, 'utf-8');
+    assert.match(
+      prDocContent,
+      /^- \*\*PR\*\*: https:\/\/github\.com\/acme\/repo\/pull\/77$/m
+    );
+    assert.match(prDocContent, /^- \*\*PR Status\*\*: Review$/m);
   });
 });
 

@@ -151,6 +151,7 @@ export function githubCommand(program: Command): void {
           );
 
           let issueUrl: string | undefined;
+          let syncChanged = false;
           if (options.create) {
             const projectGitCwd = ghService.resolveGithubProjectCwd(
               config,
@@ -186,6 +187,19 @@ export function githubCommand(program: Command): void {
               ghService.tg(config.lang, 'createIssueFailed')
             );
             issueUrl = created.stdout.trim() || undefined;
+            const syncedIssueNumber = ghService.extractIssueNumberFromUrl(issueUrl);
+            if (syncedIssueNumber) {
+              const synced = ghService.syncTasksIssueMetadata(
+                path.join(config.docsDir, paths.tasksPath),
+                syncedIssueNumber,
+                config.lang
+              );
+              const draftSynced = ghService.syncIssueDraftMetadata(
+                path.join(config.docsDir, paths.issuePath),
+                syncedIssueNumber
+              );
+              syncChanged = synced.changed || draftSynced.changed;
+            }
           }
 
           if (options.json) {
@@ -203,6 +217,7 @@ export function githubCommand(program: Command): void {
                   body,
                   bodyFile,
                   issueUrl,
+                  syncChanged,
                 },
                 null,
                 2
@@ -500,13 +515,18 @@ export function githubCommand(program: Command): void {
           }
 
           if (prUrl && options.syncTasks !== false) {
-            const synced = ghService.syncTasksPrMetadata(
+            const syncedTasks = ghService.syncTasksPrMetadata(
               path.join(config.docsDir, paths.tasksPath),
               prUrl,
               'Review',
               config.lang
             );
-            syncChanged = synced.changed;
+            const syncedDraft = ghService.syncPrDraftMetadata(
+              path.join(config.docsDir, paths.prPath),
+              prUrl,
+              'Review'
+            );
+            syncChanged = syncedTasks.changed || syncedDraft.changed;
             const shouldCommitSync = !!options.commitSync || !!options.merge;
             if (syncChanged && shouldCommitSync) {
               const docsGitCwd = ghService.resolveGithubDocsCwd(
@@ -521,9 +541,9 @@ export function githubCommand(program: Command): void {
                 : ghService.tg(config.lang, 'syncCommitNoIssue', {
                     folder: feature.folderName,
                   });
-              ghService.commitAndPushPath(
+              ghService.commitAndPushPaths(
                 docsGitCwd,
-                synced.path,
+                [syncedTasks.path, syncedDraft.path],
                 message,
                 config.lang,
                 { pushToOrigin: pushDocsSync }
@@ -546,29 +566,35 @@ export function githubCommand(program: Command): void {
             mergeAlreadyMerged = merged.alreadyMerged;
 
             if (prUrl && options.syncTasks !== false) {
-              const mergedSync = ghService.syncTasksPrMetadata(
+              const mergedTasksSync = ghService.syncTasksPrMetadata(
                 path.join(config.docsDir, paths.tasksPath),
                 prUrl,
                 'Approved',
                 config.lang
               );
-              syncChanged = syncChanged || mergedSync.changed;
-              if (mergedSync.changed) {
+              const mergedDraftSync = ghService.syncPrDraftMetadata(
+                path.join(config.docsDir, paths.prPath),
+                prUrl,
+                'Approved'
+              );
+              syncChanged =
+                syncChanged || mergedTasksSync.changed || mergedDraftSync.changed;
+              if (mergedTasksSync.changed || mergedDraftSync.changed) {
                 const docsGitCwd = ghService.resolveGithubDocsCwd(
                   config,
                   feature
                 );
                 const message = feature.issueNumber
                   ? ghService.tg(config.lang, 'syncCommitWithIssue', {
-                      issue: feature.issueNumber,
-                      folder: feature.folderName,
-                    })
+                    issue: feature.issueNumber,
+                    folder: feature.folderName,
+                  })
                   : ghService.tg(config.lang, 'syncCommitNoIssue', {
                       folder: feature.folderName,
                     });
-                ghService.commitAndPushPath(
+                ghService.commitAndPushPaths(
                   docsGitCwd,
-                  mergedSync.path,
+                  [mergedTasksSync.path, mergedDraftSync.path],
                   message,
                   config.lang,
                   { pushToOrigin: pushDocsSync }

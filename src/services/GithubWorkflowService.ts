@@ -1646,6 +1646,106 @@ export function insertFieldInGithubIssueSection(
   return { content: lines.join('\n'), changed: true };
 }
 
+export function insertFieldInMetadataSection(
+  content: string,
+  key: string,
+  value: string
+): { content: string; changed: boolean } {
+  const lines = content.split('\n');
+  const headingIndex = lines.findIndex((line) => /^\s*##\s+Metadata\s*$/.test(line));
+  if (headingIndex < 0) return { content, changed: false };
+
+  let end = lines.length;
+  for (let i = headingIndex + 1; i < lines.length; i++) {
+    if (/^\s*##\s+/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+
+  lines.splice(end, 0, `- **${key}**: ${value}`);
+  return { content: lines.join('\n'), changed: true };
+}
+
+export function extractIssueNumberFromUrl(
+  issueUrl: string | undefined
+): string | undefined {
+  const value = (issueUrl || '').trim();
+  if (!value) return undefined;
+  const match = value.match(/\/issues\/(\d+)(?:[/?#]|$)/);
+  return match?.[1];
+}
+
+export function syncTasksIssueMetadata(
+  tasksPath: string,
+  issueNumber: string,
+  lang: Lang
+): { changed: boolean; path: string } {
+  if (!fs.existsSync(tasksPath)) {
+    throw createCliError(
+      'DOCS_NOT_FOUND',
+      tg(lang, 'tasksNotFound', { path: tasksPath })
+    );
+  }
+
+  const original = fs.readFileSync(tasksPath, 'utf-8');
+  let next = original;
+  let changed = false;
+  const issueValue = `#${issueNumber}`;
+
+  const issueReplaced = replaceListField(
+    next,
+    ['Issue', 'Issue Number', '이슈', '이슈 번호'],
+    issueValue
+  );
+  next = issueReplaced.content;
+  changed = changed || issueReplaced.changed;
+  if (!issueReplaced.found) {
+    const inserted = insertFieldInGithubIssueSection(next, 'Issue', issueValue);
+    next = inserted.content;
+    changed = changed || inserted.changed;
+  }
+
+  if (changed) {
+    fs.writeFileSync(tasksPath, next, 'utf-8');
+  }
+
+  return { changed, path: tasksPath };
+}
+
+export function syncIssueDraftMetadata(
+  issueDocPath: string,
+  issueNumber: string
+): { changed: boolean; path: string } {
+  if (!fs.existsSync(issueDocPath)) {
+    return { changed: false, path: issueDocPath };
+  }
+
+  const original = fs.readFileSync(issueDocPath, 'utf-8');
+  let next = original;
+  let changed = false;
+  const issueValue = `#${issueNumber}`;
+
+  const issueReplaced = replaceListField(
+    next,
+    ['Issue', 'Issue Number', '이슈', '이슈 번호'],
+    issueValue
+  );
+  next = issueReplaced.content;
+  changed = changed || issueReplaced.changed;
+  if (!issueReplaced.found) {
+    const inserted = insertFieldInMetadataSection(next, 'Issue', issueValue);
+    next = inserted.content;
+    changed = changed || inserted.changed;
+  }
+
+  if (changed) {
+    fs.writeFileSync(issueDocPath, next, 'utf-8');
+  }
+
+  return { changed, path: issueDocPath };
+}
+
 export function syncTasksPrMetadata(
   tasksPath: string,
   prUrl: string,
@@ -1695,6 +1795,48 @@ export function syncTasksPrMetadata(
   return { changed, path: tasksPath };
 }
 
+export function syncPrDraftMetadata(
+  prDocPath: string,
+  prUrl: string,
+  nextStatus: 'Review' | 'Approved'
+): { changed: boolean; path: string } {
+  if (!fs.existsSync(prDocPath)) {
+    return { changed: false, path: prDocPath };
+  }
+
+  const original = fs.readFileSync(prDocPath, 'utf-8');
+  let next = original;
+  let changed = false;
+
+  const prReplaced = replaceListField(next, ['PR', 'Pull Request'], prUrl);
+  next = prReplaced.content;
+  changed = changed || prReplaced.changed;
+  if (!prReplaced.found) {
+    const inserted = insertFieldInMetadataSection(next, 'PR', prUrl);
+    next = inserted.content;
+    changed = changed || inserted.changed;
+  }
+
+  const statusReplaced = replaceListField(
+    next,
+    ['PR Status', 'PR 상태'],
+    nextStatus
+  );
+  next = statusReplaced.content;
+  changed = changed || statusReplaced.changed;
+  if (!statusReplaced.found) {
+    const inserted = insertFieldInMetadataSection(next, 'PR Status', nextStatus);
+    next = inserted.content;
+    changed = changed || inserted.changed;
+  }
+
+  if (changed) {
+    fs.writeFileSync(prDocPath, next, 'utf-8');
+  }
+
+  return { changed, path: prDocPath };
+}
+
 export function gitCurrentBranch(cwd: string, lang: Lang): string {
   const result = runProcessOrThrow(
     'git',
@@ -1736,6 +1878,54 @@ export function commitAndPushPath(
   runProcessOrThrow(
     'git',
     ['add', '--', relativePath],
+    cwd,
+    tg(lang, 'stageFileFailed')
+  );
+  runProcessOrThrow(
+    'git',
+    ['commit', '-m', message],
+    cwd,
+    tg(lang, 'commitSyncFailed')
+  );
+
+  if (options?.pushToOrigin === false) return;
+
+  const branch = gitCurrentBranch(cwd, lang);
+  runProcessOrThrow(
+    'git',
+    ['push', '-u', 'origin', branch],
+    cwd,
+    tg(lang, 'pushSyncFailed')
+  );
+}
+
+export function commitAndPushPaths(
+  cwd: string,
+  absPaths: string[],
+  message: string,
+  lang: Lang,
+  options?: { pushToOrigin?: boolean }
+): void {
+  const uniqueRelativePaths = [
+    ...new Set(
+      absPaths
+        .filter((absPath) => !!absPath && fs.existsSync(absPath))
+        .map((absPath) => path.relative(cwd, absPath) || absPath)
+    ),
+  ];
+  if (uniqueRelativePaths.length === 0) return;
+
+  const status = runProcessOrThrow(
+    'git',
+    ['status', '--porcelain=v1', '--', ...uniqueRelativePaths],
+    cwd,
+    tg(lang, 'inspectFileStatusFailed')
+  );
+  if (status.stdout.trim().length === 0) return;
+
+  runProcessOrThrow(
+    'git',
+    ['add', '--', ...uniqueRelativePaths],
     cwd,
     tg(lang, 'stageFileFailed')
   );
