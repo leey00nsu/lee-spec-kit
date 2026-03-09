@@ -1142,6 +1142,51 @@ test('context --approve captures user request text for user_request_replan label
   });
 });
 
+test('context --approve treats free-form reply as user_request_replan when that option exists', async () => {
+  await withTempDir('lsk-context-approve-replan-implicit-request-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const contextPayload = JSON.parse(context.stdout.trim());
+    const replanOption = contextPayload.actionOptions.find(
+      (option) => option.action.category === 'user_request_replan'
+    );
+    assert.equal(Boolean(replanOption), true);
+
+    const requestText = 'API error response format should be unified';
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      requestText,
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.status, 'approved_selected');
+    assert.equal(approvePayload.action.category, 'user_request_replan');
+    assert.equal(approvePayload.userRequest, requestText);
+  });
+});
+
 test('context --approve rejects user_request_replan label without request text', async () => {
   await withTempDir(
     'lsk-context-approve-replan-empty-request-',

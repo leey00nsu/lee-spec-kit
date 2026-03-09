@@ -108,7 +108,15 @@ export async function runApprovedOption(
     approval,
     state.actionOptions.map((o) => o.label)
   );
-  parsedLabel = parsedApproval?.label ?? null;
+  const replanOptions = state.actionOptions.filter(
+    (option) => option.action.category === 'user_request_replan'
+  );
+  const implicitReplanRequest = approval.trim();
+  parsedLabel =
+    parsedApproval?.label ??
+    (replanOptions.length > 0 && implicitReplanRequest
+      ? replanOptions[0].label
+      : null);
   if (!parsedLabel) {
     throw createCliError(
       'INVALID_APPROVAL',
@@ -158,7 +166,10 @@ export async function runApprovedOption(
 
   const selectedAction = freshSelected.action;
   if (selectedAction.category === 'user_request_replan') {
-    const requestText = parsedApproval?.requestText?.trim();
+    const requestText = (
+      parsedApproval?.requestText?.trim() ||
+      (parsedApproval ? '' : implicitReplanRequest)
+    ).trim();
     if (!requestText) {
       throw createCliError(
         'INVALID_APPROVAL',
