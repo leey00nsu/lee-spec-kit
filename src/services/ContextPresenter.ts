@@ -773,6 +773,10 @@ export function toCompactActionOption(
     base.taskExecutePhase = option.action.taskExecutePhase;
   }
 
+  if (option.action.uiDetailParams) {
+    base.uiDetailParams = option.action.uiDetailParams;
+  }
+
   if (option.action.type === 'command') {
     base.scope = option.action.scope;
     base.cwd = option.action.cwd;

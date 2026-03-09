@@ -155,11 +155,11 @@ function annotateActions(actions: FeatureContext['actions']): ContextAction[] {
 
 function getActionSummary(action: ContextAction, lang: 'ko' | 'en'): string {
   if (action.uiSummaryKey) {
-    const localized = tr(lang, 'cli', action.uiSummaryKey);
+    const localized = tr(lang, 'cli', action.uiSummaryKey, action.uiDetailParams);
     if (localized !== `cli.${action.uiSummaryKey}`) return localized;
   }
   if (action.uiDetailKey) {
-    const localized = tr(lang, 'cli', action.uiDetailKey);
+    const localized = tr(lang, 'cli', action.uiDetailKey, action.uiDetailParams);
     if (localized !== `cli.${action.uiDetailKey}`) return localized;
   }
   const detailKey = action.category
@@ -190,7 +190,7 @@ function toOneLine(text: string): string {
 
 function buildActionDetail(action: ContextAction, lang: 'ko' | 'en'): string {
   if (action.uiDetailKey) {
-    const localized = tr(lang, 'cli', action.uiDetailKey);
+    const localized = tr(lang, 'cli', action.uiDetailKey, action.uiDetailParams);
     if (localized !== `cli.${action.uiDetailKey}`) return localized;
   }
 
@@ -330,6 +330,9 @@ function buildActionSnapshot(
         requiresUserCheck: !!action.requiresUserCheck,
         uiSummaryKey: action.uiSummaryKey,
         uiDetailKey: action.uiDetailKey,
+        uiDetailParams: action.uiDetailParams
+          ? JSON.stringify(action.uiDetailParams)
+          : undefined,
       };
     }
     return {
@@ -341,6 +344,9 @@ function buildActionSnapshot(
       requiresUserCheck: !!action.requiresUserCheck,
       uiSummaryKey: action.uiSummaryKey,
       uiDetailKey: action.uiDetailKey,
+      uiDetailParams: action.uiDetailParams
+        ? JSON.stringify(action.uiDetailParams)
+        : undefined,
     };
   });
 }

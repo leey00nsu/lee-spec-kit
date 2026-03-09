@@ -319,6 +319,17 @@ function resolveProjectCommitTopic(feature: FeatureState): string {
   return toShellSafeCommitTopic(topic);
 }
 
+function resolveTaskUiLabel(task?: FeatureState['activeTask']): string {
+  if (!task) return 'T-unknown task';
+  const id = task.id?.trim();
+  const title = task.title.trim();
+  const normalizedTitle = id
+    ? title.replace(new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`), '')
+    : title;
+  if (id) return `${id} - ${normalizedTitle || title}`;
+  return title || 'T-unknown task';
+}
+
 function getReviewFixCommitGuidance(
   feature: FeatureState,
   lang: Lang,
@@ -739,6 +750,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       requiresUserCheck: true,
       taskExecutePhase: 'complete',
       uiDetailKey: 'context.actionDetail.taskExecuteContinue',
+      uiDetailParams: {
+        task: resolveTaskUiLabel(f.activeTask),
+      },
       scope: 'docs',
       cwd: f.git.docsGitCwd,
       cmd: buildSelfCliCommand(
@@ -877,6 +891,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
         requiresUserCheck: true,
         taskExecutePhase: 'start',
         uiDetailKey: 'context.actionDetail.taskExecuteRun',
+        uiDetailParams: {
+          task: resolveTaskUiLabel(f.nextTodoTask),
+        },
         scope: 'docs',
         cwd: f.git.docsGitCwd,
         cmd: buildSelfCliCommand(

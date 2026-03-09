@@ -75,9 +75,9 @@ export const enContext = {
     'Create GitHub Issue from ready issue.md and sync Issue',
   'context.actionDetail.taskExecute': 'Proceed with the current task',
   'context.actionDetail.taskExecuteRun':
-    'Prepare helper agent/sub-agent task handoff and start the task. (TODO becomes DOING)',
+    'Prepare helper agent/sub-agent task handoff and start the task: {task}. (TODO becomes DOING)',
   'context.actionDetail.taskExecuteContinue':
-    'Prepare helper agent/sub-agent handoff and continue the in-progress task',
+    'Prepare helper agent/sub-agent handoff and continue the in-progress task: {task}',
   'context.actionDetail.reviewFixCommit':
     'Create a review-fix commit with resolved feedback summary',
   'context.actionDetail.prePrReviewRun':

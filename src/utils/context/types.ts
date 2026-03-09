@@ -80,6 +80,7 @@ export type NextAction =
       taskExecutePhase?: TaskExecutePhase;
       uiSummaryKey?: string;
       uiDetailKey?: string;
+      uiDetailParams?: Record<string, string | number>;
     }
   | {
       type: 'instruction';
@@ -90,6 +91,7 @@ export type NextAction =
       taskExecutePhase?: TaskExecutePhase;
       uiSummaryKey?: string;
       uiDetailKey?: string;
+      uiDetailParams?: Record<string, string | number>;
     };
 
 export interface TaskRef {

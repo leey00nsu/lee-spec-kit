@@ -1633,6 +1633,14 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       primaryActionOption(startPayload).action.requiresUserCheck,
       true
     );
+    assert.match(
+      primaryActionOption(startPayload).detail,
+      /T-F001-alpha-01 - implement alpha shell/
+    );
+    assert.match(
+      primaryActionOption(startPayload).approvalPrompt,
+      /T-F001-alpha-01 - implement alpha shell/
+    );
     assert.equal(
       startPayload.agentOrchestration?.currentActionShouldDelegate,
       true
@@ -1693,6 +1701,14 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
     assert.equal(
       primaryActionOption(finishPayload).action.requiresUserCheck,
       false
+    );
+    assert.match(
+      primaryActionOption(finishPayload).detail,
+      /T-F001-alpha-01 - implement alpha shell/
+    );
+    assert.match(
+      primaryActionOption(finishPayload).approvalPrompt,
+      /T-F001-alpha-01 - implement alpha shell/
     );
     assert.equal(
       finishPayload.agentOrchestration?.currentActionShouldDelegate,
