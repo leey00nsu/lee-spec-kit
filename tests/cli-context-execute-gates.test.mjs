@@ -2130,6 +2130,107 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
   });
 });
 
+test('context ignores stale parent review-trace json from another feature', async () => {
+  await withTempDir('lsk-context-ignore-stale-parent-pre-pr-evidence-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      mode: 'github',
+      requireIssue: false,
+      requireBranch: false,
+      requirePr: true,
+      requireReview: true,
+      prePrReview: {
+        skills: ['code-review-excellence'],
+      },
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **PR Status**: -',
+      '- **PR Status**: -\n- **Pre-PR Review**: Pending'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    await fs.writeFile(
+      path.join(dir, 'review-trace.json'),
+      JSON.stringify(
+        {
+          feature: 'F999-unrelated-feature',
+          decision: 'approve',
+          files: [],
+        },
+        null,
+        2
+      ) + '\n',
+      'utf-8'
+    );
+
+    const repoGitRoot = dir;
+    await runCommand(repoGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    await runCommand(repoGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(repoGitRoot, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+      'docs/.lee-spec-kit.json',
+      'review-trace.json',
+    ]);
+    const repoCommit = await runCommand(repoGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare stale parent pre-pr evidence case',
+    ]);
+    assert.equal(repoCommit.code, 0, repoCommit.stderr || repoCommit.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.matchedFeature.currentStep, 12);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'pre_pr_review_run');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review_run');
+    assert.equal(primaryActionOption(payload).action.type, 'command');
+  });
+});
+
 test('pre-pr-review-run record commands include --component in multi projects', async () => {
   await withTempDir('lsk-pre-pr-review-run-multi-', async (dir) => {
     const initResult = await runCli(dir, [

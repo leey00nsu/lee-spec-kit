@@ -222,19 +222,52 @@ function buildCodeReviewRunCommandArgs(feature: FeatureState): string[] {
   return commandArgs;
 }
 
+function isNonEmptyStringValue(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isNonNegativeIntegerValue(value: unknown): boolean {
+  return Number.isInteger(value) && Number(value) >= 0;
+}
+
+function isLikelyCurrentPrePrReviewEvidence(
+  evidencePath: string,
+  feature: FeatureState
+): boolean {
+  try {
+    const raw = fs.readFileSync(evidencePath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+
+    const evidenceFeature = (parsed.feature || '').toString().trim();
+    if (evidenceFeature && evidenceFeature !== feature.folderName) {
+      return false;
+    }
+
+    return (
+      isNonEmptyStringValue(parsed.summary) &&
+      isNonEmptyStringValue(parsed.featureIntentSummary) &&
+      isNonEmptyStringValue(parsed.implementationFit) &&
+      isNonEmptyStringValue(parsed.missingCases) &&
+      typeof parsed.specAlignmentChecked === 'boolean' &&
+      isNonNegativeIntegerValue(parsed.findingCount) &&
+      isNonNegativeIntegerValue(parsed.blockingFindings) &&
+      Array.isArray(parsed.files)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
   const docsRoot = feature.git.docsGitCwd;
-  const docsParent = path.dirname(docsRoot);
   const candidates: string[] = [];
   const explicit = (feature.prePrReview.evidence || '').trim();
   if (explicit && explicit !== '-') {
     if (path.isAbsolute(explicit)) {
       candidates.push(explicit);
     } else {
-      candidates.push(path.resolve(docsRoot, explicit));
-      candidates.push(path.resolve(docsParent, explicit));
-      candidates.push(path.resolve(process.cwd(), explicit));
       candidates.push(path.resolve(feature.path, explicit));
+      candidates.push(path.resolve(docsRoot, explicit));
       const normalizedExplicit = explicit.replace(/\\/g, '/');
       if (normalizedExplicit.startsWith('docs/')) {
         const withoutDocsPrefix = normalizedExplicit.slice('docs/'.length);
@@ -244,9 +277,8 @@ function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
       }
     }
   }
-  candidates.push(path.resolve(process.cwd(), 'review-trace.json'));
-  candidates.push(path.join(docsRoot, 'review-trace.json'));
   candidates.push(path.join(feature.path, 'review-trace.json'));
+  candidates.push(path.join(docsRoot, 'review-trace.json'));
 
   const seen = new Set<string>();
   for (const candidate of candidates) {
@@ -255,6 +287,7 @@ function resolvePrePrReviewEvidencePath(feature: FeatureState): string | null {
     seen.add(abs);
     if (!fs.existsSync(abs)) continue;
     if (!abs.toLowerCase().endsWith('.json')) continue;
+    if (!isLikelyCurrentPrePrReviewEvidence(abs, feature)) continue;
     const rel = path.relative(docsRoot, abs).replace(/\\/g, '/');
     if (rel && !rel.startsWith('../')) {
       return rel;
