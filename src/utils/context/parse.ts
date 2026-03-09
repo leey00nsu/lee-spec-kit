@@ -160,14 +160,22 @@ function hasStructuredReviewSummary(value: string | undefined): boolean {
   if (!value) return false;
   const trimmed = value.trim();
   if (!trimmed) return false;
-  return /^(?:summary|요약)\s*[:：]\s*\S.+$/i.test(trimmed);
+  const match = trimmed.match(/^(?:summary|요약)\s*[:：]\s*(.+)$/i);
+  if (!match) return false;
+  const payload = (match[1] || '').trim();
+  if (!payload) return false;
+  return !isReviewDraftPlaceholder(payload) && !isPlaceholderReviewEvidence(payload);
 }
 
 function hasStructuredReviewDecision(value: string | undefined): boolean {
   if (!value) return false;
   const trimmed = value.trim();
   if (!trimmed) return false;
-  return /^(?:decision|결정)\s*[:：]\s*\S.+$/i.test(trimmed);
+  const match = trimmed.match(/^(?:decision|결정)\s*[:：]\s*(.+)$/i);
+  if (!match) return false;
+  const payload = (match[1] || '').trim();
+  if (!payload) return false;
+  return !isReviewDraftPlaceholder(payload) && !isPlaceholderReviewEvidence(payload);
 }
 
 function parsePrePrDecisionOutcome(

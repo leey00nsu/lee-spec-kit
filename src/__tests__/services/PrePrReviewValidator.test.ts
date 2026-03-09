@@ -88,6 +88,19 @@ describe('PrePrReviewValidator', () => {
     };
   }
 
+  function buildFileReview(
+    overrides: Partial<Record<string, unknown>> = {}
+  ): Record<string, unknown> {
+    return {
+      risk: 'low',
+      security: 'none',
+      perf: 'n/a',
+      maintainability: 'clear',
+      fileLine: '1-10',
+      ...overrides,
+    };
+  }
+
   it('throws INVALID_ARGUMENT when evidence file does not exist', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(false as never);
     await expect(
@@ -107,7 +120,8 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields(),
-      files: [{ path: 'a.ts', review: { risk: 'TODO: fill this' } }],
+      files: [{ path: 'a.ts', review: buildFileReview({ risk: 'TODO: fill this' }) }],
+      residualRisks: ['none'],
     } as never);
     await expect(
       validator.validateEvidence('dummy.json', '/root')
@@ -118,7 +132,7 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields(),
-      files: [{ path: 'a.ts', review: { risk: 'high' } }],
+      files: [{ path: 'a.ts', review: buildFileReview({ risk: 'high' }) }],
       residualRisks: '0 findings',
     } as never);
     await expect(
@@ -129,8 +143,8 @@ describe('PrePrReviewValidator', () => {
   it('throws VALIDATION_FAILED when quality review summary fields are missing', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
-      files: [{ path: 'a.ts', review: { risk: 'low' } }],
-      residualRisks: 'no residual risks found in reviewed scope',
+      files: [{ path: 'a.ts', review: buildFileReview() }],
+      residualRisks: ['no residual risks found in reviewed scope'],
     } as never);
     await expect(
       validator.validateEvidence('dummy.json', '/root')
@@ -141,7 +155,8 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields(),
-      files: [{ path: 'a.ts', review: { risk: '0 findings' } }],
+      files: [{ path: 'a.ts', review: buildFileReview({ risk: '0 findings' }) }],
+      residualRisks: ['none'],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\n' });
     const result = await validator.validateEvidence('dummy.json', '/root');
@@ -154,7 +169,8 @@ describe('PrePrReviewValidator', () => {
       ...buildEvidenceFields({
         missingCases: 'session timeout handling is not fully covered',
       }),
-      files: [{ path: 'a.ts', review: { risk: 'low' } }],
+      files: [{ path: 'a.ts', review: buildFileReview() }],
+      residualRisks: ['none'],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\nb.ts\n' });
     await expect(
@@ -171,9 +187,10 @@ describe('PrePrReviewValidator', () => {
         findingCount: 2,
       }),
       files: [
-        { path: 'a.ts', review: { risk: 'low' } },
-        { path: 'b.ts', review: { risk: 'low' } },
+        { path: 'a.ts', review: buildFileReview() },
+        { path: 'b.ts', review: buildFileReview() },
       ],
+      residualRisks: ['none'],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\nb.ts\n' });
     const result = await validator.validateEvidence('dummy.json', '/root');
@@ -184,13 +201,102 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields(),
-      files: [{ path: 'a.ts', review: { risk: 'low' } }],
+      files: [{ path: 'a.ts', review: buildFileReview() }],
+    } as never);
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/residualRisks/i);
+  });
+
+  it('accepts flat file review entries and residual risk arrays', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      ...buildEvidenceFields({
+        findingCount: 1,
+      }),
+      files: [
+        {
+          path: 'a.ts',
+          risk: 'medium',
+          security: 'none',
+          performance: 'low overhead',
+          maintainability: 'clear follow-up note',
+          fileLine: 88,
+        },
+      ],
+      residualRisks: ['manual fallback path still depends on browser retry'],
     } as never);
     setupGitScopeMock({ mainDiff: 'a.ts\n' });
 
     const result = await validator.validateEvidence('dummy.json', '/root');
-    expect(result.residualRisks).toBe('Not specified');
-    expect(result.commandsExecuted).toEqual([]);
+    expect(result.files).toEqual([
+      {
+        path: 'a.ts',
+        review: {
+          risk: 'medium',
+          security: 'none',
+          perf: 'low overhead',
+          maintainability: 'clear follow-up note',
+          fileLine: '88',
+        },
+      },
+    ]);
+    expect(result.residualRisks).toEqual([
+      'manual fallback path still depends on browser retry',
+    ]);
+  });
+
+  it('throws VALIDATION_FAILED when file review fields would otherwise be coerced to placeholders', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      ...buildEvidenceFields(),
+      files: [{ path: 'a.ts', review: { risk: 'low' } }],
+      residualRisks: ['none'],
+    } as never);
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/files\[0\]\.security/i);
+  });
+
+  it('throws VALIDATION_FAILED when summary uses draft placeholder text', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      ...buildEvidenceFields({
+        summary: 'TBD',
+      }),
+      files: [{ path: 'a.ts', review: buildFileReview() }],
+      residualRisks: ['none'],
+    } as never);
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/summary.*placeholder/i);
+  });
+
+  it('throws VALIDATION_FAILED when fileLine is not parser-friendly', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      ...buildEvidenceFields({
+        findingCount: 1,
+      }),
+      files: [
+        {
+          path: 'a.ts',
+          review: buildFileReview({ fileLine: 'TBD' }),
+        },
+      ],
+      residualRisks: ['none'],
+    } as never);
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/fileLine.*numeric line reference/i);
   });
 
   it('returns separated main/worktree review scope', async () => {
@@ -200,9 +306,10 @@ describe('PrePrReviewValidator', () => {
         findingCount: 2,
       }),
       files: [
-        { path: 'a.ts', review: { risk: 'low' } },
-        { path: 'b.ts', review: { risk: 'low' } },
+        { path: 'a.ts', review: buildFileReview() },
+        { path: 'b.ts', review: buildFileReview() },
       ],
+      residualRisks: ['none'],
     } as never);
     setupGitScopeMock({
       baseRef: 'origin/main',
@@ -226,7 +333,8 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields(),
-      files: [{ path: 'a.ts', review: { risk: 'low' } }],
+      files: [{ path: 'a.ts', review: buildFileReview() }],
+      residualRisks: ['none'],
     } as never);
     mockCtx.cmd.runAsync.mockResolvedValue({ code: 1, stdout: '' });
 
@@ -242,7 +350,8 @@ describe('PrePrReviewValidator', () => {
         findingCount: 1,
         blockingFindings: 2,
       }),
-      files: [{ path: 'a.ts', review: { risk: 'high' } }],
+      files: [{ path: 'a.ts', review: buildFileReview({ risk: 'high' }) }],
+      residualRisks: ['none'],
     } as never);
     await expect(
       validator.validateEvidence('dummy.json', '/root')

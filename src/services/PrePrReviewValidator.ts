@@ -21,7 +21,7 @@ export interface PrePrReviewEvidence {
       fileLine: string;
     };
   }>;
-  residualRisks: string;
+  residualRisks: string[];
   commandsExecuted: string[];
 }
 
@@ -71,11 +71,104 @@ function asRequiredNonNegativeInteger(value: unknown, field: string): number {
   );
 }
 
+function asRequiredTextLike(value: unknown, field: string): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  if (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    !Number.isNaN(value)
+  ) {
+    return String(value);
+  }
+  throw createCliError(
+    'VALIDATION_FAILED',
+    `Evidence JSON ${field} is required.`
+  );
+}
+
+function isPlaceholderReviewEvidence(value: string): boolean {
+  return /^(?:-|#)?\s*(?:tbd|todo|n\/a|na|none|pending|미정|없음|-)\s*$/i.test(
+    value.trim()
+  );
+}
+
+function isReviewDraftPlaceholder(value: string): boolean {
+  return /^(?:-|#)?\s*(?:tbd|todo|pending|fill(?:\s+in)?|template|example|미정|작성|기입|n\/a|na)\b/i.test(
+    value.trim()
+  );
+}
+
+function isExplicitNoMissingCasesEntry(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  return (
+    trimmed === 'none' ||
+    trimmed === 'no missing cases' ||
+    trimmed === 'no significant missing cases' ||
+    trimmed === 'no significant missing cases identified' ||
+    trimmed === 'no notable gaps identified' ||
+    trimmed === '누락 케이스 없음' ||
+    trimmed === '부족한 점 없음'
+  );
+}
+
+function isExplicitNoResidualRiskEntry(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  return (
+    trimmed === 'none' ||
+    trimmed === 'no residual risk' ||
+    trimmed === 'no residual risks' ||
+    trimmed === 'no residual risks found' ||
+    trimmed === 'no residual risks found in reviewed scope' ||
+    trimmed === '잔여 리스크 없음' ||
+    trimmed === '잔여 위험 없음'
+  );
+}
+
+function asRequiredReviewField(
+  value: unknown,
+  field: string,
+  options?: { allowExplicitNone?: boolean }
+): string {
+  const normalized = asRequiredTextLike(value, field);
+  const allowExplicitNone = !!options?.allowExplicitNone;
+  if (isReviewDraftPlaceholder(normalized)) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      `Evidence JSON ${field} contains draft placeholder text.`
+    );
+  }
+  if (
+    isPlaceholderReviewEvidence(normalized) &&
+    !(allowExplicitNone && normalized.trim().toLowerCase() === 'none')
+  ) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      `Evidence JSON ${field} contains placeholder evidence text.`
+    );
+  }
+  return normalized;
+}
+
 function normalizeCommandsExecuted(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-    .filter(Boolean);
+  if (value == null) return [];
+  if (!Array.isArray(value)) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      'Evidence JSON "commandsExecuted" must be an array when provided.'
+    );
+  }
+  return value.map((entry, index) => {
+    if (typeof entry !== 'string' || !entry.trim()) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        `Evidence JSON commandsExecuted[${index}] must be a non-empty string.`
+      );
+    }
+    return entry.trim();
+  });
 }
 
 function normalizeGitPath(value: string): string {
@@ -104,6 +197,17 @@ function uniquePaths(values: string[]): string[] {
   return out;
 }
 
+function normalizeFileLine(value: unknown, field: string): string {
+  const normalized = asRequiredTextLike(value, field);
+  if (!/^\d+(?:[-:]\d+)?$/.test(normalized)) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      `Evidence JSON ${field} must start with a numeric line reference (for example "88" or "88-96").`
+    );
+  }
+  return normalized;
+}
+
 function normalizeEvidenceFiles(value: unknown): PrePrReviewEvidence['files'] {
   if (!Array.isArray(value)) {
     throw createCliError(
@@ -124,9 +228,16 @@ function normalizeEvidenceFiles(value: unknown): PrePrReviewEvidence['files'] {
         risk?: unknown;
         security?: unknown;
         perf?: unknown;
+        performance?: unknown;
         maintainability?: unknown;
         fileLine?: unknown;
       };
+      risk?: unknown;
+      security?: unknown;
+      perf?: unknown;
+      performance?: unknown;
+      maintainability?: unknown;
+      fileLine?: unknown;
     };
     const filePath = asNonEmptyString(file.path, '');
     if (!filePath) {
@@ -135,21 +246,66 @@ function normalizeEvidenceFiles(value: unknown): PrePrReviewEvidence['files'] {
         `Evidence JSON files[${index}].path is required.`
       );
     }
-    const review = file.review || {};
+    const review =
+      file.review && typeof file.review === 'object' ? file.review : file;
     return {
       path: filePath,
       review: {
-        risk: asNonEmptyString(review.risk, 'not specified'),
-        security: asNonEmptyString(review.security, 'not specified'),
-        perf: asNonEmptyString(review.perf, 'not specified'),
-        maintainability: asNonEmptyString(
-          review.maintainability,
-          'not specified'
+        risk: asRequiredTextLike(review.risk, `"files[${index}].risk"`),
+        security: asRequiredTextLike(
+          review.security,
+          `"files[${index}].security"`
         ),
-        fileLine: asNonEmptyString(review.fileLine, '-'),
+        perf: asRequiredTextLike(
+          review.perf ?? review.performance,
+          `"files[${index}].perf"`
+        ),
+        maintainability: asRequiredTextLike(
+          review.maintainability,
+          `"files[${index}].maintainability"`
+        ),
+        fileLine: normalizeFileLine(
+          review.fileLine,
+          `"files[${index}].fileLine"`
+        ),
       },
     };
   });
+}
+
+function normalizeResidualRisks(value: unknown): string[] {
+  if (typeof value === 'string' && value.trim()) {
+    const normalized = asRequiredReviewField(
+      value,
+      '"residualRisks"',
+      { allowExplicitNone: true }
+    );
+    if (!isExplicitNoResidualRiskEntry(normalized) && isPlaceholderReviewEvidence(normalized)) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        'Evidence JSON "residualRisks" contains placeholder evidence text.'
+      );
+    }
+    return [normalized];
+  }
+  if (Array.isArray(value)) {
+    const entries = value
+      .map((entry, index) =>
+        asRequiredReviewField(entry, `"residualRisks[${index}]"`, {
+          allowExplicitNone: true,
+        })
+      )
+      .filter(
+        (entry) =>
+          isExplicitNoResidualRiskEntry(entry) ||
+          (!isReviewDraftPlaceholder(entry) && !isPlaceholderReviewEvidence(entry))
+      );
+    if (entries.length > 0) return entries;
+  }
+  throw createCliError(
+    'VALIDATION_FAILED',
+    'Evidence JSON "residualRisks" must be a non-empty string or string array.'
+  );
 }
 
 export class PrePrReviewValidator {
@@ -186,18 +342,19 @@ export class PrePrReviewValidator {
     }
 
     const normalizedEvidence: PrePrReviewEvidence = {
-      summary: asRequiredNonEmptyString(evidence.summary, '"summary"'),
-      featureIntentSummary: asRequiredNonEmptyString(
+      summary: asRequiredReviewField(evidence.summary, '"summary"'),
+      featureIntentSummary: asRequiredReviewField(
         evidence.featureIntentSummary,
         '"featureIntentSummary"'
       ),
-      implementationFit: asRequiredNonEmptyString(
+      implementationFit: asRequiredReviewField(
         evidence.implementationFit,
         '"implementationFit"'
       ),
-      missingCases: asRequiredNonEmptyString(
+      missingCases: asRequiredReviewField(
         evidence.missingCases,
-        '"missingCases"'
+        '"missingCases"',
+        { allowExplicitNone: true }
       ),
       specAlignmentChecked: asRequiredBoolean(
         evidence.specAlignmentChecked,
@@ -212,7 +369,7 @@ export class PrePrReviewValidator {
         '"blockingFindings"'
       ),
       files: normalizeEvidenceFiles(evidence.files),
-      residualRisks: asNonEmptyString(evidence.residualRisks, 'Not specified'),
+      residualRisks: normalizeResidualRisks(evidence.residualRisks),
       commandsExecuted: normalizeCommandsExecuted(evidence.commandsExecuted),
     };
 

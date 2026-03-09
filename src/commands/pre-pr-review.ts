@@ -58,7 +58,7 @@ const DEFAULT_EVIDENCE_FOR_ANY_MODE: PrePrReviewEvidence = {
   findingCount: 0,
   blockingFindings: 0,
   files: [],
-  residualRisks: 'Not specified',
+  residualRisks: ['none'],
   commandsExecuted: [],
 };
 
@@ -204,7 +204,7 @@ function buildReportContent(input: {
       : '';
 
   let filesSection = '';
-  if (input.evidence.files.length === 0) {
+  if (input.evidence.findingCount === 0 || input.evidence.files.length === 0) {
     filesSection = '  - 0 findings';
   } else {
     filesSection = input.evidence.files
@@ -217,6 +217,11 @@ function buildReportContent(input: {
       })
       .join('\n');
   }
+
+  const residualRisksSection =
+    input.evidence.residualRisks.length > 0
+      ? input.evidence.residualRisks.map((entry) => `  - ${entry}`).join('\n')
+      : '  - none';
 
   const mainScopeFiles =
     input.scope.mainChangedFiles.length > 0
@@ -245,7 +250,7 @@ function buildReportContent(input: {
 ${commandsRun}
 
 - **Residual Risks**:
-  - ${input.evidence.residualRisks}
+${residualRisksSection}
 
 - **Review Scope**:
   - **Main Base Ref**: ${input.scope.baseRef}

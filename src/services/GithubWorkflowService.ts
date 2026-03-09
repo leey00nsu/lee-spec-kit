@@ -1652,7 +1652,9 @@ export function insertFieldInMetadataSection(
   value: string
 ): { content: string; changed: boolean } {
   const lines = content.split('\n');
-  const headingIndex = lines.findIndex((line) => /^\s*##\s+Metadata\s*$/.test(line));
+  const headingIndex = lines.findIndex((line) =>
+    /^\s*##\s+(?:Metadata|메타데이터)\s*$/.test(line)
+  );
   if (headingIndex < 0) return { content, changed: false };
 
   let end = lines.length;

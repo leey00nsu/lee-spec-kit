@@ -1859,7 +1859,7 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     );
     assert.match(
       primaryActionOption(payload).detail,
-      /start the pre-PR review|PR 전 리뷰를 시작하세요/i
+      /run the pre-PR review via a helper agent\/sub-agent|helper agent\/sub-agent 실행/i
     );
     assert.equal(
       payload.agentOrchestration?.currentActionShouldDelegate,
@@ -3837,6 +3837,106 @@ test('context code_review step requires summary format in PR Review Evidence', a
           /--merge --confirm OK/.test(option.action.cmd || '')
       );
       assert.equal(Boolean(mergeOption), false);
+    }
+  );
+});
+
+test('context code_review rejects placeholder summary even when structured prefix is present', async () => {
+  await withTempDir(
+    'lsk-context-code-review-evidence-summary-placeholder-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'github',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+      const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+      assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+      await setFeatureAsDone(dir, 'F001-alpha');
+
+      const tasksPath = path.join(
+        dir,
+        'docs',
+        'features',
+        'F001-alpha',
+        'tasks.md'
+      );
+      let tasks = await fs.readFile(tasksPath, 'utf-8');
+      tasks = tasks.replace(
+        '- **PR**: -',
+        '- **PR**: https://github.com/acme/repo/pull/77'
+      );
+      tasks = tasks.replace(
+        '- **PR Status**: -',
+        '- **PR Status**: Review\n- **PR Review Evidence**: summary: TBD\n- **PR Review Decision**: decision: reflected all requested UI fixes'
+      );
+      await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+      const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+      assert.equal(context.code, 0, context.stderr || context.stdout);
+      const payload = JSON.parse(context.stdout.trim());
+      assert.equal(payload.matchedFeature.prReview.evidenceProvided, false);
+    }
+  );
+});
+
+test('context code_review rejects placeholder decision even when structured prefix is present', async () => {
+  await withTempDir(
+    'lsk-context-code-review-decision-placeholder-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'github',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+      const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+      assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+      await setFeatureAsDone(dir, 'F001-alpha');
+
+      const tasksPath = path.join(
+        dir,
+        'docs',
+        'features',
+        'F001-alpha',
+        'tasks.md'
+      );
+      let tasks = await fs.readFile(tasksPath, 'utf-8');
+      tasks = tasks.replace(
+        '- **PR**: -',
+        '- **PR**: https://github.com/acme/repo/pull/77'
+      );
+      tasks = tasks.replace(
+        '- **PR Status**: -',
+        '- **PR Status**: Review\n- **PR Review Evidence**: summary: reviewed latest comments and validated current state\n- **PR Review Decision**: decision: TBD'
+      );
+      await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+      const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+      assert.equal(context.code, 0, context.stderr || context.stdout);
+      const payload = JSON.parse(context.stdout.trim());
+      assert.equal(payload.matchedFeature.prReview.decisionProvided, false);
     }
   );
 });

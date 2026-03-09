@@ -1882,15 +1882,13 @@ test('context executes pre_pr_review command and records review evidence', async
             'docs/review-trace.json',
           ].map((entryPath) => ({
             path: entryPath,
-            review: {
-              risk: 'low',
-              security: 'none',
-              perf: 'n/a',
-              maintainability: 'clear',
-              fileLine: '1-40',
-            },
+            risk: 'low',
+            security: 'none',
+            performance: 'n/a',
+            maintainability: 'clear',
+            fileLine: '1-40',
           })),
-          residualRisks: 'none',
+          residualRisks: ['none'],
         },
         null,
         2
@@ -1994,6 +1992,8 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.match(decisions, /\*\*Review Scope\*\*/i);
     assert.match(decisions, /\*\*Main Range\*\*:/i);
     assert.match(decisions, /\*\*Worktree Changed Files\*\*:/i);
+    assert.match(decisions, /\*\*Residual Risks\*\*:\n  - none/i);
+    assert.match(decisions, /\*\*Findings\*\*:\n  - 0 findings/i);
 
     const contextAfterExecute = await runCli(dir, [
       'context',
@@ -2618,6 +2618,11 @@ test('pre-pr-review allows missing --evidence when evidenceMode is any and execu
       tasksAfter,
       /\*\*Pre-PR Decision\*\*:\s*decision:\s*approve\b/
     );
+
+    const contextAfter = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(contextAfter.code, 0, contextAfter.stderr || contextAfter.stdout);
+    const contextPayload = JSON.parse(contextAfter.stdout.trim());
+    assert.equal(contextPayload.matchedFeature.prePrReview.evidenceProvided, true);
   });
 });
 
