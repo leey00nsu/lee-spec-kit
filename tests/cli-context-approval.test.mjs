@@ -1859,7 +1859,7 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     );
     assert.match(
       primaryActionOption(payload).detail,
-      /pre-PR review handoff|Pre-PR 리뷰 handoff/i
+      /start the pre-PR review|PR 전 리뷰를 시작하세요/i
     );
     assert.equal(
       payload.agentOrchestration?.currentActionShouldDelegate,

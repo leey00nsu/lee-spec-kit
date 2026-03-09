@@ -31,7 +31,7 @@ export const enContext = {
   'context.autoRunCommandHint':
     'Auto-run command (config-based gate): {command}',
   'context.subAgentOrchestrationHint':
-    'Main-agent orchestration: prefer `matchedFeature.currentSubstateOwner` when present. Keep main-owned states in the main agent, delegate subagent-owned command states, and use long-running categories only as a legacy fallback.',
+    'The main agent manages overall flow and approvals. If the current state owner is `subagent`, hand execution to a helper agent; if it is `main`, keep it in the main agent.',
   'context.commandDetail.branchCreateWithWorktree':
     '({scope}) create or reuse worktree {worktree} for branch {branch}',
   'context.commandDetail.branchCreateWithBranch':
@@ -43,11 +43,11 @@ export const enContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) push review-fix commits',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) launch pre-PR review handoff for sub-agent execution',
+    '({scope}) start the pre-PR review. (helper agent/sub-agent execution stage)',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) record pre-PR review evidence into decisions.md + tasks.md',
   'context.commandDetail.codeReviewRun':
-    '({scope}) launch PR review handoff for sub-agent execution',
+    '({scope}) start the PR review. (helper agent/sub-agent execution stage)',
   'context.actionSummary.runDocsCommand': 'Run docs command',
   'context.actionSummary.runProjectCommand': 'Run project command',
   'context.actionDetail.featureFolder':
@@ -75,17 +75,17 @@ export const enContext = {
     'Create GitHub Issue from ready issue.md and sync Issue',
   'context.actionDetail.taskExecute': 'Proceed with the current task',
   'context.actionDetail.taskExecuteRun':
-    'Launch task execution handoff for sub-agent implementation',
+    'Start implementing the task. (helper agent/sub-agent execution stage)',
   'context.actionDetail.taskExecuteContinue':
-    'Continue in-progress task execution via sub-agent handoff',
+    'Continue the in-progress task. (helper agent/sub-agent execution stage)',
   'context.actionDetail.reviewFixCommit':
     'Create a review-fix commit with resolved feedback summary',
   'context.actionDetail.prePrReviewRun':
-    'Run pre-PR review and generate review-trace.json evidence',
+    'Run the pre-PR review. (generate `review-trace.json`, helper agent/sub-agent execution stage)',
   'context.actionDetail.prePrReviewRecord':
     'Record pre-PR review evidence into decisions.md and tasks.md',
   'context.actionDetail.codeReviewRun':
-    'Run PR review and prepare review evidence/fix summary',
+    'Run the PR review. (prepare review evidence/fix summary, helper agent/sub-agent execution stage)',
   'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
   'context.actionDetail.prCreateRequiredSequence':
     'Complete PR 2-step flow: prepare draft + OK, then create and sync',

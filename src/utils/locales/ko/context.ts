@@ -30,7 +30,7 @@ export const koContext = {
     'config 기준으로 승인 필요 카테고리 전까지 연속 실행하세요: {categories}',
   'context.autoRunCommandHint': '자동 실행 명령(config 게이트): {command}',
   'context.subAgentOrchestrationHint':
-    '메인 에이전트 오케스트레이션: 가능하면 `matchedFeature.currentSubstateOwner`를 우선 사용하세요. main 소유 상태는 메인에서 처리하고, subagent 소유 command 상태만 위임하며, 장시간 category는 레거시 fallback으로만 사용하세요.',
+    '메인 에이전트가 전체 흐름과 승인을 관리합니다. 현재 단계의 owner가 `subagent`면 보조 에이전트에 맡기고, `main`이면 메인에서 진행하세요.',
   'context.commandDetail.branchCreateWithWorktree':
     '({scope}) worktree {worktree}를 사용해 브랜치 {branch}를 생성하거나 재사용하세요',
   'context.commandDetail.branchCreateWithBranch':
@@ -42,11 +42,11 @@ export const koContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) 리뷰 수정 커밋을 push하세요',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) 서브 에이전트 실행용 Pre-PR 리뷰 handoff를 시작하세요',
+    '({scope}) PR 전 리뷰를 시작하세요. (보조 에이전트(sub-agent) 실행 단계)',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) Pre-PR 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.commandDetail.codeReviewRun':
-    '({scope}) 서브 에이전트 실행용 PR 리뷰 handoff를 시작하세요',
+    '({scope}) PR 리뷰를 시작하세요. (보조 에이전트(sub-agent) 실행 단계)',
   'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
   'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
   'context.actionDetail.featureFolder':
@@ -74,17 +74,17 @@ export const koContext = {
     'Ready 상태 issue.md로 이슈를 생성하고 번호를 동기화하세요',
   'context.actionDetail.taskExecute': '현재 태스크를 진행하세요',
   'context.actionDetail.taskExecuteRun':
-    '서브 에이전트 구현용 task 실행 handoff를 시작하세요',
+    '작업 구현을 시작하세요. (보조 에이전트(sub-agent) 실행 단계)',
   'context.actionDetail.taskExecuteContinue':
-    '진행 중인 task 실행을 서브 에이전트 handoff로 이어가세요',
+    '진행 중인 작업을 계속 진행하세요. (보조 에이전트(sub-agent) 실행 단계)',
   'context.actionDetail.reviewFixCommit':
     '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
   'context.actionDetail.prePrReviewRun':
-    'PR 전 리뷰를 수행하고 review-trace.json evidence를 생성하세요',
+    'PR 전 리뷰를 수행하세요. (`review-trace.json` 생성, 보조 에이전트(sub-agent) 실행 단계)',
   'context.actionDetail.prePrReviewRecord':
     'PR 전 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.actionDetail.codeReviewRun':
-    'PR 리뷰를 수행하고 리뷰 evidence/수정 요약을 준비하세요',
+    'PR 리뷰를 진행하세요. (리뷰 evidence/수정 요약 준비, 보조 에이전트(sub-agent) 실행 단계)',
   'context.actionDetail.prCreate':
     'PR을 생성하고 tasks 기.md의 PR 정보를 맞추세요',
   'context.actionDetail.prCreateRequiredSequence':
