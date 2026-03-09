@@ -9,6 +9,11 @@ import { createCliContext } from '../utils/cli-context.js';
 import { getLocalDateString } from '../utils/date.js';
 import { applyReplacements } from '../utils/template.js';
 import {
+  isPrdRequirementId,
+  parseTaskLines,
+  scanPrdRequirements,
+} from '../utils/requirements.js';
+import {
   createCliError,
   getCliErrorSuggestions,
   printCliErrorSuggestions,
@@ -376,6 +381,10 @@ async function checkFeatures(
   decisionsPlaceholderMode: 'off' | 'info' | 'warn'
 ): Promise<DoctorIssue[]> {
   const issues: DoctorIssue[] = [];
+  const { definitions: prdDefinitions } = await scanPrdRequirements(
+    fs,
+    config.docsDir
+  );
 
   if (features.length === 0) {
     issues.push({
@@ -475,6 +484,33 @@ async function checkFeatures(
         message: tr(config.lang, 'cli', 'doctor.issue.tasksEmpty'),
         path: formatPath(cwd, path.join(f.path, 'tasks.md')),
       });
+    }
+
+    if (f.docs.tasksExists) {
+      const tasksPath = path.join(f.path, 'tasks.md');
+      const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+      const unknownPrdTags = [...new Set(
+        parseTaskLines(tasksContent)
+          .flatMap((task) => task.tags)
+          .filter((tag) => isPrdRequirementId(tag))
+          .map((tag) => tag.trim().toUpperCase())
+          .filter((tag) => !prdDefinitions.has(tag))
+      )].sort();
+
+      if (unknownPrdTags.length > 0) {
+        issues.push({
+          level: 'warn',
+          code: 'tasks_prd_tag_unknown',
+          message: tr(config.lang, 'cli', 'doctor.issue.tasksPrdTagUnknown', {
+            ids: unknownPrdTags.slice(0, 5).join(', '),
+            extra:
+              unknownPrdTags.length > 5
+                ? ` (+${unknownPrdTags.length - 5} more)`
+                : '',
+          }),
+          path: formatPath(cwd, tasksPath),
+        });
+      }
     }
 
     if (

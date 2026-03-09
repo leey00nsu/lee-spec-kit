@@ -45,12 +45,14 @@ npx lee-spec-kit context --json-compact
 - **PRD (`docs/prd/`)**: 요구사항 SSOT
   - 요구사항마다 ID를 부여합니다: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
   - ID는 안정적으로 유지합니다. (삭제 대신 `Deprecated` 표기 권장, 재번호 부여 금지)
+  - PRD ID는 PRD 원문에 먼저 정의합니다. Feature 문서에서 임의 생성하지 않습니다.
 - **Ideas (`docs/ideas/`)**: Feature 전 단계 SSOT (가설/실험/후보)
   - Idea 문서 상단에 `PRD Refs:`를 기록합니다. (예: `PRD-FR-001, PRD-US-002`)
   - Feature로 승격되면 SSOT는 `docs/features/`로 이동하고, Idea는 archive로 정리합니다.
 - **Features (`docs/features/`)**: 구현 범위/진행 SSOT
   - `spec.md`: 범위 정의 + `PRD Refs`(기능이 커버하는 PRD ID 목록)
   - `tasks.md`: 태스크 단위로 PRD ID를 태그(`[PRD-FR-001]`)로 매핑하거나, PRD 무관 태스크는 `[NON-PRD]`로 표시
+  - 레거시 문서에 PRD ID가 없다면, 먼저 원문 요구사항 문서에 ID를 backfill한 뒤 Feature 문서를 연결합니다.
   - `decisions.md`: 변경/트레이드오프/요구사항 변경(왜 바뀌었는지) 기록 + Evidence 링크
 
 ## 변경 프로토콜 (중간에 요구사항/기능이 추가·변경될 때)

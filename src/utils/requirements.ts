@@ -60,6 +60,10 @@ export async function scanPrdRequirements(
   const duplicates: PrdRequirementDefinition[] = [];
 
   for (const filePath of files) {
+    if (path.basename(filePath).toLowerCase() === 'readme.md') {
+      continue;
+    }
+
     let content = '';
     try {
       content = await fsAdapter.readFile(filePath, 'utf-8');
@@ -146,4 +150,3 @@ export function parseTaskLines(content: string): ParsedTaskLine[] {
 
   return out;
 }
-

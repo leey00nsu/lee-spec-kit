@@ -21,6 +21,8 @@ To let the CLI report “which PRD items are implemented”, assign **stable IDs
 - The ID only needs to appear on the same line (heading/bullet).
 - Reference it from a Feature `tasks.md` task line as a **bracket tag** like `[PRD-FR-001]`.
 - For non-PRD tasks, tag them as `[NON-PRD]`.
+- Important: do not invent PRD IDs in `tasks.md` or `spec.md`. Define them in this folder or the upstream requirements source first, then reference them.
+- For legacy PRD/requirements docs without IDs yet, backfill IDs in the source first, then align the Feature `PRD Refs` and task tags.
 
 Example:
 

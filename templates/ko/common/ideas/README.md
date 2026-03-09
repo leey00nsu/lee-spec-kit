@@ -17,6 +17,7 @@ Feature로 발전하기 전의 아이디어 / To-do / 실험 기록을 모아두
   - PRD Refs(권장): `PRD-FR-001, PRD-US-002` (PRD와 무관하면 `NON-PRD` 명시)
   - 대상 컴포넌트(필요 시): `api` / `app` / `worker` / `all`
   - 상태(권장): `Active | Converted | Dropped`
+- `PRD Refs`에는 이미 원문 PRD/요구사항 문서에 정의된 ID만 적습니다. 아직 ID가 없다면 원문부터 backfill하세요.
 
 ---
 

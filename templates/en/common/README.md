@@ -45,12 +45,14 @@ To avoid ambiguity, treat the following as the single source of truth (SSOT).
 - **PRD (`docs/prd/`)**: requirements SSOT
   - Assign stable IDs per requirement: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
   - Keep IDs stable (prefer marking as Deprecated over deleting; do not renumber).
+  - Define PRD IDs in the PRD source first. Do not invent them inside feature docs.
 - **Ideas (`docs/ideas/`)**: pre-Feature SSOT (hypotheses/experiments/candidates)
   - Put `PRD Refs:` at the top (example: `PRD-FR-001, PRD-US-002`).
   - Once promoted, the SSOT moves to `docs/features/` and the idea should be archived.
 - **Features (`docs/features/`)**: implementation scope/progress SSOT
   - `spec.md`: scope + `PRD Refs` (the PRD IDs this feature covers)
   - `tasks.md`: map each task line to PRD IDs via bracket tags like `[PRD-FR-001]`, or tag non-PRD tasks as `[NON-PRD]`
+  - For legacy docs without PRD IDs yet, backfill the source requirements doc first, then link the feature docs.
   - `decisions.md`: record changes/trade-offs/requirement changes (why it changed) with evidence links
 
 ## Change Protocol (When Requirements/Scope Change Mid-Work)

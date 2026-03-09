@@ -243,6 +243,58 @@ test('doctor --fix applies safe fixes to tasks doc status', async () => {
   });
 });
 
+test('doctor --json warns when tasks use invented PRD IDs without source definitions', async () => {
+  await withTempDir('lsk-doctor-prd-mapping-warning-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+    const tasksPath = path.join(featureDir, 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Review
+
+## Task List
+
+- [TODO][P1][PRD-FR-001] T-F001-01 implement alpha
+`,
+      'utf-8'
+    );
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(payload.status, 'warn');
+    assert.equal(
+      payload.issues.some((issue) => issue.code === 'tasks_prd_tag_unknown'),
+      true
+    );
+    const issue = payload.issues.find((entry) => entry.code === 'tasks_prd_tag_unknown');
+    assert.match(String(issue?.message || ''), /PRD-FR-001/);
+    assert.match(String(issue?.message || ''), /backfill/i);
+  });
+});
+
 test('status text-mode errors include reason code and labeled next options', async () => {
   await withTempDir('lsk-status-error-text-', async (dir) => {
     const result = await runCli(dir, ['status']);

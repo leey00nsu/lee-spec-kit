@@ -8,6 +8,8 @@
   - `[DOING] → [DONE]`: share result/verification first + user approval (OK)
 - **Priority**: P0(urgent) > P1(high) > P2(medium) > P3(low)
 - **PRD mapping (recommended)**: add a PRD requirement ID tag like `[PRD-FR-001]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
+  - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
+  - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
 
 ---
 
@@ -53,6 +55,8 @@
   - Checklist:
     - [ ] (subtask)
 ```
+
+> `PRD-FR-001` in the example means an ID that already exists in the PRD source. If it is not defined yet, do not add it to tasks first.
 
 (Recommended) Requirement/scope change task:
 

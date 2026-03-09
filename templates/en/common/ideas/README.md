@@ -17,6 +17,7 @@ Core rule: once an idea becomes a Feature, the SSOT moves to `docs/features/`.
   - PRD Refs (recommended): `PRD-FR-001, PRD-US-002` (use `NON-PRD` when not tied to PRD)
   - Target component (optional): `api` / `app` / `worker` / `all`
   - Status (recommended): `Active | Converted | Dropped`
+- Only list IDs that already exist in the source PRD/requirements doc. If IDs do not exist yet, backfill the source first.
 
 ---
 

@@ -75,6 +75,8 @@ export const enCli = {
     'tasks.md Doc Status is not set. (Set it to Draft, Review, or Approved.)',
   'doctor.issue.tasksDocStatusMissing':
     'tasks.md is missing the Doc Status field. Add `- **Doc Status**: -` and `Values: Draft | Review | Approved`.',
+  'doctor.issue.tasksPrdTagUnknown':
+    'tasks.md uses PRD tags with no matching source definition: {ids}{extra}. Do not invent IDs like PRD-FR-001 in tasks.md. Backfill IDs in docs/prd or the upstream requirements doc first, then align spec.md `PRD Refs` and task tags.',
   'doctor.issue.duplicateFeatureId':
     'Duplicate Feature ID detected: {id} ({count})',
   'doctor.issue.missingFeatureId':

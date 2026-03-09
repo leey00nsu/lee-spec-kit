@@ -119,3 +119,46 @@ test('requirements --strict exits non-zero when unknown refs or unmapped tasks e
     assert.equal(payload.reasonCode, 'REQUIREMENTS_ISSUES_FOUND');
   });
 });
+
+test('requirements ignores PRD README guidance examples as requirement definitions', async () => {
+  await withTempDir('lsk-requirements-ignore-readme-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--yes',
+      '--name',
+      'ReqReadme',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    await fs.writeFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      `# Tasks: alpha\n\n## Task List\n\n- [TODO][P1][PRD-FR-001] T-F001-01 invented ref\n`,
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['requirements', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.counts.defined, 0);
+    assert.equal(payload.counts.unknownReferences, 1);
+    assert.equal(payload.unknownReferences.includes('PRD-FR-001'), true);
+  });
+});

@@ -64,6 +64,7 @@ npx lee-spec-kit status --write
 
 - Assign stable requirement IDs in PRD docs (`docs/prd/*.md`) like `PRD-FR-001`.
 - Link each task line in `tasks.md` with a tag like `[PRD-FR-001]`. For non-PRD tasks, use `[NON-PRD]`.
+- Do not invent PRD IDs inside feature docs. Define them in the PRD source first, and backfill legacy docs before linking tasks.
 - Coverage report: `npx lee-spec-kit requirements` (alias: `npx lee-spec-kit prd`)
 
 ---
