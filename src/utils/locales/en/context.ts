@@ -47,7 +47,7 @@ export const enContext = {
   'context.commandDetail.prePrReviewRecord':
     '({scope}) record pre-PR review evidence into decisions.md + tasks.md',
   'context.commandDetail.codeReviewRun':
-    '({scope}) run the PR review via a helper agent/sub-agent and prepare evidence/fix summary',
+    '({scope}) check PR review comments, then use a helper agent/sub-agent for the follow-up fixes and evidence summary',
   'context.actionSummary.runDocsCommand': 'Run docs command',
   'context.actionSummary.runProjectCommand': 'Run project command',
   'context.actionDetail.featureFolder':
@@ -85,7 +85,7 @@ export const enContext = {
   'context.actionDetail.prePrReviewRecord':
     'Record pre-PR review evidence into decisions.md and tasks.md',
   'context.actionDetail.codeReviewRun':
-    'Run the PR review via a helper agent/sub-agent and prepare evidence/fix summary',
+    'Check PR review comments, then use a helper agent/sub-agent for the follow-up fixes and evidence summary',
   'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
   'context.actionDetail.prCreateRequiredSequence':
     'Complete PR 2-step flow: prepare draft + OK, then create and sync',

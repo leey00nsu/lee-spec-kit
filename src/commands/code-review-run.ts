@@ -27,19 +27,21 @@ function buildCodeReviewRunPrompt(input: {
 }): string {
   if (input.lang === 'ko') {
     return [
-      'PR 리뷰 실행을 시작하세요.',
+      'PR 리뷰 코멘트를 확인하고 보조 에이전트로 수정 작업을 진행하세요.',
       `- Feature: ${input.featureRef}`,
       `- ${input.basePrompt}`,
-      '- 리뷰 코멘트 반영 후 `tasks.md`의 `PR 전 리뷰 Evidence/Decision`이 아니라 `PR Review Evidence/Decision`을 최신으로 기록하세요.',
+      '- 사람/CodeRabbit이 남긴 리뷰 코멘트를 검토하고 필요한 코드/문서 수정을 진행하세요.',
+      '- 수정 내용과 검토 결과를 반영한 뒤 `tasks.md`의 `PR Review Evidence/Decision`을 최신으로 기록하세요.',
       '- 관련 수정이 생기면 코드/문서 변경을 정리하고, push/merge는 메인 에이전트 최종 상태에서만 진행하세요.',
     ].join('\n');
   }
 
   return [
-    'Start the PR review execution.',
+    'Review PR comments and use a helper agent/sub-agent for the follow-up fixes.',
     `- Feature: ${input.featureRef}`,
     `- ${input.basePrompt}`,
-    '- Update `PR Review Evidence` and `PR Review Decision` in `tasks.md` after reviewing comments and applying fixes.',
+    '- Check human/CodeRabbit review comments and make the required code/docs changes.',
+    '- Update `PR Review Evidence` and `PR Review Decision` in `tasks.md` after applying the fixes and summarizing the outcome.',
     '- If review fixes are needed, keep code/docs changes ready for the main-agent finalize state. Push/merge stays in the main agent.',
   ].join('\n');
 }
@@ -98,8 +100,8 @@ async function runCodeReviewRun(
   console.log(
     chalk.yellow(
       config.lang === 'ko'
-        ? '이 명령은 PR 리뷰 handoff만 준비합니다. 리뷰 evidence/decision을 직접 기록하거나 워크플로우 상태를 바로 넘기지 않습니다.'
-        : 'This command only prepares the PR review handoff. It does not record review evidence/decision or advance workflow state by itself.'
+        ? '이 명령은 PR 리뷰 코멘트 대응용 handoff만 준비합니다. 코멘트를 직접 읽어오거나 evidence/decision을 자동 기록하지 않으며, 상태도 바로 넘기지 않습니다.'
+        : 'This command only prepares a handoff for addressing PR review comments. It does not fetch comments automatically, record review evidence/decision, or advance workflow state by itself.'
     )
   );
   console.log(chalk.gray(`- substate: ${payload.substateId}`));

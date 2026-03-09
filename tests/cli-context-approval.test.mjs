@@ -3230,6 +3230,10 @@ test('context code_review step delegates review run before evidence is recorded'
       primaryActionOption(payload).action.cmd || '',
       /"code-review-run"\s+"F001-alpha"/
     );
+    assert.match(
+      primaryActionOption(payload).detail || '',
+      /helper agent\/sub-agent.*follow-up fixes|보조 에이전트\(sub-agent\).*수정 작업/i
+    );
   });
 });
 
