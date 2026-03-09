@@ -3734,6 +3734,157 @@ process.exit(result.status ?? 1);
   );
 });
 
+test('context code_review prefers evidence recording over rerun when local review-fix commits already exist', async () => {
+  await withTempDir(
+    'lsk-context-code-review-ahead-needs-evidence-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'github',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.workflow = {
+        mode: 'github',
+        requireIssue: false,
+        requireBranch: false,
+        requirePr: true,
+        requireReview: true,
+        prePrReview: {
+          enabled: false,
+        },
+      };
+      await fs.writeFile(
+        configPath,
+        `${JSON.stringify(config, null, 2)}\n`,
+        'utf-8'
+      );
+
+      const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+      assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+      await setFeatureAsDone(dir, 'F001-alpha');
+
+      const tasksPath = path.join(
+        dir,
+        'docs',
+        'features',
+        'F001-alpha',
+        'tasks.md'
+      );
+      let tasks = await fs.readFile(tasksPath, 'utf-8');
+      tasks = tasks.replace(
+        '- **PR**: -',
+        '- **PR**: https://github.com/acme/repo/pull/77'
+      );
+      tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+      if (!tasks.includes('PR Review Evidence')) {
+        tasks = tasks.replace(
+          '- **PR Status**: Review',
+          '- **PR Status**: Review\n- **PR Review Evidence**: -\n- **PR Review Decision**: -'
+        );
+      }
+      await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+      const docsGitRoot = path.join(dir, 'docs');
+      await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+      await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+      await runCommand(docsGitRoot, 'git', [
+        'add',
+        'features/F001-alpha',
+        '.lee-spec-kit.json',
+      ]);
+      const docsCommit = await runCommand(docsGitRoot, 'git', [
+        'commit',
+        '-m',
+        'docs: prepare review-fix evidence follow-up case',
+      ]);
+      assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+      const realGit = await runCommand(dir, 'which', ['git']);
+      assert.equal(realGit.code, 0, realGit.stderr || realGit.stdout);
+      const realGitPath = realGit.stdout.trim().split('\n').pop();
+      assert.equal(Boolean(realGitPath), true);
+
+      const fakeBinDir = path.join(dir, 'docs', '.fake-bin');
+      await fs.mkdir(fakeBinDir, { recursive: true });
+      const fakeGhScriptPath = path.join(fakeBinDir, 'gh');
+      const fakeGitScriptPath = path.join(fakeBinDir, 'git');
+      await fs.writeFile(
+        fakeGhScriptPath,
+        `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify({
+    state: 'OPEN',
+    mergedAt: null,
+    reviewDecision: '',
+    mergeStateStatus: 'CLEAN',
+    isDraft: false,
+    statusCheckRollup: [],
+  }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+        'utf-8'
+      );
+      await fs.chmod(fakeGhScriptPath, 0o755);
+      await fs.writeFile(
+        fakeGitScriptPath,
+        `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
+
+const args = process.argv.slice(2);
+if (
+  args[0] === 'rev-list' &&
+  args[1] === '--left-right' &&
+  args[2] === '--count' &&
+  args[3] === 'HEAD...@{upstream}'
+) {
+  process.stdout.write('1 0\\n');
+  process.exit(0);
+}
+
+const realGit = process.env.REAL_GIT || 'git';
+const result = spawnSync(realGit, args, { encoding: 'utf-8' });
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`,
+        'utf-8'
+      );
+      await fs.chmod(fakeGitScriptPath, 0o755);
+
+      const context = await runCli(dir, ['context', 'F001-alpha', '--json'], {
+        PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH || ''}`,
+        REAL_GIT: realGitPath,
+      });
+      assert.equal(context.code, 0, context.stderr || context.stdout);
+      const payload = JSON.parse(context.stdout.trim());
+
+      assert.equal(payload.matchedFeature.git.projectBranchAhead > 0, true);
+      assert.notEqual(payload.matchedFeature.currentSubstateId, 'code_review_run');
+      assert.equal(primaryActionOption(payload).action.category, 'code_review');
+      assert.equal(
+        primaryActionOption(payload).action.uiDetailKey,
+        'context.actionDetail.codeReviewNeedEvidence'
+      );
+    }
+  );
+});
+
 test('context code_review step requires summary format in PR Review Evidence', async () => {
   await withTempDir(
     'lsk-context-code-review-evidence-summary-required-',

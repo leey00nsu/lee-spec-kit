@@ -1131,6 +1131,7 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     isCodeReviewCurrent(f) &&
     f.pr.status === 'Review' &&
     workflowPolicy.requireReview &&
+    (f.git.projectBranchAhead || 0) === 0 &&
     !isCodeReviewNeedEvidenceField(f) &&
     !f.prReview.evidenceProvided &&
     !f.prReview.decisionProvided;
