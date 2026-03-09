@@ -79,6 +79,8 @@ async function runCodeReviewRun(
     feature: feature.folderName,
     substateId: 'code_review_run',
     owner: 'subagent',
+    handoffOnly: true,
+    advancesWorkflow: false,
     nextMainState: 'code_review_finalize',
     tasksPath: path.join(feature.path, 'tasks.md'),
     decisionsPath: path.join(feature.path, 'decisions.md'),
@@ -93,6 +95,13 @@ async function runCodeReviewRun(
 
   console.log(prompt);
   console.log();
+  console.log(
+    chalk.yellow(
+      config.lang === 'ko'
+        ? '이 명령은 PR 리뷰 handoff만 준비합니다. 리뷰 evidence/decision을 직접 기록하거나 워크플로우 상태를 바로 넘기지 않습니다.'
+        : 'This command only prepares the PR review handoff. It does not record review evidence/decision or advance workflow state by itself.'
+    )
+  );
   console.log(chalk.gray(`- substate: ${payload.substateId}`));
   console.log(chalk.gray(`- owner: ${payload.owner}`));
   console.log(chalk.gray(`- next main state: ${payload.nextMainState}`));

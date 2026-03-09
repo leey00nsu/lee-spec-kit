@@ -42,11 +42,11 @@ export const koContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) 리뷰 수정 커밋을 push하세요',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) PR 전 리뷰를 시작하세요. (보조 에이전트(sub-agent) 실행 단계)',
+    '({scope}) 보조 에이전트(sub-agent)로 PR 전 리뷰를 실행해 `review-trace.json`을 준비하세요',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) Pre-PR 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.commandDetail.codeReviewRun':
-    '({scope}) PR 리뷰를 시작하세요. (보조 에이전트(sub-agent) 실행 단계)',
+    '({scope}) 보조 에이전트(sub-agent)로 PR 리뷰를 실행해 evidence/수정 요약을 준비하세요',
   'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
   'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
   'context.actionDetail.featureFolder':
@@ -74,17 +74,17 @@ export const koContext = {
     'Ready 상태 issue.md로 이슈를 생성하고 번호를 동기화하세요',
   'context.actionDetail.taskExecute': '현재 태스크를 진행하세요',
   'context.actionDetail.taskExecuteRun':
-    '작업 구현을 시작하세요. (보조 에이전트(sub-agent) 실행 단계)',
+    '보조 에이전트(sub-agent) 작업 handoff를 준비하고 태스크를 시작하세요. (TODO면 DOING으로 변경)',
   'context.actionDetail.taskExecuteContinue':
-    '진행 중인 작업을 계속 진행하세요. (보조 에이전트(sub-agent) 실행 단계)',
+    '보조 에이전트(sub-agent) 작업 handoff를 준비해 진행 중인 태스크를 이어가세요',
   'context.actionDetail.reviewFixCommit':
     '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
   'context.actionDetail.prePrReviewRun':
-    'PR 전 리뷰를 수행하세요. (`review-trace.json` 생성, 보조 에이전트(sub-agent) 실행 단계)',
+    '보조 에이전트(sub-agent)로 PR 전 리뷰를 실행해 `review-trace.json`을 준비하세요',
   'context.actionDetail.prePrReviewRecord':
     'PR 전 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.actionDetail.codeReviewRun':
-    'PR 리뷰를 진행하세요. (리뷰 evidence/수정 요약 준비, 보조 에이전트(sub-agent) 실행 단계)',
+    '보조 에이전트(sub-agent)로 PR 리뷰를 실행해 evidence/수정 요약을 준비하세요',
   'context.actionDetail.prCreate':
     'PR을 생성하고 tasks 기.md의 PR 정보를 맞추세요',
   'context.actionDetail.prCreateRequiredSequence':

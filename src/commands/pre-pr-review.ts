@@ -432,6 +432,9 @@ async function runPrePrReviewRun(
           feature: featureRef,
           skills: policy.skills,
           fallback: policy.fallback,
+          handoffOnly: true,
+          advancesWorkflow: false,
+          nextStepRequirement: 'generate_review_trace_then_record',
           evidenceFile: 'review-trace.json',
           prompt,
           recordCommands: {
@@ -448,6 +451,13 @@ async function runPrePrReviewRun(
 
   console.log(prompt);
   console.log();
+  console.log(
+    chalk.yellow(
+      config.lang === 'ko'
+        ? '이 명령은 리뷰 handoff만 준비합니다. review-trace.json을 직접 생성하거나 워크플로우 상태를 바로 넘기지 않습니다.'
+        : 'This command only prepares the review handoff. It does not generate review-trace.json or advance workflow state by itself.'
+    )
+  );
   console.log(`Evidence file: review-trace.json`);
   console.log(`Record changes requested: ${changesRequestedCommand}`);
   console.log(`Record approval: ${approveCommand}`);

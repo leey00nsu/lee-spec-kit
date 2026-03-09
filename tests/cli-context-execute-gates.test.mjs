@@ -2118,6 +2118,9 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
     assert.equal(payload.reasonCode, 'PRE_PR_REVIEW_RUN_READY');
     assert.equal(payload.feature, 'F001-alpha');
     assert.equal(payload.evidenceFile, 'review-trace.json');
+    assert.equal(payload.handoffOnly, true);
+    assert.equal(payload.advancesWorkflow, false);
+    assert.equal(payload.nextStepRequirement, 'generate_review_trace_then_record');
     assert.match(payload.prompt || '', /review-trace\.json/i);
     assert.match(
       payload.recordCommands?.changesRequested || '',
@@ -2359,6 +2362,8 @@ test('code-review-run returns sub-agent handoff prompt', async () => {
     assert.equal(payload.substateId, 'code_review_run');
     assert.equal(payload.owner, 'subagent');
     assert.equal(payload.nextMainState, 'code_review_finalize');
+    assert.equal(payload.handoffOnly, true);
+    assert.equal(payload.advancesWorkflow, false);
     assert.match(payload.prompt || '', /PR Review Evidence/i);
     assert.match(payload.prompt || '', /PR Review Decision/i);
   });
@@ -2476,6 +2481,64 @@ test('task-run marks TODO task as DOING and returns sub-agent handoff prompt', a
 
     const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
     assert.match(tasksAfter, /\[DOING\]\[P1\] T-F001-alpha-01 implement alpha shell/);
+  });
+});
+
+test('task-run accepts template-style extra bracket tags before task id', async () => {
+  await withTempDir('lsk-task-run-extra-tags-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    await fs.writeFile(
+      tasksPath,
+      `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Review
+
+## Task List
+
+- [TODO][P1][PRD-FR-001][CHANGE] T-F001-alpha-01 implement alpha shell
+`,
+      'utf-8'
+    );
+
+    const runTask = await runCli(dir, [
+      'task-run',
+      'F001-alpha',
+      '--task',
+      'T-F001-alpha-01',
+      '--json',
+    ]);
+    assert.equal(runTask.code, 0, runTask.stderr || runTask.stdout);
+    const payload = JSON.parse(runTask.stdout.trim());
+    assert.equal(payload.reasonCode, 'TASK_RUN_READY');
+    assert.equal(payload.taskId, 'T-F001-alpha-01');
+    assert.equal(payload.tasksUpdated, true);
+
+    const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(
+      tasksAfter,
+      /\[DOING\]\[P1\]\[PRD-FR-001\]\[CHANGE\] T-F001-alpha-01 implement alpha shell/
+    );
   });
 });
 

@@ -32,7 +32,7 @@ interface ResolvedTaskLine {
 
 function parseTaskLine(line: string): ResolvedTaskLine | null {
   const match = line.match(
-    /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\[([^\]]+)\]\s+(T-[A-Za-z0-9-]+)\s+(.+?)\s*$/
+    /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\[([^\]]+)\](?:\[[^\]]+\])*\s+(T-[A-Za-z0-9-]+)\s+(.+?)\s*$/
   );
   if (!match) return null;
   return {
@@ -63,9 +63,12 @@ function buildTaskRunPrompt(input: {
 
   if (input.lang === 'ko') {
     return [
-      `${input.mode === 'start' ? '새 task 실행을 시작하세요.' : '진행 중인 task 실행을 이어가세요.'}`,
+      `${input.mode === 'start' ? '새 task 실행용 handoff를 준비하세요.' : '진행 중인 task handoff를 이어가세요.'}`,
       `- Feature: ${input.featureRef}`,
       `- Task: ${input.taskId} ${input.title}`,
+      input.mode === 'start'
+        ? '- 이 명령은 `tasks.md`의 현재 task를 `DOING`으로 바꾸고, 이후 구현 handoff prompt를 준비합니다.'
+        : '- 이 명령은 진행 중 task의 구현 handoff prompt를 다시 준비합니다.',
       '- 먼저 `spec.md`, `plan.md`, `tasks.md`를 읽고 범위와 완료 기준을 정리하세요.',
       '- 코드 분석과 탐색 작업은 기본적으로 서브에이전트를 사용하세요.',
       '- 영향 범위 분석, 테스트 위치 탐색, 기존 패턴 조사처럼 독립적인 분석은 병렬로 수행하세요.',
@@ -77,10 +80,15 @@ function buildTaskRunPrompt(input: {
 
   return [
     input.mode === 'start'
-      ? 'Start this task execution.'
-      : 'Continue this in-progress task execution.',
+      ? 'Prepare the handoff for this task execution.'
+      : 'Prepare the handoff for this in-progress task.',
     `- Feature: ${input.featureRef}`,
     `- Task: ${input.taskId} ${input.title}`,
+    `- ${
+      input.mode === 'start'
+        ? 'This command marks the current task as DOING in tasks.md, then prepares the implementation handoff prompt.'
+        : 'This command prepares the implementation handoff prompt again for the in-progress task.'
+    }`,
     ...shared.map((line) => `- ${line}`),
   ].join('\n');
 }
@@ -226,7 +234,9 @@ async function runTaskRun(
 export function taskRunCommand(program: Command): void {
   program
     .command('task-run [feature-name]')
-    .description('Prepare and start a task execution handoff for sub-agent work')
+    .description(
+      'Prepare task execution handoff for sub-agent work (marks TODO tasks as DOING)'
+    )
     .option('--component <component>', 'Component name for multi projects')
     .option('--task <task-id>', 'Explicit task id to execute')
     .option('--json', 'Output JSON')

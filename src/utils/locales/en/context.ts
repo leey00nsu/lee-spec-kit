@@ -43,11 +43,11 @@ export const enContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) push review-fix commits',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) start the pre-PR review. (helper agent/sub-agent execution stage)',
+    '({scope}) run the pre-PR review via a helper agent/sub-agent and prepare `review-trace.json`',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) record pre-PR review evidence into decisions.md + tasks.md',
   'context.commandDetail.codeReviewRun':
-    '({scope}) start the PR review. (helper agent/sub-agent execution stage)',
+    '({scope}) run the PR review via a helper agent/sub-agent and prepare evidence/fix summary',
   'context.actionSummary.runDocsCommand': 'Run docs command',
   'context.actionSummary.runProjectCommand': 'Run project command',
   'context.actionDetail.featureFolder':
@@ -75,17 +75,17 @@ export const enContext = {
     'Create GitHub Issue from ready issue.md and sync Issue',
   'context.actionDetail.taskExecute': 'Proceed with the current task',
   'context.actionDetail.taskExecuteRun':
-    'Start implementing the task. (helper agent/sub-agent execution stage)',
+    'Prepare helper agent/sub-agent task handoff and start the task. (TODO becomes DOING)',
   'context.actionDetail.taskExecuteContinue':
-    'Continue the in-progress task. (helper agent/sub-agent execution stage)',
+    'Prepare helper agent/sub-agent handoff and continue the in-progress task',
   'context.actionDetail.reviewFixCommit':
     'Create a review-fix commit with resolved feedback summary',
   'context.actionDetail.prePrReviewRun':
-    'Run the pre-PR review. (generate `review-trace.json`, helper agent/sub-agent execution stage)',
+    'Run the pre-PR review via a helper agent/sub-agent and prepare `review-trace.json`',
   'context.actionDetail.prePrReviewRecord':
     'Record pre-PR review evidence into decisions.md and tasks.md',
   'context.actionDetail.codeReviewRun':
-    'Run the PR review. (prepare review evidence/fix summary, helper agent/sub-agent execution stage)',
+    'Run the PR review via a helper agent/sub-agent and prepare evidence/fix summary',
   'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
   'context.actionDetail.prCreateRequiredSequence':
     'Complete PR 2-step flow: prepare draft + OK, then create and sync',
