@@ -25,14 +25,17 @@
 - **PR Status**: -
   - Values: Review | Approved
 - **Pre-PR Review**: -
-  - Values: Pending | Done
-  - Mark `Done` after pre-PR review is completed
+  - Values: Pending | Running | Done
+  - Mark `Running` when the pre-PR review handoff starts, then `Done` after the review is recorded
 - **Pre-PR Evidence**: -
   - Example: `docs/features/F001-foo/decisions.md` (must exist)
 - **Pre-PR Decision**: -
   - Format: `decision: approve|changes_requested|blocked ...` (or `결정: ...`)
   - PR creation requires final decision `approve`
   - Follow `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline
+- **PR Review**: -
+  - Values: Pending | Running | Done
+  - Mark `Running` when PR review handoff starts; use `Done` only if your team explicitly tracks review completion here
 - **PR Review Evidence**: -
   - Example: `summary: ...` (or `요약: ...`), or `docs/features/F001-foo/decisions.md` with `PR Review Log`
 - **PR Review Decision**: -

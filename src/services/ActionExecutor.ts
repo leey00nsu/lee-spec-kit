@@ -165,6 +165,7 @@ export async function runApprovedOption(
   }
 
   const selectedAction = freshSelected.action;
+  const executionMetadata = presenter.getActionExecutionMetadata(selectedAction);
   if (selectedAction.category === 'user_request_replan') {
     const requestText = (
       parsedApproval?.requestText?.trim() ||
@@ -255,6 +256,13 @@ export async function runApprovedOption(
         executeCommand = executeCommand.replace(' [--ticket <TICKET>]', '');
       }
       console.log(chalk.gray(`   - Run with: ${executeCommand}`));
+      if (executionMetadata?.handoffOnly && !executionMetadata.advancesWorkflow) {
+        console.log(
+          chalk.gray(
+            '   - This command prepares a handoff only; complete the delegated work and update workflow evidence before re-running context.'
+          )
+        );
+      }
     } else {
       console.log(
         chalk.gray('   - Instruction-only action (no command execution).')
@@ -338,6 +346,30 @@ export async function runApprovedOption(
       { owner: `context-execute:${selectedAction.scope}` }
     );
     if (jsonMode) {
+      if (executionMetadata?.handoffOnly && !executionMetadata.advancesWorkflow) {
+        console.log(
+          JSON.stringify(
+            {
+              status: 'approved_handoff_prepared',
+              reasonCode: 'HANDOFF_PREPARED',
+              feature: freshState.matchedFeature?.folderName ?? null,
+              label: parsedLabel,
+              action: selectedAction,
+              userRequest,
+              contextVersion: freshState.contextVersion,
+              executed: true,
+              handoffOnly: true,
+              advancesWorkflow: false,
+              nextMainState: executionMetadata.nextMainState,
+              stdout: execResult.stdout?.trim() || undefined,
+              stderr: execResult.stderr?.trim() || undefined,
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
       console.log(
         JSON.stringify(
           {
@@ -356,6 +388,15 @@ export async function runApprovedOption(
           2
         )
       );
+      return;
+    }
+    if (executionMetadata?.handoffOnly && !executionMetadata.advancesWorkflow) {
+      console.log(
+        chalk.yellow(
+          'Prepared handoff only. Complete the delegated work and update workflow evidence before re-running context.'
+        )
+      );
+      console.log();
       return;
     }
     console.log(chalk.green(`✅ Executed option ${parsedLabel}.`));

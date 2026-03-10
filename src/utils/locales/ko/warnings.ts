@@ -20,7 +20,7 @@ export const koWarnings = {
   legacyTasksPrFields:
     '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR` 및 `PR 상태` 필드를 추가하세요.',
   legacyTasksPrePrReviewField:
-    '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰` 필드를 추가하세요. (`- **PR 전 리뷰**: Pending | Done`)',
+    '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰` 필드를 추가하세요. (`- **PR 전 리뷰**: Pending | Running | Done`)',
   legacyTasksPrePrEvidenceField:
     '구버전 tasks.md 포맷입니다. PR 단계 전에 `PR 전 리뷰 Evidence` 필드를 추가하세요.',
   legacyTasksPrePrDecisionField:
@@ -54,7 +54,7 @@ export const koWarnings = {
   workflowPrRemoteChecksPending:
     '원격 PR 체크 대기가 {count}건 감지되었습니다. 체크 완료 후 다시 확인하세요.',
   workflowPrePrReviewMissing:
-    '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Done`을 추가하세요.)',
+    '완료 상태이지만 `PR 전 리뷰` 필드가 없습니다. (tasks.md에 `- **PR 전 리뷰**: Pending | Running | Done`을 추가하세요.)',
   workflowPrePrReviewNotDone:
     '완료 상태이지만 `PR 전 리뷰`가 Done이 아닙니다. (사전 코드리뷰 후 Done으로 업데이트하세요.)',
   workflowPrePrEvidenceMissing:

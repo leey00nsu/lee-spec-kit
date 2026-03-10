@@ -2058,7 +2058,7 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     );
     assert.match(
       primaryActionOption(payload).detail,
-      /run the pre-PR review via a helper agent\/sub-agent|helper agent\/sub-agent 실행/i
+      /prepare .*pre-PR review handoff|보조 에이전트\(sub-agent\).*PR 전 리뷰 handoff/i
     );
     assert.equal(
       payload.agentOrchestration?.currentActionShouldDelegate,
@@ -3415,6 +3415,12 @@ test('context code_review step delegates review run before evidence is recorded'
     assert.equal(primaryActionOption(payload).action.category, 'code_review_run');
     assert.equal(primaryActionOption(payload).action.type, 'command');
     assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
+    assert.equal(primaryActionOption(payload).handoffOnly, true);
+    assert.equal(primaryActionOption(payload).advancesWorkflow, false);
+    assert.equal(
+      primaryActionOption(payload).nextMainState,
+      'code_review_running'
+    );
     assert.equal(
       payload.agentOrchestration?.currentActionShouldDelegate,
       true
@@ -3431,7 +3437,22 @@ test('context code_review step delegates review run before evidence is recorded'
     );
     assert.match(
       primaryActionOption(payload).detail || '',
-      /helper agent\/sub-agent.*follow-up fixes|보조 에이전트\(sub-agent\).*수정 작업/i
+      /handoff only.*PR Review Evidence\/Decision|handoff만 준비.*PR Review Evidence\/Decision/i
+    );
+
+    const compact = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json-compact',
+    ]);
+    assert.equal(compact.code, 0, compact.stderr || compact.stdout);
+    const compactPayload = JSON.parse(compact.stdout.trim());
+    assert.equal(compactPayload.actionOptions?.[0]?.category, 'code_review_run');
+    assert.equal(compactPayload.actionOptions?.[0]?.handoffOnly, true);
+    assert.equal(compactPayload.actionOptions?.[0]?.advancesWorkflow, false);
+    assert.equal(
+      compactPayload.actionOptions?.[0]?.nextMainState,
+      'code_review_running'
     );
   });
 });

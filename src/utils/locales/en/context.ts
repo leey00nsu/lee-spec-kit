@@ -45,11 +45,11 @@ export const enContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) push review-fix commits',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) run the pre-PR review via a helper agent/sub-agent and prepare `review-trace.json`',
+    '({scope}) prepare a helper agent/sub-agent pre-PR review handoff; record evidence separately to advance state',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) record pre-PR review evidence into decisions.md + tasks.md',
   'context.commandDetail.codeReviewRun':
-    '({scope}) check PR review comments, then use a helper agent/sub-agent for the follow-up fixes and evidence summary',
+    '({scope}) prepare a helper agent/sub-agent review-fix handoff only; update PR Review Evidence/Decision after the delegated work',
   'context.actionSummary.runDocsCommand': 'Run docs command',
   'context.actionSummary.runProjectCommand': 'Run project command',
   'context.actionDetail.featureFolder':
@@ -85,11 +85,11 @@ export const enContext = {
   'context.actionDetail.reviewFixCommit':
     'Create a review-fix commit with resolved feedback summary',
   'context.actionDetail.prePrReviewRun':
-    'Run the pre-PR review via a helper agent/sub-agent and prepare `review-trace.json`',
+    'Prepare a helper agent/sub-agent pre-PR review handoff; record evidence separately to advance state',
   'context.actionDetail.prePrReviewRecord':
     'Record pre-PR review evidence into decisions.md and tasks.md',
   'context.actionDetail.codeReviewRun':
-    'Check PR review comments, then use a helper agent/sub-agent for the follow-up fixes and evidence summary',
+    'Prepare a helper agent/sub-agent review-fix handoff only; update PR Review Evidence/Decision after the delegated work',
   'context.actionDetail.prCreate': 'Create PR and sync PR fields in tasks.md',
   'context.actionDetail.prCreateRequiredSequence':
     'Complete PR 2-step flow: prepare draft + OK, then create and sync',

@@ -367,7 +367,16 @@ async function runContext(
       readyToCloseCandidates:
         state.selectionMode === 'open' ? state.readyToCloseFeatures : [],
       actions: state.actions,
-      actionOptions: state.actionOptions,
+      actionOptions: state.actionOptions.map((option) => {
+        const executionMetadata = presenter.getActionExecutionMetadata(
+          option.action
+        );
+        if (!executionMetadata) return option;
+        return {
+          ...option,
+          ...executionMetadata,
+        };
+      }),
       suggestionOptions,
       primaryActionLabel: primaryAction?.label ?? null,
       primaryActionType: primaryAction?.action.type ?? null,

@@ -106,7 +106,7 @@ function isFeatureDone(
   return (
     feature.specStatus === 'Approved' &&
     feature.planStatus === 'Approved' &&
-    !feature.git.docsHasUncommittedChanges &&
+    !feature.git.docsHasCommitRequiredChanges &&
     !feature.git.projectHasUncommittedChanges &&
     feature.docs.tasksExists &&
     feature.tasks.total > 0 &&
@@ -619,9 +619,11 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   const isTaskExecuteCommitPending = (f: FeatureState): boolean =>
     isTaskExecuteCurrent(f) &&
     ((isTaskExecuteFinalize(f) &&
-      (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges)) ||
+      (f.git.docsHasCommitRequiredChanges ||
+        f.git.projectHasUncommittedChanges)) ||
       (!!f.nextTodoTask &&
-        (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges)));
+        (f.git.docsHasCommitRequiredChanges ||
+          f.git.projectHasUncommittedChanges)));
   const isTaskExecuteStrictGateBlocked = (f: FeatureState): boolean => {
     if (!isTaskExecuteCurrent(f) || !f.nextTodoTask) return false;
     if (taskCommitGatePolicy === 'off' || !f.lastDoneTask || !f.git.docsGitCwd) {
@@ -723,7 +725,10 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     ];
   };
   const getTaskExecuteFinalizeActions = (f: FeatureState): NextAction[] => {
-    if (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges) {
+    if (
+      f.git.docsHasCommitRequiredChanges ||
+      f.git.projectHasUncommittedChanges
+    ) {
       return getTaskExecuteCommitPendingActions(f);
     }
 
@@ -777,7 +782,7 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   const getTaskExecuteCommitPendingActions = (
     f: FeatureState
   ): NextAction[] => {
-    if (f.git.docsHasUncommittedChanges) {
+    if (f.git.docsHasCommitRequiredChanges) {
       return [
         {
           type: 'command',
@@ -918,18 +923,18 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   };
   const isPostTaskSyncCurrent = (f: FeatureState): boolean =>
     isImplementationDone(f) &&
-    (f.git.docsHasUncommittedChanges || f.git.projectHasUncommittedChanges);
+    (f.git.docsHasCommitRequiredChanges || f.git.projectHasUncommittedChanges);
   const isPostTaskSyncDocs = (f: FeatureState): boolean =>
-    isPostTaskSyncCurrent(f) && f.git.docsHasUncommittedChanges;
+    isPostTaskSyncCurrent(f) && f.git.docsHasCommitRequiredChanges;
   const isPostTaskSyncReviewFix = (f: FeatureState): boolean =>
     isPostTaskSyncCurrent(f) &&
-    !f.git.docsHasUncommittedChanges &&
+    !f.git.docsHasCommitRequiredChanges &&
     f.git.projectHasUncommittedChanges &&
     (isReviewIterationPhase(f, workflowPolicy) ||
       isPrePrFixIterationPhase(f, workflowPolicy, prePrReviewPolicy));
   const isPostTaskSyncProject = (f: FeatureState): boolean =>
     isPostTaskSyncCurrent(f) &&
-    !f.git.docsHasUncommittedChanges &&
+    !f.git.docsHasCommitRequiredChanges &&
     f.git.projectHasUncommittedChanges &&
     !isPostTaskSyncReviewFix(f);
   const getPostTaskSyncDocsActions = (f: FeatureState): NextAction[] => [
@@ -1015,7 +1020,7 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     f.tasks.total > 0 &&
     f.tasks.total === f.tasks.done &&
     isCompletionChecklistDone(f) &&
-    !f.git.docsHasUncommittedChanges &&
+    !f.git.docsHasCommitRequiredChanges &&
     !f.git.projectHasUncommittedChanges &&
     (!isPrMetadataConfigured(f) || !f.pr.link) &&
     !isPrePrReviewSatisfied(f, prePrReviewPolicy);
@@ -1029,6 +1034,15 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     isPrePrReviewCurrent(f) &&
     f.docs.prePrReviewFieldExists &&
     !isPrePrReviewFixRequired(f) &&
+    f.prePrReview.status !== 'Running' &&
+    !resolvePrePrReviewEvidencePath(f) &&
+    (prePrReviewPolicy.evidenceMode === 'path_required' ||
+      prePrReviewPolicy.enforceExecutionEvidence);
+  const isPrePrReviewRunning = (f: FeatureState): boolean =>
+    isPrePrReviewCurrent(f) &&
+    f.docs.prePrReviewFieldExists &&
+    !isPrePrReviewFixRequired(f) &&
+    f.prePrReview.status === 'Running' &&
     !resolvePrePrReviewEvidencePath(f) &&
     (prePrReviewPolicy.evidenceMode === 'path_required' ||
       prePrReviewPolicy.enforceExecutionEvidence);
@@ -1079,6 +1093,14 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       scope: 'docs',
       cwd: f.git.docsGitCwd,
       cmd: buildSelfCliCommand(buildPrePrReviewRunCommandArgs(f)),
+    },
+  ];
+  const getPrePrReviewRunningActions = (): NextAction[] => [
+    {
+      type: 'instruction',
+      category: 'pre_pr_review_run',
+      requiresUserCheck: false,
+      message: tr(lang, 'messages', 'prePrReviewRunning'),
     },
   ];
   const getPrePrReviewRecordActions = (f: FeatureState): NextAction[] => {
@@ -1162,6 +1184,16 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     f.pr.status === 'Review' &&
     workflowPolicy.requireReview &&
     (f.git.projectBranchAhead || 0) === 0 &&
+    f.prReview.status !== 'Running' &&
+    !isCodeReviewNeedEvidenceField(f) &&
+    !f.prReview.evidenceProvided &&
+    !f.prReview.decisionProvided;
+  const isCodeReviewRunning = (f: FeatureState): boolean =>
+    isCodeReviewCurrent(f) &&
+    f.pr.status === 'Review' &&
+    workflowPolicy.requireReview &&
+    (f.git.projectBranchAhead || 0) === 0 &&
+    f.prReview.status === 'Running' &&
     !isCodeReviewNeedEvidenceField(f) &&
     !f.prReview.evidenceProvided &&
     !f.prReview.decisionProvided;
@@ -1187,6 +1219,14 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       scope: 'docs',
       cwd: f.git.docsGitCwd,
       cmd: buildSelfCliCommand(buildCodeReviewRunCommandArgs(f)),
+    },
+  ];
+  const getCodeReviewRunningActions = (): NextAction[] => [
+    {
+      type: 'instruction',
+      category: 'code_review_run',
+      requiresUserCheck: false,
+      message: tr(lang, 'messages', 'prReviewRunning'),
     },
   ];
   const getCodeReviewFinalizeActions = (f: FeatureState): NextAction[] => {
@@ -1459,7 +1499,7 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           isTasksDocApproved(f) &&
           !f.activeTask &&
           !f.git.docsEverCommitted &&
-          f.git.docsHasUncommittedChanges,
+          f.git.docsHasCommitRequiredChanges,
         actions: (f) => {
           if (f.issueNumber) {
             return [
@@ -1686,7 +1726,7 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       name: tr(lang, 'steps', 'docsCommitSync'),
       checklist: {
         done: (f) =>
-          !f.git.docsHasUncommittedChanges &&
+          !f.git.docsHasCommitRequiredChanges &&
           !f.git.projectHasUncommittedChanges,
       },
       substates: [
@@ -1746,6 +1786,14 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           category: 'pre_pr_review_run',
           when: (f) => isPrePrReviewRun(f),
           actions: (f) => getPrePrReviewRunActions(f),
+        },
+        {
+          id: 'pre_pr_review_running',
+          phase: 'running',
+          owner: 'subagent',
+          category: 'pre_pr_review_run',
+          when: (f) => isPrePrReviewRunning(f),
+          actions: () => getPrePrReviewRunningActions(),
         },
         {
           id: 'pre_pr_review_record',
@@ -1902,6 +1950,14 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           category: 'code_review_run',
           when: (f) => isCodeReviewRun(f),
           actions: (f) => getCodeReviewRunActions(f),
+        },
+        {
+          id: 'code_review_running',
+          phase: 'running',
+          owner: 'subagent',
+          category: 'code_review_run',
+          when: (f) => isCodeReviewRunning(f),
+          actions: () => getCodeReviewRunningActions(),
         },
         {
           id: 'code_review_need_evidence',

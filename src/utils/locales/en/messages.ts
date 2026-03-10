@@ -72,9 +72,11 @@ export const enMessages = {
   prLegacyAsk:
     'tasks.md is missing PR/PR Status fields. Update to the latest template format? (CHECK required)',
   prePrReviewFieldMissing:
-    'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Done` and run context again. (CHECK required)',
+    'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Running | Done` and run context again. (CHECK required)',
   prePrReviewRun:
     'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks`. Then record findings with `pre-pr-review`; `pre-pr-review-run` itself does not generate evidence or advance state, and you should use `--evidence review-trace.json` only when the active evidence policy requires a path. (CHECK required)',
+  prePrReviewRunning:
+    'Pre-PR review handoff is already in progress. Finish the delegated review, generate `review-trace.json`, then record the result with `pre-pr-review`. (CHECK required)',
   prePrReviewEvidenceMissing:
     'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`. (CHECK required)',
   prePrReviewDecisionMissing:
@@ -91,6 +93,8 @@ export const enMessages = {
     'tasks.md is missing the `PR Review Decision` field. Add `- **PR Review Decision**: -` and continue. (CHECK required)',
   prReviewDecisionMissing:
     'tasks.md `PR Review Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
+  prReviewRunning:
+    'PR review handoff is already in progress. Complete the delegated review/fix work, then update `PR Review Evidence` and `PR Review Decision`. (CHECK required)',
   prCreate:
     'Generate the PR body template, refine changes/tests sections, get explicit progress approval (label), create the PR, then record the PR link in tasks.md.',
   prCreatePrepareFromDoc:

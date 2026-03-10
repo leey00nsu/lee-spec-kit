@@ -25,14 +25,17 @@
 - **PR 상태**: -
   - 값: Review | Approved
 - **PR 전 리뷰**: -
-  - 값: Pending | Done
-  - 사전 코드리뷰 완료 후 `Done`으로 변경
+  - 값: Pending | Running | Done
+  - pre-PR 리뷰 handoff를 시작하면 `Running`, 리뷰 결과 기록까지 끝나면 `Done`으로 변경
 - **PR 전 리뷰 Evidence**: -
   - 예: `docs/features/F001-foo/decisions.md` (실제 존재 경로)
 - **PR 전 리뷰 Decision**: -
   - 형식: `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`)
   - PR 생성 전 최종 통과 기준은 `approve`
   - 기본 베이스라인으로 `agents/skills/create-pr.md`(`Pre-PR 기본 체크리스트`) 기준을 따르세요
+- **PR 리뷰**: -
+  - 값: Pending | Running | Done
+  - PR 리뷰 handoff를 시작하면 `Running`, 팀에서 별도 완료 상태를 추적할 때만 `Done`으로 변경
 - **PR 리뷰 Evidence**: -
   - 예: `요약: ...`(또는 `summary: ...`), 또는 `PR Review Log`가 있는 `docs/features/F001-foo/decisions.md`
 - **PR 리뷰 Decision**: -

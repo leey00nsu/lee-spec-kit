@@ -679,7 +679,12 @@ export async function runAutoUntilCategory(
       executeArgs.push('--ticket', approveResult.approvalTicket.token);
     }
     const executeResult = runSelfCliJson(executeArgs, true) as
-      | { status?: string; reasonCode?: string; error?: string }
+      | {
+          status?: string;
+          reasonCode?: string;
+          error?: string;
+          nextMainState?: string;
+        }
       | undefined;
     executions.push({
       kind: 'command',
@@ -692,6 +697,29 @@ export async function runAutoUntilCategory(
       executeStatus: executeResult?.status ?? 'unknown',
       executeReasonCode: executeResult?.reasonCode,
     });
+    if (executeResult?.status === 'approved_handoff_prepared') {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
+        resume,
+        status: 'manual_required',
+        reasonCode: toAutoReasonCode('manual_required'),
+        iterations,
+        executions,
+        gate: null,
+        manual: {
+          label: executable.label,
+          category: executable.action.category,
+          detail:
+            typeof executeResult?.nextMainState === 'string'
+              ? `Complete the delegated handoff work, then continue from ${executeResult.nextMainState}.`
+              : executable.detail,
+        },
+      };
+    }
     if (executeResult?.status !== 'approved_executed') {
       return {
         enabled: true,

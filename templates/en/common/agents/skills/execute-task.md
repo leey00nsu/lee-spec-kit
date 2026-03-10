@@ -32,6 +32,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - When `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
 - Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Use `agentOrchestration.subAgentHandoff` as the minimal handoff contract (`featureRef`, `category`, `cwd`, `cmd`).
+- If an action option exposes `handoffOnly=true` and `advancesWorkflow=false`, do not treat `--execute` success as workflow progress. Finish the delegated work and update the required evidence/state before running `context` again.
 - Run `subAgentHandoff.verify.commands` only once per session using `verify.cacheKey` (`pwd`, `git rev-parse --show-toplevel`). Stop/report on mismatch, and gather detailed logs only when mismatch happens.
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution). Before fallback execution, report a one-line fallback reason to the user.
 - Use `autoRun.command` only when `context --json-compact` exposes `autoRun.available=true`.
@@ -42,6 +43,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow `agents.md` **"Label Response Contract (SSOT)"**. Show label prompts only in approval-waiting state, and reuse the exact CLI-provided approval lines instead of paraphrasing them.
 - For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
+- If `flow/context --execute --json` returns `approved_handoff_prepared`, stop re-approving the same label. Complete the delegated work first, then refresh context.
 
 ### Step 3: Update tasks.md (only what you did)
 

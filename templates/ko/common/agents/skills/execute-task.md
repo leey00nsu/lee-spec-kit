@@ -32,6 +32,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - `matchedFeature.currentSubstateOwner="subagent"`이고 `agentOrchestration.subAgentHandoff.required=true`이며 `mode="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
 - `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
 - `agentOrchestration.subAgentHandoff`를 최소 handoff 계약(`featureRef`, `category`, `cwd`, `cmd`)으로 사용합니다.
+- action option에 `handoffOnly=true`와 `advancesWorkflow=false`가 있으면 `--execute` 성공을 workflow 전진으로 간주하지 않습니다. delegated work와 필요한 evidence/state 갱신을 끝낸 뒤에 다시 `context`를 실행합니다.
 - `subAgentHandoff.verify.commands`(`pwd`, `git rev-parse --show-toplevel`)은 `verify.cacheKey` 기준 세션당 1회만 실행합니다. 불일치 시 즉시 중단/보고하고, 상세 로그는 불일치 시에만 수집합니다.
 - 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다. fallback 실행 전에는 사유를 사용자에게 한 줄로 먼저 알립니다.
 - `context --json-compact`에서 `autoRun.available=true`일 때만 `autoRun.command`를 사용해 자동 루프를 시작합니다.
@@ -42,6 +43,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.
 - 승인된 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
+- `flow/context --execute --json` 결과가 `approved_handoff_prepared`이면 같은 라벨을 다시 승인 루프로 열지 말고, 먼저 delegated work를 완료한 뒤 context를 새로 확인합니다.
 
 ### 3단계: 기록 및 반복 (Record & Loop)
 

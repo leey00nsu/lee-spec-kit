@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs-extra';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { getConfig } from '../utils/config.js';
@@ -18,6 +19,71 @@ import { getLocalDateString } from '../utils/date.js';
 interface CodeReviewRunOptions {
   component?: string;
   json?: boolean;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findSpecLineIndex(lines: string[], keys: string[]): number {
+  const escaped = keys.map((key) => escapeRegExp(key));
+  const re = new RegExp(
+    `^\\s*-\\s*\\*\\*(?:${escaped.join('|')})\\*\\*\\s*:\\s*`
+  );
+  return lines.findIndex((line) => re.test(line));
+}
+
+function replaceSpecLine(
+  line: string,
+  keys: string[],
+  preferredKey: string,
+  value: string
+): string {
+  const escaped = keys.map((key) => escapeRegExp(key));
+  const re = new RegExp(
+    `^(\\s*-\\s*\\*\\*)(?:${escaped.join('|')})(\\*\\*\\s*:\\s*)(.*)$`
+  );
+  if (!re.test(line)) return line;
+  return line.replace(re, `$1${preferredKey}$2${value}`);
+}
+
+function computeInsertIndex(lines: string[], anchorKeys: string[]): number {
+  const anchorIndex = findSpecLineIndex(lines, anchorKeys);
+  if (anchorIndex !== -1) {
+    let cursor = anchorIndex + 1;
+    while (cursor < lines.length && /^\s{2,}-\s+/.test(lines[cursor])) {
+      cursor += 1;
+    }
+    return cursor;
+  }
+  const sectionIndex = lines.findIndex((line) =>
+    /^\s*##\s+(Task List|태스크 목록)\s*$/.test(line)
+  );
+  if (sectionIndex !== -1) return sectionIndex;
+  return lines.length;
+}
+
+function upsertSpecLine(
+  content: string,
+  keys: string[],
+  preferredKey: string,
+  value: string,
+  anchorKeys: string[]
+): string {
+  const lines = content.split('\n');
+  const index = findSpecLineIndex(lines, keys);
+  if (index !== -1) {
+    lines[index] = replaceSpecLine(lines[index], keys, preferredKey, value);
+    return lines.join('\n');
+  }
+
+  const insertAt = computeInsertIndex(lines, anchorKeys);
+  lines.splice(insertAt, 0, `- **${preferredKey}**: ${value}`);
+  return lines.join('\n');
+}
+
+function getPreferredReviewKey(lang: 'ko' | 'en'): string {
+  return lang === 'ko' ? 'PR 리뷰' : 'PR Review';
 }
 
 function buildCodeReviewRunPrompt(input: {
@@ -70,6 +136,22 @@ async function runCodeReviewRun(
   }
 
   const feature = state.matchedFeature;
+  const tasksPath = path.join(feature.path, 'tasks.md');
+  let tasksUpdated = false;
+  if (await fs.pathExists(tasksPath)) {
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    const nextTasks = upsertSpecLine(
+      tasksContent,
+      ['PR 리뷰', 'PR Review'],
+      getPreferredReviewKey(config.lang),
+      'Running',
+      ['PR 전 리뷰 Decision', 'Pre-PR Decision', 'PR 상태', 'PR Status']
+    );
+    tasksUpdated = nextTasks !== tasksContent;
+    if (tasksUpdated) {
+      await fs.writeFile(tasksPath, nextTasks, 'utf-8');
+    }
+  }
   const prompt = buildCodeReviewRunPrompt({
     featureRef: feature.folderName,
     basePrompt: getCodeReviewPrompt(config.lang),
@@ -86,8 +168,9 @@ async function runCodeReviewRun(
     reuseKey: `code-review:${feature.folderName}`,
     suggestedParallelism: 1,
     fallbackToMainAgentWhenQuotaExceeded: true,
-    nextMainState: 'code_review_finalize',
-    tasksPath: path.join(feature.path, 'tasks.md'),
+    nextMainState: 'code_review_running',
+    tasksUpdated,
+    tasksPath,
     decisionsPath: path.join(feature.path, 'decisions.md'),
     prompt,
     recordedAt: getLocalDateString(),
@@ -117,6 +200,14 @@ async function runCodeReviewRun(
     )
   );
   console.log(chalk.gray(`- next main state: ${payload.nextMainState}`));
+  if (tasksUpdated) {
+    console.log(chalk.gray(`- tasks.md updated: ${payload.tasksPath}`));
+    console.log(
+      chalk.gray(
+        config.lang === 'ko' ? '- PR 리뷰 상태: Running' : '- PR Review status: Running'
+      )
+    );
+  }
   console.log(chalk.gray(`- tasks.md: ${payload.tasksPath}`));
   console.log(chalk.gray(`- decisions.md: ${payload.decisionsPath}`));
 }

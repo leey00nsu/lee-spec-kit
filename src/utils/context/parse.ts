@@ -22,6 +22,7 @@ import {
   PrePrDecisionOutcome,
   PrePrReviewStatus,
   PrRemoteStatus,
+  PrReviewRunStatus,
   PrReviewStatus,
   RepoType,
   StepDefinition,
@@ -136,15 +137,118 @@ function parsePrReviewStatus(
   return 'Approved';
 }
 
-function parsePrePrReviewStatus(
+function parseReviewRunStatus(
   value: string | undefined
-): PrePrReviewStatus | undefined {
+): PrePrReviewStatus | PrReviewRunStatus | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('|')) return undefined;
   if (/^(done|complete|completed)$/i.test(trimmed)) return 'Done';
+  if (/^running$/i.test(trimmed)) return 'Running';
   if (/^pending$/i.test(trimmed)) return 'Pending';
   return undefined;
+}
+
+function parseGitStatusPaths(status: string): string[] {
+  return status
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => {
+      const rawPath = line.slice(3).trim();
+      const renamedPath = rawPath.includes(' -> ')
+        ? rawPath.split(' -> ').pop() || rawPath
+        : rawPath;
+      return renamedPath.replace(/\\/g, '/');
+    })
+    .filter(Boolean);
+}
+
+function getGitDiffAgainstHead(
+  ctx: CliContext,
+  cwd: string,
+  relativePath: string
+): string | undefined {
+  try {
+    return ctx.cmd
+      .execFileSync('git', ['diff', '--unified=0', 'HEAD', '--', relativePath], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function getGitPathPrefix(ctx: CliContext, cwd: string): string {
+  try {
+    return ctx.cmd
+      .execFileSync('git', ['rev-parse', '--show-prefix'], {
+        cwd,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      .toString()
+      .trim();
+  } catch {
+    return '';
+  }
+}
+
+function isAllowedReviewRunStatusRemoval(line: string): boolean {
+  return /^\s*-\s+\*\*(?:Pre-PR Review|PR 전 리뷰|PR Review|PR 리뷰)\*\*:\s*(?:Pending|-)\s*$/u.test(
+    line
+  );
+}
+
+function isAllowedReviewRunStatusAddition(line: string): boolean {
+  return /^\s*-\s+\*\*(?:Pre-PR Review|PR 전 리뷰|PR Review|PR 리뷰)\*\*:\s*Running\s*$/u.test(
+    line
+  );
+}
+
+function isReviewRunStateOnlyDocsChange(
+  ctx: CliContext,
+  docsGitCwd: string,
+  featurePathFromDocs: string,
+  docsStatus: string | undefined
+): boolean {
+  if (!docsStatus) return false;
+  const changedPaths = parseGitStatusPaths(docsStatus);
+  const tasksPath = `${featurePathFromDocs.replace(/\\/g, '/')}/tasks.md`;
+  const gitPrefix = getGitPathPrefix(ctx, docsGitCwd).replace(/\\/g, '/');
+  const prefixedTasksPath = `${gitPrefix}${tasksPath}`.replace(/^\.\/+/, '');
+  const acceptedTasksPaths = new Set([tasksPath, prefixedTasksPath]);
+  if (
+    changedPaths.length === 0 ||
+    changedPaths.some((entry) => !acceptedTasksPaths.has(entry))
+  ) {
+    return false;
+  }
+
+  const diff = getGitDiffAgainstHead(ctx, docsGitCwd, tasksPath);
+  if (!diff) return false;
+
+  const changedLines = diff
+    .split('\n')
+    .filter(
+      (line) =>
+        (line.startsWith('+') || line.startsWith('-')) &&
+        !line.startsWith('+++') &&
+        !line.startsWith('---')
+    );
+
+  if (changedLines.length === 0) return false;
+
+  return changedLines.every((line) => {
+    const payload = line.slice(1);
+    if (line.startsWith('+')) {
+      return isAllowedReviewRunStatusAddition(payload);
+    }
+    return isAllowedReviewRunStatusRemoval(payload);
+  });
 }
 
 function isPlaceholderReviewEvidence(value: string | undefined): boolean {
@@ -1236,6 +1340,7 @@ export async function parseFeature(
   let prePrDecision: string | undefined;
   let prePrDecisionOutcome: PrePrDecisionOutcome | undefined;
   let prePrDecisionProvided = false;
+  let prReviewRunStatus: PrReviewRunStatus | undefined;
   let prReviewEvidence: string | undefined;
   let prReviewEvidenceProvided = false;
   let prReviewDecision: string | undefined;
@@ -1312,7 +1417,13 @@ export async function parseFeature(
       'PR 전 리뷰',
       'Pre-PR Review',
     ]);
-    prePrReviewStatus = parsePrePrReviewStatus(prePrReviewValue);
+    prePrReviewStatus = parseReviewRunStatus(prePrReviewValue);
+
+    const prReviewStatusValue = extractFirstSpecValue(content, [
+      'PR 리뷰',
+      'PR Review',
+    ]);
+    prReviewRunStatus = parseReviewRunStatus(prReviewStatusValue);
 
     const prePrEvidenceValue = extractFirstSpecValue(content, [
       'PR 전 리뷰 Evidence',
@@ -1506,6 +1617,7 @@ export async function parseFeature(
     typeof context.docsHasUncommittedChanges === 'boolean'
       ? context.docsHasUncommittedChanges
       : false;
+  let docsRawStatus: string | undefined;
   let docsEverCommitted =
     typeof context.docsEverCommitted === 'boolean'
       ? context.docsEverCommitted
@@ -1513,15 +1625,38 @@ export async function parseFeature(
   let docsGitUnavailable = !!context.docsGitUnavailable;
 
   if (typeof context.docsHasUncommittedChanges !== 'boolean') {
-    const docsStatus = getGitStatusPorcelain(ctx, context.docsGitCwd, [
+    docsRawStatus = getGitStatusPorcelain(ctx, context.docsGitCwd, [
       normalizedFeaturePathFromDocs,
     ]);
-    if (docsStatus === undefined) {
+    if (docsRawStatus === undefined) {
       docsGitUnavailable = true;
       docsHasUncommittedChanges = true;
     } else {
-      docsHasUncommittedChanges = docsStatus.trim().length > 0;
+      docsHasUncommittedChanges = docsRawStatus.trim().length > 0;
     }
+  }
+  if (
+    docsHasUncommittedChanges &&
+    docsRawStatus === undefined &&
+    !docsGitUnavailable
+  ) {
+    docsRawStatus = getGitStatusPorcelain(ctx, context.docsGitCwd, [
+      normalizedFeaturePathFromDocs,
+    ]);
+  }
+
+  let docsHasCommitRequiredChanges = docsHasUncommittedChanges;
+  if (
+    docsHasUncommittedChanges &&
+    !docsGitUnavailable &&
+    isReviewRunStateOnlyDocsChange(
+      ctx,
+      context.docsGitCwd,
+      normalizedFeaturePathFromDocs,
+      docsRawStatus
+    )
+  ) {
+    docsHasCommitRequiredChanges = false;
   }
 
   if (typeof context.docsEverCommitted !== 'boolean') {
@@ -1665,7 +1800,7 @@ export async function parseFeature(
     );
   }
 
-  if (docsEverCommitted && docsHasUncommittedChanges) {
+  if (docsEverCommitted && docsHasCommitRequiredChanges) {
     warnings.push(tr(lang, 'warnings', 'docsUncommittedChanges'));
   }
   if (projectHasUncommittedChanges) {
@@ -1700,7 +1835,7 @@ export async function parseFeature(
 
   const workflowDone =
     implementationDone &&
-    !docsHasUncommittedChanges &&
+    !docsHasCommitRequiredChanges &&
     !projectHasUncommittedChanges &&
     specStatus === 'Approved' &&
     planStatus === 'Approved' &&
@@ -1827,6 +1962,7 @@ export async function parseFeature(
       decisionProvided: prePrDecisionProvided,
     },
     prReview: {
+      status: prReviewRunStatus,
       evidence: prReviewEvidence,
       evidenceProvided: prReviewEvidenceProvided,
       decision: prReviewDecision,
@@ -1844,6 +1980,7 @@ export async function parseFeature(
       expectedWorktreePath,
       docsEverCommitted,
       docsHasUncommittedChanges,
+      docsHasCommitRequiredChanges,
       projectHasUncommittedChanges,
       docsPathIgnored: docsPathIgnored === true,
       projectHasUpstream,

@@ -20,7 +20,7 @@ export const enWarnings = {
   legacyTasksPrFields:
     'Legacy tasks.md format detected. Add `PR` and `PR Status` fields before PR steps.',
   legacyTasksPrePrReviewField:
-    'Legacy tasks.md format detected. Add `Pre-PR Review` before PR steps. (`- **Pre-PR Review**: Pending | Done`)',
+    'Legacy tasks.md format detected. Add `Pre-PR Review` before PR steps. (`- **Pre-PR Review**: Pending | Running | Done`)',
   legacyTasksPrePrEvidenceField:
     'Legacy tasks.md format detected. Add `Pre-PR Evidence` before PR steps.',
   legacyTasksPrePrDecisionField:
@@ -54,7 +54,7 @@ export const enWarnings = {
   workflowPrRemoteChecksPending:
     'Remote PR has {count} pending check(s). Wait for checks to complete, then re-check.',
   workflowPrePrReviewMissing:
-    'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Done` in tasks.md.)',
+    'Implementation is done but `Pre-PR Review` is missing. (Add `- **Pre-PR Review**: Pending | Running | Done` in tasks.md.)',
   workflowPrePrReviewNotDone:
     'Implementation is done but `Pre-PR Review` is not Done. (Run pre-PR review, then update it to Done.)',
   workflowPrePrEvidenceMissing:

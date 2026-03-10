@@ -105,7 +105,9 @@ export interface CompletionChecklistSummary {
   checked: number;
 }
 
-export type PrePrReviewStatus = 'Pending' | 'Done';
+export type ReviewRunStatus = 'Pending' | 'Running' | 'Done';
+export type PrePrReviewStatus = ReviewRunStatus;
+export type PrReviewRunStatus = ReviewRunStatus;
 
 export type PrePrDecisionOutcome = 'approve' | 'changes_requested' | 'blocked';
 export type FeatureScopeSplitReason = 'task_count' | 'decisions_lines';
@@ -167,6 +169,7 @@ export interface FeatureState {
     decisionProvided: boolean;
   };
   prReview: {
+    status?: PrReviewRunStatus;
     evidence?: string;
     evidenceProvided: boolean;
     decision?: string;
@@ -188,6 +191,7 @@ export interface FeatureState {
     expectedWorktreePath?: string;
     docsEverCommitted: boolean;
     docsHasUncommittedChanges: boolean;
+    docsHasCommitRequiredChanges: boolean;
     projectHasUncommittedChanges: boolean;
     docsPathIgnored?: boolean;
     projectHasUpstream?: boolean;

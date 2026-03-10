@@ -44,11 +44,11 @@ export const koContext = {
   'context.commandDetail.codeReviewPushFix':
     '({scope}) 리뷰 수정 커밋을 push하세요',
   'context.commandDetail.prePrReviewRun':
-    '({scope}) 보조 에이전트(sub-agent)로 PR 전 리뷰를 실행해 `review-trace.json`을 준비하세요',
+    '({scope}) 보조 에이전트(sub-agent) PR 전 리뷰 handoff만 준비합니다. 상태 전진을 위해 evidence는 별도로 기록해야 합니다',
   'context.commandDetail.prePrReviewRecord':
     '({scope}) Pre-PR 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.commandDetail.codeReviewRun':
-    '({scope}) 리뷰 코멘트를 확인하고, 보조 에이전트(sub-agent)로 수정 작업/evidence 정리를 진행하세요',
+    '({scope}) 보조 에이전트(sub-agent) 리뷰 수정 handoff만 준비합니다. delegated work 후 PR Review Evidence/Decision을 기록해야 다음으로 진행됩니다',
   'context.actionSummary.runDocsCommand': '문서 작업 명령을 실행하세요',
   'context.actionSummary.runProjectCommand': '프로젝트 작업 명령을 실행하세요',
   'context.actionDetail.featureFolder':
@@ -84,11 +84,11 @@ export const koContext = {
   'context.actionDetail.reviewFixCommit':
     '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
   'context.actionDetail.prePrReviewRun':
-    '보조 에이전트(sub-agent)로 PR 전 리뷰를 실행해 `review-trace.json`을 준비하세요',
+    '보조 에이전트(sub-agent) PR 전 리뷰 handoff만 준비합니다. 상태 전진을 위해 evidence는 별도로 기록해야 합니다',
   'context.actionDetail.prePrReviewRecord':
     'PR 전 리뷰 evidence를 decisions.md와 tasks.md에 기록하세요',
   'context.actionDetail.codeReviewRun':
-    '리뷰 코멘트를 확인하고, 보조 에이전트(sub-agent)로 수정 작업/evidence 정리를 진행하세요',
+    '보조 에이전트(sub-agent) 리뷰 수정 handoff만 준비합니다. delegated work 후 PR Review Evidence/Decision을 기록해야 다음으로 진행됩니다',
   'context.actionDetail.prCreate':
     'PR을 생성하고 tasks 기.md의 PR 정보를 맞추세요',
   'context.actionDetail.prCreateRequiredSequence':

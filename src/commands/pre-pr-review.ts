@@ -414,6 +414,24 @@ async function runPrePrReviewRun(
     options.component
   );
   const policy = resolvePrePrReviewPolicy(config.workflow);
+  const preferred = getPreferredKeys(config.lang);
+  const tasksPath = path.join(feature.path, 'tasks.md');
+  let tasksUpdated = false;
+  if (await fs.pathExists(tasksPath)) {
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    const nextTasks = upsertSpecLine(
+      tasksContent,
+      ['PR 전 리뷰', 'Pre-PR Review'],
+      preferred.review,
+      'Running',
+      ['PR 상태', 'PR Status']
+    );
+    tasksUpdated = nextTasks !== tasksContent;
+    if (tasksUpdated) {
+      await fs.writeFile(tasksPath, nextTasks, 'utf-8');
+    }
+  }
+
   const prompt = getPrePrReviewPrompt(
     config.lang,
     policy.skills,
@@ -449,7 +467,10 @@ async function runPrePrReviewRun(
           suggestedParallelism: 1,
           fallbackToMainAgentWhenQuotaExceeded: true,
           nextStepRequirement: 'generate_review_trace_then_record',
+          nextMainState: 'pre_pr_review_running',
           evidenceFile: 'review-trace.json',
+          tasksUpdated,
+          tasksPath,
           prompt,
           recordCommands: {
             changesRequested: changesRequestedCommand,
@@ -488,7 +509,16 @@ async function runPrePrReviewRun(
   );
   console.log(`Reuse key: pre-pr:${featureRef}`);
   console.log(`Suggested parallelism: 1`);
+  console.log(`Next main state: pre_pr_review_running`);
   console.log(`Evidence file: review-trace.json`);
+  if (tasksUpdated) {
+    console.log(`tasks.md updated: ${tasksPath}`);
+    console.log(
+      config.lang === 'ko'
+        ? 'PR 전 리뷰 상태: Running'
+        : 'Pre-PR Review status: Running'
+    );
+  }
   console.log(`Record changes requested: ${changesRequestedCommand}`);
   console.log(`Record approval: ${approveCommand}`);
 }

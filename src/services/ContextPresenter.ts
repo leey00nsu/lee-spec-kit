@@ -106,6 +106,32 @@ export interface AgentOrchestrationPolicy {
   };
 }
 
+export interface ActionExecutionMetadata {
+  handoffOnly: boolean;
+  advancesWorkflow: boolean;
+  nextMainState?: string;
+}
+
+export function getActionExecutionMetadata(
+  action: ActionOption['action']
+): ActionExecutionMetadata | null {
+  if (action.category === 'code_review_run') {
+    return {
+      handoffOnly: true,
+      advancesWorkflow: false,
+      nextMainState: 'code_review_running',
+    };
+  }
+  if (action.category === 'pre_pr_review_run') {
+    return {
+      handoffOnly: true,
+      advancesWorkflow: false,
+      nextMainState: 'pre_pr_review_running',
+    };
+  }
+  return null;
+}
+
 export function isTaskExecuteProjectCommitCommand(
   option: ActionOption | undefined
 ): boolean {
@@ -634,7 +660,7 @@ export function getListLabel(
   // For "ready to close" features, show the closest missing workflow requirement
   // instead of generic step names like "tasks.md 작성".
   if (f.completion.implementationDone && !f.completion.workflowDone) {
-    if (f.git.docsHasUncommittedChanges) {
+    if (f.git.docsHasCommitRequiredChanges) {
       return tr(lang, 'cli', 'context.list.docsCommitNeeded');
     }
     if (f.git.projectHasUncommittedChanges) {
@@ -766,6 +792,14 @@ export function toCompactActionOption(
     operationType: option.action.operationType,
     requiresUserCheck: !!option.action.requiresUserCheck,
   };
+  const executionMetadata = getActionExecutionMetadata(option.action);
+  if (executionMetadata) {
+    base.handoffOnly = executionMetadata.handoffOnly;
+    base.advancesWorkflow = executionMetadata.advancesWorkflow;
+    if (executionMetadata.nextMainState) {
+      base.nextMainState = executionMetadata.nextMainState;
+    }
+  }
 
   if (option.action.taskExecutePhase) {
     base.taskExecutePhase = option.action.taskExecutePhase;
