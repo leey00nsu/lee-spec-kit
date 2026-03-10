@@ -301,7 +301,7 @@ function toActionOptions(
     const requiresRequestText = action.category === 'user_request_replan';
     const replyExample = requiresRequestText
       ? `${label}, <your request>`
-      : `${label} OK`;
+      : label;
     return {
       label,
       summary,

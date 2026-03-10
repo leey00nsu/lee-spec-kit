@@ -746,6 +746,10 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
       'boolean'
     );
     assert.equal(typeof primaryActionOption(payload).replyExample, 'string');
+    assert.equal(
+      primaryActionOption(payload).replyExample,
+      primaryActionOption(payload).label
+    );
     assert.match(primaryActionOption(payload).approvalPrompt, /^[A-Z]+:\s+/);
     assert.equal(
       primaryActionOption(payload).approvalPrompt,
@@ -1704,11 +1708,11 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
     );
     assert.match(
       primaryActionOption(finishPayload).detail,
-      /T-F001-alpha-01 - implement alpha shell/
+      /wrap up the in-progress task: T-F001-alpha-01 - implement alpha shell\.\s+\(Share outcome\/verification, then mark it DONE\)/
     );
     assert.match(
       primaryActionOption(finishPayload).approvalPrompt,
-      /T-F001-alpha-01 - implement alpha shell/
+      /wrap up the in-progress task: T-F001-alpha-01 - implement alpha shell\.\s+\(Share outcome\/verification, then mark it DONE\)/
     );
     assert.equal(
       finishPayload.agentOrchestration?.currentActionShouldDelegate,

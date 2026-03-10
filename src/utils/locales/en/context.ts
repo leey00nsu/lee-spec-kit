@@ -77,7 +77,7 @@ export const enContext = {
   'context.actionDetail.taskExecuteRun':
     'Prepare helper agent/sub-agent task handoff and start the task: {task}. (TODO becomes DOING)',
   'context.actionDetail.taskExecuteContinue':
-    'Prepare helper agent/sub-agent handoff and continue the in-progress task: {task}',
+    'Prepare helper agent/sub-agent handoff and wrap up the in-progress task: {task}. (Share outcome/verification, then mark it DONE)',
   'context.actionDetail.reviewFixCommit':
     'Create a review-fix commit with resolved feedback summary',
   'context.actionDetail.prePrReviewRun':
