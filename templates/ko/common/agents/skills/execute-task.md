@@ -34,7 +34,8 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - `agentOrchestration.subAgentHandoff`를 최소 handoff 계약(`featureRef`, `category`, `cwd`, `cmd`)으로 사용합니다.
 - `subAgentHandoff.verify.commands`(`pwd`, `git rev-parse --show-toplevel`)은 `verify.cacheKey` 기준 세션당 1회만 실행합니다. 불일치 시 즉시 중단/보고하고, 상세 로그는 불일치 시에만 수집합니다.
 - 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다. fallback 실행 전에는 사유를 사용자에게 한 줄로 먼저 알립니다.
-- `context --json-compact`에 `autoRun.available=true`가 있으면 `autoRun.command`를 사용해 승인 필요 카테고리 전까지 자동 진행할 수 있습니다.
+- `context --json-compact`에서 `autoRun.available=true`일 때만 `autoRun.command`를 사용해 자동 루프를 시작합니다.
+- `autoRun.policyEligible=true`이지만 `autoRun.executableNow=false`이면 auto 루프를 시작하지 말고 `autoRun.manualBoundary`를 먼저 처리합니다.
 - 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json-compact`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다. (상세 디버깅 필드가 필요할 때만 `--json`)
 - auto 실행이 중단되면 `flow --json-compact`(또는 `flow --json`)의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.
 - `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.

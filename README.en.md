@@ -398,9 +398,10 @@ Auto gate mode rules:
   - Exception: if `workflow.auto.defaultPreset` is configured, `--request` alone enables auto mode.
 - `--resume <run-id>` cannot be combined with `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, or `--request`. (It uses settings from the stored checkpoint.)
 - Auto-run stops as `gate_reached` when a target category appears, then prints that step's approval text (`approvalRequest.userFacingLines`).
+- In `context --json` / `--json-compact`, `autoRun.available` means "auto-run can execute right now". If config allows auto-run but the current step is instruction-only, you get `autoRun.available=false`, `autoRun.policyEligible=true`, `autoRun.executableNow=false`, and `autoRun.manualBoundary`.
 - If the current action set is instruction-only (no executable command), auto-run may stop with `AUTO_MANUAL_REQUIRED`. This is an automation boundary, not a CLI crash.
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
-- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, and `autoRun.resume`.
+- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, `autoRun.executions`, and `autoRun.resume`.
 - Inspect JSON `agentOrchestration` and `matchedFeature.currentSubstate*` for main/sub-agent responsibilities and pause/report boundaries.
   - Prefer `matchedFeature.currentSubstateOwner` plus `subAgentHandoff` as the delegation signal when present. Compact keeps only `subAgentHandoff`; use detailed `--json` / `flow --json` when you need extra orchestration metadata.
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).

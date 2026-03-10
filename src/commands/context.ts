@@ -258,9 +258,13 @@ async function runContext(
         },
         autoRun: {
           available: autoRunPlan.available,
+          policyEligible: autoRunPlan.policyEligible,
+          executableNow: autoRunPlan.executableNow,
           reasonCode: autoRunPlan.reasonCode,
           command: autoRunPlan.command,
           untilCategories: autoRunPlan.untilCategories,
+          unknownCategories: autoRunPlan.unknownCategories,
+          manualBoundary: autoRunPlan.manualBoundary,
         },
         approvalRequest: {
           required: approvalRequired,
@@ -411,13 +415,16 @@ async function runContext(
       agentOrchestration,
       autoRun: {
         available: autoRunPlan.available,
+        policyEligible: autoRunPlan.policyEligible,
+        executableNow: autoRunPlan.executableNow,
         reasonCode: autoRunPlan.reasonCode,
         summary: autoRunPlan.summary,
         command: autoRunPlan.command,
         untilCategories: autoRunPlan.untilCategories,
         unknownCategories: autoRunPlan.unknownCategories,
+        manualBoundary: autoRunPlan.manualBoundary,
         guidance:
-          'Use auto-run only when `autoRun.available=true`. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode="auto_run"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
+          'Use auto-run only when `autoRun.available=true`. If `autoRun.policyEligible=true` but `autoRun.executableNow=false`, resolve `autoRun.manualBoundary` first. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode="auto_run"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
       },
       approvalRequest: {
         guidance:

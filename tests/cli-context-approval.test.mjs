@@ -1077,6 +1077,73 @@ test('context --json-compact preserves substate metadata for substate-backed ste
   });
 });
 
+test('context --json-compact exposes manual-boundary auto-run metadata', async () => {
+  await withTempDir('lsk-context-json-compact-auto-run-boundary-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: [
+        'spec_approve',
+        'plan_approve',
+        'tasks_approve',
+        'pre_pr_review',
+        'pr_create',
+      ],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json-compact',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.autoRun?.available, false);
+    assert.equal(payload.autoRun?.policyEligible, true);
+    assert.equal(payload.autoRun?.executableNow, false);
+    assert.equal(payload.autoRun?.reasonCode, 'MANUAL_BOUNDARY');
+    assert.deepEqual(payload.autoRun?.untilCategories, [
+      'spec_approve',
+      'plan_approve',
+      'tasks_approve',
+      'pr_create',
+    ]);
+    assert.deepEqual(payload.autoRun?.unknownCategories, ['pre_pr_review']);
+    assert.deepEqual(payload.autoRun?.manualBoundary, {
+      label: 'A',
+      category: 'spec_write',
+      detail: 'Write or refine spec.md and set status',
+    });
+  });
+});
+
 test('context spec_write approval prompt hides internal docs-get commands', async () => {
   await withTempDir('lsk-context-spec-write-user-prompt-', async (dir) => {
     const initResult = await runCli(dir, [

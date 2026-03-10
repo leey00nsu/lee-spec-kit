@@ -27,7 +27,9 @@ export const koContext = {
   'context.autoRunUnavailable':
     '현재 컨텍스트에서는 자동 실행을 사용할 수 없습니다.',
   'context.autoRunSummary':
-    'config 기준으로 승인 필요 카테고리 전까지 연속 실행하세요: {categories}',
+    'config 기준으로 현재 바로 자동 실행할 수 있습니다. 승인 필요 카테고리 전까지 연속 실행하세요: {categories}',
+  'context.autoRunManualBoundary':
+    '자동 실행 설정은 가능하지만, 현재 단계는 먼저 수동으로 처리해야 합니다: {detail}',
   'context.autoRunCommandHint': '자동 실행 명령(config 게이트): {command}',
   'context.subAgentOrchestrationHint':
     '메인 에이전트가 전체 흐름과 승인을 관리합니다. 현재 단계의 owner가 `subagent`면 보조 에이전트에 맡기고, `main`이면 메인에서 진행하세요.',

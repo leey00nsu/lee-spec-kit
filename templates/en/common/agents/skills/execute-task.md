@@ -34,7 +34,8 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - Use `agentOrchestration.subAgentHandoff` as the minimal handoff contract (`featureRef`, `category`, `cwd`, `cmd`).
 - Run `subAgentHandoff.verify.commands` only once per session using `verify.cacheKey` (`pwd`, `git rev-parse --show-toplevel`). Stop/report on mismatch, and gather detailed logs only when mismatch happens.
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution). Before fallback execution, report a one-line fallback reason to the user.
-- If `context --json-compact` exposes `autoRun.available=true`, you may use `autoRun.command` to continue automatically until approval-required categories are reached.
+- Use `autoRun.command` only when `context --json-compact` exposes `autoRun.available=true`.
+- If `autoRun.policyEligible=true` but `autoRun.executableNow=false`, handle `autoRun.manualBoundary` first instead of starting an auto loop.
 - For long-running auto execution, start with `flow <feature> --auto-... --start-auto --json-compact` and prefer `autoRun.run.resumeCommand` (`flow --resume <RUN_ID>`) after interruption/compression (`--json` only when full-detail debugging fields are required).
 - If auto execution stops, treat `autoRun.resume` from `flow --json-compact` (or `flow --json`) as SSOT. After interruption/compression, resume with `autoRun.resume.flowCommand`; if needed, check current state first with `autoRun.resume.contextCommand`.
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json-compact` and report whether `approvalRequest.required` is now true.

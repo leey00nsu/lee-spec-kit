@@ -417,9 +417,10 @@ npx lee-spec-kit flow --strict
   - 예외적으로 `workflow.auto.defaultPreset`이 설정되어 있으면 `--request`만으로도 auto 모드가 활성화됩니다.
 - `--resume <run-id>`는 `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, `--request`와 함께 사용할 수 없습니다. (체크포인트에 저장된 설정을 사용)
 - 자동 진행은 지정한 category가 등장하면 `gate_reached`로 멈추고, 해당 단계의 승인 문구(`approvalRequest.userFacingLines`)를 그대로 출력합니다.
+- `context --json` / `--json-compact`의 `autoRun.available`는 "지금 바로 실행 가능한 auto-run"만 의미합니다. 설정상 auto-run 대상이어도 현재 단계가 instruction-only이면 `autoRun.available=false`, `autoRun.policyEligible=true`, `autoRun.executableNow=false`, `autoRun.manualBoundary`로 표시됩니다.
 - 현재 액션이 instruction-only라 command 자동 실행이 불가능하면 `AUTO_MANUAL_REQUIRED`로 멈출 수 있습니다. (CLI 오류가 아니라 자동화 경계 도달 상태)
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
-- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
+- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
 - JSON `agentOrchestration`과 `matchedFeature.currentSubstate*`로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
   - 위임 판단은 `matchedFeature.currentSubstateOwner`와 `subAgentHandoff`를 우선 사용하세요. compact는 `subAgentHandoff`만 유지하고, 상세 `--json`/`flow --json`이 추가 오케스트레이션 메타데이터를 제공합니다.
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.

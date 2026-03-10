@@ -3112,8 +3112,10 @@ test('context --execute can run without ticket when approval policy skips check'
     assert.deepEqual(contextPayload.approvalRequest?.userFacingLines, []);
     assert.equal(contextPayload.checkPolicy?.approvalRequired, false);
     assert.deepEqual(contextPayload.checkPolicy?.checkRequiredLabels, []);
-    assert.equal(contextPayload.autoRun?.available, true);
-    assert.equal(contextPayload.autoRun?.reasonCode, 'AVAILABLE');
+    assert.equal(contextPayload.autoRun?.available, false);
+    assert.equal(contextPayload.autoRun?.policyEligible, true);
+    assert.equal(contextPayload.autoRun?.executableNow, false);
+    assert.equal(contextPayload.autoRun?.reasonCode, 'MANUAL_BOUNDARY');
     assert.deepEqual(contextPayload.autoRun?.untilCategories, [
       'spec_approve',
       'plan_approve',
@@ -3122,6 +3124,11 @@ test('context --execute can run without ticket when approval policy skips check'
       'code_review',
       'pr_status_update',
     ]);
+    assert.deepEqual(contextPayload.autoRun?.manualBoundary, {
+      label: 'A',
+      category: 'spec_write',
+      detail: 'Write or refine spec.md and set status',
+    });
     assert.match(
       contextPayload.autoRun?.command || '',
       /flow F001-alpha --auto-until-category spec_approve,plan_approve,tasks_approve,pr_create,code_review,pr_status_update/
@@ -3155,6 +3162,63 @@ test('context --execute can run without ticket when approval policy skips check'
         payload.status === 'approved_executed',
       true
     );
+  });
+});
+
+test('context surfaces unknown auto-run categories and manual boundary details', async () => {
+  await withTempDir('lsk-context-auto-run-unknown-category-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: [
+        'spec_approve',
+        'plan_approve',
+        'tasks_approve',
+        'pre_pr_review',
+        'pr_create',
+      ],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+
+    assert.equal(payload.autoRun?.available, false);
+    assert.equal(payload.autoRun?.policyEligible, true);
+    assert.equal(payload.autoRun?.executableNow, false);
+    assert.equal(payload.autoRun?.reasonCode, 'MANUAL_BOUNDARY');
+    assert.deepEqual(payload.autoRun?.unknownCategories, ['pre_pr_review']);
+    assert.deepEqual(payload.autoRun?.manualBoundary, {
+      label: 'A',
+      category: 'spec_write',
+      detail: 'Write or refine spec.md and set status',
+    });
   });
 });
 

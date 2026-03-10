@@ -27,7 +27,9 @@ export const enContext = {
   'context.autoRunUnavailable':
     'Auto-run is not available in the current context.',
   'context.autoRunSummary':
-    'Run continuously by config until approval-required categories appear: {categories}',
+    'Auto-run can execute now by config until approval-required categories appear: {categories}',
+  'context.autoRunManualBoundary':
+    'Auto-run is configured, but the current step must be handled manually first: {detail}',
   'context.autoRunCommandHint':
     'Auto-run command (config-based gate): {command}',
   'context.subAgentOrchestrationHint':

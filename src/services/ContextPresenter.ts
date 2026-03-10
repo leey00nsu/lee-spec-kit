@@ -44,6 +44,7 @@ export type ApprovalConfig = NonNullable<
 
 export type AutoRunReasonCode =
   | 'AVAILABLE'
+  | 'MANUAL_BOUNDARY'
   | 'NOT_SINGLE_MATCHED'
   | 'NO_ACTION_OPTIONS'
   | 'APPROVAL_REQUIRED'
@@ -51,13 +52,22 @@ export type AutoRunReasonCode =
   | 'DEFAULT_NOT_SKIP'
   | 'NO_REQUIRE_CHECK_CATEGORIES';
 
+export interface AutoRunManualBoundary {
+  label: string;
+  category?: string;
+  detail: string;
+}
+
 export interface AutoRunPlan {
   available: boolean;
+  policyEligible: boolean;
+  executableNow: boolean;
   reasonCode: AutoRunReasonCode;
   summary: string;
   command: string;
   untilCategories: string[];
   unknownCategories: string[];
+  manualBoundary: AutoRunManualBoundary | null;
 }
 
 export interface AgentOrchestrationPolicy {
@@ -402,11 +412,14 @@ export function resolveAutoRunPlan(
     unknownCategories: string[] = []
   ): AutoRunPlan => ({
     available: false,
+    policyEligible: false,
+    executableNow: false,
     reasonCode,
     summary: tr(lang, 'cli', 'context.autoRunUnavailable'),
     command: '',
     untilCategories,
     unknownCategories,
+    manualBoundary: null,
   });
 
   if (state.status !== 'single_matched') return base('NOT_SINGLE_MATCHED');
@@ -425,8 +438,41 @@ export function resolveAutoRunPlan(
     return base('NO_REQUIRE_CHECK_CATEGORIES', [], unknownCategories);
   }
 
+  const executable = state.actionOptions.find(
+    (option) => option.action.type === 'command'
+  );
+  if (!executable) {
+    const manualBoundary = state.actionOptions[0]
+      ? {
+          label: state.actionOptions[0].label,
+          category: state.actionOptions[0].action.category,
+          detail: state.actionOptions[0].detail,
+        }
+      : null;
+    return {
+      available: false,
+      policyEligible: true,
+      executableNow: false,
+      reasonCode: 'MANUAL_BOUNDARY',
+      summary: tr(lang, 'cli', 'context.autoRunManualBoundary', {
+        detail: manualBoundary?.detail || '',
+      }),
+      command: buildAutoRunCommand(
+        state,
+        featureName,
+        selectedComponent,
+        untilCategories
+      ),
+      untilCategories,
+      unknownCategories,
+      manualBoundary,
+    };
+  }
+
   return {
     available: true,
+    policyEligible: true,
+    executableNow: true,
     reasonCode: 'AVAILABLE',
     summary: tr(lang, 'cli', 'context.autoRunSummary', {
       categories: untilCategories.join(', '),
@@ -439,6 +485,7 @@ export function resolveAutoRunPlan(
     ),
     untilCategories,
     unknownCategories,
+    manualBoundary: null,
   };
 }
 
