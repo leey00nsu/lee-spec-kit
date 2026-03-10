@@ -1687,16 +1687,16 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       primaryActionOption(finishPayload).action.category,
       'task_execute'
     );
-    assert.equal(finishPayload.matchedFeature.currentSubstateId, 'task_running');
+    assert.equal(finishPayload.matchedFeature.currentSubstateId, 'task_complete');
     assert.equal(
       finishPayload.matchedFeature.currentSubstateOwner,
-      'subagent'
+      'main'
     );
-    assert.equal(finishPayload.matchedFeature.currentSubstatePhase, 'running');
+    assert.equal(finishPayload.matchedFeature.currentSubstatePhase, 'finalize');
     assert.equal(primaryActionOption(finishPayload).action.type, 'command');
     assert.match(
       primaryActionOption(finishPayload).action.cmd || '',
-      /"task-run"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-01"/
+      /"task-complete"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-01"/
     );
     assert.equal(
       primaryActionOption(finishPayload).action.taskExecutePhase,
@@ -1708,15 +1708,15 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
     );
     assert.match(
       primaryActionOption(finishPayload).detail,
-      /wrap up the in-progress task: T-F001-alpha-01 - implement alpha shell\.\s+\(Share outcome\/verification, then mark it DONE\)/
+      /Mark the current task as complete: T-F001-alpha-01 - implement alpha shell\.\s+\(Change DOING to DONE\)/
     );
     assert.match(
       primaryActionOption(finishPayload).approvalPrompt,
-      /wrap up the in-progress task: T-F001-alpha-01 - implement alpha shell\.\s+\(Share outcome\/verification, then mark it DONE\)/
+      /Mark the current task as complete: T-F001-alpha-01 - implement alpha shell\.\s+\(Change DOING to DONE\)/
     );
     assert.equal(
       finishPayload.agentOrchestration?.currentActionShouldDelegate,
-      true
+      false
     );
   });
 });
@@ -1818,7 +1818,7 @@ test('approval.mode=steps still honors taskExecuteCheck=start_only for task comp
     const finishContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
     assert.equal(finishContext.code, 0, finishContext.stderr || finishContext.stdout);
     const finishPayload = JSON.parse(finishContext.stdout.trim());
-    assert.equal(finishPayload.matchedFeature.currentSubstateId, 'task_running');
+    assert.equal(finishPayload.matchedFeature.currentSubstateId, 'task_complete');
     assert.equal(primaryActionOption(finishPayload).action.requiresUserCheck, false);
   });
 });

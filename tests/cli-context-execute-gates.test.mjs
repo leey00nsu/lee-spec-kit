@@ -2120,8 +2120,12 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
     assert.equal(payload.evidenceFile, 'review-trace.json');
     assert.equal(payload.handoffOnly, true);
     assert.equal(payload.advancesWorkflow, false);
+    assert.equal(payload.reuseKey, 'pre-pr:F001-alpha');
+    assert.equal(payload.suggestedParallelism, 1);
+    assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
     assert.equal(payload.nextStepRequirement, 'generate_review_trace_then_record');
     assert.match(payload.prompt || '', /review-trace\.json/i);
+    assert.match(payload.prompt || '', /Default to a single helper agent/i);
     assert.match(
       payload.recordCommands?.changesRequested || '',
       /\bpre-pr-review F001-alpha --evidence review-trace\.json --decision changes_requested\b/
@@ -2364,8 +2368,12 @@ test('code-review-run returns sub-agent handoff prompt', async () => {
     assert.equal(payload.nextMainState, 'code_review_finalize');
     assert.equal(payload.handoffOnly, true);
     assert.equal(payload.advancesWorkflow, false);
+    assert.equal(payload.reuseKey, 'code-review:F001-alpha');
+    assert.equal(payload.suggestedParallelism, 1);
+    assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
     assert.match(payload.prompt || '', /PR Review Evidence/i);
     assert.match(payload.prompt || '', /PR Review Decision/i);
+    assert.match(payload.prompt || '', /default to a single helper agent/i);
   });
 });
 
@@ -2475,12 +2483,102 @@ test('task-run marks TODO task as DOING and returns sub-agent handoff prompt', a
     assert.equal(payload.mode, 'start');
     assert.equal(payload.substateId, 'task_run');
     assert.equal(payload.owner, 'subagent');
-    assert.equal(payload.nextMainState, 'task_finalize');
+    assert.equal(payload.handoffOnly, true);
+    assert.equal(payload.reuseKey, 'task:F001-alpha:T-F001-alpha-01');
+    assert.equal(payload.suggestedParallelism, 1);
+    assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
+    assert.equal(payload.nextMainState, 'task_complete');
     assert.equal(payload.tasksUpdated, true);
-    assert.match(payload.prompt || '', /Use sub-agents by default/i);
+    assert.match(payload.prompt || '', /Default to a single helper agent/i);
 
     const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
     assert.match(tasksAfter, /\[DOING\]\[P1\] T-F001-alpha-01 implement alpha shell/);
+  });
+});
+
+test('task-complete marks active DOING task as DONE', async () => {
+  await withTempDir('lsk-task-complete-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **Doc Status**: -',
+      '- **Doc Status**: Approved'
+    );
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [DOING][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare task-complete handoff',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const completeTask = await runCli(dir, [
+      'task-complete',
+      'F001-alpha',
+      '--task',
+      'T-F001-alpha-01',
+      '--json',
+    ]);
+    assert.equal(
+      completeTask.code,
+      0,
+      completeTask.stderr || completeTask.stdout
+    );
+    const payload = JSON.parse(completeTask.stdout.trim());
+    assert.equal(payload.reasonCode, 'TASK_COMPLETED');
+    assert.equal(payload.taskId, 'T-F001-alpha-01');
+    assert.equal(payload.previousStatus, 'DOING');
+    assert.equal(payload.nextStatus, 'DONE');
+    assert.equal(payload.substateId, 'task_complete');
+    assert.equal(payload.owner, 'main');
+    assert.equal(payload.nextMainState, 'task_finalize');
+    assert.equal(payload.tasksUpdated, true);
+
+    const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(tasksAfter, /\[DONE\]\[P1\] T-F001-alpha-01 implement alpha shell/);
   });
 });
 

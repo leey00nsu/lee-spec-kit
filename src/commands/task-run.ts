@@ -54,9 +54,10 @@ function buildTaskRunPrompt(input: {
 }): string {
   const shared = [
     'Read `spec.md`, `plan.md`, and `tasks.md` before editing code.',
-    'Use sub-agents by default for code analysis and discovery work.',
-    'Parallelize impact analysis, test-location search, and existing-pattern discovery when those can be done independently.',
+    'Reuse the existing helper/sub-agent for this task if one already exists. Default to a single helper agent.',
+    'Use additional helper agents only when parallel analysis is clearly worth the extra slot cost.',
     'Keep one writer for overlapping files; do not let multiple sub-agents edit the same files concurrently.',
+    'If helper-agent quota is exhausted, continue the task in the main agent instead of blocking progress.',
     'Update the assigned task status and verification notes in `tasks.md` before leaving this task.',
     'Mark the task `DONE` only after code changes and verification are complete.',
   ];
@@ -70,9 +71,10 @@ function buildTaskRunPrompt(input: {
         ? '- 이 명령은 `tasks.md`의 현재 task를 `DOING`으로 바꾸고, 이후 구현 handoff prompt를 준비합니다.'
         : '- 이 명령은 진행 중 task의 구현 handoff prompt를 다시 준비합니다.',
       '- 먼저 `spec.md`, `plan.md`, `tasks.md`를 읽고 범위와 완료 기준을 정리하세요.',
-      '- 코드 분석과 탐색 작업은 기본적으로 서브에이전트를 사용하세요.',
-      '- 영향 범위 분석, 테스트 위치 탐색, 기존 패턴 조사처럼 독립적인 분석은 병렬로 수행하세요.',
+      '- 기존에 이 task를 맡던 보조 에이전트가 있으면 재사용하고, 기본은 1개만 사용하세요.',
+      '- 영향 범위 분석, 테스트 위치 탐색, 기존 패턴 조사가 정말 독립적일 때만 추가 보조 에이전트를 사용하세요.',
       '- 같은 파일군을 수정하는 작성자는 한 명만 두세요.',
+      '- 보조 에이전트 한도에 걸리면 메인 에이전트에서 구현을 이어가세요.',
       '- 이 task를 마치기 전 `tasks.md`에 상태와 검증 메모를 반영하세요.',
       '- 코드 변경과 검증이 끝났을 때만 task를 `DONE`으로 표시하세요.',
     ].join('\n');
@@ -207,7 +209,11 @@ async function runTaskRun(
     mode,
     substateId: mode === 'start' ? 'task_run' : 'task_running',
     owner: 'subagent',
-    nextMainState: 'task_finalize',
+    handoffOnly: true,
+    reuseKey: `task:${feature.folderName}:${resolvedTask.taskId}`,
+    suggestedParallelism: 1,
+    fallbackToMainAgentWhenQuotaExceeded: true,
+    nextMainState: 'task_complete',
     tasksUpdated,
     tasksPath,
     prompt,
@@ -223,6 +229,13 @@ async function runTaskRun(
   console.log();
   console.log(chalk.gray(`- substate: ${payload.substateId}`));
   console.log(chalk.gray(`- owner: ${payload.owner}`));
+  console.log(chalk.gray(`- reuse key: ${payload.reuseKey}`));
+  console.log(chalk.gray(`- suggested parallelism: ${payload.suggestedParallelism}`));
+  console.log(
+    chalk.gray(
+      `- quota fallback: ${payload.fallbackToMainAgentWhenQuotaExceeded ? 'continue in main agent' : 'none'}`
+    )
+  );
   console.log(chalk.gray(`- next main state: ${payload.nextMainState}`));
   if (tasksUpdated) {
     console.log();

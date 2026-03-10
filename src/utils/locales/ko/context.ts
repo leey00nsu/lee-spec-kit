@@ -77,6 +77,8 @@ export const koContext = {
     '보조 에이전트(sub-agent) 작업 handoff를 준비하고 태스크를 시작하세요: {task}. (TODO면 DOING으로 변경)',
   'context.actionDetail.taskExecuteContinue':
     '보조 에이전트(sub-agent) 작업 handoff를 준비해 진행 중인 태스크를 마무리하세요: {task}. (완료 후 결과/검증을 공유하고 DONE으로 변경)',
+  'context.actionDetail.taskExecuteComplete':
+    '현재 태스크를 완료 처리하세요: {task}. (DOING을 DONE으로 변경)',
   'context.actionDetail.reviewFixCommit':
     '해결한 리뷰 항목 요약으로 리뷰 수정 커밋을 만드세요',
   'context.actionDetail.prePrReviewRun':

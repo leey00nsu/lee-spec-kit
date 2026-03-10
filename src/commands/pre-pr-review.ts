@@ -439,6 +439,9 @@ async function runPrePrReviewRun(
           fallback: policy.fallback,
           handoffOnly: true,
           advancesWorkflow: false,
+          reuseKey: `pre-pr:${featureRef}`,
+          suggestedParallelism: 1,
+          fallbackToMainAgentWhenQuotaExceeded: true,
           nextStepRequirement: 'generate_review_trace_then_record',
           evidenceFile: 'review-trace.json',
           prompt,
@@ -463,6 +466,22 @@ async function runPrePrReviewRun(
         : 'This command only prepares the review handoff. It does not generate review-trace.json or advance workflow state by itself.'
     )
   );
+  console.log(
+    chalk.gray(
+      config.lang === 'ko'
+        ? '- 기존 pre-PR 리뷰 보조 에이전트가 있으면 재사용하고, 기본은 1개만 사용하세요.'
+        : '- Reuse the existing pre-PR helper agent if one already exists; default to a single helper agent.'
+    )
+  );
+  console.log(
+    chalk.gray(
+      config.lang === 'ko'
+        ? '- 보조 에이전트 한도에 걸리면 메인 에이전트에서 리뷰를 이어가세요.'
+        : '- If helper-agent quota is exhausted, continue the review in the main agent.'
+    )
+  );
+  console.log(`Reuse key: pre-pr:${featureRef}`);
+  console.log(`Suggested parallelism: 1`);
   console.log(`Evidence file: review-trace.json`);
   console.log(`Record changes requested: ${changesRequestedCommand}`);
   console.log(`Record approval: ${approveCommand}`);

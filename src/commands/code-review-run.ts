@@ -83,6 +83,9 @@ async function runCodeReviewRun(
     owner: 'subagent',
     handoffOnly: true,
     advancesWorkflow: false,
+    reuseKey: `code-review:${feature.folderName}`,
+    suggestedParallelism: 1,
+    fallbackToMainAgentWhenQuotaExceeded: true,
     nextMainState: 'code_review_finalize',
     tasksPath: path.join(feature.path, 'tasks.md'),
     decisionsPath: path.join(feature.path, 'decisions.md'),
@@ -106,6 +109,13 @@ async function runCodeReviewRun(
   );
   console.log(chalk.gray(`- substate: ${payload.substateId}`));
   console.log(chalk.gray(`- owner: ${payload.owner}`));
+  console.log(chalk.gray(`- reuse key: ${payload.reuseKey}`));
+  console.log(chalk.gray(`- suggested parallelism: ${payload.suggestedParallelism}`));
+  console.log(
+    chalk.gray(
+      `- quota fallback: ${payload.fallbackToMainAgentWhenQuotaExceeded ? 'continue in main agent' : 'none'}`
+    )
+  );
   console.log(chalk.gray(`- next main state: ${payload.nextMainState}`));
   console.log(chalk.gray(`- tasks.md: ${payload.tasksPath}`));
   console.log(chalk.gray(`- decisions.md: ${payload.decisionsPath}`));

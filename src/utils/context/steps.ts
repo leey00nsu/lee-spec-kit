@@ -214,6 +214,17 @@ function buildTaskRunCommandArgs(
   return commandArgs;
 }
 
+function buildTaskCompleteCommandArgs(
+  feature: FeatureState,
+  taskId: string
+): string[] {
+  const commandArgs = ['task-complete', feature.folderName, '--task', taskId];
+  if (feature.type && feature.type !== 'single') {
+    commandArgs.push('--component', feature.type);
+  }
+  return commandArgs;
+}
+
 function buildCodeReviewRunCommandArgs(feature: FeatureState): string[] {
   const commandArgs = ['code-review-run', feature.folderName];
   if (feature.type && feature.type !== 'single') {
@@ -749,14 +760,14 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       operationType: 'local',
       requiresUserCheck: true,
       taskExecutePhase: 'complete',
-      uiDetailKey: 'context.actionDetail.taskExecuteContinue',
+      uiDetailKey: 'context.actionDetail.taskExecuteComplete',
       uiDetailParams: {
         task: resolveTaskUiLabel(f.activeTask),
       },
       scope: 'docs',
       cwd: f.git.docsGitCwd,
       cmd: buildSelfCliCommand(
-        buildTaskRunCommandArgs(
+        buildTaskCompleteCommandArgs(
           f,
           f.activeTask?.id || `T-${f.folderName}-active`
         )
@@ -1622,9 +1633,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           actions: (f) => getTaskExecuteFinalizeActions(f),
         },
         {
-          id: 'task_running',
-          phase: 'running',
-          owner: 'subagent',
+          id: 'task_complete',
+          phase: 'finalize',
+          owner: 'main',
           category: 'task_execute',
           when: (f) => isTaskExecuteCurrent(f) && !!f.activeTask,
           actions: (f) => getTaskExecuteRunningActions(f),

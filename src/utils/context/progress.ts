@@ -120,6 +120,7 @@ function applyTaskExecutePhaseCheck(
   if (action.category !== 'task_execute') return requiresUserCheck;
   const isCompletionPhase =
     currentSubstatePhase === 'running' ||
+    currentSubstatePhase === 'finalize' ||
     (!currentSubstatePhase && action.taskExecutePhase === 'complete');
   if (!isCompletionPhase) return requiresUserCheck;
   if (explicitlyRequired) return requiresUserCheck;
