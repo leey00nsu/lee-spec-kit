@@ -28,8 +28,8 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - Main agent owns approval boundaries, state transitions, record/commit steps, and remote operations. Sub-agent execution is the default for command substates owned by `subagent` (for example `task_run`, `pre_pr_review_run`, `code_review_run`, and auto-run handoff commands).
 - `pre_pr_review` is split into `pre_pr_review_run` (sub-agent review execution) and `pre_pr_review_record` (main-agent recording of evidence/results).
 - PR review follows the same pattern: `code_review_run` is the sub-agent review/fix execution state, and the merge/push/final decision stays in the main-agent finalize state.
-- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT. `currentActionShouldDelegate` remains a compatibility mirror.
-- When `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
+- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT.
+- When `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, delegation is mandatory: call `spawn_agent` first and do not execute the command directly from the main agent.
 - Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Use `agentOrchestration.subAgentHandoff` as the minimal handoff contract (`featureRef`, `category`, `cwd`, `cmd`).
 - Run `subAgentHandoff.verify.commands` only once per session using `verify.cacheKey` (`pwd`, `git rev-parse --show-toplevel`). Stop/report on mismatch, and gather detailed logs only when mismatch happens.

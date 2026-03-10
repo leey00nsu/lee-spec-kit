@@ -610,6 +610,41 @@ test('context --json returns suggestion labels when no features exist', async ()
   });
 });
 
+test('context --json-compact keeps suggestion labels for non-hot-path states', async () => {
+  await withTempDir('lsk-context-no-features-compact-suggestions-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['context', '--json-compact']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.schema, 'context.v3.compact');
+    assert.equal(payload.status, 'no_features');
+    assert.equal(typeof payload.selectionMode, 'string');
+    assert.equal(typeof payload.selectionFallback, 'string');
+    assert.equal(Array.isArray(payload.actionOptions), true);
+    assert.equal(payload.actionOptions.length, 0);
+    assert.equal(Array.isArray(payload.suggestionOptions), true);
+    assert.equal(payload.suggestionOptions.length >= 1, true);
+    assert.equal(suggestionOptionByLabel(payload).label, 'A');
+    assert.equal(Array.isArray(payload.suggestionRequest?.userFacingLines), true);
+    assert.equal(payload.suggestionRequest.userFacingLines.length >= 2, true);
+  });
+});
+
 test('step7 uses docs update commit message when implementation is already done', async () => {
   await withTempDir('lsk-context-step7-message-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1992,8 +2027,8 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.match(decisions, /\*\*Review Scope\*\*/i);
     assert.match(decisions, /\*\*Main Range\*\*:/i);
     assert.match(decisions, /\*\*Worktree Changed Files\*\*:/i);
-    assert.match(decisions, /\*\*Residual Risks\*\*:\n  - none/i);
-    assert.match(decisions, /\*\*Findings\*\*:\n  - 0 findings/i);
+    assert.match(decisions, /\*\*Residual Risks\*\*:\n {2}- none/i);
+    assert.match(decisions, /\*\*Findings\*\*:\n {2}- 0 findings/i);
 
     const contextAfterExecute = await runCli(dir, [
       'context',

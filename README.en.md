@@ -107,7 +107,7 @@ You can paste the following as an agent session-start instruction.
 Start procedure:
 1) Run npx lee-spec-kit detect --json
 2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact (use --json only when full detail is needed)
-3) If actionOptions exist, show approvalPrompt and finalPrompt exactly as provided, then wait for user approval (<LABEL> or <LABEL> OK)
+3) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval (<LABEL> or <LABEL> OK)
 4) Do not execute before approval; execute requiresUserCheck=true actions only after approval
 5) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
 ```
@@ -281,29 +281,24 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 - `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
 - It is short-lived (5 minutes by default) and cannot be reused after one execution.
 
-`context --json-compact` is the default recommended format, providing a reduced and deduplicated decision state.  
+`context --json-compact` is the default recommended format, providing a minimal hot-path contract for agents.  
 Use `context --json` only when full-detail debugging fields are required.
 
 **Core fields (recommended for normal agent flows)**
 
 - `status` / `reasonCode`: current state and reason code
-- `actions[]`: atomic action list
-  - `type: "command"`: `scope` (project|docs), `cwd`, `cmd`, `category`, `operationType`, `requiresUserCheck`
-  - `type: "instruction"`: `message`, `category`, `operationType`, `requiresUserCheck`
-- `actionOptions[]`: `label` (`A`, `B`, `C`...) + target `action` + user-facing `summary` / `detail` / `approvalPrompt`
-- `approvalRequest`: ready-to-use approval/execute guidance (`labels`, `approveCommand`, `executeCommand`, `options[]`)
+- `actionOptions[]`: `label` (`A`, `B`, `C`...) + the minimal execution contract (`detail`, `actionType`, `category`, `operationType`, `requiresUserCheck`, plus command/instruction payload)
+- `approvalRequest`: approval state and user-facing prompt lines (`required`, `userFacingLines`, `finalPrompt`)
 - `requiredDocs`: built-in docs to read before the current action (`id`, `command`)
-- `checkPolicy`: approval validation policy (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion`, ...)
-- `agentOrchestration`: main-agent (conversation/approval) + sub-agent (execution) contract. The current SSOT is `subAgentHandoff` plus `matchedFeature.currentSubstate*`; `delegateCommandExecution`, `longRunningCategories`, and `currentActionShouldDelegate` are compatibility fields.
+- `checkPolicy`: minimal approval state (`token`, `validLabels`, `checkRequiredLabels`, `checkRequiredCategories`, `approvalRequired`, `contextVersion`)
+- `agentOrchestration`: compact keeps only `subAgentHandoff`. Delegation SSOT is `matchedFeature.currentSubstate*` + `subAgentHandoff`.
 - `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: current step-internal execution state for owner/phase-aware orchestration
+- `actions[]`: the raw atomic action list remains available in detailed `context --json`.
 
 **Advanced/reference fields (automation edge cases or debugging)**
 
-- `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`)
-- `primaryActionLabel` / `primaryActionType` / `primaryActionCategory` / `primaryActionOperationType`: summary metadata for the first atomic action
-- `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
-- `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
-- `prePrReviewPolicy`: pre-PR review policy (`enabled`, `skills`, `fallback`)
+- `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`) and only appears in compact for non-hot-path selection states
+- `primaryActionLabel` / `workflowPolicy` / `taskCommitGatePolicy` / `prePrReviewPolicy`: detailed debugging/policy fields available from `context --json`
 
 Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
 
@@ -407,7 +402,7 @@ Auto gate mode rules:
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
 - In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, and `autoRun.resume`.
 - Inspect JSON `agentOrchestration` and `matchedFeature.currentSubstate*` for main/sub-agent responsibilities and pause/report boundaries.
-  - Prefer `matchedFeature.currentSubstateOwner` plus `subAgentHandoff` as the delegation signal when present. `longRunningCategories` and `currentActionShouldDelegate` remain legacy compatibility metadata for older non-substate paths.
+  - Prefer `matchedFeature.currentSubstateOwner` plus `subAgentHandoff` as the delegation signal when present. Compact keeps only `subAgentHandoff`; use detailed `--json` / `flow --json` when you need extra orchestration metadata.
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
 
 Agent resume rules (recommended):
@@ -590,16 +585,11 @@ Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`)
 - the `[CHECK required]` tag in text output
 - `actionOptions[].requiresUserCheck` in `context --json-compact` (`actions[].requiresUserCheck` in `--json`)
 - `checkPolicy.token` (`context --json-compact`/`--json`): approval token format (`<LABEL>`)
-- `checkPolicy.acceptedTokens`: accepted reply templates (e.g. `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
-- `checkPolicy.tokenPattern`: input validation regex for approval replies
 - `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
-- `checkPolicy.activeCategories`: categories currently present in actions (from `actionOptions[].category`)
-- `checkPolicy.knownCategories`: full category list recognized by the CLI
-- `checkPolicy.uncategorizedLabels`: labels with missing category (should normally be empty)
-- `checkPolicy.categoryPolicyGuidance`: guidance for matching categories in `approval.mode="category"`
-- `checkPolicy.requireExplanationBeforeApproval`: require label-by-label explanation before asking approval
-- `checkPolicy.requiredExplanationFields`: fields to use for explanation (e.g. `actionOptions[].detail`)
+- `checkPolicy.checkRequiredLabels` / `checkPolicy.checkRequiredCategories`: labels/categories that currently require approval
+- `checkPolicy.approvalRequired`: whether the current state is approval-blocked
 - `checkPolicy.contextVersion`: snapshot hash for stale-context validation
+- `checkPolicy.acceptedTokens`, `tokenPattern`, `activeCategories`, `knownCategories`, `uncategorizedLabels`, `categoryPolicyGuidance`, `requireExplanationBeforeApproval`, and `requiredExplanationFields` remain available in detailed `context --json`.
 - `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
 - `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
 - `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
@@ -711,7 +701,7 @@ Pre-PR execution gate risks and mitigations:
 }
 ```
 
-> Discover category values from `context --json`/`--json-compact` using `checkPolicy.activeCategories` (current), `checkPolicy.knownCategories` (full), and `actionOptions[].category` (per-label).
+> Discover category values from detailed `context --json` using `checkPolicy.activeCategories` / `checkPolicy.knownCategories`, or from `actionOptions[].category`. Compact keeps only the hot-path contract.
 
 ### pr (PR artifacts policy)
 

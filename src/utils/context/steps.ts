@@ -1091,7 +1091,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
         requiresUserCheck: true,
         scope: 'docs',
         cwd: f.git.docsGitCwd,
-        cmd: buildSelfCliCommand(buildPrePrReviewCommandArgs(f, evidencePath)),
+        cmd: buildSelfCliCommand(
+          buildPrePrReviewCommandArgs(f, evidencePath ?? undefined)
+        ),
       },
     ];
   };

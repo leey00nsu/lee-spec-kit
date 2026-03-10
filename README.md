@@ -122,7 +122,7 @@ npx lee-spec-kit detect --json
 작업 시작 절차:
 1) npx lee-spec-kit detect --json
 2) isLeeSpecKitProject === true 이면 npx lee-spec-kit context --json-compact 실행 (필요 시 --json으로 상세 조회)
-3) actionOptions가 있으면 approvalPrompt와 finalPrompt를 그대로 사용자에게 제시하고 승인(<LABEL> 또는 <LABEL> OK) 대기
+3) approvalRequest.required=true 이면 approvalRequest.userFacingLines를 그대로 사용자에게 제시하고 승인(<LABEL> 또는 <LABEL> OK) 대기
 4) 승인 전에는 실행하지 말고, requiresUserCheck=true 액션은 승인 후에만 실행
 5) isLeeSpecKitProject === false 이면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행
 ```
@@ -300,29 +300,24 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - 선택한 액션이 `requiresUserCheck=true`인 경우에만 `--execute`에서 `--ticket`이 필요합니다.
 - 발급 후 짧은 시간(기본 5분)만 유효하며, 한 번 사용하면 재사용할 수 없습니다.
 
-기본 권장 포맷은 `context --json-compact`이며, 같은 판단 정보를 중복 없이 축약해 전달합니다.  
+기본 권장 포맷은 `context --json-compact`이며, 에이전트 hot path에 필요한 상태만 최소 계약으로 전달합니다.  
 `context --json`은 디버깅/세부 필드 확인이 필요할 때만 사용하세요.
 
 **핵심 필드 (실사용 권장)**
 
 - `status`/`reasonCode`: 현재 상태와 이유 코드
-- `actions[]`: 원자 액션 목록
-  - `type: "command"`: `scope`(project|docs), `cwd`, `cmd`, `category`, `operationType`, `requiresUserCheck`
-  - `type: "instruction"`: `message`, `category`, `operationType`, `requiresUserCheck`
-- `actionOptions[]`: `label`(`A`, `B`, `C`...) + 실행 대상 `action` + 사용자 안내용 `summary`/`detail`/`approvalPrompt`
-- `approvalRequest`: 승인 요청/실행에 바로 사용하는 안내 데이터 (`labels`, `approveCommand`, `executeCommand`, `options[]`)
+- `actionOptions[]`: `label`(`A`, `B`, `C`...) + 최소 실행 계약 (`detail`, `actionType`, `category`, `operationType`, `requiresUserCheck`, 그리고 command/instruction payload)
+- `approvalRequest`: 승인 대기 여부와 사용자 표시 문구 (`required`, `userFacingLines`, `finalPrompt`)
 - `requiredDocs`: 현재 액션 전에 읽어야 할 CLI 내장 문서 목록 (`id`, `command`)
-- `checkPolicy`: 승인 검증 정책 (`token`, `acceptedTokens`, `tokenPattern`, `validLabels`, `contextVersion` 등)
-- `agentOrchestration`: 메인(대화/승인) + 서브(명령 실행) 역할 분리 계약. 현재 SSOT는 `subAgentHandoff`와 `matchedFeature.currentSubstate*`이며, `delegateCommandExecution`/`longRunningCategories`/`currentActionShouldDelegate`는 compatibility field입니다.
+- `checkPolicy`: 최소 승인 상태 (`token`, `validLabels`, `checkRequiredLabels`, `checkRequiredCategories`, `approvalRequired`, `contextVersion`)
+- `agentOrchestration`: compact에서는 `subAgentHandoff`만 유지합니다. 위임 SSOT는 `matchedFeature.currentSubstate*` + `subAgentHandoff`입니다.
 - `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: step 내부 실행 상태와 owner/phase 기반 오케스트레이션 판단용 필드
+- `actions[]`: 원자 액션 원본 목록은 상세 `context --json`에서 확인합니다.
 
 **고급/참고 필드 (자동화 고급 시나리오 또는 디버깅용)**
 
-- `selectionFallback`: 자동 감지 실패 시 사용된 폴백 (`none` | `open_features` | `all_features` | `done_features`)
-- `primaryActionLabel`/`primaryActionType`/`primaryActionCategory`/`primaryActionOperationType`: 첫 번째 원자 액션 요약 메타데이터
-- `workflowPolicy`: 현재 완료 조건 정책 (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
-- `taskCommitGatePolicy`: 태스크 커밋 게이트 정책 (`off` | `warn` | `strict`)
-- `prePrReviewPolicy`: pre-PR 리뷰 정책 (`enabled`, `skills`, `fallback`)
+- `selectionFallback`: 자동 감지 실패 시 사용된 폴백 (`none` | `open_features` | `all_features` | `done_features`) - compact에서는 비-hot-path 상태에서만 노출될 수 있음
+- `primaryActionLabel`/`workflowPolicy`/`taskCommitGatePolicy`/`prePrReviewPolicy`: 상세 `context --json`에서 확인하는 디버깅/정책 필드
 
 오류 응답(`status: "error"`)에는 `reasonCode`와 `suggestions`(라벨형 다음 동작: `A/B/C`)가 포함됩니다. (예: `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`)
 
@@ -426,7 +421,7 @@ npx lee-spec-kit flow --strict
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
 - JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
 - JSON `agentOrchestration`과 `matchedFeature.currentSubstate*`로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
-  - 위임 판단은 `matchedFeature.currentSubstateOwner`와 `subAgentHandoff`를 우선 사용하세요. `longRunningCategories`와 `currentActionShouldDelegate`는 substate가 없는 레거시 경로용 compatibility 메타데이터입니다.
+  - 위임 판단은 `matchedFeature.currentSubstateOwner`와 `subAgentHandoff`를 우선 사용하세요. compact는 `subAgentHandoff`만 유지하고, 상세 `--json`/`flow --json`이 추가 오케스트레이션 메타데이터를 제공합니다.
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
 
 에이전트 재개 규칙(권장):
@@ -642,16 +637,11 @@ npx lee-spec-kit update --force
 - 텍스트 출력의 `[확인 필요]` 표시
 - `context --json-compact`의 `actionOptions[].requiresUserCheck` (`--json`에서는 `actions[].requiresUserCheck`)
 - `checkPolicy.token` (`context --json-compact`/`--json`): 승인 토큰 형식 (`<LABEL>`)
-- `checkPolicy.acceptedTokens`: 허용되는 승인 응답 템플릿 (예: `["<LABEL>", "<LABEL> OK", "<LABEL> ...", "... <LABEL> ..."]`)
-- `checkPolicy.tokenPattern`: 승인 응답 검증용 정규식
 - `checkPolicy.validLabels`: 현재 선택 가능한 라벨 목록 (`A`, `B`, `C`...)
-- `checkPolicy.activeCategories`: 현재 액션에 실제 등장한 category 목록 (`actionOptions[].category` 기준)
-- `checkPolicy.knownCategories`: CLI가 인식하는 전체 category 목록
-- `checkPolicy.uncategorizedLabels`: category가 비어 있는 라벨 목록 (정상이라면 빈 배열)
-- `checkPolicy.categoryPolicyGuidance`: `approval.mode="category"` 사용 시 category 매칭 기준 안내
-- `checkPolicy.requireExplanationBeforeApproval`: 승인 요청 전에 라벨별 설명을 포함해야 함
-- `checkPolicy.requiredExplanationFields`: 라벨 설명에 사용할 필드 목록 (예: `actionOptions[].detail`)
+- `checkPolicy.checkRequiredLabels` / `checkPolicy.checkRequiredCategories`: 현재 승인 필수 라벨/카테고리
+- `checkPolicy.approvalRequired`: 현재 승인 대기 여부
 - `checkPolicy.contextVersion`: stale context 검증용 스냅샷 해시
+- `checkPolicy.acceptedTokens`, `tokenPattern`, `activeCategories`, `knownCategories`, `uncategorizedLabels`, `categoryPolicyGuidance`, `requireExplanationBeforeApproval`, `requiredExplanationFields`는 상세 `context --json`에서 확인합니다.
 
 > 실제 명령 실행을 강제/차단하는 기능은 아닙니다. (에이전트가 참고하도록 신호를 제공)
 > 기존 설정에 `approval`이 없으면 `builtin`으로 동작합니다. (마이그레이션 불필요)
@@ -760,7 +750,7 @@ Pre-PR 실행 게이트 리스크와 완화:
 }
 ```
 
-> 사용 가능한 `category` 값은 `context --json`/`--json-compact`의 `checkPolicy.activeCategories`(현재), `checkPolicy.knownCategories`(전체), `actionOptions[].category`(라벨별)에서 확인하세요.
+> 사용 가능한 `category` 값은 `context --json`의 `checkPolicy.activeCategories`/`checkPolicy.knownCategories`, 또는 `actionOptions[].category`에서 확인하세요. compact는 hot path 최소 계약만 유지합니다.
 
 ### pr (PR 결과물 정책)
 

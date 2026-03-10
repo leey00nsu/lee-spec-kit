@@ -105,10 +105,6 @@ export function isTaskExecuteProjectCommitCommand(
   return /\bgit\s+commit\b/i.test(option.action.cmd);
 }
 
-export function shouldDelegateCurrentAction(actionOptions: ActionOption[]): {
-  shouldDelegate: boolean;
-  category: string | null;
-}
 export function shouldDelegateCurrentAction(
   actionOptions: ActionOption[],
   currentSubstateOwner?: FeatureContext['currentSubstateOwner']
@@ -690,67 +686,26 @@ export function toCompactFeature(
 ): Record<string, unknown> | null {
   if (!feature) return null;
 
-  return {
+  const compactFeature: Record<string, unknown> = {
     ref: getFeatureRef(feature),
-    id: feature.id ?? null,
-    slug: feature.slug,
-    folderName: feature.folderName,
-    type: feature.type,
-    path: feature.path,
     currentStep: feature.currentStep,
     currentSubstateId: feature.currentSubstateId,
     currentSubstateOwner: feature.currentSubstateOwner,
     currentSubstatePhase: feature.currentSubstatePhase,
-    nextAction: feature.nextAction,
-    completion: feature.completion,
+    completion: {
+      implementationDone: feature.completion.implementationDone,
+      workflowDone: feature.completion.workflowDone,
+    },
     specStatus: feature.specStatus,
     planStatus: feature.planStatus,
     tasks: feature.tasks,
-    prePrReview: {
-      status: feature.prePrReview.status,
-      evidenceProvided: feature.prePrReview.evidenceProvided,
-      decisionOutcome: feature.prePrReview.decisionOutcome,
-      decisionProvided: feature.prePrReview.decisionProvided,
-    },
-    prReview: {
-      evidenceProvided: feature.prReview.evidenceProvided,
-      decisionProvided: feature.prReview.decisionProvided,
-    },
-    pr: {
-      link: feature.pr.link,
-      status: feature.pr.status,
-      remote: feature.pr.remote,
-    },
-    git: {
-      docsBranch: feature.git.docsBranch,
-      projectBranch: feature.git.projectBranch,
-      projectBranchAvailable: feature.git.projectBranchAvailable,
-      onExpectedBranch: feature.git.onExpectedBranch,
-      docsEverCommitted: feature.git.docsEverCommitted,
-      docsHasUncommittedChanges: feature.git.docsHasUncommittedChanges,
-      projectHasUncommittedChanges: feature.git.projectHasUncommittedChanges,
-      docsPathIgnored: feature.git.docsPathIgnored,
-      projectHasUpstream: feature.git.projectHasUpstream,
-      projectBranchAhead: feature.git.projectBranchAhead,
-      projectBranchBehind: feature.git.projectBranchBehind,
-    },
-    docs: {
-      specExists: feature.docs.specExists,
-      planExists: feature.docs.planExists,
-      tasksExists: feature.docs.tasksExists,
-      issueDocIssueFieldExists: feature.docs.issueDocIssueFieldExists,
-      prDocPrFieldExists: feature.docs.prDocPrFieldExists,
-      prDocReviewStatusFieldExists: feature.docs.prDocReviewStatusFieldExists,
-      prFieldExists: feature.docs.prFieldExists,
-      prStatusFieldExists: feature.docs.prStatusFieldExists,
-      prePrReviewFieldExists: feature.docs.prePrReviewFieldExists,
-      prePrEvidenceFieldExists: feature.docs.prePrEvidenceFieldExists,
-      prePrDecisionFieldExists: feature.docs.prePrDecisionFieldExists,
-      prReviewEvidenceFieldExists: feature.docs.prReviewEvidenceFieldExists,
-      prReviewDecisionFieldExists: feature.docs.prReviewDecisionFieldExists,
-    },
-    warnings: feature.warnings,
   };
+
+  if (feature.warnings.length > 0) {
+    compactFeature.warnings = feature.warnings;
+  }
+
+  return compactFeature;
 }
 
 export function toCompactActionOption(
@@ -758,11 +713,7 @@ export function toCompactActionOption(
 ): Record<string, unknown> {
   const base: Record<string, unknown> = {
     label: option.label,
-    summary: option.summary,
     detail: option.detail,
-    approvalPrompt: option.approvalPrompt,
-    requiresRequestText: option.requiresRequestText,
-    replyExample: option.replyExample,
     actionType: option.action.type,
     category: option.action.category,
     operationType: option.action.operationType,
@@ -771,10 +722,6 @@ export function toCompactActionOption(
 
   if (option.action.taskExecutePhase) {
     base.taskExecutePhase = option.action.taskExecutePhase;
-  }
-
-  if (option.action.uiDetailParams) {
-    base.uiDetailParams = option.action.uiDetailParams;
   }
 
   if (option.action.type === 'command') {

@@ -36,13 +36,13 @@
 - 기준 데이터는 최신 `npx lee-spec-kit context --json-compact`를 기본으로 사용하고, 상세 필드가 필요할 때만 `context --json` 또는 `flow --json`을 사용합니다. (`flow`는 기본적으로 `--json-compact` 우선)
 - `flow --json-compact`(또는 `flow --json`)의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
 - `AUTO_MANUAL_REQUIRED`는 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
-- 승인 대기 상태에서는 `actionOptions[*].approvalPrompt`를 원문 그대로 보여주고, 마지막에는 `approvalRequest.finalPrompt`를 원문 그대로 붙입니다. 가능하면 `approvalRequest.userFacingLines`를 우선 사용합니다. 이 사이에 에이전트가 임의로 다시 쓴 라벨 요약을 끼워 넣지 않습니다.
-- 위임 판단 SSOT는 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 우선 사용하세요. `currentActionShouldDelegate`는 구형 소비자를 위한 compatibility mirror입니다.
+- 승인 대기 상태에서는 `context --json-compact`의 `approvalRequest.userFacingLines`를 우선 그대로 보여주세요. 전체 `--json`을 쓸 때만 `actionOptions[*].approvalPrompt`와 `approvalRequest.finalPrompt` 조합으로 폴백합니다. 이 사이에 에이전트가 임의로 다시 쓴 라벨 요약을 끼워 넣지 않습니다.
+- 위임 판단 SSOT는 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 우선 사용하세요.
 - 비승인 상태의 진행 보고/분석/일반 답변에서는 라벨 블록이나 `approvalRequest.finalPrompt`를 덧붙이지 않습니다. 현재 옵션을 사용자가 직접 물었을 때만 예외입니다.
-- 관련 없는 질문에 먼저 답한 뒤에도 승인이 여전히 필요하면, 답변 후 `actionOptions[*].approvalPrompt`와 `approvalRequest.finalPrompt`를 함께 다시 제시합니다.
+- 관련 없는 질문에 먼저 답한 뒤에도 승인이 여전히 필요하면, 답변 후 CLI가 준 승인 문구(`approvalRequest.userFacingLines`, 또는 전체 `--json`의 `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt`)를 다시 제시합니다.
 - 사용자 입력에 유효 라벨이 없으면 실행하지 말고 라벨 선택을 다시 요청합니다.
 - 승인된 command 옵션 실행은 `flow --approve <LABEL> --execute` 1회 호출을 기본으로 하며, `context --approve`와 `context --execute --ticket`를 턴/세션 사이로 분리하지 않습니다.
-- `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
+- `matchedFeature.currentSubstateOwner="subagent"`이고 `agentOrchestration.subAgentHandoff.required=true`이며 `mode="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
 - `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
 - 위임 시에는 `agentOrchestration.subAgentHandoff`를 handoff SSOT로 사용하고, 최소 필드(`featureRef`, `category`, `cwd`, `cmd`)만 전달합니다.
 - 위임 실행 전 `subAgentHandoff.verify`의 검증 명령(`pwd`, `git rev-parse --show-toplevel`)을 세션당 1회만 실행하고(`verify.cacheKey` 기준), 불일치 시 즉시 중단/보고합니다. 상세 로그 수집은 불일치 시에만 수행합니다.

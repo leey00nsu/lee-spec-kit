@@ -8,6 +8,7 @@ import { scanFeatures, FeatureContext } from '../utils/context.js';
 import { createCliContext } from '../utils/cli-context.js';
 import { getLocalDateString } from '../utils/date.js';
 import { applyReplacements } from '../utils/template.js';
+import { DefaultFileSystemAdapter } from '../adapters/DefaultFileSystemAdapter.js';
 import {
   isPrdRequirementId,
   parseTaskLines,
@@ -381,8 +382,9 @@ async function checkFeatures(
   decisionsPlaceholderMode: 'off' | 'info' | 'warn'
 ): Promise<DoctorIssue[]> {
   const issues: DoctorIssue[] = [];
+  const fsAdapter = new DefaultFileSystemAdapter();
   const { definitions: prdDefinitions } = await scanPrdRequirements(
-    fs,
+    fsAdapter,
     config.docsDir
   );
 

@@ -235,120 +235,113 @@ async function runContext(
     const uncategorizedLabels = presenter.listUncategorizedLabels(
       state.actionOptions
     );
-
     if (options.jsonCompact) {
-      const compactResult = {
-        schema: 'context.v2.compact',
+      const compactResult: Record<string, unknown> = {
+        schema: 'context.v3.compact',
         status: state.status,
         reasonCode: toReasonCode(state.status),
-        selectionMode: state.selectionMode,
-        selectionFallback: state.selectionFallback,
-        branches: state.branches,
-        warnings: state.warnings,
         contextVersion: state.contextVersion,
         matchedFeature: presenter.toCompactFeature(state.matchedFeature),
-        candidateRefs:
-          state.targetFeatures.length > 1
-            ? state.targetFeatures.map((feature) =>
-                presenter.getFeatureRef(feature)
-              )
-            : [],
-        completedCandidateRefs:
-          state.selectionMode === 'open'
-            ? state.doneFeatures.map((feature) =>
-                presenter.getFeatureRef(feature)
-              )
-            : [],
-        openCandidateRefs:
-          state.selectionMode === 'open'
-            ? state.openFeatures.map((feature) =>
-                presenter.getFeatureRef(feature)
-              )
-            : [],
-        inProgressCandidateRefs:
-          state.selectionMode === 'open'
-            ? state.inProgressFeatures.map((feature) =>
-                presenter.getFeatureRef(feature)
-              )
-            : [],
-        readyToCloseCandidateRefs:
-          state.selectionMode === 'open'
-            ? state.readyToCloseFeatures.map((feature) =>
-                presenter.getFeatureRef(feature)
-              )
-            : [],
         actionOptions: state.actionOptions.map((option) =>
           presenter.toCompactActionOption(option)
         ),
-        suggestionOptions: suggestionOptions.map((option) =>
-          presenter.toCompactSuggestionOption(option)
-        ),
-        primaryActionLabel: primaryAction?.label ?? null,
-        workflowPolicy,
-        taskCommitGatePolicy,
-        prePrReviewPolicy,
         checkPolicy: {
-          docPath: 'builtin://agents/policy',
           token: '<LABEL>',
-          acceptedTokens: [
-            '<LABEL>',
-            '<LABEL> OK',
-            '<LABEL> ...',
-            '... <LABEL> ...',
-          ],
-          tokenPattern: '^.*\\b([A-Z]+)\\b.*$',
           validLabels: state.actionOptions.map((o) => o.label),
-          activeCategories,
-          knownCategories: ACTION_CATEGORIES,
-          uncategorizedLabels,
           checkRequiredLabels,
           checkRequiredCategories,
           approvalRequired,
-          categoryPolicyGuidance:
-            'For approval.mode="category", match against `actionOptions[].category`.',
-          oneApprovalPerAction: approvalRequired,
-          requireFreshContext: true,
           contextVersion: state.contextVersion,
-          config: config.approval ?? { mode: 'builtin' },
         },
-        agentOrchestration,
+        agentOrchestration: {
+          subAgentHandoff: agentOrchestration.subAgentHandoff,
+        },
         autoRun: {
           available: autoRunPlan.available,
           reasonCode: autoRunPlan.reasonCode,
-          summary: autoRunPlan.summary,
           command: autoRunPlan.command,
           untilCategories: autoRunPlan.untilCategories,
-          unknownCategories: autoRunPlan.unknownCategories,
         },
         approvalRequest: {
           required: approvalRequired,
           finalPrompt: finalApprovalPrompt,
           userFacingLines: approvalUserFacingLines,
-          labels: approvalRequired
-            ? state.actionOptions.map((o) => o.label)
-            : [],
-          approveCommand,
-          executeCommand,
-          executeRequiresTicket:
-            !!state.actionOptions[0]?.action?.requiresUserCheck,
         },
-        suggestionRequest: {
-          finalPrompt: suggestionFinalPrompt,
-          userFacingLines: [
-            ...suggestionOptions.map((o) => `${o.label}: ${o.summary}`),
-            suggestionFinalPrompt,
-          ].filter((line) => line.length > 0),
-          labels: suggestionOptions.map((o) => o.label),
-        },
-        prPolicy: {
-          screenshots: {
-            upload: config.pr?.screenshots?.upload ?? false,
-          },
-        },
-        requiredDocs,
-        recommendation,
       };
-      console.log(JSON.stringify(compactResult, null, 2));
+      if (state.warnings.length > 0) {
+        compactResult.warnings = state.warnings;
+      }
+      if (requiredDocs.length > 0) {
+        compactResult.requiredDocs = requiredDocs;
+      }
+      if (state.status !== 'single_matched') {
+        const candidateRefs =
+          state.targetFeatures.length > 1
+            ? state.targetFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
+            : [];
+        const completedCandidateRefs =
+          state.selectionMode === 'open'
+            ? state.doneFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
+            : [];
+        const openCandidateRefs =
+          state.selectionMode === 'open'
+            ? state.openFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
+            : [];
+        const inProgressCandidateRefs =
+          state.selectionMode === 'open'
+            ? state.inProgressFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
+            : [];
+        const readyToCloseCandidateRefs =
+          state.selectionMode === 'open'
+            ? state.readyToCloseFeatures.map((feature) =>
+                presenter.getFeatureRef(feature)
+              )
+            : [];
+        const compactSuggestionOptions = suggestionOptions.map((option) =>
+          presenter.toCompactSuggestionOption(option)
+        );
+        compactResult.selectionMode = state.selectionMode;
+        compactResult.selectionFallback = state.selectionFallback;
+        if (candidateRefs.length > 0) {
+          compactResult.candidateRefs = candidateRefs;
+        }
+        if (completedCandidateRefs.length > 0) {
+          compactResult.completedCandidateRefs = completedCandidateRefs;
+        }
+        if (openCandidateRefs.length > 0) {
+          compactResult.openCandidateRefs = openCandidateRefs;
+        }
+        if (inProgressCandidateRefs.length > 0) {
+          compactResult.inProgressCandidateRefs = inProgressCandidateRefs;
+        }
+        if (readyToCloseCandidateRefs.length > 0) {
+          compactResult.readyToCloseCandidateRefs =
+            readyToCloseCandidateRefs;
+        }
+        if (compactSuggestionOptions.length > 0) {
+          compactResult.suggestionOptions = compactSuggestionOptions;
+          compactResult.suggestionRequest = {
+            finalPrompt: suggestionFinalPrompt,
+            userFacingLines: [
+              ...suggestionOptions.map((o) => `${o.label}: ${o.summary}`),
+              suggestionFinalPrompt,
+            ].filter((line) => line.length > 0),
+            labels: suggestionOptions.map((o) => o.label),
+          };
+        }
+        if (recommendation) {
+          compactResult.recommendation = recommendation;
+        }
+      }
+      console.log(JSON.stringify(compactResult));
       return;
     }
 

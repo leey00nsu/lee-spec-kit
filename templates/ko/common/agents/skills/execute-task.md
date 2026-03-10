@@ -28,8 +28,8 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 메인 에이전트는 승인 경계, 상태 전이, record/commit 단계, 원격 작업을 담당합니다. `subagent` 소유 command substate(예: `task_run`, `pre_pr_review_run`, `code_review_run`, auto-run handoff command)는 서브 에이전트 실행이 기본입니다.
 - `pre_pr_review`는 `pre_pr_review_run`(서브 에이전트 리뷰 실행)과 `pre_pr_review_record`(메인 에이전트의 결과 기록)로 분리됩니다.
 - PR 리뷰도 같은 패턴입니다. `code_review_run`은 서브 에이전트 리뷰/수정 실행 상태이고, push/merge/최종 결정은 메인 에이전트 finalize 상태에 남깁니다.
-- 위임 판단은 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 SSOT로 우선 사용하세요. `currentActionShouldDelegate`는 compatibility mirror로 남아 있습니다.
-- `agentOrchestration.currentActionShouldDelegate=true`이고 선택한 옵션이 `actionType="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
+- 위임 판단은 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 SSOT로 우선 사용하세요.
+- `matchedFeature.currentSubstateOwner="subagent"`이고 `agentOrchestration.subAgentHandoff.required=true`이며 `mode="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
 - `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
 - `agentOrchestration.subAgentHandoff`를 최소 handoff 계약(`featureRef`, `category`, `cwd`, `cmd`)으로 사용합니다.
 - `subAgentHandoff.verify.commands`(`pwd`, `git rev-parse --show-toplevel`)은 `verify.cacheKey` 기준 세션당 1회만 실행합니다. 불일치 시 즉시 중단/보고하고, 상세 로그는 불일치 시에만 수집합니다.

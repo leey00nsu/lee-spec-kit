@@ -883,7 +883,7 @@ test('context summaries are localized in ko mode (no English fallback summaries)
   });
 });
 
-test('context --json-compact action options include reply metadata', async () => {
+test('context --json-compact uses the context.v3 hot-path action option contract', async () => {
   await withTempDir('lsk-context-json-compact-reply-metadata-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -910,18 +910,78 @@ test('context --json-compact action options include reply metadata', async () =>
       '--json-compact',
     ]);
     assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(result.stdout.trim().includes('\n'), false);
     const payload = JSON.parse(result.stdout.trim());
-    const primary = primaryActionOption(payload);
-    assert.equal(typeof primary.requiresRequestText, 'boolean');
-    assert.equal(typeof primary.replyExample, 'string');
-    assert.equal(primary.replyExample.length > 0, true);
-    assert.equal(Array.isArray(payload.checkPolicy.activeCategories), true);
-    assert.equal(
-      payload.checkPolicy.activeCategories.includes(primary.category),
-      true
-    );
-    assert.equal(Array.isArray(payload.checkPolicy.knownCategories), true);
-    assert.equal(Array.isArray(payload.checkPolicy.uncategorizedLabels), true);
+    assert.equal(payload.schema, 'context.v3.compact');
+    assert.equal(payload.selectionMode, undefined);
+    assert.equal(payload.selectionFallback, undefined);
+    assert.equal(payload.suggestionOptions, undefined);
+    assert.equal(payload.suggestionRequest, undefined);
+    assert.equal(payload.recommendation, undefined);
+    assert.equal(payload.primaryActionLabel, undefined);
+    assert.equal(payload.workflowPolicy, undefined);
+    assert.equal(payload.taskCommitGatePolicy, undefined);
+    assert.equal(payload.prePrReviewPolicy, undefined);
+    assert.equal(typeof payload.matchedFeature.ref, 'string');
+    assert.equal(payload.matchedFeature.path, undefined);
+    assert.equal(payload.matchedFeature.git, undefined);
+    assert.equal(payload.matchedFeature.docs, undefined);
+    assert.equal(payload.matchedFeature.pr, undefined);
+    assert.equal(payload.matchedFeature.prePrReview, undefined);
+    assert.equal(payload.matchedFeature.prReview, undefined);
+    assert.equal(Array.isArray(payload.actionOptions), true);
+    assert.equal(payload.actionOptions.length > 0, true);
+    for (const option of payload.actionOptions) {
+      assert.equal(typeof option.label, 'string');
+      assert.equal(typeof option.detail, 'string');
+      assert.equal(typeof option.actionType, 'string');
+      assert.equal(typeof option.category, 'string');
+      assert.equal(typeof option.operationType, 'string');
+      assert.equal(typeof option.requiresUserCheck, 'boolean');
+      assert.equal(option.action, undefined);
+      assert.equal(option.requiresRequestText, undefined);
+      assert.equal(option.replyExample, undefined);
+      assert.equal(option.summary, undefined);
+      assert.equal(option.approvalPrompt, undefined);
+      assert.equal(option.uiDetailParams, undefined);
+      if (option.actionType === 'command') {
+        assert.equal(typeof option.scope, 'string');
+        assert.equal(typeof option.cwd, 'string');
+        assert.equal(typeof option.cmd, 'string');
+        assert.equal(option.message, undefined);
+      } else {
+        assert.equal(option.actionType, 'instruction');
+        assert.equal(typeof option.message, 'string');
+        assert.equal(option.scope, undefined);
+        assert.equal(option.cwd, undefined);
+        assert.equal(option.cmd, undefined);
+      }
+    }
+    assert.equal(typeof payload.checkPolicy.token, 'string');
+    assert.equal(Array.isArray(payload.checkPolicy.validLabels), true);
+    assert.equal(Array.isArray(payload.checkPolicy.checkRequiredLabels), true);
+    assert.equal(Array.isArray(payload.checkPolicy.checkRequiredCategories), true);
+    assert.equal(typeof payload.checkPolicy.approvalRequired, 'boolean');
+    assert.equal(typeof payload.checkPolicy.contextVersion, 'string');
+    assert.equal(payload.checkPolicy.activeCategories, undefined);
+    assert.equal(payload.checkPolicy.knownCategories, undefined);
+    assert.equal(payload.checkPolicy.uncategorizedLabels, undefined);
+    assert.equal(payload.checkPolicy.acceptedTokens, undefined);
+    assert.equal(payload.checkPolicy.tokenPattern, undefined);
+    assert.equal(payload.checkPolicy.requireExplanationBeforeApproval, undefined);
+    assert.equal(payload.checkPolicy.requiredExplanationFields, undefined);
+    assert.equal(typeof payload.approvalRequest?.required, 'boolean');
+    assert.equal(typeof payload.approvalRequest?.finalPrompt, 'string');
+    assert.equal(Array.isArray(payload.approvalRequest?.userFacingLines), true);
+    assert.equal(payload.approvalRequest?.labels, undefined);
+    assert.equal(payload.approvalRequest?.approveCommand, undefined);
+    assert.equal(payload.approvalRequest?.executeCommand, undefined);
+    assert.equal(payload.approvalRequest?.executeRequiresTicket, undefined);
+    assert.equal(typeof payload.agentOrchestration?.subAgentHandoff, 'object');
+    assert.equal(payload.agentOrchestration?.mode, undefined);
+    assert.equal(payload.agentOrchestration?.delegateCommandExecution, undefined);
+    assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, undefined);
+    assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, undefined);
   });
 });
 
@@ -1006,6 +1066,13 @@ test('context --json-compact preserves substate metadata for substate-backed ste
     assert.equal(payload.matchedFeature.currentSubstateId, 'task_run');
     assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
     assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(typeof payload.agentOrchestration?.subAgentHandoff, 'object');
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'command');
+    assert.match(
+      payload.agentOrchestration?.subAgentHandoff?.cmd || '',
+      /"task-run"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-01"/
+    );
     assert.equal(payload.actionOptions[0].taskExecutePhase, 'start');
   });
 });

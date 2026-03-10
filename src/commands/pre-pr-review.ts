@@ -367,7 +367,7 @@ async function resolvePrePrFeatureContext(
   component: string | undefined
 ): Promise<{
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>;
-  ctx: Awaited<ReturnType<typeof createCliContext>>;
+  ctx: NonNullable<Awaited<ReturnType<typeof createCliContext>>>;
   state: Awaited<ReturnType<typeof resolveContextSelection>>;
   feature: NonNullable<Awaited<ReturnType<typeof resolveContextSelection>>['matchedFeature']>;
 }> {
@@ -382,7 +382,13 @@ async function resolvePrePrFeatureContext(
   const selectionOptions = {
     component: resolveComponentOption(component),
   };
-  const ctx = (await createCliContext({ cwd: process.cwd() }))!;
+  const ctx = await createCliContext({ cwd: process.cwd() });
+  if (!ctx) {
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      'No lee-spec-kit config found in this workspace.'
+    );
+  }
   const state = await resolveContextSelection(ctx, featureName, selectionOptions);
   if (state.status !== 'single_matched' || !state.matchedFeature) {
     throw createCliError(

@@ -36,13 +36,13 @@ Prohibited:
 - Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
 - When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
-- In approval-waiting state, show `actionOptions[*].approvalPrompt` lines exactly as provided and end with `approvalRequest.finalPrompt` exactly as provided. Prefer `approvalRequest.userFacingLines` when available. Do not add your own rewritten label summary before or between those lines.
-- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT. Treat `currentActionShouldDelegate` as a compatibility mirror for older consumers.
+- In approval-waiting state, prefer `approvalRequest.userFacingLines` from `context --json-compact`. If full `--json` is used, fall back to `actionOptions[*].approvalPrompt` plus `approvalRequest.finalPrompt`. Do not add your own rewritten label summary before or between those lines.
+- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT.
 - In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.
-- If approval is still pending after answering an unrelated question, answer first, then re-open approval with both the matching `actionOptions[*].approvalPrompt` lines and `approvalRequest.finalPrompt`.
+- If approval is still pending after answering an unrelated question, answer first, then re-open approval with the exact CLI-provided approval lines (`approvalRequest.userFacingLines`, or `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt` in full `--json`).
 - If user input does not contain a valid label, do not execute; request label selection again.
 - For approved command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
-- If `agentOrchestration.currentActionShouldDelegate=true` and the selected option is `actionType="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
+- If `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
 - Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Prefer `agentOrchestration.subAgentHandoff` as the handoff SSOT. Pass only its minimal fields (`featureRef`, `category`, `cwd`, `cmd`) to the sub-agent.
 - For delegated runs, execute one-time verification from `subAgentHandoff.verify` (`pwd`, `git rev-parse --show-toplevel`) and cache by `verify.cacheKey`. If mismatched, stop and report; collect detailed logs only on mismatch.
