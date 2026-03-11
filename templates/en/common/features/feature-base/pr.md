@@ -4,6 +4,8 @@
 
 - **Status**: -
   - Values: Draft | Ready
+- **Title**: {feature-name}
+- **Labels**: enhancement
 - **Base**: main
 - **Created**: {YYYY-MM-DD}
 

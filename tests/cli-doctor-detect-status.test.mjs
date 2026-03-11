@@ -411,6 +411,8 @@ test('github workflow feature template includes issue.md and pr.md drafts', asyn
     assert.match(issueDoc, /Values:\s*Draft \| Ready/);
     assert.match(prDoc, /\*\*Status\*\*:\s*-/);
     assert.match(prDoc, /Values:\s*Draft \| Ready/);
+    assert.match(prDoc, /^\- \*\*Title\*\*:\s*alpha$/m);
+    assert.match(prDoc, /^\- \*\*Labels\*\*:\s*enhancement$/m);
   });
 });
 
