@@ -299,6 +299,7 @@ npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-
 - `--approve`로 라벨을 승인할 때 CLI가 발급하는 1회용 실행 토큰입니다.
 - 선택한 액션이 `requiresUserCheck=true`인 경우에만 `--execute`에서 `--ticket`이 필요합니다.
 - 발급 후 짧은 시간(기본 5분)만 유효하며, 한 번 사용하면 재사용할 수 없습니다.
+- handoff-only command(`pre_pr_review_run`, `code_review_run`)를 `--execute`하면 일반 실행 완료(`approved_executed`) 대신 `approved_handoff_prepared`와 `nextMainState`가 반환됩니다.
 
 기본 권장 포맷은 `context --json-compact`이며, 에이전트 hot path에 필요한 상태만 최소 계약으로 전달합니다.  
 `context --json`은 디버깅/세부 필드 확인이 필요할 때만 사용하세요.
@@ -416,11 +417,13 @@ npx lee-spec-kit flow --strict
 - `--request`는 auto 모드와 함께 사용해야 합니다.
   - 예외적으로 `workflow.auto.defaultPreset`이 설정되어 있으면 `--request`만으로도 auto 모드가 활성화됩니다.
 - `--resume <run-id>`는 `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, `--request`와 함께 사용할 수 없습니다. (체크포인트에 저장된 설정을 사용)
-- 자동 진행은 지정한 category가 등장하면 `gate_reached`로 멈추고, 해당 단계의 승인 문구(`approvalRequest.userFacingLines`)를 그대로 출력합니다.
+- 자동 진행은 지정한 category가 등장하면 `gate_reached`로 멈추고, `autoRun.gate.userFacingLines`를 그대로 출력합니다. (이 값은 해당 단계의 `approvalRequest.userFacingLines`를 flow 결과에 복사한 것입니다.)
 - `context --json` / `--json-compact`의 `autoRun.available`는 "지금 바로 실행 가능한 auto-run"만 의미합니다. 설정상 auto-run 대상이어도 현재 단계가 instruction-only이면 `autoRun.available=false`, `autoRun.policyEligible=true`, `autoRun.executableNow=false`, `autoRun.manualBoundary`로 표시됩니다.
 - 현재 액션이 instruction-only라 command 자동 실행이 불가능하면 `AUTO_MANUAL_REQUIRED`로 멈출 수 있습니다. (CLI 오류가 아니라 자동화 경계 도달 상태)
 - 진행 정체(동일 context/action 반복)가 감지되면 `AUTO_NO_PROGRESS`로 중단됩니다.
-- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, `autoRun.executions`, `autoRun.resume`로 상세 상태를 확인할 수 있습니다.
+- JSON 모드에서는 `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, `autoRun.resume`를 확인하세요.
+  - 상세 `flow --json`은 `autoRun.executions` 배열을 유지합니다.
+  - 압축 `flow --json-compact`는 `autoRun.executionCount`, `autoRun.lastExecution`만 유지합니다.
 - JSON `agentOrchestration`과 `matchedFeature.currentSubstate*`로 메인/서브 에이전트 역할 및 중단/보고 조건을 확인할 수 있습니다.
   - 위임 판단은 `matchedFeature.currentSubstateOwner`와 `subAgentHandoff`를 우선 사용하세요. compact는 `subAgentHandoff`만 유지하고, 상세 `--json`/`flow --json`이 추가 오케스트레이션 메타데이터를 제공합니다.
 - `--start-auto`를 사용하면 JSON `autoRun.run`에 `runId`, `status`, `resumeCommand`가 포함됩니다.
@@ -453,7 +456,7 @@ npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhanceme
 핵심 동작:
 - Issue/PR helper는 필수 섹션과 관련 문서 경로를 검증합니다.
 - `--json` 출력에는 `body`(본문 문자열)와 `bodyFile`(파일 경로)가 함께 제공됩니다.
-- 라벨은 최소 1개 이상 필수입니다.
+- `--labels`를 생략하면 기본값 `enhancement`를 사용합니다. 값을 직접 줄 때는 비어 있으면 안 됩니다.
 - `--create`/`--merge`는 원격 작업이므로 `--confirm OK`가 필요합니다.
 - PR helper는 기본적으로 `tasks.md`의 `PR`/`PR Status`를 동기화합니다. (`--no-sync-tasks`로 비활성화)
 - PR helper의 아티팩트 섹션은 `--screenshots (auto|on|off)`, `--mermaid (auto|on|off)`로 제어할 수 있습니다.

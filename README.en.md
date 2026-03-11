@@ -280,6 +280,7 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 - A one-time execution token issued by the CLI when you approve a label via `--approve`.
 - `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
 - It is short-lived (5 minutes by default) and cannot be reused after one execution.
+- When you `--execute` a handoff-only command (`pre_pr_review_run`, `code_review_run`), the result is `approved_handoff_prepared` with `nextMainState` instead of the normal `approved_executed`.
 
 `context --json-compact` is the default recommended format, providing a minimal hot-path contract for agents.  
 Use `context --json` only when full-detail debugging fields are required.
@@ -397,11 +398,13 @@ Auto gate mode rules:
 - `--request` requires auto mode.
   - Exception: if `workflow.auto.defaultPreset` is configured, `--request` alone enables auto mode.
 - `--resume <run-id>` cannot be combined with `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, or `--request`. (It uses settings from the stored checkpoint.)
-- Auto-run stops as `gate_reached` when a target category appears, then prints that step's approval text (`approvalRequest.userFacingLines`).
+- Auto-run stops as `gate_reached` when a target category appears, then prints `autoRun.gate.userFacingLines`. (This is copied from that step's `approvalRequest.userFacingLines`.)
 - In `context --json` / `--json-compact`, `autoRun.available` means "auto-run can execute right now". If config allows auto-run but the current step is instruction-only, you get `autoRun.available=false`, `autoRun.policyEligible=true`, `autoRun.executableNow=false`, and `autoRun.manualBoundary`.
 - If the current action set is instruction-only (no executable command), auto-run may stop with `AUTO_MANUAL_REQUIRED`. This is an automation boundary, not a CLI crash.
 - If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
-- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, `autoRun.executions`, and `autoRun.resume`.
+- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, and `autoRun.resume`.
+  - Detailed `flow --json` keeps the full `autoRun.executions` array.
+  - Compact `flow --json-compact` keeps only `autoRun.executionCount` and `autoRun.lastExecution`.
 - Inspect JSON `agentOrchestration` and `matchedFeature.currentSubstate*` for main/sub-agent responsibilities and pause/report boundaries.
   - Prefer `matchedFeature.currentSubstateOwner` plus `subAgentHandoff` as the delegation signal when present. Compact keeps only `subAgentHandoff`; use detailed `--json` / `flow --json` when you need extra orchestration metadata.
 - With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
@@ -434,7 +437,7 @@ npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhanceme
 Key points:
 - Issue/PR helpers validate required body sections and related docs paths.
 - `--json` output includes both `body` (inline markdown) and `bodyFile` (file path).
-- Labels are validated (at least one required).
+- If `--labels` is omitted, the default label is `enhancement`. When you pass `--labels` explicitly, it must not be empty.
 - `--create`/`--merge` are remote operations and require `--confirm OK`.
 - PR helper can sync `tasks.md` PR URL/PR Status automatically (`--no-sync-tasks` to skip).
 - PR artifact sections are controlled by `--screenshots (auto|on|off)` and `--mermaid (auto|on|off)`.
