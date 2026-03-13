@@ -42,7 +42,8 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.
-- 승인된 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
+- 위임 대상이 아닌 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
+- 현재 command가 delegated 상태(`matchedFeature.currentSubstateOwner="subagent"` + `agentOrchestration.subAgentHandoff.required=true` + `mode="command"`)라면 메인 에이전트에서 직접 실행하지 말고 먼저 `spawn_agent`를 호출해 handoff 계약을 넘기세요.
 - `flow/context --execute --json` 결과가 `approved_handoff_prepared`이면 같은 라벨을 다시 승인 루프로 열지 말고, 먼저 delegated work를 완료한 뒤 context를 새로 확인합니다.
 
 ### 3단계: 기록 및 반복 (Record & Loop)

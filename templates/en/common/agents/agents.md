@@ -41,8 +41,9 @@ Prohibited:
 - In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.
 - If approval is still pending after answering an unrelated question, answer first, then re-open approval with the exact CLI-provided approval lines (`approvalRequest.userFacingLines`, or `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt` in full `--json`).
 - If user input does not contain a valid label, do not execute; request label selection again.
-- For approved command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
+- For non-delegated command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
 - If `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
+- If that delegated command is handoff-only (`handoffOnly=true`, `advancesWorkflow=false`), treat `--execute` as handoff preparation only. Continue the delegated work immediately and do not re-approve the same label.
 - Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
 - Prefer `agentOrchestration.subAgentHandoff` as the handoff SSOT. Pass only its minimal fields (`featureRef`, `category`, `cwd`, `cmd`) to the sub-agent.
 - For delegated runs, execute one-time verification from `subAgentHandoff.verify` (`pwd`, `git rev-parse --show-toplevel`) and cache by `verify.cacheKey`. If mismatched, stop and report; collect detailed logs only on mismatch.

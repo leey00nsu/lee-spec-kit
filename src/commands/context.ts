@@ -194,6 +194,11 @@ async function runContext(
     state.matchedFeature?.folderName || null,
     state.matchedFeature?.currentSubstateOwner
   );
+  const delegatedAction = presenter.buildDelegatedActionContract(state);
+  const approvalGuidance = presenter.buildDelegatedApprovalGuidance(
+    agentOrchestration.subAgentHandoff.required,
+    agentOrchestration.subAgentHandoff.mode
+  );
 
   if (options.approve || options.execute) {
     await runApprovedOption(
@@ -256,6 +261,7 @@ async function runContext(
         agentOrchestration: {
           subAgentHandoff: agentOrchestration.subAgentHandoff,
         },
+        delegatedAction,
         autoRun: {
           available: autoRunPlan.available,
           policyEligible: autoRunPlan.policyEligible,
@@ -415,13 +421,14 @@ async function runContext(
             ]
           : [],
         recommendation:
-          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`). For command execution, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed. Use main-agent orchestration: keep short steps in main agent. Prefer `matchedFeature.currentSubstateOwner` + `agentOrchestration.subAgentHandoff` as the delegation SSOT; `currentActionShouldDelegate` is a compatibility mirror. Delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.',
+          approvalGuidance,
         oneApprovalPerAction: approvalRequired,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
         config: config.approval ?? { mode: 'builtin' },
       },
       agentOrchestration,
+      delegatedAction,
       autoRun: {
         available: autoRunPlan.available,
         policyEligible: autoRunPlan.policyEligible,
@@ -436,8 +443,10 @@ async function runContext(
           'Use auto-run only when `autoRun.available=true`. If `autoRun.policyEligible=true` but `autoRun.executableNow=false`, resolve `autoRun.manualBoundary` first. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode="auto_run"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
       },
       approvalRequest: {
-        guidance:
-          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`. Do not expose `requiredDocs`, `checkPolicy`, or raw `cmd` unless explicitly requested. For approved command actions, prefer one-shot `flow --approve <LABEL> --execute`. Keep short steps in main agent. Prefer `matchedFeature.currentSubstateOwner` + `agentOrchestration.subAgentHandoff` as the delegation SSOT; `currentActionShouldDelegate` is a compatibility mirror. Delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.',
+        guidance: approvalGuidance.replace(
+          'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user.',
+          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`.'
+        ),
         required: approvalRequired,
         finalPrompt: finalApprovalPrompt,
         userFacingLines: approvalUserFacingLines,

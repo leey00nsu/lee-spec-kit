@@ -112,6 +112,26 @@ export interface ActionExecutionMetadata {
   nextMainState?: string;
 }
 
+export interface DelegatedActionContract {
+  required: boolean;
+  mode: 'command';
+  category: string;
+  currentSubstateId: string;
+  delegatedWorkRequired: boolean;
+  handoffOnly: boolean;
+  advancesWorkflow: boolean;
+  doNotReapproveSameLabel: boolean;
+  nextMainState: string;
+  reuseKey: string;
+  guidance: string;
+  evidenceFile?: string;
+  nextStepRequirement?: string;
+  recordCommands?: {
+    changesRequested: string;
+    approve: string;
+  };
+}
+
 export function getActionExecutionMetadata(
   action: ActionOption['action']
 ): ActionExecutionMetadata | null {
@@ -340,6 +360,102 @@ export function buildApprovalCommand(
     return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL> --execute [--ticket <TICKET>]`;
   }
   return `npx lee-spec-kit context ${featureRef}${componentArg} --approve <LABEL>`;
+}
+
+function buildFeatureComponentArgs(feature: FeatureContext): string[] {
+  return feature.type && feature.type !== 'single'
+    ? ['--component', feature.type]
+    : [];
+}
+
+function buildPrePrRecordCommand(
+  feature: FeatureContext,
+  decision: 'changes_requested' | 'approve'
+): string {
+  const args = [
+    'pre-pr-review',
+    feature.folderName,
+    ...buildFeatureComponentArgs(feature),
+    '--evidence',
+    'review-trace.json',
+    '--decision',
+    decision,
+  ];
+  return `npx lee-spec-kit ${args.join(' ')}`;
+}
+
+export function buildDelegatedActionContract(
+  state: ResolvedContextState
+): DelegatedActionContract | null {
+  const feature = state.matchedFeature;
+  const substateId = feature?.currentSubstateId;
+  if (!feature || !substateId) return null;
+
+  if (substateId === 'pre_pr_review_run' || substateId === 'pre_pr_review_running') {
+    return {
+      required: true,
+      mode: 'command',
+      category: 'pre_pr_review_run',
+      currentSubstateId: substateId,
+      delegatedWorkRequired: true,
+      handoffOnly: true,
+      advancesWorkflow: false,
+      doNotReapproveSameLabel: substateId === 'pre_pr_review_running',
+      nextMainState: 'pre_pr_review_running',
+      reuseKey: `pre-pr:${feature.folderName}`,
+      evidenceFile: 'review-trace.json',
+      nextStepRequirement: 'generate_review_trace_then_record',
+      recordCommands: {
+        changesRequested: buildPrePrRecordCommand(
+          feature,
+          'changes_requested'
+        ),
+        approve: buildPrePrRecordCommand(feature, 'approve'),
+      },
+      guidance:
+        substateId === 'pre_pr_review_running'
+          ? 'A pre-PR review handoff is already prepared. Reuse or resume the delegated review, generate review-trace.json, then record the result with pre-pr-review. Do not re-approve the same label.'
+          : 'After approval, spawn_agent first and hand off the delegated pre-PR review. Handoff-only execution only prepares the review session; continue the delegated review immediately after approval.',
+    };
+  }
+
+  if (substateId === 'code_review_run' || substateId === 'code_review_running') {
+    return {
+      required: true,
+      mode: 'command',
+      category: 'code_review_run',
+      currentSubstateId: substateId,
+      delegatedWorkRequired: true,
+      handoffOnly: true,
+      advancesWorkflow: false,
+      doNotReapproveSameLabel: substateId === 'code_review_running',
+      nextMainState: 'code_review_running',
+      reuseKey: `code-review:${feature.folderName}`,
+      guidance:
+        substateId === 'code_review_running'
+          ? 'A PR review handoff is already prepared. Reuse or resume the delegated review-fix work, then refresh PR Review Evidence and PR Review Decision before continuing. Do not re-approve the same label.'
+          : 'After approval, spawn_agent first and hand off the delegated PR review-fix work. Handoff-only execution only prepares the delegated session; continue the delegated work immediately after approval.',
+    };
+  }
+
+  return null;
+}
+
+export function buildDelegatedApprovalGuidance(
+  handoffRequired: boolean,
+  handoffMode: 'command' | 'auto_run' | null
+): string {
+  const base =
+    'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user. Keep `requiredDocs`, `checkPolicy`, and raw execution commands as internal guidance. For commit actions, include scope (`docs`/`project`) and commit message in the visible prompt. User replies should include the label token (e.g. `A`, `A OK`, `A proceed`, `A 진행해`).';
+  const delegatedCommand =
+    handoffRequired && handoffMode === 'command'
+      ? ' When `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, call spawn_agent first and do not execute the delegated command directly from the main agent. If the delegated command is handoff-only, `--execute` only prepares the handoff; continue the delegated work immediately and do not re-approve the same label.'
+      : '';
+  const nonDelegated =
+    ' For non-delegated command actions, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed.';
+  const orchestration =
+    ' Use main-agent orchestration: keep short steps in main agent. Prefer `matchedFeature.currentSubstateOwner` + `agentOrchestration.subAgentHandoff` as the delegation SSOT; `currentActionShouldDelegate` is a compatibility mirror. Delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.';
+  return `${base}${delegatedCommand}${nonDelegated}${orchestration}`;
 }
 
 export function buildFinalApprovalPrompt(

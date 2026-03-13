@@ -41,8 +41,9 @@
 - 비승인 상태의 진행 보고/분석/일반 답변에서는 라벨 블록이나 `approvalRequest.finalPrompt`를 덧붙이지 않습니다. 현재 옵션을 사용자가 직접 물었을 때만 예외입니다.
 - 관련 없는 질문에 먼저 답한 뒤에도 승인이 여전히 필요하면, 답변 후 CLI가 준 승인 문구(`approvalRequest.userFacingLines`, 또는 전체 `--json`의 `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt`)를 다시 제시합니다.
 - 사용자 입력에 유효 라벨이 없으면 실행하지 말고 라벨 선택을 다시 요청합니다.
-- 승인된 command 옵션 실행은 `flow --approve <LABEL> --execute` 1회 호출을 기본으로 하며, `context --approve`와 `context --execute --ticket`를 턴/세션 사이로 분리하지 않습니다.
+- 위임 대상이 아닌 command 옵션은 `flow --approve <LABEL> --execute` 1회 호출을 기본으로 하며, `context --approve`와 `context --execute --ticket`를 턴/세션 사이로 분리하지 않습니다.
 - `matchedFeature.currentSubstateOwner="subagent"`이고 `agentOrchestration.subAgentHandoff.required=true`이며 `mode="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
+- 그 delegated command가 handoff-only(`handoffOnly=true`, `advancesWorkflow=false`)라면 `--execute`는 handoff 준비까지만 의미합니다. 바로 delegated work를 이어서 수행하고 같은 라벨을 다시 승인 루프로 열지 마세요.
 - `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
 - 위임 시에는 `agentOrchestration.subAgentHandoff`를 handoff SSOT로 사용하고, 최소 필드(`featureRef`, `category`, `cwd`, `cmd`)만 전달합니다.
 - 위임 실행 전 `subAgentHandoff.verify`의 검증 명령(`pwd`, `git rev-parse --show-toplevel`)을 세션당 1회만 실행하고(`verify.cacheKey` 기준), 불일치 시 즉시 중단/보고합니다. 상세 로그 수집은 불일치 시에만 수행합니다.

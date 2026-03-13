@@ -76,7 +76,7 @@ export const enMessages = {
   prePrReviewRun:
     'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks`. Then record findings with `pre-pr-review`; `pre-pr-review-run` itself does not generate evidence or advance state, and you should use `--evidence review-trace.json` only when the active evidence policy requires a path. (CHECK required)',
   prePrReviewRunning:
-    'Pre-PR review handoff is already in progress. Finish the delegated review, generate `review-trace.json`, then record the result with `pre-pr-review`. (CHECK required)',
+    'Pre-PR review handoff is already prepared. Reuse or resume the delegated review, generate `review-trace.json`, then record the result with `pre-pr-review`. Do not re-approve the same label. (CHECK required)',
   prePrReviewEvidenceMissing:
     'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`. (CHECK required)',
   prePrReviewDecisionMissing:

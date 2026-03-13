@@ -77,7 +77,7 @@ export const koMessages = {
   prePrReviewRun:
     '코드 리뷰 에이전트를 실행해 `spec.md`/`plan.md`/`tasks.md` 대비 구현 적합성을 검토하고, `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Findings`/`Residual Risks`가 포함된 `review-trace.json`을 생성한 뒤 `pre-pr-review`로 리뷰 결과를 기록하세요. `pre-pr-review-run` 자체는 evidence를 생성하거나 상태를 바로 넘기지 않으며, 현재 evidence 정책이 경로를 요구할 때만 `--evidence review-trace.json`을 함께 사용하세요. (확인 필요)',
   prePrReviewRunning:
-    'Pre-PR 리뷰 handoff가 이미 진행 중입니다. delegated review를 마치고 `review-trace.json`을 만든 뒤 `pre-pr-review`로 결과를 기록하세요. (확인 필요)',
+    'Pre-PR 리뷰 handoff가 이미 준비되었습니다. 기존 delegated review를 재사용하거나 이어서 수행해 `review-trace.json`을 만든 뒤 `pre-pr-review`로 결과를 기록하세요. 같은 라벨을 다시 승인 루프로 열지 마세요. (확인 필요)',
   prePrReviewEvidenceMissing:
     'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`를 기록하세요. (확인 필요)',
   prePrReviewDecisionMissing:

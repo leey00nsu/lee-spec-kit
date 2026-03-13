@@ -79,6 +79,32 @@ function getCommandExecutionLockPath(
   return getProjectExecutionLockPath(action.cwd);
 }
 
+function buildApprovedHandoffMetadata(
+  action: CommandAction,
+  featureRef: string
+): Record<string, unknown> {
+  if (action.category === 'pre_pr_review_run') {
+    return {
+      delegatedWorkRequired: true,
+      doNotReapproveSameLabel: true,
+      reuseKey: `pre-pr:${featureRef}`,
+      nextStepRequirement: 'generate_review_trace_then_record',
+      evidenceFile: 'review-trace.json',
+    };
+  }
+  if (action.category === 'code_review_run') {
+    return {
+      delegatedWorkRequired: true,
+      doNotReapproveSameLabel: true,
+      reuseKey: `code-review:${featureRef}`,
+    };
+  }
+  return {
+    delegatedWorkRequired: true,
+    doNotReapproveSameLabel: true,
+  };
+}
+
 export async function runApprovedOption(
   state: ResolvedContextState,
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
@@ -347,6 +373,10 @@ export async function runApprovedOption(
     );
     if (jsonMode) {
       if (executionMetadata?.handoffOnly && !executionMetadata.advancesWorkflow) {
+        const handoffMetadata = buildApprovedHandoffMetadata(
+          selectedAction,
+          freshState.matchedFeature?.folderName ?? featureRef
+        );
         console.log(
           JSON.stringify(
             {
@@ -361,6 +391,7 @@ export async function runApprovedOption(
               handoffOnly: true,
               advancesWorkflow: false,
               nextMainState: executionMetadata.nextMainState,
+              ...handoffMetadata,
               stdout: execResult.stdout?.trim() || undefined,
               stderr: execResult.stderr?.trim() || undefined,
             },

@@ -6,6 +6,7 @@ import {
 } from '../utils/context-selection.js';
 import { LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES } from '../utils/context.js';
 import { AutoRunSummary } from './FlowOrchestrator.js';
+import { buildDelegatedActionContract } from './ContextPresenter.js';
 
 export interface CompactFlowFeatureSummary {
   ref: string;
@@ -167,6 +168,7 @@ export function toCompactFlowContextSnapshot(
     actionOptions: state.actionOptions.map((option) =>
       toCompactFlowActionOption(option)
     ),
+    delegatedAction: buildDelegatedActionContract(state),
     primaryActionLabel: primaryAction?.label ?? null,
     primaryActionType: primaryAction?.action.type ?? null,
     primaryActionCategory: primaryAction?.action.category ?? null,

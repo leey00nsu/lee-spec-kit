@@ -42,7 +42,8 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json-compact` and report whether `approvalRequest.required` is now true.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow `agents.md` **"Label Response Contract (SSOT)"**. Show label prompts only in approval-waiting state, and reuse the exact CLI-provided approval lines instead of paraphrasing them.
-- For approved command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
+- For non-delegated command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
+- If the current command is delegated (`matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`), call `spawn_agent` first and pass the handoff contract instead of executing that command from the main agent.
 - If `flow/context --execute --json` returns `approved_handoff_prepared`, stop re-approving the same label. Complete the delegated work first, then refresh context.
 
 ### Step 3: Update tasks.md (only what you did)

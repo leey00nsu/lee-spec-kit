@@ -2084,6 +2084,14 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
       'changes_requested',
       'blocked',
     ]);
+    assert.match(
+      payload.checkPolicy?.recommendation || '',
+      /spawn_agent first.*do not execute the delegated command directly from the main agent/i
+    );
+    assert.match(
+      payload.approvalRequest?.guidance || '',
+      /spawn_agent first.*handoff-only.*do not re-approve the same label/i
+    );
   });
 });
 

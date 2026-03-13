@@ -467,6 +467,7 @@ async function runPrePrReviewRun(
           suggestedParallelism: 1,
           fallbackToMainAgentWhenQuotaExceeded: true,
           nextStepRequirement: 'generate_review_trace_then_record',
+          delegatedWorkRequired: true,
           nextMainState: 'pre_pr_review_running',
           evidenceFile: 'review-trace.json',
           tasksUpdated,
@@ -511,6 +512,11 @@ async function runPrePrReviewRun(
   console.log(`Suggested parallelism: 1`);
   console.log(`Next main state: pre_pr_review_running`);
   console.log(`Evidence file: review-trace.json`);
+  console.log(
+    config.lang === 'ko'
+      ? 'Next required: delegated review를 이어서 수행하고 review-trace.json을 만든 뒤 pre-pr-review로 기록'
+      : 'Next required: continue the delegated review, generate review-trace.json, then record the result with pre-pr-review'
+  );
   if (tasksUpdated) {
     console.log(`tasks.md updated: ${tasksPath}`);
     console.log(

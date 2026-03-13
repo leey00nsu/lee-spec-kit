@@ -2207,6 +2207,41 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
       primaryActionOption(contextPayload).action.requiresUserCheck,
       false
     );
+    assert.deepEqual(contextPayload.delegatedAction, {
+      required: true,
+      mode: 'command',
+      category: 'pre_pr_review_run',
+      currentSubstateId: 'pre_pr_review_running',
+      delegatedWorkRequired: true,
+      handoffOnly: true,
+      advancesWorkflow: false,
+      doNotReapproveSameLabel: true,
+      nextMainState: 'pre_pr_review_running',
+      reuseKey: 'pre-pr:F001-alpha',
+      evidenceFile: 'review-trace.json',
+      nextStepRequirement: 'generate_review_trace_then_record',
+      recordCommands: {
+        changesRequested:
+          'npx lee-spec-kit pre-pr-review F001-alpha --evidence review-trace.json --decision changes_requested',
+        approve:
+          'npx lee-spec-kit pre-pr-review F001-alpha --evidence review-trace.json --decision approve',
+      },
+      guidance:
+        'A pre-PR review handoff is already prepared. Reuse or resume the delegated review, generate review-trace.json, then record the result with pre-pr-review. Do not re-approve the same label.',
+    });
+
+    const compactContext = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json-compact',
+    ]);
+    assert.equal(
+      compactContext.code,
+      0,
+      compactContext.stderr || compactContext.stdout
+    );
+    const compactPayload = JSON.parse(compactContext.stdout.trim());
+    assert.deepEqual(compactPayload.delegatedAction, contextPayload.delegatedAction);
   });
 });
 
@@ -2315,6 +2350,8 @@ test('context execute reports handoff-prepared for code_review_run without claim
     assert.equal(executePayload.handoffOnly, true);
     assert.equal(executePayload.advancesWorkflow, false);
     assert.equal(executePayload.nextMainState, 'code_review_running');
+    assert.equal(executePayload.delegatedWorkRequired, true);
+    assert.equal(executePayload.doNotReapproveSameLabel, true);
   });
 }, 20_000);
 

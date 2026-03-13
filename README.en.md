@@ -281,6 +281,7 @@ Use advanced selectors (`--component`, `--all`, `--done`) only when you need mul
 - `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
 - It is short-lived (5 minutes by default) and cannot be reused after one execution.
 - When you `--execute` a handoff-only command (`pre_pr_review_run`, `code_review_run`), the result is `approved_handoff_prepared` with `nextMainState` instead of the normal `approved_executed`.
+- Treat `approved_handoff_prepared` as delegated-work-required: continue the delegated review/fix loop immediately, do not re-approve the same label, and refresh `context` only after the required evidence/state update.
 
 `context --json-compact` is the default recommended format, providing a minimal hot-path contract for agents.  
 Use `context --json` only when full-detail debugging fields are required.
