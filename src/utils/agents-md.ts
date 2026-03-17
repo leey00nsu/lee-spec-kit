@@ -5,8 +5,7 @@ export const LEE_SPEC_KIT_AGENTS_END = '<!-- lee-spec-kit:end -->';
 
 type DocsRepoMode = 'embedded' | 'standalone';
 
-// Canonical lee-spec-kit agent workflow instructions.
-// Keep this in sync with `/Users/leeyoonsu/.codex/AGENTS.md` (global Codex agents).
+// Canonical lee-spec-kit project-scoped agent workflow instructions.
 const CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT = `Use lee-spec-kit workflow only when explicitly detected.
 
 Detection gate (always first):
@@ -97,19 +96,30 @@ If approval is still pending after answering an unrelated question:
   - \`approvalRequest.finalPrompt\` (format line).
 - Never output \`finalPrompt\` alone without the matching \`A: ...\` prompt.`;
 
-function renderManagedBlock(lang: 'ko' | 'en', docsRepo: DocsRepoMode): string {
+function renderManagedSegment(
+  lang: 'ko' | 'en',
+  docsRepo: DocsRepoMode
+): string {
   // Intentionally do not localize: this block must stay aligned with the
-  // canonical global agent instructions to avoid behavioral drift.
+  // project-scoped canonical agent instructions to avoid behavioral drift.
   void lang;
   void docsRepo;
-  return `${LEE_SPEC_KIT_AGENTS_BEGIN}\n${CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT}\n${LEE_SPEC_KIT_AGENTS_END}\n\n`;
+  return `${LEE_SPEC_KIT_AGENTS_BEGIN}\n${CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT}\n${LEE_SPEC_KIT_AGENTS_END}`;
+}
+
+function renderManagedBlock(lang: 'ko' | 'en', docsRepo: DocsRepoMode): string {
+  return `${renderManagedSegment(lang, docsRepo)}\n\n`;
 }
 
 export async function upsertLeeSpecKitAgentsMd(
   filePath: string,
   options: { lang: 'ko' | 'en'; docsRepo: DocsRepoMode }
-): Promise<{ changed: boolean; action: 'created' | 'appended' | 'noop' }> {
+): Promise<{
+  changed: boolean;
+  action: 'created' | 'appended' | 'updated' | 'noop';
+}> {
   const block = renderManagedBlock(options.lang, options.docsRepo);
+  const segment = renderManagedSegment(options.lang, options.docsRepo);
 
   const exists = await fs.pathExists(filePath);
   if (!exists) {
@@ -118,9 +128,17 @@ export async function upsertLeeSpecKitAgentsMd(
   }
 
   const current = await fs.readFile(filePath, 'utf-8');
-  // Treat any existing begin marker as already managed to avoid duplicate inserts.
-  if (current.includes(LEE_SPEC_KIT_AGENTS_BEGIN)) {
-    return { changed: false, action: 'noop' };
+  const beginIndex = current.indexOf(LEE_SPEC_KIT_AGENTS_BEGIN);
+  const endIndex = current.indexOf(LEE_SPEC_KIT_AGENTS_END);
+
+  if (beginIndex !== -1 && endIndex !== -1 && beginIndex <= endIndex) {
+    const replaceEnd = endIndex + LEE_SPEC_KIT_AGENTS_END.length;
+    const next = `${current.slice(0, beginIndex)}${segment}${current.slice(replaceEnd)}`;
+    if (next === current) {
+      return { changed: false, action: 'noop' };
+    }
+    await fs.writeFile(filePath, next, 'utf-8');
+    return { changed: true, action: 'updated' };
   }
 
   let next = current;

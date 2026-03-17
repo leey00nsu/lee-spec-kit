@@ -495,6 +495,147 @@ test('update keeps explicit config values and only fills missing keys', async ()
   });
 });
 
+test('update recreates root AGENTS.md for existing embedded projects', async () => {
+  await withTempDir('lsk-update-agents-root-create-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const agentsMdPath = path.join(dir, 'AGENTS.md');
+    await fs.rm(agentsMdPath, { force: true });
+
+    const addDeletion = await runCommand(dir, 'git', ['add', '-A']);
+    assert.equal(addDeletion.code, 0, addDeletion.stderr || addDeletion.stdout);
+    const commitDeletion = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: remove root agents',
+    ]);
+    assert.equal(
+      commitDeletion.code,
+      0,
+      commitDeletion.stderr || commitDeletion.stdout
+    );
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
+
+    const agentsMd = await fs.readFile(agentsMdPath, 'utf-8');
+    assert.match(agentsMd, /<!-- lee-spec-kit:begin -->/);
+    assert.match(
+      agentsMd,
+      /Use lee-spec-kit workflow only when explicitly detected\./
+    );
+  });
+});
+
+test('update refreshes existing root AGENTS.md managed block without touching custom content', async () => {
+  await withTempDir('lsk-update-agents-root-refresh-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const agentsMdPath = path.join(dir, 'AGENTS.md');
+    await fs.writeFile(
+      agentsMdPath,
+      [
+        '# Existing Instructions',
+        '',
+        'Keep this.',
+        '',
+        '<!-- lee-spec-kit:begin -->',
+        'OLD CONTENT',
+        '<!-- lee-spec-kit:end -->',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    const addLegacy = await runCommand(dir, 'git', ['add', 'AGENTS.md']);
+    assert.equal(addLegacy.code, 0, addLegacy.stderr || addLegacy.stdout);
+    const commitLegacy = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: downgrade root agents block',
+    ]);
+    assert.equal(commitLegacy.code, 0, commitLegacy.stderr || commitLegacy.stdout);
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
+
+    const agentsMd = await fs.readFile(agentsMdPath, 'utf-8');
+    assert.match(agentsMd, /# Existing Instructions/);
+    assert.match(agentsMd, /Keep this\./);
+    assert.doesNotMatch(agentsMd, /OLD CONTENT/);
+    assert.match(
+      agentsMd,
+      /Use lee-spec-kit workflow only when explicitly detected\./
+    );
+  });
+});
+
 test('context handles no-open state without crashing', async () => {
   await withTempDir('lsk-context-no-open-', async (dir) => {
     const initResult = await runCli(dir, [

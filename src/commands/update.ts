@@ -19,9 +19,11 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
 
 interface UpdateOptions {
   agents?: boolean;
+  agentsMd?: boolean;
   skills?: boolean;
   templates?: boolean;
   force?: boolean;
@@ -37,6 +39,7 @@ export function updateCommand(program: Command): void {
     .command('update')
     .description('Update docs templates to the latest version')
     .option('--agents', 'Update agents/ folder only')
+    .option('--agents-md', 'Sync project-scoped AGENTS.md entrypoint')
     .option('--skills', 'Cleanup legacy agents/skills copies (CLI-managed)')
     .option('--templates', 'Cleanup legacy feature-base copies (CLI-managed)')
     .option(
@@ -96,10 +99,12 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       // 업데이트 대상 결정
       const hasExplicitSelection = !!(
         options.agents ||
+        options.agentsMd ||
         options.skills ||
         options.templates
       );
       const updateAgents = options.agents || options.skills || !hasExplicitSelection;
+      const updateAgentsMd = options.agentsMd || !hasExplicitSelection;
       const updateTemplates = options.templates || !hasExplicitSelection;
       const agentsMode: 'all' | 'skills' =
         options.skills && !options.agents ? 'skills' : 'all';
@@ -169,6 +174,19 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
         }
       }
 
+      if (updateAgentsMd) {
+        const agentsMdTargets = await collectAgentsMdTargets(cwd, config);
+        for (const target of agentsMdTargets) {
+          const result = await upsertLeeSpecKitAgentsMd(target, {
+            lang,
+            docsRepo: config.docsRepo ?? 'embedded',
+          });
+          if (result.changed) {
+            updatedCount += 1;
+          }
+        }
+      }
+
       // feature-base is CLI-managed and no longer synced into docs.
       if (updateTemplates) {
         console.log(chalk.blue(tr(lang, 'cli', 'update.updatingFeatureBase')));
@@ -205,6 +223,64 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     },
     { owner: 'update' }
   );
+}
+
+function getGitTopLevelOrNull(cwd: string): string | null {
+  try {
+    const out = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const value = String(out || '').trim();
+    return value ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function collectAgentsMdTargets(
+  cwd: string,
+  config: Awaited<ReturnType<typeof getConfig>>
+): Promise<string[]> {
+  if (!config) return [];
+
+  const targets = new Set<string>();
+  const docsRepo = config.docsRepo ?? 'embedded';
+
+  if (docsRepo === 'embedded') {
+    const repoRoot =
+      getGitTopLevelOrNull(cwd) ||
+      getGitTopLevelOrNull(config.docsDir) ||
+      path.resolve(config.docsDir, '..');
+    targets.add(path.join(repoRoot, 'AGENTS.md'));
+    return [...targets];
+  }
+
+  targets.add(path.join(config.docsDir, 'AGENTS.md'));
+
+  const baseDir =
+    getGitTopLevelOrNull(cwd) ||
+    getGitTopLevelOrNull(config.docsDir) ||
+    process.cwd();
+  const rawRoots =
+    typeof config.projectRoot === 'string'
+      ? [config.projectRoot]
+      : config.projectRoot && typeof config.projectRoot === 'object'
+        ? Object.values(config.projectRoot)
+        : [];
+
+  for (const rawRoot of rawRoots) {
+    const value = String(rawRoot || '').trim();
+    if (!value) continue;
+    const resolved = path.resolve(baseDir, value);
+    if (!(await fs.pathExists(resolved))) continue;
+    const stat = await fs.stat(resolved);
+    if (!stat.isDirectory()) continue;
+    targets.add(path.join(resolved, 'AGENTS.md'));
+  }
+
+  return [...targets];
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
