@@ -81,6 +81,7 @@ Approval-waiting output must reuse the exact CLI-provided prompt lines. Do not i
 ## Scope Split
 
 - Docs structure/path rules: use `docs/README.md` as SSOT
+- Shared planning artifacts (`docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*`) are staging/reference inputs only. When a feature is active, normalize them into feature-local docs and treat the feature folder as the final SSOT.
 - ADR format: use feature `decisions.md` template as SSOT
 - Issue/PR execution state: use each feature's `issue.md` and `pr.md` as SSOT
 

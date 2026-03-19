@@ -1,6 +1,7 @@
 # Decisions Log
 
 Record technical decisions and their rationale.
+If a shared design/spec artifact exists (`docs/plans/*` or `docs/superpowers/specs/*`), capture the accepted trade-offs and rationale here so the active feature keeps its own decision trail.
 
 > ADR (Architecture Decision Record) captures important technical or architectural choices made during implementation.
 > Write ADRs so the team can trace why a choice was made and revisit trade-offs later.

@@ -1,6 +1,7 @@
 # Implementation Plan: {기능명}
 
 > 스펙이 승인된 후 작성합니다.
+> `docs/plans/*` 또는 `docs/superpowers/plans/*` 같은 공용 계획 문서가 있더라도, 아키텍처/파일/테스트 내용은 이 파일로 흡수하고 최종 SSOT는 여기로 유지합니다.
 
 ---
 

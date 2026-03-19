@@ -89,6 +89,25 @@ When things change mid-work, it must be explicit what was updated.
 
 ---
 
+## Shared Planning Artifacts (`superpowers`, etc.)
+
+External agent workflows may create shared design/plan docs such as:
+
+- `docs/plans/*.md`
+- `docs/superpowers/specs/*.md`
+- `docs/superpowers/plans/*.md`
+
+When a feature is already in progress, treat those files as staging/reference artifacts, not the active workflow SSOT.
+
+- Move user-facing scope and acceptance criteria into `spec.md`
+- Move architecture/file structure/test strategy into `plan.md`
+- Move executable work items into `tasks.md`
+- Move trade-offs, rejected options, and rationale into `decisions.md`
+
+Keeping the shared artifact for history is fine, but when it conflicts with feature-local docs, the feature folder wins.
+
+---
+
 ## Status Glossary
 
 | Scope | Field | Values |

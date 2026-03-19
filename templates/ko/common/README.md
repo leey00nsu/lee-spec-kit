@@ -56,6 +56,12 @@ npx lee-spec-kit context --json-compact
     - 태스크가 사용자 동작, acceptance criteria, 기능 범위를 바꾸게 되면 `[NON-PRD]`로 끝내지 말고 PRD를 backfill한 뒤 `[PRD-...]`로 연결합니다.
   - 레거시 문서에 PRD ID가 없다면, 먼저 원문 요구사항 문서에 ID를 backfill한 뒤 Feature 문서를 연결합니다.
   - `decisions.md`: 변경/트레이드오프/요구사항 변경(왜 바뀌었는지) 기록 + Evidence 링크
+- **공용 계획 산출물 (`docs/plans/`, `docs/superpowers/specs/`, `docs/superpowers/plans/`)**: staging/reference 문서
+  - `superpowers` 같은 외부 에이전트 워크플로우가 이 위치에 문서를 만들 수 있습니다.
+  - Feature가 활성화된 뒤에는 이 문서들이 입력 자료일 뿐이며, 최종 SSOT는 Feature 폴더에 남습니다.
+  - 아래처럼 feature-local 문서로 정규화하세요:
+    - design/spec 산출물 → `spec.md`, `plan.md`, `decisions.md`
+    - implementation plan 산출물 → `plan.md`, `tasks.md`
 
 ## 변경 프로토콜 (중간에 요구사항/기능이 추가·변경될 때)
 
@@ -70,6 +76,7 @@ npx lee-spec-kit context --json-compact
      1. `docs/prd/*.md` backfill/수정
      2. `spec.md`의 `PRD Refs` 갱신
      3. 해당 태스크를 `[PRD-...]`로 재태깅 (필요하면 대체 태스크 추가)
+   - `docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*` 같은 공용 계획 문서가 있으면, 활성 워크플로우에 넣기 전에 먼저 Feature 문서로 흡수합니다.
    - `docs/features/.../spec.md`: `PRD Refs` 갱신 + 스코프 변경 요약 반영
    - `docs/features/.../tasks.md`: 변경을 반영하는 새 태스크 추가 + 각 태스크에 `[PRD-...]` 또는 `[NON-PRD]` 태그 부여
    - `docs/features/.../plan.md`: 아키텍처/테스트 전략이 바뀌면 함께 갱신

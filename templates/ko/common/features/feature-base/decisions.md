@@ -1,6 +1,7 @@
 # Decisions Log
 
 기술 결정과 그 이유를 기록합니다.
+`docs/plans/*` 또는 `docs/superpowers/specs/*` 같은 공용 설계 문서가 있더라도, 실제로 채택한 대안과 선택 이유는 이 파일에 다시 남겨 Feature의 결정 이력을 유지합니다.
 
 > ADR(Architecture Decision Record)은 구현 중 내린 중요한 기술/구조 결정을 남기는 기록입니다.
 > 나중에 "왜 이렇게 만들었는지"를 추적하고, 팀 합의를 재확인하기 위해 작성합니다.

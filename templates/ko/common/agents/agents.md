@@ -81,6 +81,7 @@
 ## 범위 분리
 
 - docs 구조/경로 규칙: `docs/README.md`를 SSOT로 사용
+- `docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*` 같은 공용 계획 산출물은 staging/reference 입력으로만 취급합니다. Feature가 활성화되어 있으면 해당 내용을 Feature 문서로 흡수하고, 최종 SSOT는 Feature 폴더로 봅니다.
 - ADR 작성 형식: `docs/features/.../decisions.md` 템플릿을 SSOT로 사용
 - 이슈/PR 실행 상태: 각 Feature의 `issue.md`, `pr.md`를 SSOT로 사용
 

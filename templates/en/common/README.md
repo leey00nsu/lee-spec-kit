@@ -56,6 +56,12 @@ To avoid ambiguity, treat the following as the single source of truth (SSOT).
     - If a task changes user-facing behavior, acceptance criteria, or feature scope, backfill PRD first and tag the task as `[PRD-...]` instead of leaving it as `[NON-PRD]`.
   - For legacy docs without PRD IDs yet, backfill the source requirements doc first, then link the feature docs.
   - `decisions.md`: record changes/trade-offs/requirement changes (why it changed) with evidence links
+- **Shared planning artifacts (`docs/plans/`, `docs/superpowers/specs/`, `docs/superpowers/plans/`)**: staging/reference docs
+  - These may be created by external agent workflows such as `superpowers`.
+  - Once a feature is active, these artifacts are inputs only. The final SSOT stays in the feature folder.
+  - Normalize them into feature-local docs:
+    - design/spec artifact → `spec.md`, `plan.md`, `decisions.md`
+    - implementation plan artifact → `plan.md`, `tasks.md`
 
 ## Change Protocol (When Requirements/Scope Change Mid-Work)
 
@@ -70,6 +76,7 @@ When requirements/scope change, the “what to update” must be explicit in doc
      1. backfill/update `docs/prd/*.md`
      2. update `spec.md` `PRD Refs`
      3. retag the task as `[PRD-...]` (or add a replacement task if needed)
+   - If shared planning artifacts exist (`docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*`), absorb them into the feature docs before treating them as part of the active workflow.
    - `docs/features/.../spec.md`: update `PRD Refs` + reflect scope change summary
    - `docs/features/.../tasks.md`: add tasks for the change + tag each task as `[PRD-...]` or `[NON-PRD]`
    - `docs/features/.../plan.md`: update if architecture/testing strategy changed

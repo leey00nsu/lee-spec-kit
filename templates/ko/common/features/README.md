@@ -89,6 +89,25 @@ npx lee-spec-kit status --write
 
 ---
 
+## 공용 계획 산출물 (`superpowers` 등)
+
+외부 에이전트 워크플로우는 아래 같은 공용 설계/계획 문서를 만들 수 있습니다.
+
+- `docs/plans/*.md`
+- `docs/superpowers/specs/*.md`
+- `docs/superpowers/plans/*.md`
+
+Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 SSOT가 아니라 staging/reference 산출물로 취급합니다.
+
+- 사용자 요구/범위/Acceptance Criteria는 `spec.md`로 옮깁니다
+- 아키텍처/파일 구조/테스트 전략은 `plan.md`로 옮깁니다
+- 실제 실행할 작업 항목은 `tasks.md`로 옮깁니다
+- 대안 비교, 선택 이유, 트레이드오프는 `decisions.md`로 옮깁니다
+
+공용 산출물을 기록용으로 남겨두는 것은 괜찮지만, feature-local 문서와 충돌하면 Feature 폴더 문서를 기준으로 봅니다.
+
+---
+
 ## 상태 용어 정리
 
 | 구분 | 필드 | 값 |

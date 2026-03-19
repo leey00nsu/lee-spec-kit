@@ -1,6 +1,7 @@
 # Implementation Plan: {feature-name}
 
 > Write after spec is approved.
+> If a shared planning artifact exists (`docs/plans/*` or `docs/superpowers/plans/*`), absorb its architecture/file/test content here and treat this file as the final feature-local SSOT.
 
 ---
 
