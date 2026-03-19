@@ -216,6 +216,103 @@ test('feature auto-selects the only component in multi mode', async () => {
   });
 });
 
+test('idea creates an indexed idea document with canonical metadata', async () => {
+  await withTempDir('lsk-idea-create-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const ideaResult = await runCli(dir, [
+      'idea',
+      'login-rate-limit',
+      '--non-interactive',
+      '--json',
+    ]);
+    assert.equal(ideaResult.code, 0, ideaResult.stderr || ideaResult.stdout);
+
+    const payload = JSON.parse(ideaResult.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'IDEA_CREATED');
+    assert.equal(payload.ideaId, 'I001');
+    assert.equal(payload.ideaName, 'login-rate-limit');
+
+    const ideaPath = path.join(dir, 'docs', 'ideas', 'I001-login-rate-limit.md');
+    const ideaDoc = await fs.readFile(ideaPath, 'utf-8');
+    assert.match(ideaDoc, /- \*\*Idea ID\*\*: I001/);
+    assert.match(ideaDoc, /- \*\*Idea Name\*\*: login-rate-limit/);
+    assert.match(ideaDoc, /- \*\*Status\*\*: Active/);
+    assert.match(ideaDoc, /- \*\*Feature\*\*: -/);
+    assert.match(ideaDoc, /- \*\*PRD Refs\*\*: -/);
+  });
+});
+
+test('feature --idea promotes the linked idea and records the origin in spec', async () => {
+  await withTempDir('lsk-feature-promote-idea-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const ideaResult = await runCli(dir, [
+      'idea',
+      'login-rate-limit',
+      '--non-interactive',
+      '--json',
+    ]);
+    assert.equal(ideaResult.code, 0, ideaResult.stderr || ideaResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'api-login-rate-limit',
+      '--id',
+      'F001',
+      '--idea',
+      'I001',
+      '--non-interactive',
+      '--json',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const ideaPath = path.join(dir, 'docs', 'ideas', 'I001-login-rate-limit.md');
+    const ideaDoc = await fs.readFile(ideaPath, 'utf-8');
+    assert.match(ideaDoc, /- \*\*Status\*\*: Featureized/);
+    assert.match(ideaDoc, /- \*\*Feature\*\*: F001-api-login-rate-limit/);
+
+    const specPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-api-login-rate-limit',
+      'spec.md'
+    );
+    const specDoc = await fs.readFile(specPath, 'utf-8');
+    assert.match(specDoc, /- Idea: `\.\.\/\.\.\/ideas\/I001-login-rate-limit\.md`/);
+  });
+});
+
 test('init standalone non-interactive supports explicit standalone options', async () => {
   await withTempDir('lsk-init-standalone-', async (dir) => {
     const result = await runCli(dir, [

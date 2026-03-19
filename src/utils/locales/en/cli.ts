@@ -17,6 +17,9 @@ export const enCli = {
   'feature.nextSteps1': '  1. Write {path}/spec.md',
   'feature.nextSteps2': '  2. Ask for review',
   'feature.nextSteps3': '  3. After approval, write plan.md',
+  'feature.ideaNotFound': 'Idea document not found: {ref}',
+  'feature.ideaAmbiguous':
+    'Multiple idea documents matched {ref}. Use an exact path or full indexed name.',
 
   'config.currentTitle': '📋 Current config:',
   'config.pathLabel': 'Path',
@@ -143,6 +146,14 @@ export const enCli = {
   'init.warn.skipGitInit':
     '⚠️  Skipping Git initialization (please commit manually)',
   'init.error.templateNotFound': 'Template not found: {path}',
+
+  'idea.fileExists': 'Idea document already exists: {path}',
+  'idea.templateNotFound': 'Built-in idea template not found.',
+  'idea.created': '✅ Idea document created: {path}',
+  'idea.nextStepsTitle': 'Next steps:',
+  'idea.nextSteps1': '  1. Fill scope, PRD refs, and promotion notes',
+  'idea.nextSteps2': '  2. Promote it with: npx lee-spec-kit feature <name> --idea {ideaId}',
+  'idea.nextSteps3': '  3. Mark it dropped if it should not become a feature',
 
   'github.cmdGithubDescription':
     'GitHub workflow helpers (issue/pr templates, validation, merge retry)',
@@ -385,11 +396,15 @@ export const enCli = {
   'validation.workflowModeInvalid': 'Workflow mode must be one of: {values}.',
   'validation.featureIdEmpty': 'Feature ID cannot be empty.',
   'validation.featureIdFormat': "Feature ID must be 'F' + digits (e.g., F001).",
+  'validation.ideaIdEmpty': 'Idea ID cannot be empty.',
+  'validation.ideaIdFormat': "Idea ID must be 'I' + digits (e.g., I001).",
   'validation.pathEmpty': 'Path cannot be empty.',
   'validation.pathNullByte': 'Path cannot contain null bytes.',
   'validation.genericFailed': 'Validation failed',
   'validation.context.featureName': 'Feature name',
   'validation.context.featureId': 'Feature ID',
+  'validation.context.ideaName': 'Idea name',
+  'validation.context.ideaId': 'Idea ID',
   'validation.context.projectName': 'Project name',
   'validation.context.projectType': 'Project type',
   'validation.context.language': 'Language',

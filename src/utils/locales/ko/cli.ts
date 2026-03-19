@@ -19,6 +19,9 @@ export const koCli = {
   'feature.nextSteps1': '  1. {path}/spec.md 작성',
   'feature.nextSteps2': '  2. 사용자 리뷰 요청',
   'feature.nextSteps3': '  3. 승인 후 plan.md 작성',
+  'feature.ideaNotFound': 'Idea 문서를 찾을 수 없습니다: {ref}',
+  'feature.ideaAmbiguous':
+    '{ref}와 매칭되는 Idea 문서가 여러 개입니다. 정확한 경로나 전체 indexed 이름을 사용하세요.',
 
   'config.currentTitle': '📋 현재 설정:',
   'config.pathLabel': '경로',
@@ -143,6 +146,15 @@ export const koCli = {
   'init.warn.skipGitInit':
     '⚠️  Git 초기화를 건너뜁니다 (수동으로 커밋해주세요)',
   'init.error.templateNotFound': '템플릿을 찾을 수 없습니다: {path}',
+
+  'idea.fileExists': '이미 존재하는 Idea 문서입니다: {path}',
+  'idea.templateNotFound': 'CLI 내장 idea 템플릿을 찾을 수 없습니다.',
+  'idea.created': '✅ Idea 문서 생성 완료: {path}',
+  'idea.nextStepsTitle': '다음 단계:',
+  'idea.nextSteps1': '  1. 범위, PRD Refs, 승격 메모를 작성',
+  'idea.nextSteps2':
+    '  2. Feature로 승격: npx lee-spec-kit feature <name> --idea {ideaId}',
+  'idea.nextSteps3': '  3. Feature로 만들지 않을 경우 Dropped로 표시',
 
   'github.cmdGithubDescription':
     'GitHub 워크플로우 도우미 (issue/pr 본문 템플릿 생성, 검증, merge 재시도)',
@@ -383,11 +395,16 @@ export const koCli = {
   'validation.featureIdEmpty': 'Feature ID는 비어있을 수 없습니다.',
   'validation.featureIdFormat':
     "Feature ID는 'F' + 숫자 형식이어야 합니다 (예: F001).",
+  'validation.ideaIdEmpty': 'Idea ID는 비어있을 수 없습니다.',
+  'validation.ideaIdFormat':
+    "Idea ID는 'I' + 숫자 형식이어야 합니다 (예: I001).",
   'validation.pathEmpty': '경로는 비어있을 수 없습니다.',
   'validation.pathNullByte': '경로에 null 문자를 사용할 수 없습니다.',
   'validation.genericFailed': '검증 실패',
   'validation.context.featureName': '기능 이름',
   'validation.context.featureId': 'Feature ID',
+  'validation.context.ideaName': 'Idea 이름',
+  'validation.context.ideaId': 'Idea ID',
   'validation.context.projectName': '프로젝트 이름',
   'validation.context.projectType': '프로젝트 타입',
   'validation.context.language': '언어',

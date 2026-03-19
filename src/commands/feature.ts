@@ -11,6 +11,7 @@ import {
 import { replaceInFiles } from '../utils/template.js';
 import { DefaultFileSystemAdapter } from '../adapters/DefaultFileSystemAdapter.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
+import type { Lang } from '../utils/i18n.js';
 import {
   getDocsLockPath,
   getInitLockPath,
@@ -37,6 +38,7 @@ interface FeatureOptions {
   component?: string;
   id?: string;
   desc?: string;
+  idea?: string;
   nonInteractive?: boolean;
   json?: boolean;
 }
@@ -56,6 +58,7 @@ export function featureCommand(program: Command): void {
     .option('--component <component>', 'Component name (multi only)')
     .option('--id <id>', 'Feature ID (default: auto)')
     .option('-d, --desc <description>', 'Feature description for spec.md')
+    .option('--idea <ref>', 'Idea reference to promote (I001 | I001-slug | docs/ideas/...)')
     .option('--non-interactive', 'Fail instead of prompting for input')
     .option('--json', 'Output in JSON format for agents')
     .action(async (name: string, options: FeatureOptions) => {
@@ -145,6 +148,9 @@ async function runFeature(
     projectType,
     config.components
   );
+  const linkedIdea = options.idea
+    ? await resolveIdeaReference(docsDir, options.idea, lang)
+    : null;
 
   // 기능 이름 검증 (Path Traversal 방지)
   assertValid(
@@ -295,6 +301,14 @@ async function runFeature(
       const fsAdapter = new DefaultFileSystemAdapter();
       await replaceInFiles(fsAdapter, featureDir, replacements);
 
+      if (linkedIdea) {
+        await stampIdeaReferenceInSpec(
+          path.join(featureDir, 'spec.md'),
+          path.relative(featureDir, linkedIdea.path)
+        );
+        await markIdeaAsFeatureized(linkedIdea.path, featureFolderName);
+      }
+
       if (config.workflow?.mode === 'local') {
         await applyLocalWorkflowTemplateToFeatureDir(featureDir, lang);
       }
@@ -326,6 +340,124 @@ async function runFeature(
     },
     { owner: 'feature' }
   );
+}
+
+async function resolveIdeaReference(
+  docsDir: string,
+  ref: string,
+  lang: Lang
+): Promise<{ path: string }> {
+  const ideasDir = path.join(docsDir, 'ideas');
+  const trimmedRef = ref.trim();
+  if (!trimmedRef) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      tr(lang, 'cli', 'feature.ideaNotFound', { ref })
+    );
+  }
+
+  if (trimmedRef.includes('/') || trimmedRef.endsWith('.md')) {
+    const candidate = path.resolve(process.cwd(), trimmedRef);
+    if (await fs.pathExists(candidate)) {
+      return { path: candidate };
+    }
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      tr(lang, 'cli', 'feature.ideaNotFound', { ref: trimmedRef })
+    );
+  }
+
+  if (!(await fs.pathExists(ideasDir))) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      tr(lang, 'cli', 'feature.ideaNotFound', { ref: trimmedRef })
+    );
+  }
+
+  const entries = await fs.readdir(ideasDir, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
+    .map((entry) => entry.name);
+
+  const exactName = `${trimmedRef}.md`;
+  if (files.includes(exactName)) {
+    return { path: path.join(ideasDir, exactName) };
+  }
+
+  const byId = /^I\d{3,}$/.test(trimmedRef)
+    ? files.filter((name) => name.startsWith(`${trimmedRef}-`))
+    : [];
+  if (byId.length === 1) {
+    return { path: path.join(ideasDir, byId[0]) };
+  }
+  if (byId.length > 1) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      tr(lang, 'cli', 'feature.ideaAmbiguous', { ref: trimmedRef })
+    );
+  }
+
+  throw createCliError(
+    'INVALID_ARGUMENT',
+    tr(lang, 'cli', 'feature.ideaNotFound', { ref: trimmedRef })
+  );
+}
+
+async function stampIdeaReferenceInSpec(
+  specPath: string,
+  relativeIdeaPath: string
+): Promise<void> {
+  const normalizedPath = relativeIdeaPath.replace(/\\/g, '/');
+  const ideaLine = `- Idea: \`${normalizedPath}\``;
+  let content = await fs.readFile(specPath, 'utf-8');
+
+  if (content.includes(ideaLine)) {
+    return;
+  }
+
+  if (content.includes('## Related Documents')) {
+    content = content.replace(
+      '## Related Documents\n\n',
+      `## Related Documents\n\n${ideaLine}\n`
+    );
+  } else {
+    content = `${content.trimEnd()}\n\n${ideaLine}\n`;
+  }
+
+  await fs.writeFile(specPath, content, 'utf-8');
+}
+
+async function markIdeaAsFeatureized(
+  ideaPath: string,
+  featureFolderName: string
+): Promise<void> {
+  let content = await fs.readFile(ideaPath, 'utf-8');
+  content = replaceOrAppendIdeaMetadata(content, 'Status', 'Featureized');
+  content = replaceOrAppendIdeaMetadata(content, 'Feature', featureFolderName);
+  await fs.writeFile(ideaPath, content, 'utf-8');
+}
+
+function replaceOrAppendIdeaMetadata(
+  content: string,
+  label: string,
+  value: string
+): string {
+  const pattern = new RegExp(`^- \\*\\*${escapeRegExp(label)}\\*\\*:.*$`, 'm');
+  const line = `- **${label}**: ${value}`;
+  if (pattern.test(content)) {
+    return content.replace(pattern, line);
+  }
+
+  const heading = '## Promotion Tracking';
+  if (content.includes(heading)) {
+    return content.replace(heading, `${heading}\n\n${line}`);
+  }
+
+  return `${content.trimEnd()}\n\n${heading}\n\n${line}\n`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function waitForConfigAfterInit(

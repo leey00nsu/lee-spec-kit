@@ -168,6 +168,29 @@ export function validateFeatureIdWithLang(id: string, lang: Lang): ValidationRes
 }
 
 /**
+ * Idea ID 검증 (I001, I002 형식)
+ */
+export function validateIdeaId(id: string): ValidationResult {
+  return validateIdeaIdWithLang(id, DEFAULT_LANG);
+}
+
+export function validateIdeaIdWithLang(id: string, lang: Lang): ValidationResult {
+  if (!id || id.trim().length === 0) {
+    return { valid: false, error: tr(lang, 'cli', 'validation.ideaIdEmpty') };
+  }
+
+  const ideaIdPattern = /^I\d{3,}$/;
+  if (!ideaIdPattern.test(id)) {
+    return {
+      valid: false,
+      error: tr(lang, 'cli', 'validation.ideaIdFormat'),
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
  * 경로 검증 및 정규화
  */
 export function validatePath(inputPath: string): ValidationResult {

@@ -3,6 +3,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { initCommand } from './commands/init.js';
 import { featureCommand } from './commands/feature.js';
+import { ideaCommand } from './commands/idea.js';
 import { statusCommand } from './commands/status.js';
 import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
@@ -87,6 +88,7 @@ if (shouldShowBanner()) {
 
 initCommand(program);
 featureCommand(program);
+ideaCommand(program);
 statusCommand(program);
 updateCommand(program);
 configCommand(program);
