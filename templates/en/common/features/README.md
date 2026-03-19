@@ -64,6 +64,8 @@ npx lee-spec-kit status --write
 
 - Assign stable requirement IDs in PRD docs (`docs/prd/*.md`) like `PRD-FR-001`.
 - Link each task line in `tasks.md` with a tag like `[PRD-FR-001]`. For non-PRD tasks, use `[NON-PRD]`.
+- Use `[NON-PRD]` only for internal implementation work such as refactors, test-only work, tooling, renames, and cleanup.
+- If a change affects user-facing behavior, acceptance criteria, or scope, update PRD first and retag the task as `[PRD-...]`.
 - Do not invent PRD IDs inside feature docs. Define them in the PRD source first, and backfill legacy docs before linking tasks.
 - Coverage report: `npx lee-spec-kit requirements` (alias: `npx lee-spec-kit prd`)
 
@@ -75,6 +77,10 @@ When things change mid-work, it must be explicit what was updated.
 
 - Record changes as **new tasks** (do not edit `[DONE]` tasks; create a new task instead).
 - Every change task must be tagged as `[PRD-...]` or `[NON-PRD]`. (Recommended: also add `[CHANGE]`.)
+- If a change starts as internal exploration but ends up changing user-visible behavior, do not leave it as `[NON-PRD]`.
+  - Backfill/update `docs/prd/*.md`
+  - Update `spec.md` `PRD Refs`
+  - Retag the task as `[PRD-...]` or add a replacement PRD-backed task
 - If the change impacts PRD/spec/plan, update these too:
   - `docs/prd/*.md` (add/update/deprecate requirement IDs)
   - `spec.md` (`PRD Refs`, scope/AC)

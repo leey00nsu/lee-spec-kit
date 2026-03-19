@@ -52,6 +52,8 @@ npx lee-spec-kit context --json-compact
 - **Features (`docs/features/`)**: 구현 범위/진행 SSOT
   - `spec.md`: 범위 정의 + `PRD Refs`(기능이 커버하는 PRD ID 목록)
   - `tasks.md`: 태스크 단위로 PRD ID를 태그(`[PRD-FR-001]`)로 매핑하거나, PRD 무관 태스크는 `[NON-PRD]`로 표시
+    - `[NON-PRD]`는 refactor, rename, tooling, 테스트, cleanup 같은 내부 작업에만 사용합니다.
+    - 태스크가 사용자 동작, acceptance criteria, 기능 범위를 바꾸게 되면 `[NON-PRD]`로 끝내지 말고 PRD를 backfill한 뒤 `[PRD-...]`로 연결합니다.
   - 레거시 문서에 PRD ID가 없다면, 먼저 원문 요구사항 문서에 ID를 backfill한 뒤 Feature 문서를 연결합니다.
   - `decisions.md`: 변경/트레이드오프/요구사항 변경(왜 바뀌었는지) 기록 + Evidence 링크
 
@@ -64,6 +66,10 @@ npx lee-spec-kit context --json-compact
 2. **Idea 단계라면**:
    - `docs/ideas/*.md`: `PRD Refs` 및 범위(포함/제외) 갱신
 3. **Feature 단계라면**:
+   - 시작은 `[NON-PRD]`였더라도, 진행 중 사용자 요구/동작/범위 변경으로 바뀌었다면 PRD 기반 작업으로 승격합니다:
+     1. `docs/prd/*.md` backfill/수정
+     2. `spec.md`의 `PRD Refs` 갱신
+     3. 해당 태스크를 `[PRD-...]`로 재태깅 (필요하면 대체 태스크 추가)
    - `docs/features/.../spec.md`: `PRD Refs` 갱신 + 스코프 변경 요약 반영
    - `docs/features/.../tasks.md`: 변경을 반영하는 새 태스크 추가 + 각 태스크에 `[PRD-...]` 또는 `[NON-PRD]` 태그 부여
    - `docs/features/.../plan.md`: 아키텍처/테스트 전략이 바뀌면 함께 갱신

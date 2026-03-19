@@ -52,6 +52,8 @@ To avoid ambiguity, treat the following as the single source of truth (SSOT).
 - **Features (`docs/features/`)**: implementation scope/progress SSOT
   - `spec.md`: scope + `PRD Refs` (the PRD IDs this feature covers)
   - `tasks.md`: map each task line to PRD IDs via bracket tags like `[PRD-FR-001]`, or tag non-PRD tasks as `[NON-PRD]`
+    - Use `[NON-PRD]` only for internal work such as refactors, renames, tooling, tests, and cleanup.
+    - If a task changes user-facing behavior, acceptance criteria, or feature scope, backfill PRD first and tag the task as `[PRD-...]` instead of leaving it as `[NON-PRD]`.
   - For legacy docs without PRD IDs yet, backfill the source requirements doc first, then link the feature docs.
   - `decisions.md`: record changes/trade-offs/requirement changes (why it changed) with evidence links
 
@@ -64,6 +66,10 @@ When requirements/scope change, the “what to update” must be explicit in doc
 2. **If still in Idea stage**:
    - `docs/ideas/*.md`: update `PRD Refs` and in/out scope
 3. **If already a Feature**:
+   - If the change started as a `[NON-PRD]` task but becomes a user-facing requirement/scope change, convert it into PRD-backed work:
+     1. backfill/update `docs/prd/*.md`
+     2. update `spec.md` `PRD Refs`
+     3. retag the task as `[PRD-...]` (or add a replacement task if needed)
    - `docs/features/.../spec.md`: update `PRD Refs` + reflect scope change summary
    - `docs/features/.../tasks.md`: add tasks for the change + tag each task as `[PRD-...]` or `[NON-PRD]`
    - `docs/features/.../plan.md`: update if architecture/testing strategy changed

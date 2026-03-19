@@ -10,6 +10,7 @@
 - **PRD mapping (recommended)**: add a PRD requirement ID tag like `[PRD-FR-001]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
+  - `[NON-PRD]` is for internal implementation work only. If the task changes user-facing behavior, acceptance criteria, or scope, backfill PRD first and tag it as `[PRD-...]`.
 
 ---
 
@@ -60,6 +61,7 @@
 ```
 
 > `PRD-FR-001` in the example means an ID that already exists in the PRD source. If it is not defined yet, do not add it to tasks first.
+> If a task began as exploration/internal work but became a product requirement change, update PRD first, then retag the task from `[NON-PRD]` to `[PRD-...]`.
 
 (Recommended) Requirement/scope change task:
 
@@ -73,6 +75,8 @@ Record mid-work changes as **new tasks**, and explicitly list which docs need up
     - plan.md (architecture/testing strategy)
     - decisions.md (why it changed + evidence)
 ```
+
+> Use `[NON-PRD][CHANGE]` only when the change stays internal and does not alter user-visible requirements.
 
 ---
 
