@@ -135,6 +135,16 @@ export interface DelegatedActionContract {
 export function getActionExecutionMetadata(
   action: ActionOption['action']
 ): ActionExecutionMetadata | null {
+  if (
+    action.category === 'task_execute' &&
+    action.taskExecutePhase === 'start'
+  ) {
+    return {
+      handoffOnly: true,
+      advancesWorkflow: false,
+      nextMainState: 'task_complete',
+    };
+  }
   if (action.category === 'code_review_run') {
     return {
       handoffOnly: true,
@@ -263,6 +273,7 @@ export function buildAgentOrchestrationPolicy(
     pauseAndReportWhen: [
       'approvalRequest.required=true',
       'AUTO_GATE_REACHED',
+      'AUTO_DELEGATED_HANDOFF',
       'AUTO_MANUAL_REQUIRED',
       'command execution error',
     ],

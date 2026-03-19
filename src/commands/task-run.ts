@@ -211,8 +211,6 @@ async function runTaskRun(
     owner: 'subagent',
     handoffOnly: true,
     reuseKey: `task:${feature.folderName}:${resolvedTask.taskId}`,
-    suggestedParallelism: 1,
-    fallbackToMainAgentWhenQuotaExceeded: true,
     nextMainState: 'task_complete',
     tasksUpdated,
     tasksPath,
@@ -230,12 +228,6 @@ async function runTaskRun(
   console.log(chalk.gray(`- substate: ${payload.substateId}`));
   console.log(chalk.gray(`- owner: ${payload.owner}`));
   console.log(chalk.gray(`- reuse key: ${payload.reuseKey}`));
-  console.log(chalk.gray(`- suggested parallelism: ${payload.suggestedParallelism}`));
-  console.log(
-    chalk.gray(
-      `- quota fallback: ${payload.fallbackToMainAgentWhenQuotaExceeded ? 'continue in main agent' : 'none'}`
-    )
-  );
   console.log(chalk.gray(`- next main state: ${payload.nextMainState}`));
   if (tasksUpdated) {
     console.log();

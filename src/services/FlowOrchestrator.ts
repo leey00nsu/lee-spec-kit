@@ -47,6 +47,7 @@ export interface AutoRunSummary {
     resumeCommand: string;
   };
   status:
+    | 'delegated_handoff'
     | 'gate_reached'
     | 'manual_required'
     | 'no_action_options'
@@ -56,6 +57,7 @@ export interface AutoRunSummary {
     | 'request_failed'
     | 'execution_failed';
   reasonCode:
+    | 'AUTO_DELEGATED_HANDOFF'
     | 'AUTO_GATE_REACHED'
     | 'AUTO_MANUAL_REQUIRED'
     | 'AUTO_NO_ACTION_OPTIONS'
@@ -66,6 +68,12 @@ export interface AutoRunSummary {
     | 'AUTO_EXECUTION_FAILED';
   iterations: number;
   executions: AutoRunExecution[];
+  delegated?: {
+    label: string;
+    category?: string;
+    detail: string;
+    nextMainState?: string;
+  } | null;
   gate?: {
     label: string;
     category?: string;
@@ -349,6 +357,7 @@ export function toAutoReasonCode(
   status: AutoRunSummary['status']
 ): AutoRunSummary['reasonCode'] {
   const map: Record<AutoRunSummary['status'], AutoRunSummary['reasonCode']> = {
+    delegated_handoff: 'AUTO_DELEGATED_HANDOFF',
     gate_reached: 'AUTO_GATE_REACHED',
     manual_required: 'AUTO_MANUAL_REQUIRED',
     no_action_options: 'AUTO_NO_ACTION_OPTIONS',
@@ -378,6 +387,7 @@ export function toFlowRunStatus(
   status: AutoRunSummary['status']
 ): FlowRunStatus {
   switch (status) {
+    case 'delegated_handoff':
     case 'gate_reached':
     case 'manual_required':
       return 'paused';
@@ -705,19 +715,21 @@ export async function runAutoUntilCategory(
         preset: metadata?.preset ?? null,
         source: metadata?.source ?? null,
         resume,
-        status: 'manual_required',
-        reasonCode: toAutoReasonCode('manual_required'),
+        status: 'delegated_handoff',
+        reasonCode: toAutoReasonCode('delegated_handoff'),
         iterations,
         executions,
-        gate: null,
-        manual: {
+        delegated: {
           label: executable.label,
           category: executable.action.category,
           detail:
             typeof executeResult?.nextMainState === 'string'
               ? `Complete the delegated handoff work, then continue from ${executeResult.nextMainState}.`
               : executable.detail,
+          nextMainState: executeResult?.nextMainState,
         },
+        gate: null,
+        manual: null,
       };
     }
     if (executeResult?.status !== 'approved_executed') {

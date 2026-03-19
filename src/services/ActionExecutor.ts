@@ -83,6 +83,14 @@ function buildApprovedHandoffMetadata(
   action: CommandAction,
   featureRef: string
 ): Record<string, unknown> {
+  if (action.category === 'task_execute' && action.taskExecutePhase === 'start') {
+    const taskId = action.cmd.match(/\b--task\s+([^\s]+)/)?.[1];
+    return {
+      delegatedWorkRequired: true,
+      doNotReapproveSameLabel: true,
+      reuseKey: taskId ? `task:${featureRef}:${taskId}` : `task:${featureRef}`,
+    };
+  }
   if (action.category === 'pre_pr_review_run') {
     return {
       delegatedWorkRequired: true,

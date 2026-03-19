@@ -440,7 +440,7 @@ async function runContext(
         unknownCategories: autoRunPlan.unknownCategories,
         manualBoundary: autoRunPlan.manualBoundary,
         guidance:
-          'Use auto-run only when `autoRun.available=true`. If `autoRun.policyEligible=true` but `autoRun.executableNow=false`, resolve `autoRun.manualBoundary` first. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode="auto_run"` for actual delegation. Stop and request approval when `approvalRequest.required=true` or when auto mode reaches configured gate categories.',
+          'Use auto-run only when `autoRun.available=true`. If `autoRun.policyEligible=true` but `autoRun.executableNow=false`, resolve `autoRun.manualBoundary` first. Do not treat `autoRun.available` alone as a delegation trigger; use `agentOrchestration.subAgentHandoff.required` + `mode="auto_run"` for actual delegation. Stop and request approval when `approvalRequest.required=true`, when auto mode reaches configured gate categories, or when a delegated handoff pause must be resumed.',
       },
       approvalRequest: {
         guidance: approvalGuidance.replace(

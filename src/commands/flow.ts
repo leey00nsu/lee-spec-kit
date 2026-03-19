@@ -359,6 +359,7 @@ async function runFlow(
         lastAutoStatus: autoRun.status,
         lastReasonCode: autoRun.reasonCode,
         lastError: autoRun.error,
+        lastDelegatedHandoff: autoRun.delegated ?? null,
       })
     );
     autoRun.run = {

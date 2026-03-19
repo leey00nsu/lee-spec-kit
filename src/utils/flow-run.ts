@@ -31,6 +31,12 @@ export interface FlowRunRecord {
   lastAutoStatus?: string;
   lastReasonCode?: string;
   lastError?: string;
+  lastDelegatedHandoff?: {
+    label: string;
+    category?: string;
+    detail: string;
+    nextMainState?: string;
+  } | null;
 }
 
 interface FlowRunCreateInput {
@@ -164,4 +170,3 @@ export async function updateFlowRunRecord(
     { owner: 'flow-run:update' }
   );
 }
-

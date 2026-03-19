@@ -35,7 +35,8 @@ Prohibited:
 - Treat approval-waiting as a separate state. Approval-waiting means `context --json-compact` (or `context --json`) exposes executable `actionOptions[]` and you are explicitly waiting for user approval.
 - Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
 - When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
-- Treat `AUTO_MANUAL_REQUIRED` as an automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
+- Treat `AUTO_DELEGATED_HANDOFF` as a delegated pause, not a failure. Continue or resume the delegated run path and do not reopen the same approval label.
+- Treat `AUTO_MANUAL_REQUIRED` as an instruction-only automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
 - In approval-waiting state, prefer `approvalRequest.userFacingLines` from `context --json-compact`. If full `--json` is used, fall back to `actionOptions[*].approvalPrompt` plus `approvalRequest.finalPrompt`. Do not add your own rewritten label summary before or between those lines.
 - Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT.
 - In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.

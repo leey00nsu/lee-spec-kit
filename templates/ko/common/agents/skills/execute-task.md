@@ -39,6 +39,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - `autoRun.policyEligible=true`이지만 `autoRun.executableNow=false`이면 auto 루프를 시작하지 말고 `autoRun.manualBoundary`를 먼저 처리합니다.
 - 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json-compact`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다. (상세 디버깅 필드가 필요할 때만 `--json`)
 - auto 실행이 중단되면 `flow --json-compact`(또는 `flow --json`)의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.
+- `AUTO_DELEGATED_HANDOFF`는 실패가 아니라 delegated run 일시정지입니다. 새 승인 라벨을 다시 열기 전에 delegated 경로를 재사용해 작업을 이어갑니다.
 - `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.

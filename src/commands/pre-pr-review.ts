@@ -498,8 +498,6 @@ async function runPrePrReviewRun(
           handoffOnly: true,
           advancesWorkflow: false,
           reuseKey: `pre-pr:${featureRef}`,
-          suggestedParallelism: 1,
-          fallbackToMainAgentWhenQuotaExceeded: true,
           nextStepRequirement: 'generate_review_trace_then_record',
           delegatedWorkRequired: true,
           nextMainState: 'pre_pr_review_in_progress',

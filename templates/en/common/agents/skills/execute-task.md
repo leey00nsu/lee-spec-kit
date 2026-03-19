@@ -39,6 +39,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - If `autoRun.policyEligible=true` but `autoRun.executableNow=false`, handle `autoRun.manualBoundary` first instead of starting an auto loop.
 - For long-running auto execution, start with `flow <feature> --auto-... --start-auto --json-compact` and prefer `autoRun.run.resumeCommand` (`flow --resume <RUN_ID>`) after interruption/compression (`--json` only when full-detail debugging fields are required).
 - If auto execution stops, treat `autoRun.resume` from `flow --json-compact` (or `flow --json`) as SSOT. After interruption/compression, resume with `autoRun.resume.flowCommand`; if needed, check current state first with `autoRun.resume.contextCommand`.
+- Treat `AUTO_DELEGATED_HANDOFF` as a delegated pause, not a crash. Reuse the delegated run path and continue the delegated work before asking for a fresh approval label.
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json-compact` and report whether `approvalRequest.required` is now true.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow `agents.md` **"Label Response Contract (SSOT)"**. Show label prompts only in approval-waiting state, and reuse the exact CLI-provided approval lines instead of paraphrasing them.

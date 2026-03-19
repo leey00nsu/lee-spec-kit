@@ -35,7 +35,8 @@
 - 승인 대기 상태를 별도 상태로 취급합니다. 승인 대기란 `context --json-compact`(또는 `context --json`)에 실행 가능한 `actionOptions[]`가 있고, 현재 사용자의 승인을 기다리는 경우를 의미합니다.
 - 기준 데이터는 최신 `npx lee-spec-kit context --json-compact`를 기본으로 사용하고, 상세 필드가 필요할 때만 `context --json` 또는 `flow --json`을 사용합니다. (`flow`는 기본적으로 `--json-compact` 우선)
 - `flow --json-compact`(또는 `flow --json`)의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
-- `AUTO_MANUAL_REQUIRED`는 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
+- `AUTO_DELEGATED_HANDOFF`는 delegated run 일시정지 상태이며 실패가 아닙니다. 같은 승인 라벨을 다시 열지 말고 delegated 경로를 이어서 진행하거나 재개합니다.
+- `AUTO_MANUAL_REQUIRED`는 instruction-only 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
 - 승인 대기 상태에서는 `context --json-compact`의 `approvalRequest.userFacingLines`를 우선 그대로 보여주세요. 전체 `--json`을 쓸 때만 `actionOptions[*].approvalPrompt`와 `approvalRequest.finalPrompt` 조합으로 폴백합니다. 이 사이에 에이전트가 임의로 다시 쓴 라벨 요약을 끼워 넣지 않습니다.
 - 위임 판단 SSOT는 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 우선 사용하세요.
 - 비승인 상태의 진행 보고/분석/일반 답변에서는 라벨 블록이나 `approvalRequest.finalPrompt`를 덧붙이지 않습니다. 현재 옵션을 사용자가 직접 물었을 때만 예외입니다.

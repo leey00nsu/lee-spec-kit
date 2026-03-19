@@ -400,6 +400,103 @@ test('flow --json --start-auto emits resumable run metadata', async () => {
   });
 });
 
+test('flow --json --start-auto pauses with delegated_handoff when auto reaches task_run', async () => {
+  await withTempDir('lsk-flow-auto-delegated-handoff-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- **Doc Status**: -',
+      '- **Doc Status**: Approved'
+    );
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare auto delegated handoff case',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-until-category',
+      'docs_commit',
+      '--start-auto',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.autoRun?.status, 'delegated_handoff');
+    assert.equal(payload.autoRun?.reasonCode, 'AUTO_DELEGATED_HANDOFF');
+    assert.equal(payload.autoRun?.run?.mode, 'started');
+    assert.equal(payload.autoRun?.run?.status, 'paused');
+    assert.equal(payload.autoRun?.executions?.length, 1);
+    assert.equal(payload.autoRun?.executions?.[0]?.category, 'task_execute');
+    assert.equal(
+      payload.autoRun?.executions?.[0]?.executeStatus,
+      'approved_handoff_prepared'
+    );
+    assert.equal(payload.autoRun?.delegated?.category, 'task_execute');
+    assert.equal(payload.autoRun?.delegated?.nextMainState, 'task_complete');
+    assert.equal(
+      payload.context?.after?.matchedFeature?.currentSubstateId,
+      'task_complete'
+    );
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
+    assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'auto_run');
+    assert.match(
+      payload.autoRun?.run?.resumeCommand || '',
+      /npx lee-spec-kit flow --resume [A-Za-z0-9_-]+/
+    );
+  });
+}, 20_000);
+
 test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
   await withTempDir('lsk-flow-auto-resume-run-', async (dir) => {
     const initResult = await runCli(dir, [

@@ -195,6 +195,7 @@ export function toCompactAutoRun(
     iterations: autoRun.iterations,
     executionCount: autoRun.executions.length,
     lastExecution,
+    delegated: autoRun.delegated ?? null,
     gate: autoRun.gate ?? null,
     manual: autoRun.manual ?? null,
     resume: autoRun.resume,
@@ -256,6 +257,7 @@ export function buildAgentOrchestrationPolicy(
     pauseAndReportWhen: [
       'approvalRequest.required=true',
       'AUTO_GATE_REACHED',
+      'AUTO_DELEGATED_HANDOFF',
       'AUTO_MANUAL_REQUIRED',
       'command execution error',
     ],

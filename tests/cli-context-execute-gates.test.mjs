@@ -2362,8 +2362,8 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
     assert.equal(payload.handoffOnly, true);
     assert.equal(payload.advancesWorkflow, false);
     assert.equal(payload.reuseKey, 'pre-pr:F001-alpha');
-    assert.equal(payload.suggestedParallelism, 1);
-    assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
+    assert.equal('suggestedParallelism' in payload, false);
+    assert.equal('fallbackToMainAgentWhenQuotaExceeded' in payload, false);
     assert.equal(payload.nextStepRequirement, 'generate_review_trace_then_record');
     assert.equal(payload.tasksUpdated, true);
     assert.equal(payload.nextMainState, 'pre_pr_review_in_progress');
@@ -2806,8 +2806,8 @@ test('code-review-run returns sub-agent handoff prompt', async () => {
     assert.equal(payload.handoffOnly, true);
     assert.equal(payload.advancesWorkflow, false);
     assert.equal(payload.reuseKey, 'code-review:F001-alpha');
-    assert.equal(payload.suggestedParallelism, 1);
-    assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
+    assert.equal('suggestedParallelism' in payload, false);
+    assert.equal('fallbackToMainAgentWhenQuotaExceeded' in payload, false);
     assert.equal(payload.tasksUpdated, true);
     assert.match(payload.prompt || '', /PR Review Evidence/i);
     assert.match(payload.prompt || '', /PR Review Decision/i);
@@ -2940,8 +2940,8 @@ test('task-run marks TODO task as DOING and returns sub-agent handoff prompt', a
     assert.equal(payload.owner, 'subagent');
     assert.equal(payload.handoffOnly, true);
     assert.equal(payload.reuseKey, 'task:F001-alpha:T-F001-alpha-01');
-    assert.equal(payload.suggestedParallelism, 1);
-    assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
+    assert.equal('suggestedParallelism' in payload, false);
+    assert.equal('fallbackToMainAgentWhenQuotaExceeded' in payload, false);
     assert.equal(payload.nextMainState, 'task_complete');
     assert.equal(payload.tasksUpdated, true);
     assert.match(payload.prompt || '', /Default to a single helper agent/i);
