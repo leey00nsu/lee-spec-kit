@@ -74,11 +74,11 @@ export const enMessages = {
   prePrReviewFieldMissing:
     'tasks.md is missing the `Pre-PR Review` field. Add `- **Pre-PR Review**: Pending | Running | Done` and run context again. (CHECK required)',
   prePrReviewRun:
-    'Run the code review agent, compare the implementation against `spec.md`/`plan.md`/`tasks.md`, and generate `review-trace.json` with `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks`. Then record findings with `pre-pr-review`; `pre-pr-review-run` itself does not generate evidence or advance state, and you should use `--evidence review-trace.json` only when the active evidence policy requires a path. (CHECK required)',
+    'Prepare the pre-PR review handoff, then continue the real review before recording anything. Generate structured `review-trace.json` evidence with `baseSha`, `headSha`, `changedFiles`, `reviewedFiles`, `riskSummaries`, `Approval Rationale`, per-file findings, and `Residual Risks`, then record the outcome with `pre-pr-review`. `pre-pr-review-run` itself does not complete the review or advance state. (CHECK required)',
   prePrReviewRunning:
-    'Pre-PR review handoff is already prepared. Reuse or resume the delegated review, generate `review-trace.json`, then record the result with `pre-pr-review`. Do not re-approve the same label. (CHECK required)',
+    'A pre-PR review is already in progress. Reuse or resume the delegated review, generate structured `review-trace.json` evidence, then record the result with `pre-pr-review`. Do not re-approve the same label. (CHECK required)',
   prePrReviewEvidenceMissing:
-    'tasks.md `Pre-PR Evidence` is empty/invalid. Point to a real file and include a `Pre-PR Review Log` section with non-placeholder `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Decision`, `Findings` (or explicit `0 findings`), and `Residual Risks`. (CHECK required)',
+    'tasks.md `Pre-PR Evidence` is empty/invalid. Point it to a real JSON file that uses repo-relative paths and includes `baseSha`, `headSha`, `changedFiles`, `reviewedFiles`, `riskSummaries`, `Approval Rationale`, per-file findings, and `Residual Risks`. (CHECK required)',
   prePrReviewDecisionMissing:
     'tasks.md `Pre-PR Decision` is empty/placeholder or missing decision format. Record it as `decision: ...` (or `결정: ...`). (CHECK required)',
   prePrReviewFixRequired:

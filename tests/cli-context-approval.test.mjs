@@ -2191,7 +2191,7 @@ test('context pre-PR review requires evidence before PR step when review is mark
   });
 });
 
-test('context pre-PR review exposes direct record command in evidenceMode=any without evidence path', async () => {
+test('context pre-PR review requires handoff before record when evidence is still missing', async () => {
   await withTempDir('lsk-context-pre-pr-direct-record-any-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -2252,12 +2252,12 @@ test('context pre-PR review exposes direct record command in evidenceMode=any wi
     const payload = JSON.parse(result.stdout.trim());
 
     assert.equal(payload.matchedFeature.currentStep, 12);
-    assert.equal(payload.matchedFeature.currentSubstateId, 'pre_pr_review_record');
-    assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
-    assert.equal(payload.matchedFeature.currentSubstatePhase, 'record');
-    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review_record');
+    assert.equal(payload.matchedFeature.currentSubstateId, 'pre_pr_review_run');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'subagent');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'run');
+    assert.equal(primaryActionOption(payload).action.category, 'pre_pr_review_run');
     assert.equal(primaryActionOption(payload).action.type, 'command');
-    assert.doesNotMatch(primaryActionOption(payload).action.cmd || '', /--evidence/);
+    assert.match(primaryActionOption(payload).action.cmd || '', /pre-pr-review-run/);
   });
 });
 

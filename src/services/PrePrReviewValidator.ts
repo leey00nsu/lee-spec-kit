@@ -11,6 +11,22 @@ export interface PrePrReviewEvidence {
   specAlignmentChecked: boolean;
   findingCount: number;
   blockingFindings: number;
+  baseSha: string;
+  headSha: string;
+  changedFiles: string[];
+  reviewedFiles: string[];
+  riskSummaries: {
+    blocking: string;
+    important: string;
+    minor: string;
+  };
+  approvalRationale: string;
+  coverage: {
+    changedFileCount: number;
+    reviewedFileCount: number;
+    reviewCoverageRatio: number;
+    missingFiles: string[];
+  };
   files: Array<{
     path: string;
     review: {
@@ -169,6 +185,69 @@ function normalizeCommandsExecuted(value: unknown): string[] {
     }
     return entry.trim();
   });
+}
+
+function normalizeRequiredPathList(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      `Evidence JSON ${field} must be a non-empty array of repo-relative paths.`
+    );
+  }
+  const out = value
+    .map((entry, index) => {
+      if (typeof entry !== 'string' || !entry.trim()) {
+        throw createCliError(
+          'VALIDATION_FAILED',
+          `Evidence JSON ${field}[${index}] must be a non-empty repo-relative path string.`
+        );
+      }
+      return normalizeGitPath(entry);
+    })
+    .filter(Boolean);
+  if (out.length === 0) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      `Evidence JSON ${field} must include at least one repo-relative path.`
+    );
+  }
+  return uniquePaths(out);
+}
+
+function normalizeRiskSummaries(value: unknown): PrePrReviewEvidence['riskSummaries'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw createCliError(
+      'VALIDATION_FAILED',
+      'Evidence JSON "riskSummaries" is required and must include blocking, important, and minor fields.'
+    );
+  }
+  const riskSummaries = value as Record<string, unknown>;
+  return {
+    blocking: asRequiredReviewField(
+      riskSummaries.blocking,
+      '"riskSummaries.blocking"',
+      { allowExplicitNone: true }
+    ),
+    important: asRequiredReviewField(
+      riskSummaries.important,
+      '"riskSummaries.important"',
+      { allowExplicitNone: true }
+    ),
+    minor: asRequiredReviewField(
+      riskSummaries.minor,
+      '"riskSummaries.minor"',
+      { allowExplicitNone: true }
+    ),
+  };
+}
+
+function formatMissingPathGuidance(
+  field: '"changedFiles"' | '"reviewedFiles"',
+  missingFiles: string[]
+): string {
+  return `Evidence JSON ${field} is missing these repo-relative paths:\n${missingFiles
+    .map((file) => `- ${file}`)
+    .join('\n')}\nUse paths relative to the project git root, matching files.path entries.`;
 }
 
 function normalizeGitPath(value: string): string {
@@ -368,6 +447,27 @@ export class PrePrReviewValidator {
         evidence.blockingFindings,
         '"blockingFindings"'
       ),
+      baseSha: asRequiredNonEmptyString(evidence.baseSha, '"baseSha"'),
+      headSha: asRequiredNonEmptyString(evidence.headSha, '"headSha"'),
+      changedFiles: normalizeRequiredPathList(
+        evidence.changedFiles,
+        '"changedFiles"'
+      ),
+      reviewedFiles: normalizeRequiredPathList(
+        evidence.reviewedFiles,
+        '"reviewedFiles"'
+      ),
+      riskSummaries: normalizeRiskSummaries(evidence.riskSummaries),
+      approvalRationale: asRequiredReviewField(
+        evidence.approvalRationale,
+        '"approvalRationale"'
+      ),
+      coverage: {
+        changedFileCount: 0,
+        reviewedFileCount: 0,
+        reviewCoverageRatio: 0,
+        missingFiles: [],
+      },
       files: normalizeEvidenceFiles(evidence.files),
       residualRisks: normalizeResidualRisks(evidence.residualRisks),
       commandsExecuted: normalizeCommandsExecuted(evidence.commandsExecuted),
@@ -431,6 +531,42 @@ export class PrePrReviewValidator {
         `Evidence is missing reviews for the following changed files:\n${missingFiles.map((f) => `- ${f}`).join('\n')}`
       );
     }
+
+    const changedFilesInEvidence = new Set(
+      normalizedEvidence.changedFiles.map((entry) => normalizeGitPath(entry))
+    );
+    const missingChangedFiles = changedFiles.filter(
+      (file) => !changedFilesInEvidence.has(file)
+    );
+    if (missingChangedFiles.length > 0) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        formatMissingPathGuidance('"changedFiles"', missingChangedFiles)
+      );
+    }
+
+    const reviewedFilesInEvidence = new Set(
+      normalizedEvidence.reviewedFiles.map((entry) => normalizeGitPath(entry))
+    );
+    const missingReviewedFiles = changedFiles.filter(
+      (file) => !reviewedFilesInEvidence.has(file)
+    );
+    if (missingReviewedFiles.length > 0) {
+      throw createCliError(
+        'VALIDATION_FAILED',
+        formatMissingPathGuidance('"reviewedFiles"', missingReviewedFiles)
+      );
+    }
+
+    normalizedEvidence.coverage = {
+      changedFileCount: changedFiles.length,
+      reviewedFileCount: normalizedEvidence.reviewedFiles.length,
+      reviewCoverageRatio:
+        changedFiles.length === 0
+          ? 1
+          : normalizedEvidence.reviewedFiles.length / changedFiles.length,
+      missingFiles: missingReviewedFiles,
+    };
 
     return {
       evidence: normalizedEvidence,

@@ -84,6 +84,17 @@ describe('PrePrReviewValidator', () => {
       specAlignmentChecked: true,
       findingCount: 0,
       blockingFindings: 0,
+      baseSha: 'abc123',
+      headSha: 'def456',
+      changedFiles: ['a.ts'],
+      reviewedFiles: ['a.ts'],
+      riskSummaries: {
+        blocking: 'none',
+        important: 'none',
+        minor: 'small readability follow-up only',
+      },
+      approvalRationale:
+        'Reviewed all changed files, found no blocking issues, and residual risk is documented.',
       ...overrides,
     };
   }
@@ -180,11 +191,53 @@ describe('PrePrReviewValidator', () => {
     );
   });
 
+  it('throws VALIDATION_FAILED when structured review metadata is missing', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      summary: 'implementation quality review completed',
+      featureIntentSummary: 'feature intent matches docs',
+      implementationFit: 'implementation fits the approved scope',
+      missingCases: 'no significant missing cases identified',
+      specAlignmentChecked: true,
+      findingCount: 0,
+      blockingFindings: 0,
+      files: [{ path: 'a.ts', review: buildFileReview() }],
+      residualRisks: ['none'],
+    } as never);
+    setupGitScopeMock({ mainDiff: 'a.ts\n' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/baseSha|reviewedFiles|approvalRationale/i);
+  });
+
+  it('throws VALIDATION_FAILED when reviewedFiles do not cover changed files', async () => {
+    vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+    vi.mocked(fs.readJson).mockResolvedValue({
+      ...buildEvidenceFields({
+        changedFiles: ['a.ts', 'b.ts'],
+        reviewedFiles: ['a.ts'],
+      }),
+      files: [
+        { path: 'a.ts', review: buildFileReview() },
+        { path: 'b.ts', review: buildFileReview() },
+      ],
+      residualRisks: ['none'],
+    } as never);
+    setupGitScopeMock({ mainDiff: 'a.ts\nb.ts\n' });
+
+    await expect(
+      validator.validateEvidence('dummy.json', '/root')
+    ).rejects.toThrow(/reviewedFiles[\s\S]*b\.ts/i);
+  });
+
   it('passes validation when evidence covers all changed files without placeholders', async () => {
     vi.mocked(fs.pathExists).mockResolvedValue(true as never);
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields({
         findingCount: 2,
+        changedFiles: ['a.ts', 'b.ts'],
+        reviewedFiles: ['a.ts', 'b.ts'],
       }),
       files: [
         { path: 'a.ts', review: buildFileReview() },
@@ -304,6 +357,8 @@ describe('PrePrReviewValidator', () => {
     vi.mocked(fs.readJson).mockResolvedValue({
       ...buildEvidenceFields({
         findingCount: 2,
+        changedFiles: ['a.ts', 'b.ts'],
+        reviewedFiles: ['a.ts', 'b.ts'],
       }),
       files: [
         { path: 'a.ts', review: buildFileReview() },

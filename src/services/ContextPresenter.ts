@@ -146,7 +146,7 @@ export function getActionExecutionMetadata(
     return {
       handoffOnly: true,
       advancesWorkflow: false,
-      nextMainState: 'pre_pr_review_running',
+      nextMainState: 'pre_pr_review_in_progress',
     };
   }
   return null;
@@ -391,7 +391,7 @@ export function buildDelegatedActionContract(
   const substateId = feature?.currentSubstateId;
   if (!feature || !substateId) return null;
 
-  if (substateId === 'pre_pr_review_run' || substateId === 'pre_pr_review_running') {
+  if (substateId === 'pre_pr_review_run' || substateId === 'pre_pr_review_in_progress') {
     return {
       required: true,
       mode: 'command',
@@ -400,8 +400,8 @@ export function buildDelegatedActionContract(
       delegatedWorkRequired: true,
       handoffOnly: true,
       advancesWorkflow: false,
-      doNotReapproveSameLabel: substateId === 'pre_pr_review_running',
-      nextMainState: 'pre_pr_review_running',
+      doNotReapproveSameLabel: substateId === 'pre_pr_review_in_progress',
+      nextMainState: 'pre_pr_review_in_progress',
       reuseKey: `pre-pr:${feature.folderName}`,
       evidenceFile: 'review-trace.json',
       nextStepRequirement: 'generate_review_trace_then_record',
@@ -413,8 +413,8 @@ export function buildDelegatedActionContract(
         approve: buildPrePrRecordCommand(feature, 'approve'),
       },
       guidance:
-        substateId === 'pre_pr_review_running'
-          ? 'A pre-PR review handoff is already prepared. Reuse or resume the delegated review, generate review-trace.json, then record the result with pre-pr-review. Do not re-approve the same label.'
+        substateId === 'pre_pr_review_in_progress'
+          ? 'A pre-PR review is already in progress. Reuse or resume the delegated review, generate structured review evidence, then record the result with pre-pr-review. Do not re-approve the same label.'
           : 'After approval, spawn_agent first and hand off the delegated pre-PR review. Handoff-only execution only prepares the review session; continue the delegated review immediately after approval.',
     };
   }

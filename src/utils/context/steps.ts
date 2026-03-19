@@ -1035,24 +1035,18 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     f.docs.prePrReviewFieldExists &&
     !isPrePrReviewFixRequired(f) &&
     f.prePrReview.status !== 'Running' &&
-    !resolvePrePrReviewEvidencePath(f) &&
-    (prePrReviewPolicy.evidenceMode === 'path_required' ||
-      prePrReviewPolicy.enforceExecutionEvidence);
+    !resolvePrePrReviewEvidencePath(f);
   const isPrePrReviewRunning = (f: FeatureState): boolean =>
     isPrePrReviewCurrent(f) &&
     f.docs.prePrReviewFieldExists &&
     !isPrePrReviewFixRequired(f) &&
     f.prePrReview.status === 'Running' &&
-    !resolvePrePrReviewEvidencePath(f) &&
-    (prePrReviewPolicy.evidenceMode === 'path_required' ||
-      prePrReviewPolicy.enforceExecutionEvidence);
+    !resolvePrePrReviewEvidencePath(f);
   const isPrePrReviewRecord = (f: FeatureState): boolean =>
     isPrePrReviewCurrent(f) &&
     f.docs.prePrReviewFieldExists &&
     !isPrePrReviewFixRequired(f) &&
-    (!!resolvePrePrReviewEvidencePath(f) ||
-      (prePrReviewPolicy.evidenceMode === 'any' &&
-        !prePrReviewPolicy.enforceExecutionEvidence));
+    !!resolvePrePrReviewEvidencePath(f);
   const getPrePrReviewMetadataActions = (): NextAction[] => [
     {
       type: 'instruction',
@@ -1095,7 +1089,7 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       cmd: buildSelfCliCommand(buildPrePrReviewRunCommandArgs(f)),
     },
   ];
-  const getPrePrReviewRunningActions = (): NextAction[] => [
+  const getPrePrReviewInProgressActions = (): NextAction[] => [
     {
       type: 'instruction',
       category: 'pre_pr_review_run',
@@ -1788,15 +1782,15 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           actions: (f) => getPrePrReviewRunActions(f),
         },
         {
-          id: 'pre_pr_review_running',
+          id: 'pre_pr_review_in_progress',
           phase: 'running',
           owner: 'subagent',
           category: 'pre_pr_review_run',
           when: (f) => isPrePrReviewRunning(f),
-          actions: () => getPrePrReviewRunningActions(),
+          actions: () => getPrePrReviewInProgressActions(),
         },
         {
-          id: 'pre_pr_review_record',
+          id: 'pre_pr_review_record_pending',
           phase: 'record',
           owner: 'main',
           category: 'pre_pr_review_record',

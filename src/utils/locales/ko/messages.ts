@@ -75,11 +75,11 @@ export const koMessages = {
   prePrReviewFieldMissing:
     'tasks.md에 `PR 전 리뷰` 필드가 없습니다. `- **PR 전 리뷰**: Pending | Running | Done` 항목을 추가하고 다시 context를 실행하세요. (확인 필요)',
   prePrReviewRun:
-    '코드 리뷰 에이전트를 실행해 `spec.md`/`plan.md`/`tasks.md` 대비 구현 적합성을 검토하고, `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Findings`/`Residual Risks`가 포함된 `review-trace.json`을 생성한 뒤 `pre-pr-review`로 리뷰 결과를 기록하세요. `pre-pr-review-run` 자체는 evidence를 생성하거나 상태를 바로 넘기지 않으며, 현재 evidence 정책이 경로를 요구할 때만 `--evidence review-trace.json`을 함께 사용하세요. (확인 필요)',
+    'Pre-PR 리뷰 handoff를 준비한 뒤 실제 리뷰를 이어서 수행하세요. `review-trace.json`에는 `baseSha`, `headSha`, `changedFiles`, `reviewedFiles`, `riskSummaries`, `Approval Rationale`, 파일별 findings, `Residual Risks`를 구조화해 넣고, 이후 `pre-pr-review`로 결과를 기록하세요. `pre-pr-review-run` 자체는 리뷰 완료나 상태 전이를 의미하지 않습니다. (확인 필요)',
   prePrReviewRunning:
-    'Pre-PR 리뷰 handoff가 이미 준비되었습니다. 기존 delegated review를 재사용하거나 이어서 수행해 `review-trace.json`을 만든 뒤 `pre-pr-review`로 결과를 기록하세요. 같은 라벨을 다시 승인 루프로 열지 마세요. (확인 필요)',
+    'Pre-PR 리뷰가 이미 진행 중입니다. 기존 delegated review를 재사용하거나 이어서 수행해 구조화된 `review-trace.json`을 만든 뒤 `pre-pr-review`로 결과를 기록하세요. 같은 라벨을 다시 승인 루프로 열지 마세요. (확인 필요)',
   prePrReviewEvidenceMissing:
-    'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. 실제 파일 경로와 `Pre-PR Review Log`(또는 `PR 전 리뷰 로그`)에 placeholder가 아닌 `Summary`/`Feature Intent Summary`/`Implementation Fit`/`Missing Cases`/`Spec Alignment Checked`/`Finding Count`/`Blocking Findings`/`Decision`/`Findings`(또는 명시적 `0 findings`)/`Residual Risks`를 기록하세요. (확인 필요)',
+    'tasks.md의 `PR 전 리뷰 Evidence`가 비어있거나 유효하지 않습니다. repo 루트 기준 상대경로를 쓰는 실제 JSON 파일을 가리키고, `baseSha`, `headSha`, `changedFiles`, `reviewedFiles`, `riskSummaries`, `Approval Rationale`, 파일별 findings, `Residual Risks`를 포함하세요. (확인 필요)',
   prePrReviewDecisionMissing:
     'tasks.md의 `PR 전 리뷰 Decision`이 비어있거나 결정 형식이 없습니다. `결정: ...`(또는 `decision: ...`) 형식으로 기록하세요. (확인 필요)',
   prePrReviewFixRequired:

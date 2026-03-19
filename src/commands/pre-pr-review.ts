@@ -57,6 +57,23 @@ const DEFAULT_EVIDENCE_FOR_ANY_MODE: PrePrReviewEvidence = {
   specAlignmentChecked: true,
   findingCount: 0,
   blockingFindings: 0,
+  baseSha: 'unrecorded',
+  headSha: 'unrecorded',
+  changedFiles: [],
+  reviewedFiles: [],
+  riskSummaries: {
+    blocking: 'none',
+    important: 'manual direct record without structured evidence',
+    minor: 'manual direct record without structured evidence',
+  },
+  approvalRationale:
+    'manual direct record without structured evidence; not valid for approve',
+  coverage: {
+    changedFileCount: 0,
+    reviewedFileCount: 0,
+    reviewCoverageRatio: 0,
+    missingFiles: [],
+  },
   files: [],
   residualRisks: ['none'],
   commandsExecuted: [],
@@ -247,10 +264,27 @@ function buildReportContent(input: {
 - **Spec Alignment Checked**: ${input.evidence.specAlignmentChecked ? 'yes' : 'no'}
 - **Finding Count**: ${input.evidence.findingCount}
 - **Blocking Findings**: ${input.evidence.blockingFindings}
+- **Base SHA**: ${input.evidence.baseSha}
+- **Head SHA**: ${input.evidence.headSha}
+- **Approval Rationale**: ${input.evidence.approvalRationale}
 ${commandsRun}
 
 - **Residual Risks**:
 ${residualRisksSection}
+
+- **Risk Summaries**:
+  - Blocking: ${input.evidence.riskSummaries.blocking}
+  - Important: ${input.evidence.riskSummaries.important}
+  - Minor: ${input.evidence.riskSummaries.minor}
+
+- **Evidence Coverage**:
+  - Changed File Count: ${input.evidence.coverage.changedFileCount}
+  - Reviewed File Count: ${input.evidence.coverage.reviewedFileCount}
+  - Review Coverage Ratio: ${input.evidence.coverage.reviewCoverageRatio.toFixed(2)}
+  - Reviewed Files:
+${input.evidence.reviewedFiles.length > 0 ? input.evidence.reviewedFiles.map((entry) => `    - ${entry}`).join('\n') : '    - (none)'}
+  - Evidence Changed Files:
+${input.evidence.changedFiles.length > 0 ? input.evidence.changedFiles.map((entry) => `    - ${entry}`).join('\n') : '    - (none)'}
 
 - **Review Scope**:
   - **Main Base Ref**: ${input.scope.baseRef}
@@ -331,7 +365,7 @@ export function prePrReviewCommand(program: Command): void {
     .option('--note <text>', 'Decision note text')
     .option(
       '--evidence <path>',
-      'Optional review evidence path (for example review-trace.json); required only when policy demands it'
+      'Structured review evidence path (for example review-trace.json); required for approve and whenever policy demands it'
     )
     .option('--json', 'Output JSON')
     .action(
@@ -468,7 +502,7 @@ async function runPrePrReviewRun(
           fallbackToMainAgentWhenQuotaExceeded: true,
           nextStepRequirement: 'generate_review_trace_then_record',
           delegatedWorkRequired: true,
-          nextMainState: 'pre_pr_review_running',
+          nextMainState: 'pre_pr_review_in_progress',
           evidenceFile: 'review-trace.json',
           tasksUpdated,
           tasksPath,
@@ -491,7 +525,7 @@ async function runPrePrReviewRun(
     chalk.yellow(
       config.lang === 'ko'
         ? '이 명령은 리뷰 handoff만 준비합니다. review-trace.json을 직접 생성하거나 워크플로우 상태를 바로 넘기지 않습니다.'
-        : 'This command only prepares the review handoff. It does not generate review-trace.json or advance workflow state by itself.'
+        : 'This command only prepares the review handoff. It does not complete the review or advance workflow state by itself.'
     )
   );
   console.log(
@@ -510,12 +544,12 @@ async function runPrePrReviewRun(
   );
   console.log(`Reuse key: pre-pr:${featureRef}`);
   console.log(`Suggested parallelism: 1`);
-  console.log(`Next main state: pre_pr_review_running`);
+  console.log(`Next main state: pre_pr_review_in_progress`);
   console.log(`Evidence file: review-trace.json`);
   console.log(
     config.lang === 'ko'
-      ? 'Next required: delegated review를 이어서 수행하고 review-trace.json을 만든 뒤 pre-pr-review로 기록'
-      : 'Next required: continue the delegated review, generate review-trace.json, then record the result with pre-pr-review'
+      ? 'Next required: delegated review를 이어서 수행하고 구조화된 review-trace.json을 만든 뒤 pre-pr-review로 기록'
+      : 'Next required: continue the delegated review, generate structured review-trace.json, then record the result with pre-pr-review'
   );
   if (tasksUpdated) {
     console.log(`tasks.md updated: ${tasksPath}`);
@@ -582,6 +616,12 @@ async function runPrePrReview(
     throw createCliError(
       'INVALID_ARGUMENT',
       '`--evidence <path>` is required when workflow.prePrReview.enforceExecutionEvidence=true.'
+    );
+  }
+  if (decision === 'approve' && !options.evidence) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--evidence <path>` is required for approve decisions. Generate structured review evidence first, for example `--evidence review-trace.json`.'
     );
   }
   if (options.evidence) {

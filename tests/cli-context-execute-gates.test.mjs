@@ -13,6 +13,53 @@ import {
   suggestionOptionByLabel,
 } from './helpers/cli-contract-helpers.mjs';
 
+function buildStructuredPrePrEvidence(
+  changedFiles,
+  overrides = {}
+) {
+  const reviewedFiles = overrides.reviewedFiles || changedFiles;
+  const files =
+    overrides.files ||
+    changedFiles.map((entryPath) => ({
+      path: entryPath,
+      review: {
+        risk: 'low',
+        security: 'none',
+        perf: 'n/a',
+        maintainability: 'clear',
+        fileLine: '1-40',
+      },
+    }));
+
+  return {
+    summary:
+      'validated the implementation against the approved feature goal and checked quality risks',
+    featureIntentSummary:
+      'the feature should complete the documented scope without introducing unrelated behavior',
+    implementationFit:
+      'the current implementation follows the expected docs and module boundaries',
+    missingCases: 'no significant missing cases identified',
+    specAlignmentChecked: true,
+    findingCount: 0,
+    blockingFindings: 0,
+    baseSha: 'base123',
+    headSha: 'head456',
+    changedFiles,
+    reviewedFiles,
+    riskSummaries: {
+      blocking: 'none',
+      important: 'none',
+      minor: 'minor readability and maintenance checks completed',
+    },
+    approvalRationale:
+      'Reviewed the full changed scope, found no blocking issues, and documented residual risk explicitly.',
+    files,
+    residualRisks: ['none'],
+    commandsExecuted: [],
+    ...overrides,
+  };
+}
+
 test('context warns when feature docs path is ignored by git', async () => {
   await withTempDir('lsk-context-ignore-warning-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -2024,17 +2071,16 @@ test('context executes pre_pr_review command and records review evidence', async
     await fs.writeFile(
       path.join(dir, 'docs', 'review-trace.json'),
       JSON.stringify(
-        {
-          summary:
-            'validated the implementation against the approved feature goal and checked quality risks',
-          featureIntentSummary:
-            'the feature should complete the documented scope without introducing unrelated behavior',
-          implementationFit:
-            'the current implementation follows the expected docs and module boundaries',
-          missingCases: 'no significant missing cases identified',
-          specAlignmentChecked: true,
-          findingCount: 0,
-          blockingFindings: 0,
+        buildStructuredPrePrEvidence([
+          'docs/.lee-spec-kit.json',
+          'docs/features/F001-alpha/decisions.md',
+          'docs/features/F001-alpha/issue.md',
+          'docs/features/F001-alpha/plan.md',
+          'docs/features/F001-alpha/pr.md',
+          'docs/features/F001-alpha/spec.md',
+          'docs/features/F001-alpha/tasks.md',
+          'docs/review-trace.json',
+        ], {
           files: [
             'docs/.lee-spec-kit.json',
             'docs/features/F001-alpha/decisions.md',
@@ -2052,8 +2098,7 @@ test('context executes pre_pr_review command and records review evidence', async
             maintainability: 'clear',
             fileLine: '1-40',
           })),
-          residualRisks: ['none'],
-        },
+        }),
         null,
         2
       ) + '\n',
@@ -2093,7 +2138,7 @@ test('context executes pre_pr_review command and records review evidence', async
     assert.equal(contextPayload.matchedFeature.currentStep, 12);
     assert.equal(
       contextPayload.matchedFeature.currentSubstateId,
-      'pre_pr_review_record'
+      'pre_pr_review_record_pending'
     );
     assert.equal(contextPayload.matchedFeature.currentSubstateOwner, 'main');
     assert.equal(contextPayload.matchedFeature.currentSubstatePhase, 'record');
@@ -2321,7 +2366,7 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
     assert.equal(payload.fallbackToMainAgentWhenQuotaExceeded, true);
     assert.equal(payload.nextStepRequirement, 'generate_review_trace_then_record');
     assert.equal(payload.tasksUpdated, true);
-    assert.equal(payload.nextMainState, 'pre_pr_review_running');
+    assert.equal(payload.nextMainState, 'pre_pr_review_in_progress');
     const updatedTasks = await fs.readFile(tasksPath, 'utf-8');
     assert.match(updatedTasks, /- \*\*Pre-PR Review\*\*: Running/);
     assert.match(payload.prompt || '', /review-trace\.json/i);
@@ -2338,7 +2383,7 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
     const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
     assert.equal(context.code, 0, context.stderr || context.stdout);
     const contextPayload = JSON.parse(context.stdout.trim());
-    assert.equal(contextPayload.matchedFeature.currentSubstateId, 'pre_pr_review_running');
+    assert.equal(contextPayload.matchedFeature.currentSubstateId, 'pre_pr_review_in_progress');
     assert.equal(
       primaryActionOption(contextPayload).action.category,
       'pre_pr_review_run'
@@ -2352,12 +2397,12 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
       required: true,
       mode: 'command',
       category: 'pre_pr_review_run',
-      currentSubstateId: 'pre_pr_review_running',
+      currentSubstateId: 'pre_pr_review_in_progress',
       delegatedWorkRequired: true,
       handoffOnly: true,
       advancesWorkflow: false,
       doNotReapproveSameLabel: true,
-      nextMainState: 'pre_pr_review_running',
+      nextMainState: 'pre_pr_review_in_progress',
       reuseKey: 'pre-pr:F001-alpha',
       evidenceFile: 'review-trace.json',
       nextStepRequirement: 'generate_review_trace_then_record',
@@ -2368,7 +2413,7 @@ test('pre-pr-review-run returns agent handoff prompt and record commands', async
           'npx lee-spec-kit pre-pr-review F001-alpha --evidence review-trace.json --decision approve',
       },
       guidance:
-        'A pre-PR review handoff is already prepared. Reuse or resume the delegated review, generate review-trace.json, then record the result with pre-pr-review. Do not re-approve the same label.',
+        'A pre-PR review is already in progress. Reuse or resume the delegated review, generate structured review evidence, then record the result with pre-pr-review. Do not re-approve the same label.',
     });
 
     const compactContext = await runCli(dir, [
@@ -3050,8 +3095,8 @@ test('task-run accepts template-style extra bracket tags before task id', async 
   });
 });
 
-test('pre-pr-review allows missing --evidence when evidenceMode is any and execution evidence enforcement is disabled', async () => {
-  await withTempDir('lsk-pre-pr-review-evidence-any-', async (dir) => {
+test('pre-pr-review requires structured --evidence for approve even when evidenceMode is any', async () => {
+  await withTempDir('lsk-pre-pr-review-approve-needs-evidence-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -3110,27 +3155,11 @@ test('pre-pr-review allows missing --evidence when evidenceMode is any and execu
       'F001-alpha',
       '--json',
     ]);
-    assert.equal(runReview.code, 0, runReview.stderr || runReview.stdout);
+    assert.equal(runReview.code, 1, runReview.stderr || runReview.stdout);
     const reviewPayload = JSON.parse(runReview.stdout.trim());
-    assert.equal(reviewPayload.status, 'ok');
-    assert.equal(reviewPayload.reasonCode, 'PRE_PR_REVIEW_RECORDED');
-    assert.equal(reviewPayload.decision, 'approve');
-
-    const tasksAfter = await fs.readFile(tasksPath, 'utf-8');
-    assert.match(tasksAfter, /\*\*Pre-PR Review\*\*:\s*Done/);
-    assert.match(
-      tasksAfter,
-      /\*\*Pre-PR Evidence\*\*:\s*docs\/features\/F001-alpha\/decisions\.md/
-    );
-    assert.match(
-      tasksAfter,
-      /\*\*Pre-PR Decision\*\*:\s*decision:\s*approve\b/
-    );
-
-    const contextAfter = await runCli(dir, ['context', 'F001-alpha', '--json']);
-    assert.equal(contextAfter.code, 0, contextAfter.stderr || contextAfter.stdout);
-    const contextPayload = JSON.parse(contextAfter.stdout.trim());
-    assert.equal(contextPayload.matchedFeature.prePrReview.evidenceProvided, true);
+    assert.equal(reviewPayload.status, 'error');
+    assert.equal(reviewPayload.reasonCode, 'INVALID_ARGUMENT');
+    assert.match(reviewPayload.error, /--evidence <path>.*required.*approve/i);
   });
 });
 
@@ -3328,16 +3357,31 @@ test('pre-pr-review rejects approve when blocking findings remain in evidence', 
     await fs.writeFile(
       path.join(dir, 'docs', 'review-trace.json'),
       JSON.stringify(
-        {
+        buildStructuredPrePrEvidence([
+          'docs/.lee-spec-kit.json',
+          'docs/features/F001-alpha/decisions.md',
+          'docs/features/F001-alpha/issue.md',
+          'docs/features/F001-alpha/plan.md',
+          'docs/features/F001-alpha/pr.md',
+          'docs/features/F001-alpha/spec.md',
+          'docs/features/F001-alpha/tasks.md',
+          'docs/review-trace.json',
+        ], {
           summary: 'review completed with a blocking architecture issue',
           featureIntentSummary:
             'the feature should preserve the documented workflow boundaries',
           implementationFit:
             'the main implementation is close, but one blocking gap remains',
           missingCases: 'session recovery path still misses the documented constraint',
-          specAlignmentChecked: true,
           findingCount: 1,
           blockingFindings: 1,
+          riskSummaries: {
+            blocking: 'workflow boundary mismatch remains unresolved',
+            important: 'session recovery path needs follow-up validation',
+            minor: 'minor cleanup remains after the blocking fix',
+          },
+          approvalRationale:
+            'Not approvable because one blocking architecture issue remains in the reviewed scope.',
           files: [
             'docs/.lee-spec-kit.json',
             'docs/features/F001-alpha/decisions.md',
@@ -3361,7 +3405,7 @@ test('pre-pr-review rejects approve when blocking findings remain in evidence', 
             },
           })),
           residualRisks: 'blocking architecture issue remains unresolved',
-        },
+        }),
         null,
         2
       ) + '\n',
