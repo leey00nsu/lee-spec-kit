@@ -21,6 +21,13 @@ import {
   type FlowRunRecord,
   updateFlowRunRecord,
 } from '../utils/flow-run.js';
+import { runFeature } from './feature.js';
+import {
+  deriveFeatureNameFromIdea,
+  extractExplicitIdeaRef,
+  readIdeaMetadataValue,
+  resolveIdeaReference,
+} from '../utils/idea-promotion.js';
 
 export interface FlowOptions extends ContextSelectionOptions {
   json?: boolean;
@@ -248,6 +255,20 @@ async function runFlow(
       'INVALID_ARGUMENT',
       '`--request` requires auto mode. Use `--auto-until-category`, `--auto-preset`, or configure `workflow.auto.defaultPreset`.'
     );
+  }
+  if (autoMode && !resolvedFeatureName && requestText) {
+    const bootstrapped = await bootstrapFeatureFromIdeaRequest(
+      config,
+      requestText,
+      selectedComponent
+    );
+    if (bootstrapped) {
+      resolvedFeatureName = bootstrapped.featureRef;
+      if (!selectedComponent && bootstrapped.component) {
+        selectedComponent = bootstrapped.component;
+        selectionOptions.component = bootstrapped.component;
+      }
+    }
   }
   if (autoMode && !featureName) {
     if (!resolvedFeatureName) {
@@ -577,4 +598,52 @@ async function runFlow(
     )
   );
   console.log();
+}
+
+async function bootstrapFeatureFromIdeaRequest(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  requestText: string,
+  selectedComponent: string | undefined
+): Promise<{ featureRef: string; component?: string } | null> {
+  const ideaRef = extractExplicitIdeaRef(requestText);
+  if (!ideaRef) return null;
+
+  const resolvedIdea = await resolveIdeaReference(
+    config.docsDir,
+    ideaRef,
+    config.lang
+  );
+  const existingFeatureRef = await readIdeaMetadataValue(
+    resolvedIdea.path,
+    'Feature'
+  );
+  if (existingFeatureRef && existingFeatureRef !== '-') {
+    return { featureRef: existingFeatureRef, component: selectedComponent };
+  }
+
+  let component = selectedComponent;
+  if (config.projectType === 'multi' && !component) {
+    const ideaComponent = await readIdeaMetadataValue(
+      resolvedIdea.path,
+      'Component'
+    );
+    if (ideaComponent && ideaComponent !== '-' && ideaComponent !== 'all') {
+      component = ideaComponent.toLowerCase();
+    } else {
+      return null;
+    }
+  }
+
+  const featureName = await deriveFeatureNameFromIdea(resolvedIdea.path);
+  const result = await runFeature(featureName, {
+    component,
+    idea: ideaRef,
+    nonInteractive: true,
+    json: true,
+  });
+
+  return {
+    featureRef: `${result.featureId}-${result.featureName}`,
+    component,
+  };
 }

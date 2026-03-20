@@ -49,6 +49,9 @@ After completing the action, go back to Step 1 and run `context` again.
 
 If the Feature folder does not exist yet:
 
+- If the user's request includes an explicit Idea ref such as `I001`, `I001-slug`, or `docs/ideas/...`, preserve that ref and create the feature with `npx lee-spec-kit feature <name> --idea <ref>`.
+- Do not infer an Idea ref. Use `--idea` only when the request explicitly names one.
+
 ```bash
 # 1) Create the folder
 npx lee-spec-kit feature <name> -d "<description>"

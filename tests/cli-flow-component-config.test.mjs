@@ -357,6 +357,55 @@ test('flow --json auto-until-category applies --request via user_request_replan 
   });
 }, 20_000);
 
+test('flow --json auto mode can promote an explicit idea ref before any feature exists', async () => {
+  await withTempDir('lsk-flow-auto-promote-idea-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const ideaResult = await runCli(dir, [
+      'idea',
+      'login-rate-limit',
+      '--non-interactive',
+      '--json',
+    ]);
+    assert.equal(ideaResult.code, 0, ideaResult.stderr || ideaResult.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      '--request',
+      'I001 feature로 승격해서 진행해',
+      '--auto-until-category',
+      'spec_write',
+      '--json',
+    ]);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.autoRun?.status, 'manual_required');
+    assert.equal(payload.context?.after?.matchedFeature?.folderName, 'F001-login-rate-limit');
+
+    const ideaPath = path.join(dir, 'docs', 'ideas', 'I001-login-rate-limit.md');
+    const ideaDoc = await fs.readFile(ideaPath, 'utf-8');
+    assert.match(ideaDoc, /- \*\*Status\*\*: Featureized/);
+    assert.match(ideaDoc, /- \*\*Feature\*\*: F001-login-rate-limit/);
+  });
+}, 20_000);
+
 test('flow --json --start-auto emits resumable run metadata', async () => {
   await withTempDir('lsk-flow-auto-start-run-', async (dir) => {
     const initResult = await runCli(dir, [

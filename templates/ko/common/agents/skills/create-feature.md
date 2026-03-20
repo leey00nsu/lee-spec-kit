@@ -50,6 +50,9 @@ CLI가 출력하는 **`👉 Next Options (Atomic)` 목록에서 단 하나의 �
 
 아직 기능 폴더가 없다면, 먼저 폴더를 생성하고 루프를 시작하세요:
 
+- 사용자의 요청에 `I001`, `I001-slug`, `docs/ideas/...` 같은 **명시적 Idea ref**가 있으면, 일반 생성 대신 해당 ref를 유지해서 `npx lee-spec-kit feature <name> --idea <ref>`를 사용합니다.
+- 이 경우 Idea를 추정하지 않습니다. 요청에 명시된 ref가 있을 때만 `--idea`를 붙입니다.
+
 ```bash
 # 1. 생성
 npx lee-spec-kit feature <name> -d "<설명>"

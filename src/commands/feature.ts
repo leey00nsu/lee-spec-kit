@@ -33,8 +33,9 @@ import { getLocalDateString } from '../utils/date.js';
 import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-template.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { sleep } from '../utils/async.js';
+import { resolveIdeaReference } from '../utils/idea-promotion.js';
 
-interface FeatureOptions {
+export interface FeatureOptions {
   component?: string;
   id?: string;
   desc?: string;
@@ -43,7 +44,7 @@ interface FeatureOptions {
   json?: boolean;
 }
 
-interface FeatureRunResult {
+export interface FeatureRunResult {
   featureId: string;
   featureName: string;
   component?: string;
@@ -124,7 +125,7 @@ export function featureCommand(program: Command): void {
     });
 }
 
-async function runFeature(
+export async function runFeature(
   name: string,
   options: FeatureOptions
 ): Promise<FeatureRunResult> {
@@ -339,67 +340,6 @@ async function runFeature(
       };
     },
     { owner: 'feature' }
-  );
-}
-
-async function resolveIdeaReference(
-  docsDir: string,
-  ref: string,
-  lang: Lang
-): Promise<{ path: string }> {
-  const ideasDir = path.join(docsDir, 'ideas');
-  const trimmedRef = ref.trim();
-  if (!trimmedRef) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      tr(lang, 'cli', 'feature.ideaNotFound', { ref })
-    );
-  }
-
-  if (trimmedRef.includes('/') || trimmedRef.endsWith('.md')) {
-    const candidate = path.resolve(process.cwd(), trimmedRef);
-    if (await fs.pathExists(candidate)) {
-      return { path: candidate };
-    }
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      tr(lang, 'cli', 'feature.ideaNotFound', { ref: trimmedRef })
-    );
-  }
-
-  if (!(await fs.pathExists(ideasDir))) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      tr(lang, 'cli', 'feature.ideaNotFound', { ref: trimmedRef })
-    );
-  }
-
-  const entries = await fs.readdir(ideasDir, { withFileTypes: true });
-  const files = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
-    .map((entry) => entry.name);
-
-  const exactName = `${trimmedRef}.md`;
-  if (files.includes(exactName)) {
-    return { path: path.join(ideasDir, exactName) };
-  }
-
-  const byId = /^I\d{3,}$/.test(trimmedRef)
-    ? files.filter((name) => name.startsWith(`${trimmedRef}-`))
-    : [];
-  if (byId.length === 1) {
-    return { path: path.join(ideasDir, byId[0]) };
-  }
-  if (byId.length > 1) {
-    throw createCliError(
-      'INVALID_ARGUMENT',
-      tr(lang, 'cli', 'feature.ideaAmbiguous', { ref: trimmedRef })
-    );
-  }
-
-  throw createCliError(
-    'INVALID_ARGUMENT',
-    tr(lang, 'cli', 'feature.ideaNotFound', { ref: trimmedRef })
   );
 }
 
