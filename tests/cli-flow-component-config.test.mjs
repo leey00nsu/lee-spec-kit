@@ -546,6 +546,79 @@ test('flow --json --start-auto pauses with delegated_handoff when auto reaches t
   });
 }, 20_000);
 
+test('flow --json auto pauses at task commit checkpoint before starting the next TODO', async () => {
+  await withTempDir('lsk-flow-auto-task-commit-checkpoint-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasks = await fs.readFile(tasksPath, 'utf-8');
+    const updatedTasks = tasks.replace(
+      '- [DONE] T-F001-alpha-01 alpha',
+      '- [DONE] T-F001-alpha-01 alpha\n- [TODO] T-F001-alpha-02 alpha follow-up'
+    );
+    await fs.writeFile(tasksPath, updatedTasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: add second todo task',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(
+      path.join(dir, 'app.js'),
+      "console.log('dirty');\n",
+      'utf-8'
+    );
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--auto-until-category',
+      'docs_commit',
+      '--json',
+    ]);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.autoRun?.status, 'manual_required');
+    assert.equal(payload.autoRun?.manual?.category, 'task_execute');
+    assert.equal(
+      payload.context?.after?.matchedFeature?.currentSubstateId,
+      'task_commit_pending'
+    );
+    assert.equal(
+      payload.context?.after?.matchedFeature?.git?.projectHasUncommittedChanges,
+      true
+    );
+  });
+}, 20_000);
+
 test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
   await withTempDir('lsk-flow-auto-resume-run-', async (dir) => {
     const initResult = await runCli(dir, [

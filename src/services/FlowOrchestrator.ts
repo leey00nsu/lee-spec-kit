@@ -2,6 +2,7 @@ import { spawnSync } from 'child_process';
 import { getConfig } from '../utils/config.js';
 import { createCliError } from '../utils/cli-error.js';
 import {
+  ActionOption,
   ContextSelectionOptions,
   resolveContextSelection,
 } from '../utils/context-selection.js';
@@ -403,6 +404,25 @@ export function toFlowRunStatus(
   }
 }
 
+function isTaskCommitCheckpointOption(
+  option: ActionOption | undefined,
+  state: Awaited<ReturnType<typeof resolveContextSelection>>
+): boolean {
+  if (!option || state.status !== 'single_matched' || !state.matchedFeature) {
+    return false;
+  }
+  if (state.matchedFeature.currentSubstateId !== 'task_commit_pending') {
+    return false;
+  }
+  if (option.action.type !== 'command') return false;
+  if (option.action.category === 'docs_commit') return true;
+  return (
+    option.action.category === 'task_execute' &&
+    option.action.scope === 'project' &&
+    /\bgit\s+commit\b/i.test(option.action.cmd)
+  );
+}
+
 export async function runAutoUntilCategory(
   config: LoadedConfig,
   featureName: string,
@@ -605,6 +625,30 @@ export async function runAutoUntilCategory(
           userFacingLines: contextPayload?.approvalRequest?.userFacingLines,
         },
         manual: null,
+      };
+    }
+
+    const taskCommitCheckpoint = actionOptions.find((option) =>
+      isTaskCommitCheckpointOption(option, state)
+    );
+    if (taskCommitCheckpoint) {
+      return {
+        enabled: true,
+        untilCategories,
+        request: requestText,
+        preset: metadata?.preset ?? null,
+        source: metadata?.source ?? null,
+        resume,
+        status: 'manual_required',
+        reasonCode: toAutoReasonCode('manual_required'),
+        iterations,
+        executions,
+        gate: null,
+        manual: {
+          label: taskCommitCheckpoint.label,
+          category: taskCommitCheckpoint.action.category,
+          detail: taskCommitCheckpoint.detail,
+        },
       };
     }
 
