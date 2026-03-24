@@ -507,6 +507,21 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     assert.equal(createIssuePayload.status, 'ok');
     assert.equal(createIssuePayload.doc.id, 'create-issue');
 
+    const executeTaskLoaded = await runCli(dir, [
+      'docs',
+      'get',
+      'execute-task',
+      '--json',
+    ]);
+    assert.equal(
+      executeTaskLoaded.code,
+      0,
+      executeTaskLoaded.stderr || executeTaskLoaded.stdout
+    );
+    const executeTaskPayload = JSON.parse(executeTaskLoaded.stdout.trim());
+    assert.equal(executeTaskPayload.status, 'ok');
+    assert.equal(executeTaskPayload.doc.id, 'execute-task');
+
     const createPrLoaded = await runCli(dir, ['docs', 'get', 'create-pr', '--json']);
     assert.equal(
       createPrLoaded.code,
@@ -536,6 +551,10 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     assert.match(
       createPrPayload.doc.content,
       /npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement/
+    );
+    assert.match(
+      executeTaskPayload.doc.content,
+      /새 태스크를 추가해야 한다면 `태스크 목록` 섹션의 마지막 기존 태스크 block 바로 아래에만 append/
     );
 
     const koAgentsDoc = await fs.readFile(
@@ -587,6 +606,57 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     assert.match(
       enCreatePrDoc,
       /npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement/
+    );
+
+    const koTasksTemplateDoc = await fs.readFile(
+      path.join(
+        process.cwd(),
+        'templates',
+        'ko',
+        'common',
+        'features',
+        'feature-base',
+        'tasks.md'
+      ),
+      'utf-8'
+    );
+    assert.match(
+      koTasksTemplateDoc,
+      /새 태스크를 추가할 때는 현재 태스크 근처나 Phase 중간에 끼워 넣지 말고, `태스크 목록`의 마지막 기존 태스크 block 아래에 append/
+    );
+
+    const enExecuteTaskDoc = await fs.readFile(
+      path.join(
+        process.cwd(),
+        'templates',
+        'en',
+        'common',
+        'agents',
+        'skills',
+        'execute-task.md'
+      ),
+      'utf-8'
+    );
+    assert.match(
+      enExecuteTaskDoc,
+      /If you need to add a new task, append it directly below the last existing task block in the `Task List` section/i
+    );
+
+    const enTasksTemplateDoc = await fs.readFile(
+      path.join(
+        process.cwd(),
+        'templates',
+        'en',
+        'common',
+        'features',
+        'feature-base',
+        'tasks.md'
+      ),
+      'utf-8'
+    );
+    assert.match(
+      enTasksTemplateDoc,
+      /append it below the last existing task block in `Task List` instead of inserting it near the current task or in the middle of a phase/i
     );
 
     const enAgentsDoc = await fs.readFile(

@@ -66,6 +66,7 @@
 (Recommended) Requirement/scope change task:
 
 Record mid-work changes as **new tasks**, and explicitly list which docs need updating via `Impact Docs`.
+When adding a new task, append it below the last existing task block in `Task List` instead of inserting it near the current task or in the middle of a phase.
 
 ```markdown
 - [TODO][P1][PRD-FR-001][CHANGE] T-F{number}-02 {Task Title} (requirement/scope change)
