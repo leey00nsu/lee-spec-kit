@@ -139,7 +139,7 @@ export const enMessages = {
   userRequestReplan:
     'You can pause this step and handle a newly requested user requirement first. Summarize it, add it to tasks.md or split it into a separate Feature, then align document statuses and rerun context.',
   featureDone:
-    'Workflow requirements and all tasks/completion criteria are satisfied. This feature is done.',
+    'All workflow requirements and local cleanup are complete. This feature is fully finished.',
   fallbackRerunContext:
     'Cannot determine status. Check the docs and run context again.',
 } as const;

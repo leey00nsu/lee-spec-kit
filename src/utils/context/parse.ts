@@ -1833,7 +1833,7 @@ export async function parseFeature(
     isCompletionChecklistDone({ completionChecklist }) &&
     tasksDocApproved;
 
-  const workflowDone =
+  const workflowBaseDone =
     implementationDone &&
     !docsHasCommitRequiredChanges &&
     !projectHasUncommittedChanges &&
@@ -1862,6 +1862,11 @@ export async function parseFeature(
       },
       prePrReviewPolicy
     );
+
+  const cleanupPending =
+    workflowBaseDone && (projectInManagedWorktree || !!expectedWorktreePath);
+
+  const workflowDone = workflowBaseDone && !cleanupPending;
 
   if (implementationDone && !workflowDone) {
     if (specStatus !== 'Approved') {
@@ -1929,6 +1934,7 @@ export async function parseFeature(
     completion: {
       implementationDone,
       workflowDone,
+      cleanupPending,
     },
     issueNumber,
     specStatus,

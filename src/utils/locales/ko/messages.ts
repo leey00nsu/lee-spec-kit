@@ -142,7 +142,7 @@ export const koMessages = {
   userRequestReplan:
     '현재 단계와 별개로 사용자가 제안한 새 요구를 먼저 반영할 수 있습니다. 요구사항을 요약해 tasks.md에 추가하거나 별도 Feature로 분리한 뒤, 문서 상태를 맞추고 context를 다시 실행하세요.',
   featureDone:
-    '워크플로우 요구사항과 모든 태스크/완료 조건이 충족되었습니다. 이 Feature는 완료 상태입니다.',
+    '워크플로우 요구사항과 로컬 정리까지 모두 끝났습니다. 이 Feature는 완전히 종료되었습니다.',
   fallbackRerunContext:
     '상태를 판별할 수 없습니다. 문서를 확인한 뒤 다시 context를 실행하세요.',
 } as const;

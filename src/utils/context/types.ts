@@ -144,6 +144,11 @@ export interface FeatureState {
      * Requirements can be configured (e.g. local mode can skip issue/PR/review).
      */
     workflowDone: boolean;
+    /**
+     * Cleanup is pending when workflow requirements are satisfied but a managed
+     * feature worktree still needs local cleanup before final completion.
+     */
+    cleanupPending: boolean;
   };
   issueNumber?: string;
   specStatus?: DocStatus;

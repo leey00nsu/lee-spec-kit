@@ -129,7 +129,7 @@ export const enContext = {
   'context.actionDetail.featureScopeSplitFour':
     'Split into 4 linked issues (criteria-based) and merge PRs in dependency order',
   'context.actionDetail.worktreeCleanup':
-    'Clean up the completed feature worktree',
+    'Clean up the feature worktree to finish this feature',
   'context.actionDetail.prMetadataMigrate':
     'Update tasks.md PR fields to the latest template format',
   'context.actionDetail.prMetadataMigratePrFields':
@@ -139,7 +139,7 @@ export const enContext = {
   'context.actionDetail.userRequestReplan':
     'Handle the new user request first and re-run context',
   'context.actionDetail.featureDone':
-    'All completion checks are satisfied for this feature',
+    'This feature is fully complete',
   'context.actionDetail.fallback': 'Verify current status and re-run context',
   'context.suggestion.createFeature': 'Create a new feature',
   'context.suggestion.runOnboard': 'Run onboarding checks',
@@ -158,6 +158,7 @@ export const enContext = {
     'Check commit message rules against the git-workflow guide.',
   'context.list.docsCommitNeeded': 'Commit docs changes',
   'context.list.projectCommitNeeded': 'Commit project code changes',
+  'context.list.cleanupPending': 'Clean up the feature worktree to finish',
   'context.list.issueNumberNeeded': 'Fill issue number in docs',
   'context.list.addPrMetadata': 'Add PR metadata (PR/PR Status)',
   'context.list.recordPrLink': 'Record PR link',

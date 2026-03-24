@@ -14,5 +14,5 @@ export const enSteps = {
   prePrReview: 'Pre-PR review',
   prCreate: 'Create PR',
   codeReview: 'Code review',
-  featureDone: 'Feature done',
+  featureDone: 'Finalize feature',
 } as const;

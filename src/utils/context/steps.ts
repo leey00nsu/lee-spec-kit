@@ -378,6 +378,15 @@ function resolveManagedWorktreeCleanupPaths(
   };
 }
 
+function resolveFeatureWorktreeCleanupPaths(
+  feature: FeatureState
+): { projectRoot: string; worktreePath: string } | null {
+  const cleanupCandidate = feature.git.projectInManagedWorktree
+    ? feature.git.projectGitCwd
+    : feature.git.expectedWorktreePath;
+  return resolveManagedWorktreeCleanupPaths(cleanupCandidate);
+}
+
 interface TaskCommitGateCheck {
   pass: boolean;
   reason?:
@@ -2030,35 +2039,36 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
       step: 15,
       name: tr(lang, 'steps', 'featureDone'),
       checklist: {
-        done: (f) => isFeatureDone(f, workflowPolicy, prePrReviewPolicy),
+        done: (f) => f.completion.workflowDone,
       },
       current: {
         when: (f) => isFeatureDone(f, workflowPolicy, prePrReviewPolicy),
         actions: (f) => {
-          const actions: NextAction[] = [
+          if (f.completion.cleanupPending) {
+            const cleanupPaths = resolveFeatureWorktreeCleanupPaths(f);
+            if (cleanupPaths) {
+              return [
+                {
+                  type: 'command',
+                  category: 'worktree_cleanup',
+                  requiresUserCheck: true,
+                  scope: 'project',
+                  cwd: cleanupPaths.projectRoot,
+                  cmd: tr(lang, 'messages', 'worktreeCleanupCommand', {
+                    projectGitCwd: cleanupPaths.projectRoot,
+                    worktreePath: cleanupPaths.worktreePath,
+                  }),
+                },
+              ];
+            }
+          }
+          return [
             {
               type: 'instruction',
               category: 'feature_done',
               message: tr(lang, 'messages', 'featureDone'),
             },
           ];
-          const cleanupPaths = resolveManagedWorktreeCleanupPaths(
-            f.git.projectGitCwd
-          );
-          if (cleanupPaths) {
-            actions.push({
-              type: 'command',
-              category: 'worktree_cleanup',
-              requiresUserCheck: true,
-              scope: 'project',
-              cwd: cleanupPaths.projectRoot,
-              cmd: tr(lang, 'messages', 'worktreeCleanupCommand', {
-                projectGitCwd: cleanupPaths.projectRoot,
-                worktreePath: cleanupPaths.worktreePath,
-              }),
-            });
-          }
-          return actions;
         },
       },
     },

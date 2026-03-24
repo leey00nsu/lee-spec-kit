@@ -132,7 +132,7 @@ export const koContext = {
   'context.actionDetail.featureScopeSplitFour':
     '기준 기반으로 4개 이슈로 분리하고 의존 순서대로 PR을 머지하세요',
   'context.actionDetail.worktreeCleanup':
-    '완료된 feature worktree를 정리하세요',
+    'feature를 끝내려면 worktree를 정리하세요',
   'context.actionDetail.prMetadataMigrate':
     'tasks.md의 PR 항목 형식을 최신 템플릿으로 업데이트하세요',
   'context.actionDetail.prMetadataMigratePrFields':
@@ -142,7 +142,7 @@ export const koContext = {
   'context.actionDetail.userRequestReplan':
     '새 사용자 요구를 먼저 반영한 뒤 context를 다시 실행하세요',
   'context.actionDetail.featureDone':
-    '이 Feature의 완료 조건이 모두 충족되었습니다',
+    '이 Feature가 완전히 완료되었습니다',
   'context.actionDetail.fallback':
     '현재 상태를 확인한 뒤 context를 다시 실행하세요',
   'context.suggestion.createFeature': '새 Feature를 생성합니다',
@@ -161,6 +161,7 @@ export const koContext = {
     '커밋 메시지 규칙은 git-workflow 가이드를 기준으로 확인하세요.',
   'context.list.docsCommitNeeded': '문서 커밋 필요',
   'context.list.projectCommitNeeded': '프로젝트 코드 커밋 필요',
+  'context.list.cleanupPending': 'feature 종료를 위해 worktree 정리',
   'context.list.issueNumberNeeded': '이슈 번호 기록 필요',
   'context.list.addPrMetadata': 'PR 메타데이터(PR/PR 상태) 추가',
   'context.list.recordPrLink': 'PR 링크 기록',

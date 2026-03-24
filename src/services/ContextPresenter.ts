@@ -787,6 +787,9 @@ export function getListLabel(
   // For "ready to close" features, show the closest missing workflow requirement
   // instead of generic step names like "tasks.md 작성".
   if (f.completion.implementationDone && !f.completion.workflowDone) {
+    if (f.completion.cleanupPending) {
+      return tr(lang, 'cli', 'context.list.cleanupPending');
+    }
     if (f.git.docsHasCommitRequiredChanges) {
       return tr(lang, 'cli', 'context.list.docsCommitNeeded');
     }

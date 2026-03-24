@@ -14,5 +14,5 @@ export const koSteps = {
   prePrReview: 'Pre-PR 리뷰',
   prCreate: 'PR 생성',
   codeReview: '코드 리뷰',
-  featureDone: 'Feature 완료',
+  featureDone: 'Feature 마무리',
 } as const;
