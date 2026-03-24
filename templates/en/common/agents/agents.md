@@ -15,8 +15,8 @@ This document covers **policy only**.
 | Spec writing | After writing `spec.md` | Full spec content |
 | Task execution | Before each task | Task title |
 | Commit creation | Before `git commit` | Commit message, included files |
-| Issue creation | Before `gh issue create` | Title, body, labels |
-| PR creation | Before `gh pr create` | Title, body, labels |
+| Issue creation | Before `npx lee-spec-kit github issue <featureRef> --create` | Title, body, labels |
+| PR creation | Before `npx lee-spec-kit github pr <featureRef> --create` | Title, body, labels |
 | Assignee change | When assigning someone else | Target username |
 | Remote Git operations | Before `push`, `merge` (including merge commits) | Branch, changes |
 

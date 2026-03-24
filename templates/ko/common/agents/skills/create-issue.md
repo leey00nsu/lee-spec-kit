@@ -52,14 +52,10 @@ npx lee-spec-kit github issue F001 --json
 
 ### 3. 이슈 생성 (`issue.md`가 `Ready`일 때)
 
-```bash
-gh issue create \
-  --title "{기능명} ({짧은 설명})" \
-  --body-file /tmp/issue-body.md \
-  --assignee @me \
-  --label enhancement
+원격 이슈 생성은 반드시 lee-spec-kit helper로만 실행합니다.
+`gh issue create`를 직접 호출하거나 raw `issue.md`를 그대로 `--body-file`에 넘기지 마세요.
 
-# 또는 lee-spec-kit helper 사용 (명시적 승인 필요)
+```bash
 npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
@@ -72,5 +68,6 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ## 참조 문서
 
 - **초안 생성기**: `npx lee-spec-kit github issue <feature-name>`
+- **원격 생성 규칙**: 반드시 `npx lee-spec-kit github issue <feature-name> --create --confirm OK --labels ...` 사용
 - **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
 - **실행 상태 SSOT**: `docs/features/.../<feature>/issue.md`

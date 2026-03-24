@@ -15,8 +15,8 @@
 | 스펙 작성 | `spec.md` 작성 후 | 스펙 내용 전문 |
 | 태스크 실행 | 각 태스크 시작 전 | 태스크 제목 |
 | 커밋 생성 | `git commit` 전 | 커밋 메시지, 포함 파일 목록 |
-| 이슈 생성 | `gh issue create` 전 | 제목, 본문, 라벨 |
-| PR 생성 | `gh pr create` 전 | 제목, 본문, 라벨 |
+| 이슈 생성 | `npx lee-spec-kit github issue <featureRef> --create` 전 | 제목, 본문, 라벨 |
+| PR 생성 | `npx lee-spec-kit github pr <featureRef> --create` 전 | 제목, 본문, 라벨 |
 | Assignee 변경 | 본인 외 지정 시 | 대상 사용자명 |
 | Git 원격 작업 | `push`, `merge` 전 (머지 커밋 포함) | 브랜치, 변경 사항 |
 

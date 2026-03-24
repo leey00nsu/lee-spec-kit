@@ -52,14 +52,10 @@ After approval, set `issue.md` status to `Ready`.
 
 ### 3. Create Issue (when `issue.md` is `Ready`)
 
-```bash
-gh issue create \
-  --title "{feature-name} ({description})" \
-  --body-file /tmp/issue-body.md \
-  --assignee @me \
-  --label enhancement
+Remote issue creation must use the lee-spec-kit helper.
+Do not call `gh issue create` directly or pass raw `issue.md` to `--body-file`.
 
-# Or via lee-spec-kit helper (requires explicit confirmation)
+```bash
 npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 ```
 
@@ -72,5 +68,6 @@ After creation:
 ## Reference Documents
 
 - **Draft generator**: `npx lee-spec-kit github issue <feature-name>`
+- **Remote creation rule**: must use `npx lee-spec-kit github issue <feature-name> --create --confirm OK --labels ...`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
 - **Execution-state SSOT**: `docs/features/.../<feature>/issue.md`

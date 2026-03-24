@@ -160,15 +160,10 @@ PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하�
 
 ### 5. PR 생성 (`pr.md`가 `Ready`일 때)
 
-```bash
-gh pr create \
-  --title "feat(#{이슈번호}): {기능명} ({짧은 설명})" \
-  --body-file /tmp/pr-body.md \
-  --label "{라벨1,라벨2}" \
-  --assignee @me \
-  --base main
+원격 PR 생성은 반드시 lee-spec-kit helper로만 실행합니다.
+`gh pr create`를 직접 호출하거나 raw `pr.md`를 그대로 `--body-file`에 넘기지 마세요.
 
-# 또는 lee-spec-kit helper 사용 (명시적 승인 필요)
+```bash
 npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
 
@@ -217,5 +212,6 @@ PR 본문의 파일 링크는 **현재 브랜치명**을 사용:
 ## 참조 문서
 
 - **본문 템플릿 생성기**: `npx lee-spec-kit github pr <feature-name>`
+- **원격 생성 규칙**: 반드시 `npx lee-spec-kit github pr <feature-name> --create --confirm OK --labels ...` 사용
 - **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
 - **실행 상태 SSOT**: `docs/features/.../<feature>/pr.md`

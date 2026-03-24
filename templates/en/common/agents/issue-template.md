@@ -120,11 +120,7 @@ In GitHub Issues, use different link formats **based on file location**:
 
 - Default: Self-assign (`--assignee @me`)
 - When assigning others, **confirm with user** first
-- Examples:
-  ```bash
-  gh issue create --assignee @me ...
-  gh issue create --assignee username ...
-  ```
+- Remote creation must use `npx lee-spec-kit github issue <featureRef> --create --confirm OK --labels ...`.
 
 ---
 

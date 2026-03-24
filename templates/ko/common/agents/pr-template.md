@@ -100,13 +100,7 @@ Closes #{이슈번호}
 ## PR 생성 명령어
 
 ```bash
-# 현재 브랜치명 확인
-BRANCH=$(git branch --show-current)
-
-gh pr create \
-  --title "feat(#{issue}): {기능명} ({짧은 설명})" \
-  --body-file /tmp/pr-body.md \
-  --base main
+npx lee-spec-kit github pr <featureRef> --create --confirm OK --labels enhancement
 ```
 
 ---
@@ -154,10 +148,7 @@ git pull
 
 - 기본값: 본인 할당 (`--assignee @me`)
 - 리뷰어 지정 시 `--reviewer` 옵션 사용
-- 예시:
-  ```bash
-  gh pr create --assignee @me --reviewer reviewer-username ...
-  ```
+- 원격 생성은 반드시 `npx lee-spec-kit github pr <featureRef> --create --confirm OK --labels ...`를 사용합니다.
 
 ---
 

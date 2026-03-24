@@ -492,6 +492,21 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
       true
     );
 
+    const createIssueLoaded = await runCli(dir, [
+      'docs',
+      'get',
+      'create-issue',
+      '--json',
+    ]);
+    assert.equal(
+      createIssueLoaded.code,
+      0,
+      createIssueLoaded.stderr || createIssueLoaded.stdout
+    );
+    const createIssuePayload = JSON.parse(createIssueLoaded.stdout.trim());
+    assert.equal(createIssuePayload.status, 'ok');
+    assert.equal(createIssuePayload.doc.id, 'create-issue');
+
     const createPrLoaded = await runCli(dir, ['docs', 'get', 'create-pr', '--json']);
     assert.equal(
       createPrLoaded.code,
@@ -512,6 +527,82 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
       createPrPayload.contract.artifacts.some((artifact) => artifact.id === 'screenshots'),
       true
     );
+    assert.doesNotMatch(createIssuePayload.doc.content, /^\s*gh issue create\b/m);
+    assert.match(
+      createIssuePayload.doc.content,
+      /npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement/
+    );
+    assert.doesNotMatch(createPrPayload.doc.content, /^\s*gh pr create\b/m);
+    assert.match(
+      createPrPayload.doc.content,
+      /npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement/
+    );
+
+    const koAgentsDoc = await fs.readFile(
+      path.join(process.cwd(), 'templates', 'ko', 'common', 'agents', 'agents.md'),
+      'utf-8'
+    );
+    assert.match(
+      koAgentsDoc,
+      /\| 이슈 생성 \| `npx lee-spec-kit github issue <featureRef> --create` 전 \|/
+    );
+    assert.match(
+      koAgentsDoc,
+      /\| PR 생성 \| `npx lee-spec-kit github pr <featureRef> --create` 전 \|/
+    );
+    assert.doesNotMatch(koAgentsDoc, /`gh issue create` 전/);
+    assert.doesNotMatch(koAgentsDoc, /`gh pr create` 전/);
+
+    const enCreateIssueDoc = await fs.readFile(
+      path.join(
+        process.cwd(),
+        'templates',
+        'en',
+        'common',
+        'agents',
+        'skills',
+        'create-issue.md'
+      ),
+      'utf-8'
+    );
+    assert.doesNotMatch(enCreateIssueDoc, /^\s*gh issue create\b/m);
+    assert.match(
+      enCreateIssueDoc,
+      /npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement/
+    );
+
+    const enCreatePrDoc = await fs.readFile(
+      path.join(
+        process.cwd(),
+        'templates',
+        'en',
+        'common',
+        'agents',
+        'skills',
+        'create-pr.md'
+      ),
+      'utf-8'
+    );
+    assert.doesNotMatch(enCreatePrDoc, /^\s*gh pr create\b/m);
+    assert.match(
+      enCreatePrDoc,
+      /npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement/
+    );
+
+    const enAgentsDoc = await fs.readFile(
+      path.join(process.cwd(), 'templates', 'en', 'common', 'agents', 'agents.md'),
+      'utf-8'
+    );
+    assert.match(
+      enAgentsDoc,
+      /\| Issue creation \| Before `npx lee-spec-kit github issue <featureRef> --create` \|/
+    );
+    assert.match(
+      enAgentsDoc,
+      /\| PR creation \| Before `npx lee-spec-kit github pr <featureRef> --create` \|/
+    );
+    assert.doesNotMatch(enAgentsDoc, /Before `gh issue create`/);
+    assert.doesNotMatch(enAgentsDoc, /Before `gh pr create`/);
 
     const legacyIssueTemplateAliasLoaded = await runCli(dir, [
       'docs',

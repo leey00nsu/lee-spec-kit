@@ -160,15 +160,10 @@ After approval, set `pr.md` status to `Ready`.
 
 ### 5. Create PR (when `pr.md` is `Ready`)
 
-```bash
-gh pr create \
-  --title "feat(#{issue-number}): {feature} ({short description})" \
-  --body-file /tmp/pr-body.md \
-  --label "{label1,label2}" \
-  --assignee @me \
-  --base main
+Remote PR creation must use the lee-spec-kit helper.
+Do not call `gh pr create` directly or pass raw `pr.md` to `--body-file`.
 
-# Or via lee-spec-kit helper (requires explicit confirmation)
+```bash
 npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 ```
 
@@ -217,5 +212,6 @@ Use **current branch name** for file links in PR body:
 ## Reference Documents
 
 - **Body template generator**: `npx lee-spec-kit github pr <feature-name>`
+- **Remote creation rule**: must use `npx lee-spec-kit github pr <feature-name> --create --confirm OK --labels ...`
 - **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
 - **Execution-state SSOT**: `docs/features/.../<feature>/pr.md`

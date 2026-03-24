@@ -104,11 +104,7 @@ GitHub Issue에서 링크는 **파일 위치에 따라** 다르게 작성:
 
 - 기본값: 본인 할당 (`--assignee @me`)
 - 다른 담당자 지정 시 **사용자에게 확인** 후 진행
-- 예시:
-  ```bash
-  gh issue create --assignee @me ...
-  gh issue create --assignee username ...
-  ```
+- 원격 생성은 반드시 `npx lee-spec-kit github issue <featureRef> --create --confirm OK --labels ...`를 사용합니다.
 
 ---
 

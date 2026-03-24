@@ -102,13 +102,7 @@ Closes #{issue-number}
 ## PR Creation Command
 
 ```bash
-# Check current branch name
-BRANCH=$(git branch --show-current)
-
-gh pr create \
-  --title "feat(#{issue}): {feature-name} ({short description})" \
-  --body-file /tmp/pr-body.md \
-  --base main
+npx lee-spec-kit github pr <featureRef> --create --confirm OK --labels enhancement
 ```
 
 ---
@@ -156,10 +150,7 @@ git pull
 
 - Default: Self-assign (`--assignee @me`)
 - Use `--reviewer` option to specify reviewers
-- Examples:
-  ```bash
-  gh pr create --assignee @me --reviewer reviewer-username ...
-  ```
+- Remote creation must use `npx lee-spec-kit github pr <featureRef> --create --confirm OK --labels ...`.
 
 ---
 
