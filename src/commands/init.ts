@@ -25,6 +25,7 @@ import { getLocalDateString } from '../utils/date.js';
 import { pruneEngineManagedDocs } from '../utils/engine-managed-docs.js';
 import { runGitOrThrow } from '../utils/git-run.js';
 import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
+import { hasLeeSpecKitCodexBootstrap } from '../utils/codex-bootstrap.js';
 import {
   getComponentFeaturesReadme,
   parseComponentProjectRootsOption,
@@ -774,6 +775,9 @@ async function runInit(options: InitOptions): Promise<void> {
       );
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps3')));
+      if (!(await hasLeeSpecKitCodexBootstrap())) {
+        console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps4')));
+      }
       console.log();
     },
     { owner: 'init' }

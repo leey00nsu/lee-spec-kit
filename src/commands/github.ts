@@ -440,9 +440,23 @@ export function githubCommand(program: Command): void {
           const pushDocsSync = ghService.shouldPushDocsSync(config);
 
           if (options.create) {
+            const projectGitCwd = ghService.resolveGithubProjectCwd(
+              config,
+              feature
+            );
+            const closingIssueNumber = ghService.resolvePrClosingIssueNumber(
+              tasksContent,
+              feature.issueNumber,
+              config.lang
+            );
+            ghService.assertRemoteIssueExists(
+              closingIssueNumber,
+              projectGitCwd,
+              config.lang
+            );
             const normalizedBody = ghService.ensureIssueClosingLine(
               body,
-              feature.issueNumber
+              closingIssueNumber
             );
             if (normalizedBody !== body) {
               body = normalizedBody;
@@ -456,10 +470,6 @@ export function githubCommand(program: Command): void {
               }
             }
 
-            const projectGitCwd = ghService.resolveGithubProjectCwd(
-              config,
-              feature
-            );
             ghService.ensureNoTodoPlaceholders(
               body,
               ghService.tg(config.lang, 'kindPr'),

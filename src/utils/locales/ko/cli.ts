@@ -130,6 +130,8 @@ export const koCli = {
   'init.log.nextSteps2': '  2. npx lee-spec-kit feature <name> 으로 기능 추가',
   'init.log.nextSteps3':
     '  3. npx lee-spec-kit onboard --strict 로 초기 설정 점검',
+  'init.log.nextSteps4':
+    '  4. 프로젝트 루트 AGENTS.md 없이 Codex를 쓴다면 bootstrap 설치: npx lee-spec-kit setup codex-bootstrap',
   'init.log.gitRepoDetectedCommit': '📦 Git 레포지토리 감지, docs 커밋 중...',
   'init.log.gitInit': '📦 Git 초기화 중...',
   'init.warn.stagedChangesSkip':
@@ -155,6 +157,15 @@ export const koCli = {
   'idea.nextSteps2':
     '  2. Feature로 승격: npx lee-spec-kit feature <name> --idea {ideaId}',
   'idea.nextSteps3': '  3. Feature로 만들지 않을 경우 Dropped로 표시',
+
+  'setup.codexBootstrapInstalled':
+    '✅ Codex bootstrap 설치 완료: {path}',
+  'setup.codexBootstrapAlreadyInstalled':
+    '✅ Codex bootstrap 이 이미 설치되어 있습니다: {path}',
+  'setup.codexBootstrapRemoved':
+    '✅ Codex bootstrap 제거 완료: {path}',
+  'setup.codexBootstrapAlreadyAbsent':
+    '✅ Codex bootstrap 이 이미 없습니다: {path}',
 
   'github.cmdGithubDescription':
     'GitHub 워크플로우 도우미 (issue/pr 본문 템플릿 생성, 검증, merge 재시도)',
@@ -191,8 +202,13 @@ export const koCli = {
   'github.approvalRequired':
     '{operation}은(는) 사용자 명시 승인 후에만 실행할 수 있습니다. 계획 공유 후 `--confirm OK`로 다시 실행하세요.',
   'github.ghCommandFailed': 'GitHub CLI 명령 실행에 실패했습니다',
+  'github.issueLookupFailed': 'GitHub issue 존재 여부 확인에 실패했습니다',
   'github.ghEmptyJson': 'GitHub CLI JSON 출력이 비어 있습니다.',
   'github.ghInvalidJson': 'GitHub CLI JSON 파싱에 실패했습니다: {snippet}',
+  'github.invalidIssueReference':
+    'Issue 필드가 올바른 GitHub issue reference 형식이 아닙니다: {value}. `#123` 같은 실제 issue 번호를 사용하세요.',
+  'github.issueNotFound':
+    'GitHub issue {issue} 를 현재 repository context에서 찾을 수 없거나 접근할 수 없습니다.',
   'github.sectionsMissing': '{kind} 본문에 필수 섹션이 없습니다: {sections}',
   'github.todoPlaceholdersRemain':
     '{kind} 본문에 TODO 항목이 남아 있습니다. 목표/완료 기준 등을 채운 뒤 다시 실행하세요.',

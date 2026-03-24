@@ -131,6 +131,8 @@ export const enCli = {
     '  2. Add a feature with: npx lee-spec-kit feature <name>',
   'init.log.nextSteps3':
     '  3. Run setup checks: npx lee-spec-kit onboard --strict',
+  'init.log.nextSteps4':
+    '  4. If you use Codex without repo-root AGENTS.md, install bootstrap: npx lee-spec-kit setup codex-bootstrap',
   'init.log.gitRepoDetectedCommit': '📦 Git repo detected, committing docs...',
   'init.log.gitInit': '📦 Initializing Git...',
   'init.warn.stagedChangesSkip':
@@ -154,6 +156,15 @@ export const enCli = {
   'idea.nextSteps1': '  1. Fill scope, PRD refs, and promotion notes',
   'idea.nextSteps2': '  2. Promote it with: npx lee-spec-kit feature <name> --idea {ideaId}',
   'idea.nextSteps3': '  3. Mark it dropped if it should not become a feature',
+
+  'setup.codexBootstrapInstalled':
+    '✅ Codex bootstrap installed: {path}',
+  'setup.codexBootstrapAlreadyInstalled':
+    '✅ Codex bootstrap already installed: {path}',
+  'setup.codexBootstrapRemoved':
+    '✅ Codex bootstrap removed: {path}',
+  'setup.codexBootstrapAlreadyAbsent':
+    '✅ Codex bootstrap is already absent: {path}',
 
   'github.cmdGithubDescription':
     'GitHub workflow helpers (issue/pr templates, validation, merge retry)',
@@ -193,8 +204,13 @@ export const enCli = {
   'github.approvalRequired':
     '{operation} requires explicit user approval. Re-run with `--confirm OK` after sharing the plan with the user.',
   'github.ghCommandFailed': 'GitHub CLI command failed',
+  'github.issueLookupFailed': 'Failed to verify GitHub issue',
   'github.ghEmptyJson': 'GitHub CLI returned empty JSON output.',
   'github.ghInvalidJson': 'GitHub CLI returned invalid JSON: {snippet}',
+  'github.invalidIssueReference':
+    'Issue field is not a valid GitHub issue reference: {value}. Use a real issue number such as `#123`.',
+  'github.issueNotFound':
+    'GitHub issue {issue} was not found or is not accessible from the current repository context.',
   'github.sectionsMissing':
     '{kind} body is missing required sections: {sections}',
   'github.todoPlaceholdersRemain':

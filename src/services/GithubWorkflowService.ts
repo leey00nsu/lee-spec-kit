@@ -72,6 +72,11 @@ export interface PrMergeStateMeta {
   baseRefName?: string;
 }
 
+export interface IssueViewMeta {
+  number: number;
+  state?: string;
+}
+
 export type GithubTextKey =
   Extract<I18nKey<'cli'>, `github.${string}`> extends `github.${infer Key}`
     ? Key
@@ -1610,6 +1615,103 @@ export function ensureIssueClosingLine(
   const trimmed = body.trimEnd();
   const separator = trimmed.length > 0 ? '\n\n' : '';
   return `${trimmed}${separator}Closes #${issueNumber}\n`;
+}
+
+export function extractTasksIssueReference(
+  tasksContent: string
+): string | undefined {
+  return extractDraftMetadataValue(tasksContent, [
+    'Issue',
+    'Issue Number',
+    '이슈',
+    '이슈 번호',
+  ]);
+}
+
+export function parseStrictIssueReference(
+  raw: string | undefined
+): string | undefined {
+  const value = (raw || '').trim();
+  if (!value) return undefined;
+  const match = value.match(/^#?\s*(\d+)\s*$/);
+  return match?.[1];
+}
+
+export function resolvePrClosingIssueNumber(
+  tasksContent: string,
+  featureIssueNumber: string | undefined,
+  lang: Lang
+): string | undefined {
+  const rawIssueReference = extractTasksIssueReference(tasksContent);
+  const parsedRawIssueNumber = parseStrictIssueReference(rawIssueReference);
+  if (rawIssueReference && !parsedRawIssueNumber) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      tg(lang, 'invalidIssueReference', {
+        value: rawIssueReference.trim(),
+      })
+    );
+  }
+  if (parsedRawIssueNumber && /^0+$/.test(parsedRawIssueNumber)) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      tg(lang, 'invalidIssueReference', {
+        value: rawIssueReference?.trim() || parsedRawIssueNumber,
+      })
+    );
+  }
+
+  const issueNumber = (featureIssueNumber || parsedRawIssueNumber || '').trim();
+  if (!issueNumber) return undefined;
+  return issueNumber;
+}
+
+export function assertRemoteIssueExists(
+  issueNumber: string | undefined,
+  cwd: string,
+  lang: Lang
+): void {
+  if (!issueNumber) return;
+  const result = runProcess(
+    'gh',
+    ['issue', 'view', issueNumber, '--json', 'number,state'],
+    cwd
+  );
+  if (result.code !== 0) {
+    const detail = (result.stderr || result.stdout || '').trim();
+    if (/not found|could not resolve|404|no issue/i.test(detail)) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        tg(lang, 'issueNotFound', {
+          issue: `#${issueNumber}`,
+        })
+      );
+    }
+    throw createCliError(
+      'EXECUTION_FAILED',
+      `${tg(lang, 'issueLookupFailed')}${detail ? `: ${detail}` : ''}`
+    );
+  }
+
+  let payload: IssueViewMeta;
+  try {
+    payload = JSON.parse((result.stdout || '').trim()) as IssueViewMeta;
+  } catch {
+    throw createCliError(
+      'EXECUTION_FAILED',
+      tg(lang, 'ghInvalidJson', {
+        snippet: (result.stdout || '').trim().slice(0, 160),
+      })
+    );
+  }
+  if (String(payload?.number || '') !== String(issueNumber)) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      tg(lang, 'issueNotFound', {
+        issue: `#${issueNumber}`,
+      })
+    );
+  }
 }
 
 export function getRequiredIssueSections(lang: Lang): string[] {

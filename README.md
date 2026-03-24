@@ -55,22 +55,25 @@
 # 1. 프로젝트 문서 구조 생성
 npx lee-spec-kit init
 
-# 2. 초기 온보딩 점검
+# 2. Codex 사용 시 bootstrap 1회 설치 (repo-root AGENTS.md 없이 운영할 때)
+npx lee-spec-kit setup codex-bootstrap
+
+# 3. 초기 온보딩 점검
 npx lee-spec-kit onboard --strict
 
-# 3. 새 기능 생성
+# 4. 새 기능 생성
 npx lee-spec-kit feature user-auth
 
-# 4. 진행 상황 및 다음 단계 확인 (AI 에이전트용)
+# 5. 진행 상황 및 다음 단계 확인 (AI 에이전트용)
 npx lee-spec-kit context
 
-# 5. 워크플로우 대시보드 확인
+# 6. 워크플로우 대시보드 확인
 npx lee-spec-kit view
 
-# 6. 전체 상태 확인
+# 7. 전체 상태 확인
 npx lee-spec-kit status
 
-# 7. 문서/Feature 진단
+# 8. 문서/Feature 진단
 npx lee-spec-kit doctor
 ```
 
@@ -87,17 +90,21 @@ cd my-app
 # 1. docs 구조 초기화
 npx lee-spec-kit init
 
-# 2. 초기 온보딩 점검
+# 2. Codex 사용 시 bootstrap 1회 설치 (repo-root AGENTS.md 없이 운영할 때)
+npx lee-spec-kit setup codex-bootstrap
+
+# 3. 초기 온보딩 점검
 npx lee-spec-kit onboard --strict
 
-# 3. 감지 확인 (에이전트 시작점)
+# 4. 감지 확인 (에이전트 시작점)
 npx lee-spec-kit detect --json
 
-# 4. Feature 생성 후 작업 시작
+# 5. Feature 생성 후 작업 시작
 npx lee-spec-kit feature user-auth
 npx lee-spec-kit context --json-compact
 ```
 
+- Codex에서 프로젝트 루트 `AGENTS.md` 없이 운영한다면 `setup codex-bootstrap`를 1회 실행하세요. 이 명령은 `~/.codex/config.toml`에 `docs/AGENTS.md` fallback과 compact 재확인용 managed block을 추가합니다.
 - `detect --json` 결과가 `isLeeSpecKitProject: true`일 때 lee-spec-kit 워크플로우를 적용하세요.
 - `isLeeSpecKitProject: false`면 일반 프로젝트 워크플로우로 진행하세요.
 

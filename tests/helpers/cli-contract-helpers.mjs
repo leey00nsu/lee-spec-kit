@@ -142,6 +142,15 @@ if (args[0] === 'issue' && args[1] === 'create') {
   console.log('https://github.com/acme/repo/issues/123');
   process.exit(0);
 }
+if (args[0] === 'issue' && args[1] === 'view') {
+  const issueRef = args[2];
+  if (issueRef === '123') {
+    console.log('{"number":123,"state":"OPEN"}');
+    process.exit(0);
+  }
+  console.error('issue not found: ' + issueRef);
+  process.exit(1);
+}
 if (args[0] === 'pr' && args[1] === 'create') {
   console.log('https://github.com/acme/repo/pull/77');
   process.exit(0);

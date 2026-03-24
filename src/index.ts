@@ -20,6 +20,7 @@ import { codeReviewRunCommand } from './commands/code-review-run.js';
 import { requirementsCommand } from './commands/requirements.js';
 import { taskRunCommand } from './commands/task-run.js';
 import { taskCompleteCommand } from './commands/task-complete.js';
+import { setupCommand } from './commands/setup.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -105,5 +106,6 @@ codeReviewRunCommand(program);
 taskRunCommand(program);
 taskCompleteCommand(program);
 requirementsCommand(program);
+setupCommand(program);
 
 await program.parseAsync();

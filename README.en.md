@@ -40,22 +40,25 @@
 # 1) Initialize docs structure
 npx lee-spec-kit init
 
-# 2) Run initial onboarding checks
+# 2) If you use Codex without a repo-root AGENTS.md, install bootstrap once
+npx lee-spec-kit setup codex-bootstrap
+
+# 3) Run initial onboarding checks
 npx lee-spec-kit onboard --strict
 
-# 3) Create a feature
+# 4) Create a feature
 npx lee-spec-kit feature user-auth
 
-# 4) Show next steps (for agents)
+# 5) Show next steps (for agents)
 npx lee-spec-kit context
 
-# 5) Show workflow dashboard
+# 6) Show workflow dashboard
 npx lee-spec-kit view
 
-# 6) Show overall status
+# 7) Show overall status
 npx lee-spec-kit status
 
-# 7) Validate docs / feature metadata
+# 8) Validate docs / feature metadata
 npx lee-spec-kit doctor
 ```
 
@@ -72,17 +75,21 @@ cd my-app
 # 1) Initialize docs structure
 npx lee-spec-kit init
 
-# 2) Run initial onboarding checks
+# 2) If you use Codex without a repo-root AGENTS.md, install bootstrap once
+npx lee-spec-kit setup codex-bootstrap
+
+# 3) Run initial onboarding checks
 npx lee-spec-kit onboard --strict
 
-# 3) Detect project (agent entrypoint)
+# 4) Detect project (agent entrypoint)
 npx lee-spec-kit detect --json
 
-# 4) Create feature and start workflow
+# 5) Create feature and start workflow
 npx lee-spec-kit feature user-auth
 npx lee-spec-kit context --json-compact
 ```
 
+- If you run Codex without a repo-root `AGENTS.md`, run `setup codex-bootstrap` once. It installs a managed block in `~/.codex/config.toml` so Codex can treat `docs/AGENTS.md` as a project-doc fallback and re-check it after compaction.
 - Apply lee-spec-kit workflow only when `detect --json` returns `isLeeSpecKitProject: true`.
 - If `isLeeSpecKitProject: false`, continue with normal non-lee-spec-kit workflow.
 

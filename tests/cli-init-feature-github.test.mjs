@@ -1773,6 +1773,108 @@ flowchart TD
   });
 });
 
+test('github pr --create blocks invalid issue references before remote create', async () => {
+  await withTempDir('lsk-github-pr-create-invalid-issue-block-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    await fs.writeFile(
+      tasksPath,
+      /- \*\*(Issue|이슈)\*\*:\s*/.test(tasksContent)
+        ? tasksContent.replace(/^- \*\*(Issue|이슈)\*\*:\s*.*$/m, '- **Issue**: TBD')
+        : tasksContent.replace(
+            '## Local Tracking\n',
+            '## Local Tracking\n- **Issue**: TBD\n'
+          ),
+      'utf-8'
+    );
+
+    const prCreateResult = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(prCreateResult.code, 1);
+    const payload = JSON.parse(prCreateResult.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(payload.error, /not a valid github issue reference/i);
+
+    assert.equal(await pathExists(fakeGh.logPath), false);
+  });
+});
+
+test('github pr --create blocks when referenced issue does not exist remotely', async () => {
+  await withTempDir('lsk-github-pr-create-missing-issue-block-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    await fs.writeFile(
+      tasksPath,
+      /- \*\*(Issue|이슈)\*\*:\s*/.test(tasksContent)
+        ? tasksContent.replace(/^- \*\*(Issue|이슈)\*\*:\s*.*$/m, '- **Issue**: #999')
+        : tasksContent.replace(
+            '## Local Tracking\n',
+            '## Local Tracking\n- **Issue**: #999\n'
+          ),
+      'utf-8'
+    );
+
+    const prCreateResult = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(prCreateResult.code, 1);
+    const payload = JSON.parse(prCreateResult.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(payload.error, /was not found|not accessible/i);
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(log, /issue view 999 --json number,state/);
+    assert.doesNotMatch(log, /pr create/);
+  });
+});
+
 test('github pr --create accepts pr.md via explicit --body-file', async () => {
   await withTempDir('lsk-github-pr-create-explicit-ready-doc-', async (dir) => {
     const initResult = await runCli(dir, [
