@@ -107,6 +107,22 @@ export interface CliRunResult {
   stderr: string;
 }
 
+export interface ApprovedFlowSelectionPayload {
+  status?: string;
+  reasonCode?: string;
+  feature?: string | null;
+  label?: string;
+  action?: {
+    type?: 'command' | 'instruction';
+    category?: string;
+  };
+  userRequest?: string;
+  contextVersion?: string;
+  executable?: boolean;
+  executeRequiresTicket?: boolean;
+  approvalTicket?: { token?: string };
+}
+
 export const BUILTIN_AUTO_PRESETS: Record<string, string[]> = {
   'pr-handoff': ['pr_create', 'code_review', 'pr_status_update'],
 };
@@ -120,6 +136,27 @@ export function toLeeSpecKitCommand(args: string[]): string {
   return ['npx', 'lee-spec-kit', ...args]
     .map((arg) => shellEscape(arg))
     .join(' ');
+}
+
+export function shouldExecuteApprovedFlowOption(
+  payload: ApprovedFlowSelectionPayload | undefined
+): boolean {
+  if (payload?.status !== 'approved_selected') return false;
+  if (payload?.executable === false) return false;
+  if (payload?.action?.type === 'instruction') return false;
+  return payload?.executable === true || payload?.action?.type === 'command';
+}
+
+export function toInstructionOnlyFlowApprovalResult(
+  payload: ApprovedFlowSelectionPayload | undefined
+): Record<string, unknown> {
+  return {
+    ...(payload || {}),
+    status: 'approved_instruction',
+    reasonCode: 'INSTRUCTION_ONLY',
+    executed: false,
+    reason: 'instruction_only',
+  };
 }
 
 export function buildResumeRunCommand(runId: string): string {

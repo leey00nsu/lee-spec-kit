@@ -60,6 +60,8 @@ import {
   runSelfCliJson,
   runSelfCli,
   buildResumeRunCommand,
+  shouldExecuteApprovedFlowOption,
+  toInstructionOnlyFlowApprovalResult,
 } from '../services/FlowOrchestrator.js';
 
 export function flowCommand(program: Command): void {
@@ -340,12 +342,14 @@ async function runFlow(
             status?: string;
             executeRequiresTicket?: boolean;
             approvalTicket?: { token?: string };
+            executable?: boolean;
+            action?: { type?: 'command' | 'instruction' };
           }
         | undefined;
-      const executeRequiresTicket =
-        selectedPayload?.executeRequiresTicket === true;
-      const ticket = selectedPayload?.approvalTicket?.token;
-      if (selectedPayload?.status === 'approved_selected') {
+      if (shouldExecuteApprovedFlowOption(selectedPayload)) {
+        const executeRequiresTicket =
+          selectedPayload?.executeRequiresTicket === true;
+        const ticket = selectedPayload?.approvalTicket?.token;
         const executeArgs = [
           ...contextArgs,
           '--approve',
@@ -357,6 +361,8 @@ async function runFlow(
         }
         if (options.executeStrict) executeArgs.push('--execute-strict');
         approvalResult = runSelfCliJson(executeArgs, true);
+      } else if (selectedPayload?.status === 'approved_selected') {
+        approvalResult = toInstructionOnlyFlowApprovalResult(selectedPayload);
       } else {
         approvalResult = selected;
       }
