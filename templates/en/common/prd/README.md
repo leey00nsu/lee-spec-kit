@@ -2,6 +2,9 @@
 
 This folder contains product requirements documents.
 
+This is the top-level requirements space created by `lee-spec-kit init`.
+Write PRD documents here first, then connect downstream idea and feature docs back to these requirements.
+
 > **📌 Document Scope**
 >
 > - **This folder**: Product requirements, business logic, user stories
@@ -12,6 +15,14 @@ This folder contains product requirements documents.
 1. Define project overview and goals
 2. Write main features and user stories
 3. Include technical architecture overview
+
+## Relationship To Ideas And Features
+
+- `docs/prd/`: defines the source requirements
+- `docs/ideas/`: explores candidate work derived from those requirements
+- `docs/features/`: executes approved work as feature units
+
+If work starts from a PRD item, keep the relationship visible through `PRD Refs` and task tags in downstream docs.
 
 ## Requirement ID Conventions (Recommended)
 

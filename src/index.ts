@@ -1,4 +1,4 @@
-import { program } from 'commander';
+import { program, type Command } from 'commander';
 import fs from 'fs-extra';
 import path from 'path';
 import { initCommand } from './commands/init.js';
@@ -8,9 +8,11 @@ import { statusCommand } from './commands/status.js';
 import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
 import { contextCommand } from './commands/context.js';
+import { nextCommand } from './commands/next.js';
 import { doctorCommand } from './commands/doctor.js';
 import { viewCommand } from './commands/view.js';
 import { flowCommand } from './commands/flow.js';
+import { checkCommand } from './commands/check.js';
 import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
@@ -73,12 +75,24 @@ function getCliVersion(): string {
   return '0.0.0';
 }
 
+function configureRootCommandSurface(): void {
+  const publicCommands = new Set(['init', 'idea', 'feature', 'next', 'check']);
+
+  for (const command of program.commands) {
+    if (publicCommands.has(command.name())) {
+      command.helpGroup('Core Commands:');
+      continue;
+    }
+    (command as Command & { _hidden?: boolean })._hidden = true;
+  }
+}
+
 const cliVersion = getCliVersion();
 
 program
   .name('lee-spec-kit')
   .description(
-    'Project documentation structure generator for AI-assisted development'
+    'Agent-guided development harness for spec-driven projects'
   )
   .version(cliVersion)
   .option('--no-banner', 'Hide banner in help output');
@@ -88,8 +102,10 @@ if (shouldShowBanner()) {
 }
 
 initCommand(program);
-featureCommand(program);
 ideaCommand(program);
+featureCommand(program);
+nextCommand(program);
+checkCommand(program);
 statusCommand(program);
 updateCommand(program);
 configCommand(program);
@@ -107,5 +123,7 @@ taskRunCommand(program);
 taskCompleteCommand(program);
 requirementsCommand(program);
 setupCommand(program);
+
+configureRootCommandSurface();
 
 await program.parseAsync();

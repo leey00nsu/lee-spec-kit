@@ -54,7 +54,6 @@ function compareRequirementId(a: string, b: string): number {
 export function requirementsCommand(program: Command): void {
   program
     .command('requirements')
-    .alias('prd')
     .description('Show PRD requirement coverage from feature tasks')
     .option('--json', 'Output in JSON format for agents')
     .option('-w, --write', 'Write docs/prd/status.md report')
@@ -286,4 +285,3 @@ async function runRequirements(options: RequirementsOptions): Promise<void> {
 
   if (options.strict && issuesFound) process.exitCode = 1;
 }
-

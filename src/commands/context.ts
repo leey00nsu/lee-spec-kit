@@ -93,7 +93,7 @@ export function contextCommand(program: Command): void {
     );
 }
 
-async function runContext(
+export async function runContext(
   featureName: string | undefined,
   options: ContextOptions
 ): Promise<void> {

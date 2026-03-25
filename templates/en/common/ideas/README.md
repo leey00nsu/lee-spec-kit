@@ -4,6 +4,8 @@ A place for pre-feature ideas / to-dos / experiments.
 
 Core rule: once an idea becomes a Feature, the SSOT moves to `docs/features/`.
 
+Typical flow: PRD defines the requirement, Idea explores or scopes the candidate work, and Feature becomes the executable unit.
+
 ---
 
 ## Conventions

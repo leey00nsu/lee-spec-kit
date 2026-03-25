@@ -22,7 +22,8 @@ npx lee-spec-kit context --json-compact
 ## 신규 프로젝트 시작 순서
 
 - 코드 프로젝트 스캐폴딩(예: Next.js/NestJS) 후 `lee-spec-kit init`을 실행하세요.
-- 그 다음 `detect --json`으로 감지 결과를 확인하고, `feature`/`context` 순서로 진행하세요.
+- 그 다음 `docs/prd/`에 상위 요구사항을 정리하고, `idea`/`feature`로 작업 단위를 구체화하세요.
+- 이후 `detect --json`으로 감지 결과를 확인하고, `context` 순서로 진행하세요.
 - 대부분의 경우(기본값: embedded) 위 순서만 따르면 됩니다.
 - docs를 코드 저장소와 분리해 운영할 때만 standalone을 선택하세요. 이때는 상위 워크스페이스 폴더(예: `workspace/docs`, `workspace/project`)에서 `init`을 실행해 docs/project 경로를 함께 지정하는 방식을 권장합니다. (예: `npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project`)
 
@@ -42,14 +43,23 @@ npx lee-spec-kit context --json-compact
 
 문서 간 관계가 모호해지지 않도록, 아래를 “SSOT(단일 기준)”로 사용합니다.
 
+권장 흐름:
+
+1. `docs/prd/`: 상위 요구사항 정의
+2. `docs/ideas/`: PRD에서 나온 후보/실험 정리
+3. `docs/features/`: 승인된 작업을 실행 가능한 feature 단위로 전환
+
 - **PRD (`docs/prd/`)**: 요구사항 SSOT
+  - 이 공간은 `init`이 만들어 주며, 별도 생성 명령 없이 여기에서 직접 PRD를 관리합니다.
   - 요구사항마다 ID를 부여합니다: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
   - ID는 안정적으로 유지합니다. (삭제 대신 `Deprecated` 표기 권장, 재번호 부여 금지)
   - PRD ID는 PRD 원문에 먼저 정의합니다. Feature 문서에서 임의 생성하지 않습니다.
 - **Ideas (`docs/ideas/`)**: Feature 전 단계 SSOT (가설/실험/후보)
+  - 가능하면 PRD에서 출발한 후보라는 점이 보이도록 `PRD Refs`를 유지합니다.
   - Idea 문서 상단에 `PRD Refs:`를 기록합니다. (예: `PRD-FR-001, PRD-US-002`)
   - Feature로 승격되면 SSOT는 `docs/features/`로 이동하고, Idea는 archive로 정리합니다.
 - **Features (`docs/features/`)**: 구현 범위/진행 SSOT
+  - Feature는 PRD와 idea를 바탕으로 실제 구현을 진행하는 실행 단위입니다.
   - `spec.md`: 범위 정의 + `PRD Refs`(기능이 커버하는 PRD ID 목록)
   - `tasks.md`: 태스크 단위로 PRD ID를 태그(`[PRD-FR-001]`)로 매핑하거나, PRD 무관 태스크는 `[NON-PRD]`로 표시
     - `[NON-PRD]`는 refactor, rename, tooling, 테스트, cleanup 같은 내부 작업에만 사용합니다.

@@ -1603,3 +1603,122 @@ test('help output omits ASCII banner in non-TTY mode by default', async () => {
     assert.match(result.stdout, /Usage: lee-spec-kit/);
   });
 });
+
+test('root help highlights the simplified public command surface', async () => {
+  await withTempDir('lsk-root-help-public-surface-', async (dir) => {
+    const result = await runCli(dir, ['--no-banner', '--help']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const coreSectionMatch = result.stdout.match(
+      /Core Commands:\n([\s\S]*?)\n\nCommands:/
+    );
+    assert.ok(coreSectionMatch, result.stdout);
+    const visibleCommands = coreSectionMatch[1]
+      .trim()
+      .split('\n')
+      .map((line) => line.trim().split(/\s+/)[0]);
+    assert.deepEqual(visibleCommands, [
+      'init',
+      'idea',
+      'feature',
+      'next',
+      'check',
+    ]);
+    assert.match(result.stdout, /init \[options\]/);
+    assert.match(result.stdout, /idea \[options\] <name>/);
+    assert.match(result.stdout, /feature \[options\] <name>/);
+    assert.match(result.stdout, /next \[options\] \[feature-name\]/);
+    assert.match(result.stdout, /check \[options\] \[feature-name\]/);
+    assert.doesNotMatch(result.stdout, /context \[options\] \[feature-name\]/);
+    assert.doesNotMatch(result.stdout, /flow \[options\] \[feature-name\]/);
+    assert.doesNotMatch(result.stdout, /status \[options\]/);
+    assert.doesNotMatch(result.stdout, /doctor \[options\]/);
+    assert.doesNotMatch(result.stdout, /view \[options\] \[feature-name\]/);
+    assert.doesNotMatch(result.stdout, /detect \[options\]/);
+    assert.doesNotMatch(result.stdout, /onboard \[options\]/);
+    assert.doesNotMatch(result.stdout, /github/);
+    assert.doesNotMatch(result.stdout, /docs/);
+    assert.doesNotMatch(result.stdout, /requirements\|prd/);
+    assert.doesNotMatch(result.stdout, /setup/);
+    assert.doesNotMatch(result.stdout, /config/);
+    assert.doesNotMatch(result.stdout, /update/);
+    assert.doesNotMatch(result.stdout, /task-run/);
+    assert.doesNotMatch(result.stdout, /task-complete/);
+    assert.doesNotMatch(result.stdout, /pre-pr-review/);
+    assert.doesNotMatch(result.stdout, /code-review-run/);
+  });
+});
+
+test('public facade commands expose help', async () => {
+  await withTempDir('lsk-public-facade-help-', async (dir) => {
+    const nextHelp = await runCli(dir, ['--no-banner', 'next', '--help']);
+    assert.equal(nextHelp.code, 0, nextHelp.stderr || nextHelp.stdout);
+    assert.match(nextHelp.stdout, /Show the next recommended action/);
+    assert.match(nextHelp.stdout, /--json-compact/);
+
+    const checkHelp = await runCli(dir, ['--no-banner', 'check', '--help']);
+    assert.equal(checkHelp.code, 0, checkHelp.stderr || checkHelp.stdout);
+    assert.match(checkHelp.stdout, /Summarize project health and workflow status/);
+    assert.match(checkHelp.stdout, /--strict/);
+  });
+});
+
+test('public facade commands preserve context and flow JSON contracts', async () => {
+  await withTempDir('lsk-public-facade-contracts-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const contextResult = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--json-compact',
+    ]);
+    assert.equal(contextResult.code, 0, contextResult.stderr || contextResult.stdout);
+
+    const nextResult = await runCli(dir, ['next', 'F001-alpha', '--json-compact']);
+    assert.equal(nextResult.code, 0, nextResult.stderr || nextResult.stdout);
+    assert.equal(
+      nextResult.stdout.trim(),
+      contextResult.stdout.trim(),
+      'next should preserve the context JSON contract'
+    );
+
+    const flowResult = await runCli(dir, ['flow', 'F001-alpha', '--json-compact']);
+    assert.equal(flowResult.code, 0, flowResult.stderr || flowResult.stdout);
+
+    const checkResult = await runCli(dir, ['check', 'F001-alpha', '--json-compact']);
+    assert.equal(checkResult.code, 0, checkResult.stderr || checkResult.stdout);
+    assert.equal(
+      checkResult.stdout.trim(),
+      flowResult.stdout.trim(),
+      'check should preserve the flow JSON contract'
+    );
+  });
+});
+
+test('hidden legacy commands remain directly callable', async () => {
+  await withTempDir('lsk-hidden-command-help-', async (dir) => {
+    const contextHelp = await runCli(dir, ['--no-banner', 'context', '--help']);
+    assert.equal(contextHelp.code, 0, contextHelp.stderr || contextHelp.stdout);
+    assert.match(contextHelp.stdout, /Show current feature context and next actions/);
+
+    const flowHelp = await runCli(dir, ['--no-banner', 'flow', '--help']);
+    assert.equal(flowHelp.code, 0, flowHelp.stderr || flowHelp.stdout);
+    assert.match(flowHelp.stdout, /Run combined workflow checks/);
+  });
+});

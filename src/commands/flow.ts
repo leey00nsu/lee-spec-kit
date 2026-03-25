@@ -136,7 +136,7 @@ export function flowCommand(program: Command): void {
     });
 }
 
-async function runFlow(
+export async function runFlow(
   featureName: string | undefined,
   options: FlowOptions
 ): Promise<void> {

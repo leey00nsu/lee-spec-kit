@@ -34,6 +34,9 @@ npx lee-spec-kit feature --component app user-profile
 
 > 💡 CLI copies templates from `feature-base/` and auto-assigns IDs.
 
+Features are the executable units in the PRD → idea → feature flow.
+By the time work reaches this folder, the requirement should already be defined in `docs/prd/`, and any pre-feature exploration should already live in `docs/ideas/`.
+
 ---
 
 ## Feature ID Rules
@@ -67,7 +70,7 @@ npx lee-spec-kit status --write
 - Use `[NON-PRD]` only for internal implementation work such as refactors, test-only work, tooling, renames, and cleanup.
 - If a change affects user-facing behavior, acceptance criteria, or scope, update PRD first and retag the task as `[PRD-...]`.
 - Do not invent PRD IDs inside feature docs. Define them in the PRD source first, and backfill legacy docs before linking tasks.
-- Coverage report: `npx lee-spec-kit requirements` (alias: `npx lee-spec-kit prd`)
+- Coverage report: `npx lee-spec-kit requirements`
 
 ---
 

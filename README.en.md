@@ -7,7 +7,7 @@
 </div>
 
 <p align="center">
-  <strong>CLI to generate a project docs structure for AI-assisted development</strong>
+  <strong>Agent-guided development harness CLI for spec-driven projects</strong>
 </p>
 
 <p align="center">
@@ -18,9 +18,9 @@
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
-  <a href="#features">Features</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#generated-structure">Generated Structure</a>
+  <a href="#what-this-cli-does">Why</a> •
+  <a href="#commands-humans-actually-use">Commands</a> •
+  <a href="#docs">Docs</a>
 </p>
 
 <p align="center">
@@ -36,743 +36,84 @@
 
 ## Quick Start
 
+In most cases, the human asks in natural language and the main agent runs this flow.
+
 ```bash
-# 1) Initialize docs structure
 npx lee-spec-kit init
-
-# 2) If you use Codex without a repo-root AGENTS.md, install bootstrap once
-npx lee-spec-kit setup codex-bootstrap
-
-# 3) Run initial onboarding checks
-npx lee-spec-kit onboard --strict
-
-# 4) Create a feature
+npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
-
-# 5) Show next steps (for agents)
-npx lee-spec-kit context
-
-# 6) Show workflow dashboard
-npx lee-spec-kit view
-
-# 7) Show overall status
-npx lee-spec-kit status
-
-# 8) Validate docs / feature metadata
-npx lee-spec-kit doctor
+npx lee-spec-kit next
+npx lee-spec-kit check
 ```
 
-## New Project Start Order
+## Why It Exists
 
-For a brand-new project, scaffold the **codebase first**, then initialize docs.
-For most users (default: embedded), running `npx lee-spec-kit init` in project root is enough.
+This CLI was built to make spec-driven development more consistent when working with AI agents.
+The goal is not just to generate a docs folder, but to make it easier for both humans and agents to follow how a project moves from requirements, through ideas, into concrete implementation work.
 
-```bash
-# 0) Create/init the code project first (example: Next.js)
-npx create-next-app@latest my-app
-cd my-app
+To do that, `lee-spec-kit` structures work as `PRD → idea → feature`, and then connects that document flow to a git-centered issue/PR workflow.
+The focus is to keep planning artifacts and code workflow aligned, so the agent-readable state and the human-reviewable state stay in the same operating model.
 
-# 1) Initialize docs structure
-npx lee-spec-kit init
+In that flow, PRD lives in the top-level `docs/prd/` space created by `init`.
+Ideas capture candidates and experiments that come out of those requirements, and Features turn the approved work into executable units with `spec.md`, `plan.md`, and `tasks.md`.
 
-# 2) If you use Codex without a repo-root AGENTS.md, install bootstrap once
-npx lee-spec-kit setup codex-bootstrap
+Structurally, it draws inspiration from [spec-kit](https://github.com/github/spec-kit) and [OpenSpec](https://github.com/Fission-AI/OpenSpec),
+but it is adapted toward a more practical project workflow with explicit document stages, feature-level execution units, and tighter git workflow integration for agent orchestration.
 
-# 3) Run initial onboarding checks
-npx lee-spec-kit onboard --strict
+## What This CLI Does
 
-# 4) Detect project (agent entrypoint)
-npx lee-spec-kit detect --json
+`lee-spec-kit` is less a power-user operator console and more a development harness that helps the main agent read project state and choose the next action.
 
-# 5) Create feature and start workflow
-npx lee-spec-kit feature user-auth
-npx lee-spec-kit context --json-compact
-```
+- Humans usually ask in natural language.
+- The main agent translates those requests into commands like `detect`, `context`, `flow`, `idea`, `feature`, `next`, and `check`.
+- Deeper operational commands still exist, but they are no longer front-loaded in the default help output.
 
-- If you run Codex without a repo-root `AGENTS.md`, run `setup codex-bootstrap` once. It installs a managed block in `~/.codex/config.toml` so Codex can treat `docs/AGENTS.md` as a project-doc fallback and re-check it after compaction.
-- Apply lee-spec-kit workflow only when `detect --json` returns `isLeeSpecKitProject: true`.
-- If `isLeeSpecKitProject: false`, continue with normal non-lee-spec-kit workflow.
+## How It Works
 
-For teams that keep docs separate from the code repo (standalone), the recommended start point is the **parent workspace folder**.
+1. Use `init` to attach docs/workflow scaffolding.
+2. Define top-level requirements in `docs/prd/`.
+3. Create work with `idea` or `feature`.
+4. Let the main agent read `detect` and `context`.
+5. Humans step in for approvals, exceptions, and direction changes.
+6. Use `next` for the current action and `check` for overall health.
 
-```bash
-# Recommended layout:
-# workspace/
-#   ├─ docs/      (lee-spec-kit docs)
-#   └─ project/   (actual code repo)
-#
-# Run from workspace root
-npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project
-npx lee-spec-kit detect --json
-```
+## Humans Usually Ask Like This
+
+- "Read this doc and help me start the project structure."
+- "Organize ideas from these requirements."
+- "Promote this idea into a feature and move it forward."
+- "What is the next action right now?"
+- "Check the overall project state."
+
+## Commands The Agent Usually Runs
+
+- `init`: initialize docs/workflow scaffolding
+- `idea`: create a pre-feature idea document
+- `feature`: create a concrete execution unit
+- `detect`: detect whether the workspace uses lee-spec-kit
+- `context`: read current feature state and next actions
+- `flow`: summarize workflow state
+- `next`: public facade for the current next action
+- `check`: public facade for overall status
 
 ## Agent Kickoff Prompt
-
-You can paste the following as an agent session-start instruction.
 
 ```text
 Start procedure:
 1) Run npx lee-spec-kit detect --json
-2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact (use --json only when full detail is needed)
-3) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval (<LABEL> or <LABEL> OK)
+2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact
+3) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval
 4) Do not execute before approval; execute requiresUserCheck=true actions only after approval
 5) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
 ```
 
-## Features
+## Docs
 
-### 📁 Project initialization
+- [Public CLI Reference](./docs/reference/public-cli.md)
+- [Agent CLI Reference](./docs/reference/agent-cli.md)
+- [Internal CLI Reference](./docs/reference/internal-cli.md)
+- [Reference Index](./docs/reference/README.md)
 
-- Interactive init or CLI options
-- Default is `multi`; `single` remains supported for simple single-repo and backward-compatibility scenarios (`fullstack` is a backward-compatible alias of `multi`)
-- Korean/English templates
+## License
 
-### 🚀 Feature creation
-
-- Generates `spec.md`, `plan.md`, `tasks.md`, `decisions.md`
-- Multi mode supports flexible component separation (e.g. app/api/worker)
-- Integrates Issue/PR templates (docs side)
-
-### 📊 Status management
-
-- View feature progress at a glance
-- Print to terminal or write a Markdown report
-
-### 👀 View dashboard
-
-- Show context-style workflow dashboard in one command
-- Works for single feature or aggregated feature list
-
-### 🔁 Flow orchestration
-
-- Combine `context + status + doctor` in one command
-- Supports approval/execute passthrough for atomic context actions
-
-### 🩺 Doctor
-
-- Checks docs structure and feature metadata (missing status, duplicate IDs, placeholders, etc.)
-- `--json` output for automation/agents
-
-### 🔄 Template updates
-
-- Updates docs templates to the latest version
-
-## Usage
-
-### Init
-
-```bash
-npx lee-spec-kit init
-npx lee-spec-kit init --name my-project --type multi
-npx lee-spec-kit init --name my-project --type fullstack  # alias
-```
-
-**Options:**
-
-| Option              | Description                                                                                 | Default                         |
-| ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------- |
-| `-n, --name <name>` | Project name                                                                                | current folder                  |
-| `-t, --type <type>` | `single` or `multi` (`fullstack` alias supported)                                          | interactive (`multi` with `--yes`/`--non-interactive`) |
-| `--components <list>` | multi component list (comma-separated, e.g. `app,api,worker`)                            | `app`                           |
-| `-l, --lang <lang>` | `ko` or `en`                                                                                | `en`                            |
-| `--workflow <mode>` | Workflow mode: `github` (issue/PR/review) or `local` (local-first)                         | `github`                        |
-| `-d, --dir <dir>`   | Install directory                                                                           | `./docs`                        |
-| `--docs-repo <mode>` | docs repo mode (`embedded` or `standalone`)                                               | `embedded`                      |
-| `--project-root <path>` | standalone(single) project repo path or standalone(multi) JSON map (`{"app":"/path/app","api":"/path/api"}`) | -                               |
-| `--component-project-roots <pairs>` | standalone(multi) component roots (`app=/path/app,api=/path/api,worker=/path/worker`) | - |
-| `--push-docs` | enable standalone docs push (use with `--docs-remote`)                                   | `false`                         |
-| `--docs-remote <url>` | standalone docs remote URL (used with `--push-docs`)                                    | -                               |
-| `-y, --yes`         | Skip most interactive inputs (overwrite confirmation still appears if target dir is not empty) | -                               |
-| `-f, --force`       | Overwrite non-empty target directory without confirmation                                  | `false`                         |
-| `--non-interactive` | Fail immediately instead of prompting for user input                                        | `false`                         |
-
-> After generating docs, `init` automatically attempts Git setup/commit (`git init`, `git add`, `git commit`). Auto-commit may be skipped depending on environment/state.
-
-### Project detection (agent entrypoint)
-
-```bash
-# detect from current directory
-npx lee-spec-kit detect
-
-# JSON output for agents/automation
-npx lee-spec-kit detect --json
-
-# detect against a specific path
-npx lee-spec-kit detect --dir /path/to/workspace
-```
-
-The `--json` payload includes `isLeeSpecKitProject`, `reasonCode` (`PROJECT_DETECTED` | `PROJECT_NOT_DETECTED`), `docsDir`, `configPath`, and `detectionSource` (`config` | `heuristic`).
-
-### Onboarding checks
-
-Validate initial setup readiness (Constitution/PRD/git remotes, etc.).
-
-```bash
-# human-readable output
-npx lee-spec-kit onboard
-
-# JSON output for agents/automation
-npx lee-spec-kit onboard --json
-
-# exit code 1 when WARN/BLOCK exists
-npx lee-spec-kit onboard --strict
-```
-
-### Create a feature
-
-```bash
-# Single
-npx lee-spec-kit feature user-auth
-
-# Multi
-npx lee-spec-kit feature --component api user-auth
-npx lee-spec-kit feature --component app user-profile
-npx lee-spec-kit feature --component worker queue-jobs
-
-# Specify Feature ID/description
-npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
-```
-
-**Options:**
-
-| Option              | Description                                 | Default      |
-| ------------------- | ------------------------------------------- | ------------ |
-| `--component <id>`  | Multi target component                       | interactive  |
-| `--id <id>`         | Feature ID (`F001` format)                  | auto-generate |
-| `-d, --desc <desc>` | Default purpose/description text for `spec.md` | empty string |
-| `--non-interactive` | Fail immediately instead of prompting for user input | `false` |
-| `--json`            | JSON output (`featureId`, `featurePath`, `component`) | `false` |
-
-### Context (agent guide)
-
-For a single matched feature, next steps are always shown as `A/B/C` options.
-
-```bash
-# basic check (auto-detect from branch)
-npx lee-spec-kit context
-
-# recommended: one feature + labels
-npx lee-spec-kit context F001
-npx lee-spec-kit context F001 --json
-npx lee-spec-kit context F001 --json-compact
-
-# approve + execute (common path)
-npx lee-spec-kit context F001 --approve A --execute
-
-# include ticket only when selected action has `requiresUserCheck=true`
-npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET>
-
-# strict mode: fail if approved label is instruction-only
-npx lee-spec-kit context F001 --approve A --execute --ticket <TICKET> --execute-strict
-```
-
-Use advanced selectors (`--component`, `--all`, `--done`) only when you need multi-scope filtering or exceptional fallback behavior.
-
-**Options:**
-
-| Option         | Description                                     |
-| -------------- | ----------------------------------------------- |
-| `--json`       | JSON output for agents                          |
-| `--json-compact` | Compact JSON for agents (implies `--json`, minimizes duplicated fields) |
-| `--component <id>` | Select target component in multi mode (e.g. `app`, `api`, `worker`) |
-| `--all`        | Include completed features when auto-detecting  |
-| `--done`       | Show completed (workflow-done) features only    |
-| `--approve <reply>` | Approve one labeled option using any reply that includes a label token (e.g. `A`, `A OK`, `A proceed`) |
-| `--ticket <token>` | One-time execution ticket from `--approve` (required when selected option has `requiresUserCheck=true`) |
-| `--execute`    | Execute only the approved option when it is a command (`--ticket` required only for check-required options) |
-| `--execute-strict` | With `--execute`, fail if the approved option is instruction-only |
-
-**What is a ticket (approval ticket)?**
-
-- A one-time execution token issued by the CLI when you approve a label via `--approve`.
-- `--ticket` is required for `--execute` only when the selected action has `requiresUserCheck=true`.
-- It is short-lived (5 minutes by default) and cannot be reused after one execution.
-- When you `--execute` a handoff-only command (`pre_pr_review_run`, `code_review_run`), the result is `approved_handoff_prepared` with `nextMainState` instead of the normal `approved_executed`.
-- Treat `approved_handoff_prepared` as delegated-work-required: continue the delegated review/fix loop immediately, do not re-approve the same label, and refresh `context` only after the required evidence/state update.
-
-`context --json-compact` is the default recommended format, providing a minimal hot-path contract for agents.  
-Use `context --json` only when full-detail debugging fields are required.
-
-**Core fields (recommended for normal agent flows)**
-
-- `status` / `reasonCode`: current state and reason code
-- `actionOptions[]`: `label` (`A`, `B`, `C`...) + the minimal execution contract (`detail`, `actionType`, `category`, `operationType`, `requiresUserCheck`, plus command/instruction payload)
-- `approvalRequest`: approval state and user-facing prompt lines (`required`, `userFacingLines`, `finalPrompt`)
-- `requiredDocs`: built-in docs to read before the current action (`id`, `command`)
-- `checkPolicy`: minimal approval state (`token`, `validLabels`, `checkRequiredLabels`, `checkRequiredCategories`, `approvalRequired`, `contextVersion`)
-- `agentOrchestration`: compact keeps only `subAgentHandoff`. Delegation SSOT is `matchedFeature.currentSubstate*` + `subAgentHandoff`.
-- `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`: current step-internal execution state for owner/phase-aware orchestration
-- `actions[]`: the raw atomic action list remains available in detailed `context --json`.
-
-**Advanced/reference fields (automation edge cases or debugging)**
-
-- `selectionFallback`: fallback used when branch auto-detection does not match (`none` | `open_features` | `all_features` | `done_features`) and only appears in compact for non-hot-path selection states
-- `primaryActionLabel` / `workflowPolicy` / `taskCommitGatePolicy` / `prePrReviewPolicy`: detailed debugging/policy fields available from `context --json`
-
-Error payloads (`status: "error"`) include `reasonCode` and labeled `suggestions` (`A/B/C`) (e.g. `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`).
-
-### Built-in Docs
-
-If you do not restore `agents.md` into project docs, fetch CLI-managed guides directly:
-`docs get create-issue|issue-doc|create-pr|pr-doc --json` also returns `contract` (required sections / artifact rules).
-
-```bash
-# list built-in docs
-npx lee-spec-kit docs list --json
-
-# root agent guide
-npx lee-spec-kit docs get agents --json
-
-# issue/PR procedure + templates
-npx lee-spec-kit docs get create-issue --json
-npx lee-spec-kit docs get issue-doc --json
-npx lee-spec-kit docs get create-pr --json
-npx lee-spec-kit docs get pr-doc --json
-```
-
-### View
-
-```bash
-npx lee-spec-kit view
-npx lee-spec-kit view F001
-npx lee-spec-kit view --all
-npx lee-spec-kit view --json
-```
-
-**Options:**
-
-| Option         | Description                                     |
-| -------------- | ----------------------------------------------- |
-| `--json`       | JSON output for agents                          |
-| `--component <id>` | Select target component in multi mode (e.g. `app`, `api`, `worker`) |
-| `--all`        | Include completed features when auto-detecting  |
-| `--done`       | Show completed (workflow-done) features only    |
-
-### Flow
-
-```bash
-# workflow summary (context + status + doctor)
-npx lee-spec-kit flow
-
-# approve + execute (recommended agent path)
-npx lee-spec-kit flow F001 --approve A --execute
-
-# auto-run: stop and wait for approval when one of target categories appears
-npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update
-
-# auto-run using preset
-npx lee-spec-kit flow F004 --auto-preset pr-handoff
-
-# auto-run + apply new request first (runs user_request_replan first)
-npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed" --auto-until-category pr_create,code_review,pr_status_update
-
-# with default preset configured, request-only auto mode is available
-npx lee-spec-kit flow F004 --request "promote issue 004 to F004 and proceed"
-
-# long-running auto: create checkpoint + resume
-npx lee-spec-kit flow F004 --auto-until-category pr_create,code_review,pr_status_update --start-auto --json-compact
-npx lee-spec-kit flow --resume <RUN_ID> --json-compact
-
-# JSON output for automation
-npx lee-spec-kit flow --json
-npx lee-spec-kit flow --json-compact
-
-# strict checks (optional)
-npx lee-spec-kit flow --strict
-```
-
-**Options:**
-
-| Option            | Description |
-| ----------------- | ----------- |
-| `--json`          | JSON output for agents |
-| `--json-compact`  | Compact JSON output for agents (implies `--json`, reduced duplication) |
-| `--component <id>`| Select target component in multi mode (e.g. `app`, `api`, `worker`) |
-| `--all`           | Include completed features when auto-detecting |
-| `--done`          | Show completed (workflow-done) features only |
-| `--request <text>` | In auto mode, apply a new user request first (auto-selects `user_request_replan`) |
-| `--auto-preset <name>` | Use a named auto preset (builtin: `pr-handoff`) |
-| `--auto-until-category <categories>` | Auto-execute command actions until one of target categories appears (comma-separated) |
-| `--start-auto`     | Persist auto checkpoint (run id) and include resume metadata (`autoRun.run`) in JSON |
-| `--resume <run-id>`| Resume stored auto checkpoint by run id |
-| `--approve <reply>` | Pass through context label approval (e.g. `A`, `A OK`, `A proceed`) |
-| `--execute`       | Execute approved option when it is a command (ticket is required only when `requiresUserCheck=true`) |
-| `--execute-strict`| With `--execute`, fail if approved option is instruction-only |
-| `--strict`        | Also run `status --strict` and `doctor --strict` |
-
-Auto gate mode rules:
-- `<feature-name>` is required with auto mode (`--auto-until-category` / `--auto-preset`) (for example `F004`).
-- Auto mode (`--auto-until-category` / `--auto-preset`) cannot be combined with `--approve` or `--execute`.
-- `--request` requires auto mode.
-  - Exception: if `workflow.auto.defaultPreset` is configured, `--request` alone enables auto mode.
-- `--resume <run-id>` cannot be combined with `<feature-name>`, `--component`, `--all`, `--done`, `--auto-*`, or `--request`. (It uses settings from the stored checkpoint.)
-- Auto-run stops as `gate_reached` when a target category appears, then prints `autoRun.gate.userFacingLines`. (This is copied from that step's `approvalRequest.userFacingLines`.)
-- In `context --json` / `--json-compact`, `autoRun.available` means "auto-run can execute right now". If config allows auto-run but the current step is instruction-only, you get `autoRun.available=false`, `autoRun.policyEligible=true`, `autoRun.executableNow=false`, and `autoRun.manualBoundary`.
-- If the current action set is instruction-only (no executable command), auto-run may stop with `AUTO_MANUAL_REQUIRED`. This is an automation boundary, not a CLI crash.
-- If progress stalls (same context/action repeating), it stops with `AUTO_NO_PROGRESS`.
-- In JSON mode, inspect `autoRun.status`, `autoRun.reasonCode`, `autoRun.gate`, `autoRun.manual`, and `autoRun.resume`.
-  - Detailed `flow --json` keeps the full `autoRun.executions` array.
-  - Compact `flow --json-compact` keeps only `autoRun.executionCount` and `autoRun.lastExecution`.
-- Inspect JSON `agentOrchestration` and `matchedFeature.currentSubstate*` for main/sub-agent responsibilities and pause/report boundaries.
-  - Prefer `matchedFeature.currentSubstateOwner` plus `subAgentHandoff` as the delegation signal when present. Compact keeps only `subAgentHandoff`; use detailed `--json` / `flow --json` when you need extra orchestration metadata.
-- With `--start-auto`, JSON also includes `autoRun.run` (`runId`, `status`, `resumeCommand`).
-
-Agent resume rules (recommended):
-- When `flow --json-compact` (or `flow --json`) returns `autoRun.enabled=true`, resume with `autoRun.resume.flowCommand` after interruption/compression.
-- If you need a fresh checkpoint before resuming, run `autoRun.resume.contextCommand` first.
-- If `context --json-compact` (or `context --json`) returns `approvalRequest.required=true`, stop immediately and report to the user.
-- When `--start-auto` is used, prefer `autoRun.run.resumeCommand` (`flow --resume <runId>`) as the first resume path.
-
-### GitHub helpers
-
-```bash
-# Generate issue body from selected feature
-npx lee-spec-kit github issue F001
-
-# Generate + create issue
-npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement,frontend
-
-# Generate PR body
-npx lee-spec-kit github pr F001
-
-# Generate PR body (force screenshots/Mermaid sections)
-npx lee-spec-kit github pr F001 --screenshots on --mermaid on
-
-# Generate + create PR + sync tasks.md metadata + merge with retry
-npx lee-spec-kit github pr F001 --create --merge --confirm OK --labels enhancement,frontend
-```
-
-Key points:
-- Issue/PR helpers validate required body sections and related docs paths.
-- `--json` output includes both `body` (inline markdown) and `bodyFile` (file path).
-- If `--labels` is omitted, the default label is `enhancement`. When you pass `--labels` explicitly, it must not be empty.
-- `--create`/`--merge` are remote operations and require `--confirm OK`.
-- PR helper can sync `tasks.md` PR URL/PR Status automatically (`--no-sync-tasks` to skip).
-- PR artifact sections are controlled by `--screenshots (auto|on|off)` and `--mermaid (auto|on|off)`.
-- Merge includes retry and automatic head-branch refresh (fetch/rebase/force-push) on out-of-date failures.
-
-### Status
-
-```bash
-npx lee-spec-kit status
-npx lee-spec-kit status --json
-npx lee-spec-kit status --write
-npx lee-spec-kit status --strict
-```
-
-**Options:**
-
-| Option         | Description                                          |
-| -------------- | ---------------------------------------------------- |
-| `--json`       | JSON output for agents                               |
-| `-w, --write`  | Write `features/status.md`                           |
-| `-s, --strict` | Exit with code 1 when duplicate/missing Feature IDs exist |
-
-Status values distinguish implementation vs workflow completion:
-- `DONE`: all tasks are marked done, but workflow requirements are not fully satisfied
-- `WORKFLOW_DONE`: implementation + workflow requirements are both satisfied
-
-### PRD Requirement Traceability
-
-Aggregate PRD coverage from PRD requirement IDs (e.g. `PRD-FR-001`) and Feature `tasks.md` bracket tags (e.g. `[PRD-FR-001]`).
-
-Recommended SSOT:
-- PRD (`docs/prd/`): requirements SSOT (keep stable IDs)
-- Ideas (`docs/ideas/`): pre-Feature stage (record `PRD Refs` at the top)
-- Features (`docs/features/`): implementation/progress SSOT (`PRD Refs` in `spec.md`, task tags in `tasks.md`, change records in `decisions.md`)
-
-When requirements/scope change mid-work, update at minimum:
-- PRD docs + `spec.md` `PRD Refs` + `tasks.md` task tags
-- (when applicable) `plan.md`, `decisions.md`
-
-```bash
-npx lee-spec-kit requirements
-
-# alias
-npx lee-spec-kit prd
-
-# JSON output for agents
-npx lee-spec-kit requirements --json
-
-# Write report (docs/prd/status.md)
-npx lee-spec-kit requirements --write
-
-# Exit code 1 when issues exist (unknown refs / unmapped tasks / untracked requirements)
-npx lee-spec-kit requirements --strict --json
-```
-
-### Global Option
-
-```bash
-npx lee-spec-kit --no-banner --help
-```
-
-You can also disable banner output via `LEE_SPEC_KIT_NO_BANNER=1`.
-Banner output is also suppressed by default for non-TTY runs (for example, agent/pipeline execution).
-
-### Doctor
-
-```bash
-npx lee-spec-kit doctor
-npx lee-spec-kit doctor --strict
-npx lee-spec-kit doctor --json
-npx lee-spec-kit doctor --fix
-npx lee-spec-kit doctor --fix --dry-run
-npx lee-spec-kit doctor --decisions-placeholders off
-npx lee-spec-kit doctor --decisions-placeholders info
-npx lee-spec-kit doctor --decisions-placeholders warn
-```
-
-- `--decisions-placeholders <mode>`:
-  - `off`: ignore `decisions.md` placeholders
-  - `info` (default): include as informational findings (non-blocking)
-  - `warn`: treat as warnings
-
-### Update templates
-
-By default, `update` runs only when the `docs/` working tree is clean; in that case it overwrites changed files without prompting.  
-If you want to update while you have uncommitted changes, use `--force`.
-`update` also backfills missing `.lee-spec-kit.json` keys using current defaults (e.g. `workflow.taskCommitGate: "warn"`).
-
-```bash
-npx lee-spec-kit update
-npx lee-spec-kit update --agents
-npx lee-spec-kit update --skills
-npx lee-spec-kit update --templates
-npx lee-spec-kit update --force
-```
-
-> `agents/skills` and `features/feature-base` are now CLI-managed (SSOT).  
-> `update --skills` and `update --templates` are used to clean up legacy copied files in existing docs trees.
-
-## Configuration
-
-### `.lee-spec-kit.json`
-
-Running `init` creates `.lee-spec-kit.json` in your docs root (default: `docs/`).
-
-```json
-{
-  "projectName": "my-project",
-  "projectType": "single",
-  "lang": "en",
-  "createdAt": "YYYY-MM-DD",
-  "docsRepo": "embedded",
-  "workflow": {
-    "mode": "github",
-    "codeDirtyScope": "auto",
-    "taskCommitGate": "warn",
-    "prePrReview": {
-      "skills": ["code-review-excellence"],
-      "enforceExecutionEvidence": false
-    }
-  },
-  "pr": { "screenshots": { "upload": false } },
-  "approval": { "mode": "builtin" }
-}
-```
-
-| Field         | Description                                      |
-| ------------- | ------------------------------------------------ |
-| `projectName` | Project name                                     |
-| `projectType` | `single` or `multi` (`fullstack` alias supported) |
-| `components`  | (multi only) component list (e.g. `["app","api","worker"]`) |
-| `lang`        | `ko` or `en`                                     |
-| `createdAt`   | Creation date                                    |
-| `docsRepo`    | `embedded` or `standalone`                       |
-| `pushDocs`    | (standalone only) whether to manage/push docs repo as a separate git repo |
-| `docsRemote`  | (standalone + pushDocs) docs repo remote URL |
-| `projectRoot` | (standalone only) project repo path (single: string, multi: `{ [component]: path }`) |
-| `workflow`    | (optional) workflow completion policy (`github`/`local`, `codeDirtyScope`, `taskCommitGate`, `prePrReview`) |
-| `pr`          | (optional) PR artifacts policy (e.g. screenshot upload) |
-| `approval`    | (optional) Override CHECK-required policy in `context` output (for automation/semi-auto) |
-
-> In standalone mode, `init` can add `pushDocs`, `docsRemote`, and `projectRoot` to this config.
-> If you run the CLI outside the docs repo in standalone mode, set `LEE_SPEC_KIT_DOCS_DIR` to the docs repo path.
-
-### approval (check policy)
-
-`approval` only affects the following values produced by `context`:
-
-- the `[CHECK required]` tag in text output
-- `actionOptions[].requiresUserCheck` in `context --json-compact` (`actions[].requiresUserCheck` in `--json`)
-- `checkPolicy.token` (`context --json-compact`/`--json`): approval token format (`<LABEL>`)
-- `checkPolicy.validLabels`: currently selectable labels (`A`, `B`, `C`...)
-- `checkPolicy.checkRequiredLabels` / `checkPolicy.checkRequiredCategories`: labels/categories that currently require approval
-- `checkPolicy.approvalRequired`: whether the current state is approval-blocked
-- `checkPolicy.contextVersion`: snapshot hash for stale-context validation
-- `checkPolicy.acceptedTokens`, `tokenPattern`, `activeCategories`, `knownCategories`, `uncategorizedLabels`, `categoryPolicyGuidance`, `requireExplanationBeforeApproval`, and `requiredExplanationFields` remain available in detailed `context --json`.
-- `actionOptions`: maps `label` (`A`, `B`, `C`...) to each atomic `action`
-- `workflowPolicy`: current completion policy (`mode`, `requireIssue`, `requireBranch`, `requirePr`, `requireReview`)
-- `taskCommitGatePolicy`: task commit gate policy (`off` | `warn` | `strict`)
-
-> This does not enforce/deny execution by itself; it’s a signal for agents.
-> If `approval` is omitted, it behaves as `builtin`. (No migration required)
-> When `requiresUserCheck: true`, it’s recommended that agents wait for an explicit `<label>` or `<label> OK` response (e.g. `A`, `A OK`) before proceeding.
-
-### workflow (completion policy)
-
-- `workflow.mode: "github"` (default): issue/branch/PR/review are required in workflow completion
-- `workflow.mode: "local"`: local-first workflow; issue/branch/PR/review are not required
-  - Feature templates generated in local mode minimize Issue/PR-focused sections by default.
-- `workflow.codeDirtyScope`:
-  - `repo`: evaluate uncommitted code changes across the whole project repo
-  - `component`: evaluate only paths mapped to the current feature component (recommended for multi)
-  - `auto`: `single => repo`, `multi => component`
-  - `workflow.componentPaths` (optional): explicit per-component paths for component-scoped checks (e.g. `"web": ["apps/web", "packages/web-ui"]`)
-  - backward compatibility: if omitted, runtime defaults to `repo`
-- `workflow.taskCommitGate`:
-  - `strict`: block only when the latest `tasks.md` commit includes 2+ DONE transitions
-  - `warn`: show warning but allow progress
-  - `off`: disable the check
-  - backward compatibility: if omitted, runtime defaults to `warn`
-- `workflow.prePrReview`:
-  - `enabled` (optional): enforce pre-PR review stage (default: same as `requirePr`)
-  - `skills` (optional): preferred skill names in priority order (default: `["code-review-excellence"]`)
-  - `fallback` (optional): baseline review policy (default: `"builtin-checklist"`)
-    - Use the `Pre-PR Baseline Checklist` section in `docs get create-pr --json` as the single source of truth
-  - `evidenceMode` (optional): evidence validation mode (`"path_required"` | `"any"`, default: `"path_required"`)
-    - `path_required`: evidence must be a real existing local path
-  - `decisionEnum` (optional): allowed decision outcomes (default: `["approve","changes_requested","blocked"]`)
-    - Moving to PR step requires final decision `approve`
-  - `enforceExecutionEvidence` (optional): require proof that a review agent was actually executed (default: `false`)
-    - when `true`, `pre-pr-review` requires `--evidence` and non-empty `commandsExecuted`
-    - when `false`, implementation-quality review fields remain required, while `commandsExecuted` is optional review evidence
-  - `executionCommandPrefixes` (optional): command prefixes to match against `commandsExecuted` when execution evidence is enforced (default: `[]`)
-    - when non-empty, at least one executed command must start with one of these prefixes
-- `workflow.auto`:
-  - `defaultPreset` (optional): default auto preset used by `flow --request "<text>"` (default: `"pr-handoff"`)
-  - `defaultUntilCategories` (optional): default gate categories (takes precedence over `defaultPreset`)
-  - `presets` (optional): custom preset map
-    - Example: `"my-handoff": ["pr_create", "code_review"]`
-
-Example:
-
-```json
-{
-  "workflow": {
-    "mode": "github",
-    "codeDirtyScope": "auto",
-    "taskCommitGate": "warn",
-    "auto": {
-      "defaultPreset": "pr-handoff",
-      "presets": {
-        "my-handoff": ["pr_create", "code_review", "pr_status_update"]
-      }
-    },
-    "prePrReview": {
-      "skills": ["code-review-excellence"],
-      "fallback": "builtin-checklist",
-      "evidenceMode": "path_required",
-      "decisionEnum": ["approve", "changes_requested", "blocked"],
-      "enforceExecutionEvidence": false,
-      "executionCommandPrefixes": []
-    }
-  }
-}
-```
-
-Pre-PR execution gate risks and mitigations:
-- Throughput bottleneck: add timeout/retry and a maintainer override route.
-- Cost increase: scope review agent execution by changed files/size threshold.
-- Quality illusion: keep periodic human spot-checks even with automatic review logs.
-- False positives/noise: block only on high-severity findings; keep low-severity as comments.
-- Tool lock-in: standardize output JSON schema so executors can be replaced.
-
-#### Modes
-
-- `builtin` (default): keep built-in `requiresUserCheck` in steps/actions
-- `category` (recommended): control CHECK policy by `actionOptions[].category` (`actions[].category` in `--json`)
-- `steps`: control by step numbers (not recommended; fragile)
-
-#### Fields
-
-- `default` (`category` only): `keep` | `require` | `skip` (default: `keep`)
-- `requireCheckCategories` (`category` only): categories that **always** require CHECK (e.g. `["pr_create"]`, `["*"]`)
-- `skipCheckCategories` (`category` only): categories that **never** require CHECK (e.g. `["docs_commit"]`, `["*"]`)
-- `requireCheckSteps` (`steps` only): step numbers that require CHECK (e.g. `[3, 5, 12]`)
-- `taskExecuteCheck` (optional): legacy `task_execute` start/complete phase compatibility override (`both` | `start_only`, default: `both`)
-  - `both`: on legacy `task_execute` compatibility paths, require approval for both TODO→DOING and DOING→DONE transitions
-  - `start_only`: on legacy `task_execute` compatibility paths, require approval only for TODO→DOING and skip default approval for DOING→DONE
-
-#### category examples
-
-```json
-{
-  "approval": { "mode": "category", "default": "skip" }
-}
-```
-
-```json
-{
-  "approval": {
-    "mode": "category",
-    "default": "keep",
-    "skipCheckCategories": ["docs_commit"]
-  }
-}
-```
-
-> Discover category values from detailed `context --json` using `checkPolicy.activeCategories` / `checkPolicy.knownCategories`, or from `actionOptions[].category`. Compact keeps only the hot-path contract.
-
-### pr (PR artifacts policy)
-
-- `pr.screenshots.upload` (default: `false`): When `true`, agents may upload screenshots (e.g. GitHub Release assets) and include URLs in PR body. When `false`, agents should not upload/include URLs and should omit screenshot sections from the PR body.
-
-### View/Update Config
-
-```bash
-# show current config
-npx lee-spec-kit config
-
-# target a specific docs path when multiple docs directories exist
-npx lee-spec-kit config --dir ./docs2
-
-# update projectRoot (single)
-npx lee-spec-kit config --project-root /new/path
-npx lee-spec-kit config --dir ./docs2 --project-root /new/path
-
-# update projectRoot (multi)
-npx lee-spec-kit config --project-root /new/app/path --component app
-npx lee-spec-kit config --project-root /new/api/path --component api
-npx lee-spec-kit config --project-root /new/worker/path --component worker
-
-# non-interactive mode (fails immediately if required input is missing)
-npx lee-spec-kit config --project-root /new/app/path --component app --non-interactive
-```
-
-**Options:**
-
-| Option | Description |
-| --- | --- |
-| `--dir <dir>` | Target docs directory or project path |
-| `--project-root <path>` | Set projectRoot path |
-| `--component <id>` | Target component in multi mode |
-| `--non-interactive` | Fail immediately instead of prompting for user input |
-
-> `--non-interactive` is supported by `init`, `feature`, and `config`.
-> For automation, command errors print `[REASON_CODE]` (e.g. `PROMPT_BLOCKED`, `CONFIG_NOT_FOUND`).
-> Text-mode errors also print labeled next options under `👉 Next Options (Error)`.
-
-### Error Codes
-
-- This CLI exposes error reason codes for automation:
-  - `reasonCode` in JSON responses
-  - `[REASON_CODE]` in text error output
-- Error responses also provide labeled next-step suggestions (`A/B/C`):
-  - `suggestions` in JSON mode
-  - `👉 Next Options (Error)` in text mode
-- Common examples:
-  - `PROMPT_BLOCKED`
-  - `CONFIG_NOT_FOUND`
-  - `DOCS_NOT_FOUND`
-  - `LOCK_WAIT_TIMEOUT` / `LOCK_ACQUIRE_TIMEOUT`
-  - `INVALID_APPROVAL`, `CONTEXT_STALE`, `EXECUTION_FAILED`, `EXECUTION_NOT_COMMAND`
-
-For the full code list and meanings, see `errors.en.md` (English) or `errors.md` (Korean).
-
-## Generated Structure
-
-See the Korean README for the full tree examples and workflow details: `README.md`.
-
-Note: generated docs keep project-scoped policy docs (`agents/custom.md`, `agents/constitution.md`) and do not sync CLI-managed docs (`agents.md`, `agents/skills/*`, `git-workflow.md`, `features/feature-base/*`).
+MIT

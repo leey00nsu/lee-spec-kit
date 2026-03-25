@@ -34,6 +34,9 @@ npx lee-spec-kit feature --component app user-profile
 
 > 💡 CLI는 `feature-base/`에서 템플릿을 복사하고 ID를 자동 채번합니다.
 
+Feature는 PRD → idea → feature 흐름에서 실제 구현을 진행하는 실행 단위입니다.
+여기까지 오기 전에는 요구사항이 `docs/prd/`에 정의되어 있고, 사전 탐색이 필요했다면 `docs/ideas/`에 정리되어 있는 상태를 권장합니다.
+
 ---
 
 ## 기능 ID 규칙
@@ -67,7 +70,7 @@ npx lee-spec-kit status --write
 - `[NON-PRD]`는 refactor, 테스트 전용 작업, tooling, rename, cleanup 같은 내부 구현 작업에만 사용하세요.
 - 변경이 사용자 동작, acceptance criteria, 범위를 바꾸면 PRD를 먼저 갱신하고 태스크도 `[PRD-...]`로 다시 연결하세요.
 - 단, 태스크 문서에서 PRD ID를 임의 생성하지 않습니다. 먼저 PRD 원문에 정의하고, 레거시 문서는 원문 ID backfill 후 연결하세요.
-- 커버리지 리포트: `npx lee-spec-kit requirements` (alias: `npx lee-spec-kit prd`)
+- 커버리지 리포트: `npx lee-spec-kit requirements`
 
 ---
 

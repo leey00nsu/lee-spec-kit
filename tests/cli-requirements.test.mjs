@@ -2,6 +2,31 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { fs, path, runCli, withTempDir } from './helpers/cli-contract-helpers.mjs';
 
+test('prd is no longer an alias for requirements coverage', async () => {
+  await withTempDir('lsk-prd-alias-removed-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--yes',
+      '--name',
+      'ReqAlias',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const result = await runCli(dir, ['prd', '--json']);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /unknown command|Unknown command/i);
+  });
+});
+
 test('requirements --json reports PRD requirement coverage from tasks tags', async () => {
   await withTempDir('lsk-requirements-json-', async (dir) => {
     const initResult = await runCli(dir, [
