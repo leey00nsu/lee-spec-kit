@@ -35,22 +35,22 @@ npx lee-spec-kit feature --component api user-auth
 npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
 ```
 
-### `next`
+### `context`
 
-Show the next recommended action for the current or selected feature.
+Show the current feature state, next recommended action, and approval/execution guidance.
 
 ```bash
-npx lee-spec-kit next
-npx lee-spec-kit next F001-alpha
+npx lee-spec-kit context
+npx lee-spec-kit context F001-alpha
 ```
 
-### `check`
+### `flow`
 
-Summarize overall workflow status and health.
+Summarize overall workflow status and health across context, status, and doctor checks.
 
 ```bash
-npx lee-spec-kit check
-npx lee-spec-kit check F001-alpha
+npx lee-spec-kit flow
+npx lee-spec-kit flow F001-alpha
 ```
 
 ## Typical Agent-Executed Flow
@@ -59,11 +59,10 @@ npx lee-spec-kit check F001-alpha
 npx lee-spec-kit init
 npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit next
-npx lee-spec-kit check
+npx lee-spec-kit context
+npx lee-spec-kit flow
 ```
 
 ## Notes
 
-- `next` and `check` are public facades over the agent-oriented `context` and `flow` runners.
 - Detailed agent and internal commands are documented separately.

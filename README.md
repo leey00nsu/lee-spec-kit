@@ -19,7 +19,7 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
   <a href="#이-cli가-하는-일">Why</a> •
-  <a href="#사람이-실제로-쓰는-명령">Commands</a> •
+  <a href="#에이전트가-주로-실행하는-명령">Commands</a> •
   <a href="#docs">Docs</a>
 </p>
 
@@ -42,8 +42,8 @@
 npx lee-spec-kit init
 npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit next
-npx lee-spec-kit check
+npx lee-spec-kit context
+npx lee-spec-kit flow
 ```
 
 ## 왜 만들었나
@@ -68,7 +68,7 @@ Idea는 그 요구사항에서 나온 후보와 실험을 정리하는 단계이
 메인 에이전트가 현재 상태를 읽고 다음 액션을 고르도록 돕는 개발 하네스입니다.
 
 - 사람은 보통 자연어로 요청합니다.
-- 메인 에이전트는 그 요청을 `detect`, `context`, `flow`, `idea`, `feature`, `next`, `check` 같은 명령으로 번역해 실행합니다.
+- 메인 에이전트는 그 요청을 `detect`, `context`, `flow`, `idea`, `feature` 같은 명령으로 번역해 실행합니다.
 - 더 깊은 운영 명령은 여전히 지원되지만 기본 help에는 전면 노출하지 않습니다.
 
 ## 어떻게 동작하나
@@ -78,7 +78,7 @@ Idea는 그 요구사항에서 나온 후보와 실험을 정리하는 단계이
 3. `idea`로 후보/실험을 정리하거나, 바로 `feature`로 실행 단위를 만듭니다.
 4. 메인 에이전트가 `detect`와 `context`를 읽고 진행합니다.
 5. 사람은 승인, 예외 처리, 방향 수정 시점에 개입합니다.
-6. 현재 다음 액션은 `next`, 전체 상태는 `check`로 확인합니다.
+6. 현재 다음 액션과 승인 대기 상태는 `context`, 전체 상태 요약은 `flow`로 확인합니다.
 
 ## 사람은 보통 이렇게 요청합니다
 
@@ -96,8 +96,6 @@ Idea는 그 요구사항에서 나온 후보와 실험을 정리하는 단계이
 - `detect`: 현재 워크스페이스가 lee-spec-kit 프로젝트인지 감지합니다.
 - `context`: 현재 feature 상태와 다음 액션을 읽습니다.
 - `flow`: 전체 워크플로우 상태를 요약합니다.
-- `next`: 현재 다음 액션을 보여주는 public facade입니다.
-- `check`: 전체 상태를 점검하는 public facade입니다.
 
 ## 에이전트 킥오프 프롬프트
 

@@ -19,7 +19,7 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
   <a href="#what-this-cli-does">Why</a> •
-  <a href="#commands-humans-actually-use">Commands</a> •
+  <a href="#commands-the-agent-usually-runs">Commands</a> •
   <a href="#docs">Docs</a>
 </p>
 
@@ -42,8 +42,8 @@ In most cases, the human asks in natural language and the main agent runs this f
 npx lee-spec-kit init
 npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit next
-npx lee-spec-kit check
+npx lee-spec-kit context
+npx lee-spec-kit flow
 ```
 
 ## Why It Exists
@@ -65,7 +65,7 @@ but it is adapted toward a more practical project workflow with explicit documen
 `lee-spec-kit` is less a power-user operator console and more a development harness that helps the main agent read project state and choose the next action.
 
 - Humans usually ask in natural language.
-- The main agent translates those requests into commands like `detect`, `context`, `flow`, `idea`, `feature`, `next`, and `check`.
+- The main agent translates those requests into commands like `detect`, `context`, `flow`, `idea`, and `feature`.
 - Deeper operational commands still exist, but they are no longer front-loaded in the default help output.
 
 ## How It Works
@@ -75,7 +75,7 @@ but it is adapted toward a more practical project workflow with explicit documen
 3. Create work with `idea` or `feature`.
 4. Let the main agent read `detect` and `context`.
 5. Humans step in for approvals, exceptions, and direction changes.
-6. Use `next` for the current action and `check` for overall health.
+6. Use `context` for the current action and `flow` for overall workflow health.
 
 ## Humans Usually Ask Like This
 
@@ -93,8 +93,6 @@ but it is adapted toward a more practical project workflow with explicit documen
 - `detect`: detect whether the workspace uses lee-spec-kit
 - `context`: read current feature state and next actions
 - `flow`: summarize workflow state
-- `next`: public facade for the current next action
-- `check`: public facade for overall status
 
 ## Agent Kickoff Prompt
 

@@ -8,11 +8,9 @@ import { statusCommand } from './commands/status.js';
 import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
 import { contextCommand } from './commands/context.js';
-import { nextCommand } from './commands/next.js';
 import { doctorCommand } from './commands/doctor.js';
 import { viewCommand } from './commands/view.js';
 import { flowCommand } from './commands/flow.js';
-import { checkCommand } from './commands/check.js';
 import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
@@ -76,7 +74,7 @@ function getCliVersion(): string {
 }
 
 function configureRootCommandSurface(): void {
-  const publicCommands = new Set(['init', 'idea', 'feature', 'next', 'check']);
+  const publicCommands = new Set(['init', 'idea', 'feature', 'context', 'flow']);
 
   for (const command of program.commands) {
     if (publicCommands.has(command.name())) {
@@ -104,8 +102,6 @@ if (shouldShowBanner()) {
 initCommand(program);
 ideaCommand(program);
 featureCommand(program);
-nextCommand(program);
-checkCommand(program);
 statusCommand(program);
 updateCommand(program);
 configCommand(program);

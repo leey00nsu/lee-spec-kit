@@ -44,6 +44,4 @@ npx lee-spec-kit flow F001-alpha --approve A --execute
 
 ## Notes
 
-- `next` is the public-facing facade for `context`.
-- `check` is the public-facing facade for `flow`.
 - JSON contracts should be treated as the stable interface for agents.
