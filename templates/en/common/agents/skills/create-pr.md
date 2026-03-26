@@ -149,7 +149,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 
 > 🚨 **User Approval Required**
 
-Before creating PR, share the following **in a code block** and wait for **explicit approval (OK)**:
+Before creating the PR, share the following **in a code block** and, if approval is currently required, wait for the CLI-provided `<LABEL>` or `<LABEL> OK` reply:
 
 - Title
 - Full body template (from `pr.md`)

@@ -86,11 +86,11 @@ Use the feature’s `decisions.md` template format as final SSOT. (Context/Const
 ### Step 3.5: Commit per task (important)
 
 - Complete **only one task at a time** (do not batch-finish multiple tasks in one commit).
-- After you share the outcome/verification, mark the task `[DONE]` (and update any checklist items). If approval is required (`approvalRequest.required=true`), wait for OK first. Then create commits (code commit + docs commit) so each task has its own history.
+- After you share the outcome/verification, mark the task `[DONE]` (and update any checklist items). If approval is required (`approvalRequest.required=true`), reuse the exact CLI-provided approval lines and wait for a `<LABEL>` or `<LABEL> OK` reply first. If approval is not required, do not invent a separate approval prompt before marking `[DONE]`.
 - In `tasks.md` test logs, keep one entry per test command and update its date/result on reruns (do not keep appending duplicates). Use `YYYY-MM-DD` in local date.
-- If `context` shows `[CHECK required]`, for commits/push/merge, **share the commit message + included files and wait for explicit OK** before running the commands.
-- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user and get **final approval (OK)**, then check it (especially the **Final user approval (OK) received** item).
-  - Note: `Doc Status (Review→Approved)` is **progress approval (OK)**, while the completion checklist approval is **final approval (OK)**.
+- If `context` shows `[CHECK required]`, for commits/push/merge, **share the commit message + included files and wait for the latest CLI-provided label reply** before running the commands.
+- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user. If that point is approval-waiting, get a `<LABEL>` or `<LABEL> OK` reply before checking it; otherwise get a normal confirmation reply. (especially the **Final user approval received** item).
+  - Note: both progress approval and final approval must follow the current `approvalRequest.required` state. When approval is label-gated, always use label replies instead of standalone `OK` as the approval token.
 
 ### Step 4: Repeat
 

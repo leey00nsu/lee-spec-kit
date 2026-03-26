@@ -7,8 +7,8 @@ This document covers **policy only**.
 
 ## 🚨 User Approval Required (MUST)
 
-> ⚠️ The actions below require explicit user approval (OK) before execution.
-> ✅ Approval replies must be in `<label>` or `<label> OK` format (e.g. `A`, `A OK`).
+> ⚠️ The actions below require explicit user approval when they are at an approval boundary.
+> ✅ In approval-waiting state, replies must be in `<label>` or `<label> OK` format (e.g. `A`, `A OK`).
 
 | Action | When to confirm | What to share |
 | --- | --- | --- |
@@ -22,8 +22,9 @@ This document covers **policy only**.
 
 Approval flow:
 1. Share details first
-2. Wait for explicit approval (OK)
-3. Execute after approval (for command execution, default to `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`)
+2. Check whether approval is currently required via the latest `context --json-compact` (`approvalRequest.required`)
+3. If approval is required, wait for the exact CLI-provided label prompt response; if not, do not invent a separate approval prompt
+4. Execute after approval (for command execution, default to `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`)
 
 Prohibited:
 - Proceeding without user response
