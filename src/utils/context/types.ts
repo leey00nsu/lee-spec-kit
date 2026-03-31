@@ -32,6 +32,7 @@ export const ACTION_CATEGORIES = [
   'issue_create',
   'branch_create',
   'task_execute',
+  'implementation_approve',
   'review_fix_commit',
   'pr_create',
   'pr_metadata_migrate',

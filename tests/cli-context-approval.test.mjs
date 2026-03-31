@@ -596,6 +596,19 @@ test('context --json keeps task_execute project commit command in main agent', a
       ]);
       assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['spec_write', 'user_request_replan'],
+      };
+      await fs.writeFile(
+        configPath,
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
+      );
+
       const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
       assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -724,6 +737,18 @@ test('context --json actionOptions and approvalRequest expose raw detail fields'
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'require',
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -868,6 +893,19 @@ test('context summaries are localized in ko mode (no English fallback summaries)
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_write', 'user_request_replan'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -900,6 +938,19 @@ test('context --json-compact uses the context.v3 hot-path action option contract
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_write', 'user_request_replan'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1002,6 +1053,19 @@ test('context --json-compact preserves substate metadata for substate-backed ste
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['docs_commit'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1162,6 +1226,19 @@ test('context spec_write approval prompt hides internal docs-get commands', asyn
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_write', 'user_request_replan'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -1243,6 +1320,19 @@ test('context --approve captures user request text for user_request_replan label
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_write', 'user_request_replan'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -1298,6 +1388,19 @@ test('context --approve treats free-form reply as user_request_replan when that 
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_write', 'user_request_replan'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -1345,6 +1448,19 @@ test('context --approve rejects user_request_replan label without request text',
       ]);
       assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['worktree_cleanup'],
+      };
+      await fs.writeFile(
+        configPath,
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
+      );
+
       const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
       assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -1387,6 +1503,19 @@ test('context text output ends with current label reminder and execution hint', 
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_write', 'user_request_replan'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1464,6 +1593,19 @@ test('context text output summarizes docs commit action instead of raw shell com
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['docs_commit'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -1852,6 +1994,198 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       finishPayload.agentOrchestration?.currentActionShouldDelegate,
       false
     );
+  });
+});
+
+test('default spec-first approval skips normal task execution but stops at implementation review', async () => {
+  await withTempDir('lsk-context-spec-first-implementation-gate-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'spec.md'
+    );
+    const planPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'plan.md'
+    );
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const todoTasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [TODO][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] All tasks are done
+- [ ] Final user approval
+`;
+    await fs.writeFile(tasksPath, todoTasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    const docsEmail = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(docsEmail.code, 0, docsEmail.stderr || docsEmail.stdout);
+    const docsName = await runCommand(docsGitRoot, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(docsName.code, 0, docsName.stderr || docsName.stdout);
+    const docsAddInitial = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(
+      docsAddInitial.code,
+      0,
+      docsAddInitial.stderr || docsAddInitial.stdout
+    );
+    const docsCommitInitial = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare F001-alpha for task execution',
+    ]);
+    assert.equal(
+      docsCommitInitial.code,
+      0,
+      docsCommitInitial.stderr || docsCommitInitial.stdout
+    );
+
+    const taskRunContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(
+      taskRunContext.code,
+      0,
+      taskRunContext.stderr || taskRunContext.stdout
+    );
+    const taskRunPayload = JSON.parse(taskRunContext.stdout.trim());
+    assert.equal(taskRunPayload.matchedFeature.currentStep, 10);
+    assert.equal(taskRunPayload.matchedFeature.currentSubstateId, 'task_run');
+    assert.equal(primaryActionOption(taskRunPayload).action.category, 'task_execute');
+    assert.equal(
+      primaryActionOption(taskRunPayload).action.requiresUserCheck,
+      false
+    );
+    assert.equal(taskRunPayload.approvalRequest.required, false);
+
+    const finalizedTasks = `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #
+- **Branch**: feat/-alpha
+- **PR**: -
+- **PR Status**: -
+
+## Task List
+
+- [DONE][P1] T-F001-alpha-01 implement alpha shell
+
+## Completion Criteria
+
+- [ ] All tasks are done
+- [ ] Final user approval
+`;
+    await fs.writeFile(tasksPath, finalizedTasks, 'utf-8');
+
+    const docsAddFinal = await runCommand(docsGitRoot, 'git', [
+      'add',
+      'features/F001-alpha/tasks.md',
+    ]);
+    assert.equal(
+      docsAddFinal.code,
+      0,
+      docsAddFinal.stderr || docsAddFinal.stdout
+    );
+    const docsCommitFinal = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: record completed implementation state',
+    ]);
+    assert.equal(
+      docsCommitFinal.code,
+      0,
+      docsCommitFinal.stderr || docsCommitFinal.stdout
+    );
+
+    const finalizeContext = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(
+      finalizeContext.code,
+      0,
+      finalizeContext.stderr || finalizeContext.stdout
+    );
+    const finalizePayload = JSON.parse(finalizeContext.stdout.trim());
+    assert.equal(finalizePayload.matchedFeature.currentStep, 10);
+    assert.equal(finalizePayload.matchedFeature.currentSubstateId, 'task_finalize');
+    assert.equal(
+      primaryActionOption(finalizePayload).action.category,
+      'implementation_approve'
+    );
+    assert.equal(
+      primaryActionOption(finalizePayload).action.requiresUserCheck,
+      true
+    );
+    assert.equal(finalizePayload.approvalRequest.required, true);
+    assert.deepEqual(finalizePayload.checkPolicy.checkRequiredCategories, [
+      'implementation_approve',
+    ]);
   });
 });
 
@@ -2974,7 +3308,10 @@ test('context uses pre-PR fix commit guidance when project is dirty after change
   );
 });
 
-test('context issue_create action requires explicit user check and is instruction-only', async () => {
+test(
+  'context issue_create action requires explicit user check and is instruction-only',
+  { timeout: 15_000 },
+  async () => {
   await withTempDir('lsk-context-issue-create-check-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -2991,6 +3328,18 @@ test('context issue_create action requires explicit user check and is instructio
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'require',
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -3064,7 +3413,8 @@ test('context issue_create action requires explicit user check and is instructio
     const executePayload = JSON.parse(executeAttempt.stdout.trim());
     assert.equal(executePayload.reasonCode, 'EXECUTION_NOT_COMMAND');
   });
-});
+  }
+);
 
 test('context pr_create action still requires explicit user check', async () => {
   await withTempDir('lsk-context-pr-create-check-', async (dir) => {
@@ -3096,6 +3446,11 @@ test('context pr_create action still requires explicit user check', async () => 
       prePrReview: {
         enabled: false,
       },
+    };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['pr_create'],
     };
     await fs.writeFile(
       configPath,
@@ -3204,6 +3559,11 @@ test('context shows merge guidance when requireReview=false (requireMerge defaul
         prePrReview: {
           enabled: false,
         },
+      };
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['code_review'],
       };
       await fs.writeFile(
         configPath,
@@ -3357,6 +3717,11 @@ test('context code_review step delegates review run before evidence is recorded'
         enabled: false,
       },
     };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['code_review_run'],
+    };
     await fs.writeFile(
       configPath,
       `${JSON.stringify(config, null, 2)}\n`,
@@ -3495,6 +3860,11 @@ test('status --json includes substate metadata for review-run workflow states', 
         enabled: false,
       },
     };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['code_review'],
+    };
     await fs.writeFile(
       configPath,
       `${JSON.stringify(config, null, 2)}\n`,
@@ -3582,6 +3952,11 @@ test('view shows substate details for review-run workflow states', async () => {
         enabled: false,
       },
     };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['code_review'],
+    };
     await fs.writeFile(
       configPath,
       `${JSON.stringify(config, null, 2)}\n`,
@@ -3666,6 +4041,11 @@ test('context code_review step keeps Review status and guides merge command', as
       prePrReview: {
         enabled: false,
       },
+    };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['code_review'],
     };
     await fs.writeFile(
       configPath,
@@ -3832,6 +4212,10 @@ test('context code_review step shows push option only when local branch is ahead
           enabled: false,
         },
       };
+      config.approval = {
+        mode: 'category',
+        default: 'require',
+      };
       await fs.writeFile(
         configPath,
         `${JSON.stringify(config, null, 2)}\n`,
@@ -3994,6 +4378,11 @@ test('context code_review prefers evidence recording over rerun when local revie
           enabled: false,
         },
       };
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['pr_status_update'],
+      };
       await fs.writeFile(
         configPath,
         `${JSON.stringify(config, null, 2)}\n`,
@@ -4145,6 +4534,11 @@ test('context code_review step requires summary format in PR Review Evidence', a
           enabled: false,
         },
       };
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['pr_status_update'],
+      };
       await fs.writeFile(
         configPath,
         `${JSON.stringify(config, null, 2)}\n`,
@@ -4243,6 +4637,19 @@ test('context code_review rejects placeholder summary even when structured prefi
         './docs',
       ]);
       assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['worktree_cleanup'],
+      };
+      await fs.writeFile(
+        configPath,
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
+      );
 
       const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
       assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -4356,6 +4763,11 @@ test('context code_review evidence path must include PR Review Log section', asy
           enabled: false,
         },
       };
+      config.approval = {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['pr_status_update'],
+      };
       await fs.writeFile(
         configPath,
         `${JSON.stringify(config, null, 2)}\n`,
@@ -4468,6 +4880,10 @@ test('context code_review accepts PR Review Log evidence path in decisions.md', 
           enabled: false,
         },
       };
+      config.approval = {
+        mode: 'category',
+        default: 'require',
+      };
       await fs.writeFile(
         configPath,
         `${JSON.stringify(config, null, 2)}\n`,
@@ -4543,7 +4959,10 @@ test('context code_review accepts PR Review Log evidence path in decisions.md', 
   );
 });
 
-test('context code_review step asks PR status sync when remote PR is already merged', async () => {
+test(
+  'context code_review step asks PR status sync when remote PR is already merged',
+  { timeout: 15_000 },
+  async () => {
   await withTempDir(
     'lsk-context-code-review-merged-sync-status-',
     async (dir) => {
@@ -4574,6 +4993,10 @@ test('context code_review step asks PR status sync when remote PR is already mer
         prePrReview: {
           enabled: false,
         },
+      };
+      config.approval = {
+        mode: 'category',
+        default: 'require',
       };
       await fs.writeFile(
         configPath,
@@ -4699,9 +5122,13 @@ process.exit(0);
       );
     }
   );
-});
+  }
+);
 
-test('context code_review step blocks merge guidance when remote PR is closed without merge', async () => {
+test(
+  'context code_review step blocks merge guidance when remote PR is closed without merge',
+  { timeout: 15_000 },
+  async () => {
   await withTempDir('lsk-context-code-review-closed-pr-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -4837,7 +5264,8 @@ process.exit(0);
       false
     );
   });
-});
+  }
+);
 
 test('context code_review step hides merge guidance when remote status is unavailable', async () => {
   await withTempDir(
@@ -5096,7 +5524,10 @@ test('context uses review-fix commit guidance when project is dirty during PR re
   );
 });
 
-test('context keeps cleanup as the primary action before declaring workflow done for managed worktrees', async () => {
+test(
+  'context keeps cleanup as the primary action before declaring workflow done for managed worktrees',
+  { timeout: 15_000 },
+  async () => {
   await withTempDir(
     'lsk-context-feature-done-worktree-cleanup-',
     async (dir) => {
@@ -5115,6 +5546,18 @@ test('context keeps cleanup as the primary action before declaring workflow done
         './docs',
       ]);
       assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.approval = {
+        mode: 'category',
+        default: 'require',
+      };
+      await fs.writeFile(
+        configPath,
+        JSON.stringify(config, null, 2) + '\n',
+        'utf-8'
+      );
 
       const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
       assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -5257,7 +5700,8 @@ test('context keeps cleanup as the primary action before declaring workflow done
       );
     }
   );
-});
+  }
+);
 
 test('status --json marks workflow completion as WORKFLOW_DONE', async () => {
   await withTempDir('lsk-status-workflow-done-', async (dir) => {

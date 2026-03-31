@@ -76,6 +76,8 @@ export const enContext = {
   'context.actionDetail.issueCreateFromDoc':
     'Create GitHub Issue from ready issue.md and sync Issue',
   'context.actionDetail.taskExecute': 'Proceed with the current task',
+  'context.actionDetail.implementationApprove':
+    'Review the completed implementation before post-task handoff',
   'context.actionDetail.taskExecuteRun':
     'Prepare helper agent/sub-agent task handoff and start the task: {task}. (TODO becomes DOING)',
   'context.actionDetail.taskExecuteContinue':

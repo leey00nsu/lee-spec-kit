@@ -744,8 +744,9 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
     const actions: NextAction[] = [
       {
         type: 'instruction' as const,
-        category: 'task_execute',
+        category: 'implementation_approve',
         requiresUserCheck: true,
+        uiDetailKey: 'context.actionDetail.implementationApprove',
         message: !f.completionChecklist
           ? tr(lang, 'messages', 'tasksAllDoneButNoChecklist')
           : tr(lang, 'messages', 'tasksAllDoneButChecklist', {

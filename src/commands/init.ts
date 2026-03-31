@@ -39,6 +39,7 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { createDefaultApprovalConfig } from '../utils/config.js';
 
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
@@ -682,11 +683,9 @@ async function runInit(options: InitOptions): Promise<void> {
         pr: {
           screenshots: { upload: false },
         },
-        // Approval policy for "requiresUserCheck" actions shown by `context`.
-        // - builtin (default): Use requiresUserCheck embedded in steps/actions.
-        // - category: Override by action category (recommended for automation).
-        // - steps: Override by step number (fragile; not recommended).
-        approval: { mode: 'builtin' },
+        // Default to spec-first execution: stop at spec approval, then run
+        // through implementation until the final checklist review gate.
+        approval: createDefaultApprovalConfig(),
       };
 
       // standalone일 때만 pushDocs, projectRoot 추가

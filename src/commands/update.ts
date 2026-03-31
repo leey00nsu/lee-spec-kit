@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
 import { execFileSync } from 'child_process';
-import { getConfig } from '../utils/config.js';
+import { createDefaultApprovalConfig, getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { applyReplacements } from '../utils/template.js';
@@ -32,6 +32,29 @@ interface UpdateOptions {
 interface ConfigBackfillResult {
   changed: boolean;
   changedPaths: string[];
+}
+
+function hasOwnKey(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function isLegacyGeneratedApprovalConfig(
+  approval: Record<string, unknown>
+): boolean {
+  const mode = typeof approval.mode === 'string' ? approval.mode : '';
+  if (mode && mode !== 'builtin') return false;
+
+  const overrideKeys = [
+    'default',
+    'requireCheckSteps',
+    'requireOkSteps',
+    'requireCheckCategories',
+    'requireOkCategories',
+    'skipCheckCategories',
+    'skipOkCategories',
+    'taskExecuteCheck',
+  ];
+  return !overrideKeys.some((key) => hasOwnKey(approval, key));
 }
 
 export function updateCommand(program: Command): void {
@@ -458,11 +481,15 @@ async function backfillMissingConfigDefaults(
   setIfMissing(screenshots, 'upload', false, 'pr.screenshots.upload');
 
   if (!isPlainObject(raw.approval)) {
-    raw.approval = {};
+    raw.approval = createDefaultApprovalConfig();
     changedPaths.push('approval');
+  } else {
+    const approval = raw.approval as Record<string, unknown>;
+    if (isLegacyGeneratedApprovalConfig(approval)) {
+      raw.approval = createDefaultApprovalConfig();
+      changedPaths.push('approval');
+    }
   }
-  const approval = raw.approval as Record<string, unknown>;
-  setIfMissing(approval, 'mode', 'builtin', 'approval.mode');
 
   if (changedPaths.length === 0) {
     return { changed: false, changedPaths: [] };

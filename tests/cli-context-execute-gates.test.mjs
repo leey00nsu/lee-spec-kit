@@ -116,6 +116,19 @@ test('status --strict returns DUPLICATE_FEATURE_ID when duplicate IDs exist', as
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['docs_commit'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
     const f1 = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     const f2 = await runCli(dir, ['feature', 'beta', '--id', 'F001']);
     assert.equal(f1.code, 0, f1.stderr || f1.stdout);
@@ -355,8 +368,41 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
       'changes_requested',
       'blocked',
     ]);
-    assert.equal(config.approval?.mode, 'builtin');
+    assert.equal(config.approval?.mode, 'category');
+    assert.equal(config.approval?.default, 'skip');
+    assert.deepEqual(config.approval?.requireCheckCategories, [
+      'spec_approve',
+      'implementation_approve',
+    ]);
     assert.equal(config.pr?.screenshots?.upload, false);
+  });
+});
+
+test('init writes spec-first approval defaults', async () => {
+  await withTempDir('lsk-init-approval-defaults-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.deepEqual(config.approval, {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_approve', 'implementation_approve'],
+    });
   });
 });
 
@@ -443,7 +489,83 @@ test('update backfills missing config defaults including warn taskCommitGate', a
       'blocked',
     ]);
     assert.equal(nextConfig.pr?.screenshots?.upload, false);
-    assert.equal(nextConfig.approval?.mode, 'builtin');
+    assert.deepEqual(nextConfig.approval, {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_approve', 'implementation_approve'],
+    });
+  });
+});
+
+test('update migrates legacy builtin approval config to spec-first defaults', async () => {
+  await withTempDir('lsk-update-approval-migrate-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'builtin' };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+    await fs.writeFile(path.join(dir, '.migration-marker'), 'legacy\n', 'utf-8');
+
+    const prepAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/.lee-spec-kit.json',
+      '.migration-marker',
+    ]);
+    assert.equal(prepAdd.code, 0, prepAdd.stderr || prepAdd.stdout);
+    const prepCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: keep legacy builtin approval config',
+    ]);
+    assert.equal(prepCommit.code, 0, prepCommit.stderr || prepCommit.stdout);
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
+
+    const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.deepEqual(nextConfig.approval, {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_approve', 'implementation_approve'],
+    });
   });
 });
 
@@ -1782,6 +1904,19 @@ test('parallel context execution is serialized and both commands succeed', async
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['docs_commit'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
     const f1 = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     const f2 = await runCli(dir, ['feature', 'beta', '--id', 'F002']);
     assert.equal(f1.code, 0, f1.stderr || f1.stdout);
@@ -1845,6 +1980,19 @@ test('context --execute uses staged-only project commit and never stages interna
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['task_execute'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
 
     const gitEmail = await runCommand(dir, 'git', [
       'config',
@@ -2044,6 +2192,10 @@ test('context executes pre_pr_review command and records review evidence', async
       prePrReview: {
         skills: ['code-review-excellence'],
       },
+    };
+    config.approval = {
+      mode: 'category',
+      default: 'require',
     };
     await fs.writeFile(
       configPath,
@@ -2460,6 +2612,11 @@ test('context execute reports handoff-prepared for code_review_run without claim
       prePrReview: {
         enabled: false,
       },
+    };
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['code_review_run'],
     };
     await fs.writeFile(
       configPath,
@@ -3704,7 +3861,10 @@ test('context tickets are one-time use for execute', async () => {
   });
 });
 
-test('context tickets enforce explicit session binding when provided', async () => {
+test(
+  'context tickets enforce explicit session binding when provided',
+  { timeout: 15_000 },
+  async () => {
   await withTempDir('lsk-context-ticket-explicit-session-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -3756,9 +3916,13 @@ test('context tickets enforce explicit session binding when provided', async () 
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'INVALID_APPROVAL');
   });
-});
+  }
+);
 
-test('context tickets without stable session binding can execute after approval', async () => {
+test(
+  'context tickets without stable session binding can execute after approval',
+  { timeout: 15_000 },
+  async () => {
   await withTempDir('lsk-context-ticket-no-stable-session-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -3819,7 +3983,8 @@ test('context tickets without stable session binding can execute after approval'
     assert.equal(payload.status, 'approved_instruction');
     assert.equal(payload.reasonCode, 'INSTRUCTION_ONLY');
   });
-});
+  }
+);
 
 test('context non-json output works for single matched feature', async () => {
   await withTempDir('lsk-context-nonjson-single-', async (dir) => {

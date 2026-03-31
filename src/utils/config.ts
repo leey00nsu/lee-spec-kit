@@ -3,6 +3,11 @@ import fs from 'fs-extra';
 import { resolveProjectComponents } from './components.js';
 import { normalizeProjectType, ProjectType, RawProjectType } from './project-type.js';
 
+export const DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES = [
+  'spec_approve',
+  'implementation_approve',
+] as const;
+
 export interface ProjectConfig {
   docsDir: string;
   projectName?: string;
@@ -130,9 +135,9 @@ export interface ProjectConfig {
   };
   approval?: {
     /**
-     * builtin: Use `requiresUserCheck` embedded in steps/actions (default).
+     * builtin: Use `requiresUserCheck` embedded in steps/actions.
      * steps: Determine check requirement only by step number list.
-     * category: Determine check requirement by action category.
+     * category: Determine check requirement by action category (default for new projects).
      */
     mode?: 'builtin' | 'steps' | 'category';
     /**
@@ -176,6 +181,14 @@ export interface ProjectConfig {
      * - start_only: require checks only for TODO->DOING phase.
      */
     taskExecuteCheck?: 'both' | 'start_only';
+  };
+}
+
+export function createDefaultApprovalConfig(): NonNullable<ProjectConfig['approval']> {
+  return {
+    mode: 'category',
+    default: 'skip',
+    requireCheckCategories: [...DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES],
   };
 }
 

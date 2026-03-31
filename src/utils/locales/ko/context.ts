@@ -75,6 +75,8 @@ export const koContext = {
   'context.actionDetail.issueCreateFromDoc':
     'Ready 상태 issue.md로 이슈를 생성하고 번호를 동기화하세요',
   'context.actionDetail.taskExecute': '현재 태스크를 진행하세요',
+  'context.actionDetail.implementationApprove':
+    '구현 결과를 검토하고 후속 handoff 전에 최종 확인하세요',
   'context.actionDetail.taskExecuteRun':
     '보조 에이전트(sub-agent) 작업 handoff를 준비하고 태스크를 시작하세요: {task}. (TODO면 DOING으로 변경)',
   'context.actionDetail.taskExecuteContinue':
