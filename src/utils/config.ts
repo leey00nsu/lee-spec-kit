@@ -146,10 +146,6 @@ export interface ProjectConfig {
      */
     requireCheckSteps?: number[];
     /**
-     * @deprecated Use requireCheckSteps instead.
-     */
-    requireOkSteps?: number[];
-    /**
      * Only used when mode === "category".
      * - keep (default): keep action's builtin requiresUserCheck unless overridden
      * - require: require check unless overridden
@@ -162,18 +158,10 @@ export interface ProjectConfig {
      */
     requireCheckCategories?: string[];
     /**
-     * @deprecated Use requireCheckCategories instead.
-     */
-    requireOkCategories?: string[];
-    /**
      * Only used when mode === "category".
      * Categories that never require check.
      */
     skipCheckCategories?: string[];
-    /**
-     * @deprecated Use skipCheckCategories instead.
-     */
-    skipOkCategories?: string[];
     /**
      * Legacy task_execute phase override for approval policy.
      * Applies only to task_execute start/complete compatibility handling.

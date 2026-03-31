@@ -45,11 +45,8 @@ function isLegacyGeneratedApprovalConfig(
   const overrideKeys = [
     'default',
     'requireCheckSteps',
-    'requireOkSteps',
     'requireCheckCategories',
-    'requireOkCategories',
     'skipCheckCategories',
-    'skipOkCategories',
     'taskExecuteCheck',
   ];
   return !overrideKeys.some((key) => hasOwnKey(approval, key));

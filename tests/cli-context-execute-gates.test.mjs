@@ -652,6 +652,47 @@ test('update prunes CLI-managed legacy copies without legacy branch messaging', 
   });
 });
 
+test('approval legacy ok-category aliases no longer drive auto-run policy', async () => {
+  await withTempDir('lsk-approval-no-ok-aliases-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireOkCategories: ['spec_approve'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.deepEqual(payload.autoRun?.untilCategories, []);
+  });
+});
+
 test('update migrates legacy builtin approval config to spec-first defaults', async () => {
   await withTempDir('lsk-update-approval-migrate-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

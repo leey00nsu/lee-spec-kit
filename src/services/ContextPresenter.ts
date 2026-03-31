@@ -520,9 +520,7 @@ export function resolveAutoRunCategories(approval: ApprovalConfig): {
   const known = new Set<string>(ACTION_CATEGORIES);
   const unique = new Set<string>();
   const unknown = new Set<string>();
-  for (const raw of approval?.requireCheckCategories ??
-    approval?.requireOkCategories ??
-    []) {
+  for (const raw of approval?.requireCheckCategories ?? []) {
     const normalized = normalizeCategoryToken(raw);
     if (!normalized) continue;
     if (known.has(normalized)) {

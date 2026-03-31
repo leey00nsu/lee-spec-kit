@@ -50,7 +50,7 @@ function applyApprovalPolicy(
 
   if (mode === 'steps') {
     const required = new Set(
-      (approval.requireCheckSteps ?? approval.requireOkSteps ?? [])
+      (approval.requireCheckSteps ?? [])
         .map((n) => (typeof n === 'number' ? n : Number(n)))
         .filter((n) => Number.isFinite(n))
     );
@@ -68,12 +68,12 @@ function applyApprovalPolicy(
   }
 
   const requiredCategories = new Set(
-    (approval.requireCheckCategories ?? approval.requireOkCategories ?? [])
+    (approval.requireCheckCategories ?? [])
       .map((c) => normalizeApprovalToken(c))
       .filter(Boolean)
   );
   const skippedCategories = new Set(
-    (approval.skipCheckCategories ?? approval.skipOkCategories ?? [])
+    (approval.skipCheckCategories ?? [])
       .map((c) => normalizeApprovalToken(c))
       .filter(Boolean)
   );
