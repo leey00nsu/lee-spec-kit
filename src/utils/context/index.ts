@@ -15,7 +15,7 @@ export type {
 } from './types.js';
 export {
   ACTION_CATEGORIES,
-  LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES,
+  SUBAGENT_HANDOFF_CATEGORIES,
 } from './types.js';
 
 export { getStepDefinitions, getStepsMap } from './steps.js';

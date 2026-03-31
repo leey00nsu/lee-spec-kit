@@ -49,7 +49,7 @@ export const ACTION_CATEGORIES = [
 ] as const;
 
 export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
-export const LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES = [
+export const SUBAGENT_HANDOFF_CATEGORIES = [
   'task_execute',
   'code_review_run',
   'code_review',

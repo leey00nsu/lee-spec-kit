@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import {
   FeatureContext,
   ACTION_CATEGORIES,
-  LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES,
+  SUBAGENT_HANDOFF_CATEGORIES,
 } from '../utils/context.js';
 import {
   ActionOption,
@@ -169,19 +169,17 @@ export function shouldDelegateCurrentAction(
 } {
   const primaryOption = actionOptions[0];
   const primaryCategory = primaryOption?.action?.category || null;
-  const longRunningSet = new Set<string>(
-    LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES
-  );
+  const handoffCategories = new Set<string>(SUBAGENT_HANDOFF_CATEGORIES);
   const isCommand = primaryOption?.action?.type === 'command';
   const isRemoteCommand =
     isCommand && primaryOption?.action?.operationType === 'remote';
   const ownerDelegates = currentSubstateOwner === 'subagent';
-  const legacyCategoryDelegates =
+  const categoryFallbackDelegates =
     !currentSubstateOwner &&
     !!primaryCategory &&
-    longRunningSet.has(primaryCategory);
+    handoffCategories.has(primaryCategory);
   const shouldDelegate =
-    (ownerDelegates || legacyCategoryDelegates) &&
+    (ownerDelegates || categoryFallbackDelegates) &&
     isCommand &&
     !isRemoteCommand &&
     !isTaskExecuteProjectCommitCommand(primaryOption);
