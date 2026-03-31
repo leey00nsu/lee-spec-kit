@@ -76,7 +76,7 @@ test('flow --json aggregates context/status/doctor', async () => {
     );
     assert.equal(
       payload.agentOrchestration?.delegationPolicy,
-      'prefer_main_delegate_long_running_fallback_main'
+      'prefer_main_handoff_subagent_execution'
     );
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, false);
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
