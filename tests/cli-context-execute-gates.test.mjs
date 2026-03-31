@@ -78,6 +78,32 @@ test('context warns when feature docs path is ignored by git', async () => {
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['task_execute'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -157,6 +183,32 @@ test('status --strict returns MISSING_FEATURE_ID when feature folder ID is missi
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['task_execute'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -832,6 +884,32 @@ test('context handles no-open state without crashing', async () => {
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['task_execute'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
@@ -981,6 +1059,32 @@ test('step7 uses docs update commit message when implementation is already done'
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['task_execute'],
+    };
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(config, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
 
     const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
     assert.equal(feature.code, 0, feature.stderr || feature.stdout);
@@ -2071,7 +2175,30 @@ test('context --execute uses staged-only project commit and never stages interna
       stageProjectFile.stderr || stageProjectFile.stdout
     );
 
-    const ticket = await issueApprovalTicket(dir, 'F001-alpha', 'A');
+    const approvalContextResult = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(
+      approvalContextResult.code,
+      0,
+      approvalContextResult.stderr || approvalContextResult.stdout
+    );
+    const approvalContextPayload = JSON.parse(approvalContextResult.stdout.trim());
+    const approvedOption = approvalContextPayload.actionOptions.find(
+      (option) => option?.action?.requiresUserCheck === true
+    );
+    assert.equal(Boolean(approvedOption), true);
+
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      approvedOption.label,
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.status, 'approved_selected');
+    const ticket = approvePayload.approvalTicket?.token;
+    assert.equal(typeof ticket, 'string');
     const docsTicketPath = path.join(
       dir,
       'docs',
@@ -2082,7 +2209,7 @@ test('context --execute uses staged-only project commit and never stages interna
       'context',
       'F001-alpha',
       '--approve',
-      'A',
+      approvedOption.label,
       '--execute',
       '--ticket',
       ticket,
@@ -2169,6 +2296,155 @@ test('context --execute-strict fails for instruction-only approved option', asyn
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'EXECUTION_NOT_COMMAND');
+  });
+});
+
+test('context no longer accepts legacy docs-scoped approval ticket stores', async () => {
+  await withTempDir('lsk-context-legacy-ticket-store-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const legacyConfigPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const legacyConfig = JSON.parse(
+      await fs.readFile(legacyConfigPath, 'utf-8')
+    );
+    legacyConfig.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['task_execute'],
+    };
+    await fs.writeFile(
+      legacyConfigPath,
+      JSON.stringify(legacyConfig, null, 2) + '\n',
+      'utf-8'
+    );
+
+    const legacyGitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(
+      legacyGitEmail.code,
+      0,
+      legacyGitEmail.stderr || legacyGitEmail.stdout
+    );
+    const legacyGitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(
+      legacyGitName.code,
+      0,
+      legacyGitName.stderr || legacyGitName.stdout
+    );
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    const docsAdd = await runCommand(dir, 'git', [
+      'add',
+      'docs/features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs: setup F001',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(path.join(dir, 'app.txt'), 'dirty project change\n', 'utf-8');
+    const stageProjectFile = await runCommand(dir, 'git', ['add', 'app.txt']);
+    assert.equal(
+      stageProjectFile.code,
+      0,
+      stageProjectFile.stderr || stageProjectFile.stdout
+    );
+
+    const approvalContextResult = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(
+      approvalContextResult.code,
+      0,
+      approvalContextResult.stderr || approvalContextResult.stdout
+    );
+    const approvalContextPayload = JSON.parse(
+      approvalContextResult.stdout.trim()
+    );
+    const approvedOption = approvalContextPayload.actionOptions.find(
+      (option) => option?.action?.requiresUserCheck === true
+    );
+    assert.equal(Boolean(approvedOption), true);
+
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      approvedOption.label,
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.status, 'approved_selected');
+    const ticket = approvePayload.approvalTicket?.token;
+    assert.equal(typeof ticket, 'string');
+
+    const runtimeDirResult = await runCommand(path.join(dir, 'docs'), 'git', [
+      'rev-parse',
+      '--git-path',
+      'lee-spec-kit.runtime',
+    ]);
+    assert.equal(
+      runtimeDirResult.code,
+      0,
+      runtimeDirResult.stderr || runtimeDirResult.stdout
+    );
+    const runtimeDir = path.resolve(
+      path.join(dir, 'docs'),
+      runtimeDirResult.stdout.trim()
+    );
+    const ticketFiles = await fs.readdir(path.join(runtimeDir, 'tickets'));
+    assert.equal(ticketFiles.length, 1);
+
+    const runtimeTicketPath = path.join(runtimeDir, 'tickets', ticketFiles[0]);
+    const legacyTicketPath = path.join(
+      dir,
+      'docs',
+      '.lee-spec-kit.approval-tickets.json'
+    );
+    const runtimeTicketRaw = await fs.readFile(runtimeTicketPath, 'utf-8');
+    await fs.writeFile(legacyTicketPath, runtimeTicketRaw, 'utf-8');
+    await fs.rm(runtimeTicketPath);
+
+    const execute = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      approvedOption.label,
+      '--execute',
+      '--ticket',
+      ticket,
+      '--json',
+    ]);
+    assert.equal(execute.code, 1);
+    const payload = JSON.parse(execute.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'INVALID_APPROVAL');
   });
 });
 

@@ -28,7 +28,6 @@ interface ApprovalTicketConfig {
   docsDir: string;
 }
 
-const LEGACY_APPROVAL_TICKET_FILENAME = '.lee-spec-kit.approval-tickets.json';
 const APPROVAL_TICKET_TTL_MS = 5 * 60 * 1000;
 
 function getApprovalSessionId(): string {
@@ -44,16 +43,6 @@ function getApprovalSessionId(): string {
   // Do not bind tickets to transient wrapper PIDs (for example, npx),
   // because split approve/execute commands can run with different parent PIDs.
   return '';
-}
-
-function getApprovalTicketPaths(config: ApprovalTicketConfig): {
-  runtimePath: string;
-  legacyPath: string;
-} {
-  return {
-    runtimePath: getApprovalTicketStorePath(config.docsDir),
-    legacyPath: path.join(config.docsDir, LEGACY_APPROVAL_TICKET_FILENAME),
-  };
 }
 
 async function loadApprovalTicketStore(
@@ -91,37 +80,12 @@ function pruneApprovalTickets(
 
 async function resolveApprovalTicketStoreAndPath(
   config: ApprovalTicketConfig,
-  nowMs: number
+  _nowMs: number
 ): Promise<{ storePath: string; store: ApprovalTicketStore }> {
-  const { runtimePath, legacyPath } = getApprovalTicketPaths(config);
-  if (await fs.pathExists(runtimePath)) {
-    return {
-      storePath: runtimePath,
-      store: await loadApprovalTicketStore(runtimePath),
-    };
-  }
-
-  if (!(await fs.pathExists(legacyPath))) {
-    return {
-      storePath: runtimePath,
-      store: { tickets: [] },
-    };
-  }
-
-  const legacyStore = await loadApprovalTicketStore(legacyPath);
-  const migrated = pruneApprovalTickets(legacyStore.tickets, nowMs);
-  await saveApprovalTicketStore(runtimePath, {
-    tickets: migrated,
-    updatedAt: new Date(nowMs).toISOString(),
-    migratedFrom: legacyPath,
-  });
-  await fs.remove(legacyPath).catch(() => {
-    // Best-effort cleanup of legacy docs-scoped ticket file.
-  });
-
+  const runtimePath = getApprovalTicketStorePath(config.docsDir);
   return {
     storePath: runtimePath,
-    store: { tickets: migrated },
+    store: await loadApprovalTicketStore(runtimePath),
   };
 }
 
