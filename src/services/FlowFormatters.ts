@@ -4,7 +4,6 @@ import {
   ContextSelectionState,
   toReasonCode,
 } from '../utils/context-selection.js';
-import { LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES } from '../utils/context.js';
 import { AutoRunSummary } from './FlowOrchestrator.js';
 import { buildDelegatedActionContract } from './ContextPresenter.js';
 
@@ -41,16 +40,9 @@ export interface CompactFlowFeatureSummary {
 export interface AgentOrchestrationPolicy {
   mode: 'main_orchestrates_subagent_execution';
   delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
-  /** @deprecated Compatibility mirror; prefer matchedFeature.currentSubstateOwner + subAgentHandoff. */
-  delegateCommandExecution: 'long_running_only';
-  delegateAutoRunExecution: true;
-  fallbackToMainAgentWhenSubAgentUnavailable: true;
-  /** @deprecated Compatibility metadata for non-substate clients. */
-  longRunningCategories: string[];
   mainAgentResponsibilities: string[];
   subAgentResponsibilities: string[];
   pauseAndReportWhen: string[];
-  preferredResumeCommand: string | null;
   subAgentHandoff: {
     required: boolean;
     mode: 'command' | 'auto_run' | null;
@@ -226,12 +218,12 @@ export function buildAgentOrchestrationPolicy(
   autoRun: AutoRunSummary | null,
   featureRef: string | null
 ): AgentOrchestrationPolicy {
-  const preferredResumeCommand =
+  const resumeCommand =
     autoRun?.run?.resumeCommand || autoRun?.resume?.flowCommand || null;
-  const handoffRequired = !!autoRun && !!preferredResumeCommand;
+  const handoffRequired = !!autoRun && !!resumeCommand;
   const verifyCacheKey = handoffRequired
     ? `${(featureRef || 'unknown').toLowerCase()}|${Buffer.from(
-        preferredResumeCommand as string
+        resumeCommand as string
       )
         .toString('base64')
         .slice(0, 12)}`
@@ -239,10 +231,6 @@ export function buildAgentOrchestrationPolicy(
   return {
     mode: 'main_orchestrates_subagent_execution',
     delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
-    delegateCommandExecution: 'long_running_only',
-    delegateAutoRunExecution: true,
-    fallbackToMainAgentWhenSubAgentUnavailable: true,
-    longRunningCategories: [...LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES],
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
       'Run the same execution loop directly when sub-agent is unavailable',
@@ -261,14 +249,13 @@ export function buildAgentOrchestrationPolicy(
       'AUTO_MANUAL_REQUIRED',
       'command execution error',
     ],
-    preferredResumeCommand,
     subAgentHandoff: {
       required: handoffRequired,
       mode: handoffRequired ? 'auto_run' : null,
       featureRef,
       category: null,
       cwd: handoffRequired ? process.cwd() : null,
-      cmd: handoffRequired ? preferredResumeCommand : null,
+      cmd: handoffRequired ? resumeCommand : null,
       verify: handoffRequired
         ? {
             runOncePerSession: true,

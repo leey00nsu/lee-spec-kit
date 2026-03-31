@@ -1761,10 +1761,7 @@ test('context strict task commit gate ignores latest commit when DONE transition
         primaryActionOption(payload).action.cmd || '',
         /"task-run"\s+"F001-alpha"\s+"--task"\s+"T-F001-alpha-02"/
       );
-      assert.equal(
-        payload.agentOrchestration?.currentActionShouldDelegate,
-        true
-      );
+      assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
     }
   );
 });
@@ -2719,10 +2716,6 @@ test('context executes pre_pr_review command and records review evidence', async
       'pre_pr_review_record'
     );
     assert.equal(primaryActionOption(contextPayload).action.type, 'command');
-    assert.equal(
-      contextPayload.agentOrchestration?.currentActionShouldDelegate,
-      false
-    );
     assert.equal(
       contextPayload.agentOrchestration?.subAgentHandoff?.required,
       false

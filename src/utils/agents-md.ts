@@ -79,7 +79,7 @@ In approval-waiting state:
 2. End with \`approvalRequest.finalPrompt\` exactly as provided.
 3. Do not paraphrase or omit these lines.
 4. Prefer \`approvalRequest.userFacingLines\` as the source for user-facing approval text.
-5. Prefer \`matchedFeature.currentSubstateOwner\` plus \`agentOrchestration.subAgentHandoff\` as the delegation SSOT. Treat \`currentActionShouldDelegate\` as a compatibility mirror for older consumers.
+5. Prefer \`matchedFeature.currentSubstateOwner\` plus \`agentOrchestration.subAgentHandoff\` as the delegation SSOT.
 6. When \`matchedFeature.currentSubstateOwner="subagent"\` and \`agentOrchestration.subAgentHandoff.required=true\` with \`mode="command"\`, call \`spawn_agent\` first and do not execute the delegated command directly from the main agent. If the delegated command is handoff-only, continue the delegated work immediately and do not re-open the same approval label.
 
 In non-approval state (progress updates, analysis, tool execution logs, unrelated Q&A):

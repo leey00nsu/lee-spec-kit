@@ -122,38 +122,6 @@ test('context --json exposes generic label token policy', async () => {
       'prefer_main_delegate_long_running_fallback_main'
     );
     assert.equal(
-      payload.agentOrchestration?.delegateCommandExecution,
-      'long_running_only'
-    );
-    assert.equal(payload.agentOrchestration?.delegateAutoRunExecution, true);
-    assert.equal(
-      payload.agentOrchestration?.fallbackToMainAgentWhenSubAgentUnavailable,
-      true
-    );
-    assert.equal(
-      Array.isArray(payload.agentOrchestration?.longRunningCategories),
-      true
-    );
-    assert.equal(
-      payload.agentOrchestration?.longRunningCategories?.includes(
-        'task_execute'
-      ),
-      true
-    );
-    assert.equal(
-      typeof payload.agentOrchestration?.currentActionShouldDelegate,
-      'boolean'
-    );
-    assert.equal(
-      typeof payload.agentOrchestration?.autoRunShouldDelegate,
-      'boolean'
-    );
-    assert.equal(
-      payload.agentOrchestration?.currentActionCategory === null ||
-        typeof payload.agentOrchestration?.currentActionCategory === 'string',
-      true
-    );
-    assert.equal(
       Array.isArray(payload.agentOrchestration?.pauseAndReportWhen),
       true
     );
@@ -553,19 +521,6 @@ test('context --json does not force command delegation for branch_create when au
       assert.equal(payload.status, 'single_matched');
       assert.equal(payload.autoRun?.available, true);
       assert.equal(
-        payload.agentOrchestration?.currentActionCategory,
-        'branch_create'
-      );
-      assert.equal(
-        payload.agentOrchestration?.currentActionShouldDelegate,
-        false
-      );
-      assert.equal(
-        payload.agentOrchestration?.autoRunDelegationAvailable,
-        true
-      );
-      assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, false);
-      assert.equal(
         payload.agentOrchestration?.subAgentHandoff?.required,
         false
       );
@@ -702,14 +657,6 @@ test('context --json keeps task_execute project commit command in main agent', a
       assert.match(
         primaryActionOption(payload).action?.cmd || '',
         /\bgit\s+commit\b/i
-      );
-      assert.equal(
-        payload.agentOrchestration?.currentActionCategory,
-        'task_execute'
-      );
-      assert.equal(
-        payload.agentOrchestration?.currentActionShouldDelegate,
-        false
       );
       assert.equal(
         payload.agentOrchestration?.subAgentHandoff?.required,
@@ -1030,9 +977,6 @@ test('context --json-compact uses the context.v3 hot-path action option contract
     assert.equal(payload.approvalRequest?.executeRequiresTicket, undefined);
     assert.equal(typeof payload.agentOrchestration?.subAgentHandoff, 'object');
     assert.equal(payload.agentOrchestration?.mode, undefined);
-    assert.equal(payload.agentOrchestration?.delegateCommandExecution, undefined);
-    assert.equal(payload.agentOrchestration?.currentActionShouldDelegate, undefined);
-    assert.equal(payload.agentOrchestration?.autoRunShouldDelegate, undefined);
   });
 });
 
@@ -1922,10 +1866,6 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
       /T-F001-alpha-01 - implement alpha shell/
     );
     assert.equal(
-      startPayload.agentOrchestration?.currentActionShouldDelegate,
-      true
-    );
-    assert.equal(
       startPayload.agentOrchestration?.subAgentHandoff?.required,
       true
     );
@@ -1989,10 +1929,6 @@ test('approval.taskExecuteCheck=start_only skips default DOING->DONE approval bu
     assert.match(
       primaryActionOption(finishPayload).approvalPrompt,
       /Mark the current task as complete: T-F001-alpha-01 - implement alpha shell\.\s+\(Change DOING to DONE\)/
-    );
-    assert.equal(
-      finishPayload.agentOrchestration?.currentActionShouldDelegate,
-      false
     );
   });
 });
@@ -2393,10 +2329,6 @@ test('context pre-PR review step is enforced before PR creation and exposes poli
     assert.match(
       primaryActionOption(payload).detail,
       /prepare .*pre-PR review handoff|보조 에이전트\(sub-agent\).*PR 전 리뷰 handoff/i
-    );
-    assert.equal(
-      payload.agentOrchestration?.currentActionShouldDelegate,
-      true
     );
     assert.equal(
       payload.agentOrchestration?.subAgentHandoff?.required,
@@ -3658,10 +3590,6 @@ process.exit(0);
       assert.equal(primaryActionOption(payload).action.requiresUserCheck, true);
       assert.equal(primaryActionOption(payload).action.operationType, 'remote');
       assert.equal(
-        payload.agentOrchestration?.currentActionShouldDelegate,
-        false
-      );
-      assert.equal(
         payload.agentOrchestration?.subAgentHandoff?.required,
         false
       );
@@ -3793,10 +3721,6 @@ test('context code_review step delegates review run before evidence is recorded'
     assert.equal(
       primaryActionOption(payload).nextMainState,
       'code_review_running'
-    );
-    assert.equal(
-      payload.agentOrchestration?.currentActionShouldDelegate,
-      true
     );
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'command');

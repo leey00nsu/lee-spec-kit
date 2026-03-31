@@ -73,17 +73,6 @@ export interface AutoRunPlan {
 export interface AgentOrchestrationPolicy {
   mode: 'main_orchestrates_subagent_execution';
   delegationPolicy: 'prefer_main_delegate_long_running_fallback_main';
-  /** @deprecated Compatibility mirror; prefer matchedFeature.currentSubstateOwner + subAgentHandoff. */
-  delegateCommandExecution: 'long_running_only';
-  delegateAutoRunExecution: true;
-  fallbackToMainAgentWhenSubAgentUnavailable: true;
-  /** @deprecated Compatibility metadata for non-substate clients. */
-  longRunningCategories: string[];
-  /** @deprecated Compatibility mirror of the primary delegation decision. */
-  currentActionShouldDelegate: boolean;
-  autoRunDelegationAvailable: boolean;
-  autoRunShouldDelegate: boolean;
-  currentActionCategory: string | null;
   mainAgentResponsibilities: string[];
   subAgentResponsibilities: string[];
   pauseAndReportWhen: string[];
@@ -251,14 +240,6 @@ export function buildAgentOrchestrationPolicy(
   return {
     mode: 'main_orchestrates_subagent_execution',
     delegationPolicy: 'prefer_main_delegate_long_running_fallback_main',
-    delegateCommandExecution: 'long_running_only',
-    delegateAutoRunExecution: true,
-    fallbackToMainAgentWhenSubAgentUnavailable: true,
-    longRunningCategories: [...LEGACY_LONG_RUNNING_DELEGATION_CATEGORIES],
-    currentActionShouldDelegate: delegation.shouldDelegate,
-    autoRunDelegationAvailable: autoRunAvailable,
-    autoRunShouldDelegate: shouldDelegateAutoRunNow,
-    currentActionCategory: delegation.category,
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
       'Run the same execution loop directly when sub-agent is unavailable',
@@ -465,7 +446,7 @@ export function buildDelegatedApprovalGuidance(
   const nonDelegated =
     ' For non-delegated command actions, prefer one-shot `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute` to avoid session mismatch after context compression/reset. Use ticket-based `context --execute --ticket` only when explicitly needed.';
   const orchestration =
-    ' Use main-agent orchestration: keep short steps in main agent. Prefer `matchedFeature.currentSubstateOwner` + `agentOrchestration.subAgentHandoff` as the delegation SSOT; `currentActionShouldDelegate` is a compatibility mirror. Delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.';
+    ' Use main-agent orchestration: keep short steps in main agent. Prefer `matchedFeature.currentSubstateOwner` + `agentOrchestration.subAgentHandoff` as the delegation SSOT. Delegate auto-run only when `agentOrchestration.subAgentHandoff.required=true` with `mode="auto_run"`.';
   return `${base}${delegatedCommand}${nonDelegated}${orchestration}`;
 }
 

@@ -78,24 +78,6 @@ test('flow --json aggregates context/status/doctor', async () => {
       payload.agentOrchestration?.delegationPolicy,
       'prefer_main_delegate_long_running_fallback_main'
     );
-    assert.equal(
-      payload.agentOrchestration?.delegateCommandExecution,
-      'long_running_only'
-    );
-    assert.equal(payload.agentOrchestration?.delegateAutoRunExecution, true);
-    assert.equal(
-      payload.agentOrchestration?.fallbackToMainAgentWhenSubAgentUnavailable,
-      true
-    );
-    assert.equal(
-      Array.isArray(payload.agentOrchestration?.longRunningCategories),
-      true
-    );
-    assert.equal(
-      payload.agentOrchestration?.longRunningCategories?.includes('task_execute'),
-      true
-    );
-    assert.equal(payload.agentOrchestration?.preferredResumeCommand, null);
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, false);
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, null);
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.verify, null);
@@ -295,15 +277,11 @@ test('flow --json auto-until-category stops at gate and exposes approval lines',
       payload.autoRun?.resume?.contextCommand || '',
       /npx lee-spec-kit context F001-alpha/
     );
-    assert.equal(
-      payload.agentOrchestration?.preferredResumeCommand,
-      payload.autoRun?.resume?.flowCommand
-    );
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.required, true);
     assert.equal(payload.agentOrchestration?.subAgentHandoff?.mode, 'auto_run');
     assert.equal(
       payload.agentOrchestration?.subAgentHandoff?.cmd,
-      payload.agentOrchestration?.preferredResumeCommand
+      payload.autoRun?.resume?.flowCommand
     );
     assert.equal(
       payload.agentOrchestration?.subAgentHandoff?.verify?.runOncePerSession,
