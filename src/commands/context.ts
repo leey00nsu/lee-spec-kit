@@ -2,7 +2,7 @@ import * as presenter from '../services/ContextPresenter.js';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import { getConfig } from '../utils/config.js';
+import { createDefaultApprovalConfig, getConfig } from '../utils/config.js';
 import { createCliContext } from '../utils/cli-context.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
@@ -425,7 +425,7 @@ export async function runContext(
         oneApprovalPerAction: approvalRequired,
         requireFreshContext: true,
         contextVersion: state.contextVersion,
-        config: config.approval ?? { mode: 'builtin' },
+        config: config.approval ?? createDefaultApprovalConfig(),
       },
       agentOrchestration,
       delegatedAction,

@@ -556,7 +556,7 @@ export function resolveAutoRunPlan(
   if (state.actionOptions.length === 0) return base('NO_ACTION_OPTIONS');
   if (approvalRequired) return base('APPROVAL_REQUIRED');
 
-  const mode = approval?.mode ?? 'builtin';
+  const mode = approval?.mode ?? 'category';
   if (mode !== 'category') return base('APPROVAL_MODE_NOT_CATEGORY');
 
   const defaultPolicy = approval?.default ?? 'keep';

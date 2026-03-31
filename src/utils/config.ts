@@ -135,11 +135,10 @@ export interface ProjectConfig {
   };
   approval?: {
     /**
-     * builtin: Use `requiresUserCheck` embedded in steps/actions.
      * steps: Determine check requirement only by step number list.
-     * category: Determine check requirement by action category (default for new projects).
+     * category: Determine check requirement by action category (default).
      */
-    mode?: 'builtin' | 'steps' | 'category';
+    mode?: 'steps' | 'category';
     /**
      * Only used when mode === "steps".
      * Steps that require explicit user check. (e.g. [3, 5, 12])

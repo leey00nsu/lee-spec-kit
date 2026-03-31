@@ -7,7 +7,7 @@ import {
   StepOwner,
   StepPhase,
 } from './types.js';
-import { ProjectConfig } from '../config.js';
+import { createDefaultApprovalConfig, ProjectConfig } from '../config.js';
 
 function normalizeApprovalToken(value: string | undefined): string {
   return (value ?? '').trim().toLowerCase();
@@ -19,38 +19,15 @@ function applyApprovalPolicy(
   approval?: ProjectConfig['approval'],
   currentSubstatePhase?: StepPhase
 ): NextAction[] {
-  const taskExecuteCheckPolicy = approval?.taskExecuteCheck === 'start_only'
+  const effectiveApproval = approval ?? createDefaultApprovalConfig();
+  const taskExecuteCheckPolicy = effectiveApproval.taskExecuteCheck === 'start_only'
     ? 'start_only'
     : 'both';
-  if (!approval) {
-    return actions.map((action) => ({
-      ...action,
-      requiresUserCheck: applyTaskExecutePhaseCheck(
-        action,
-        Boolean(action.requiresUserCheck),
-        taskExecuteCheckPolicy,
-        false,
-        currentSubstatePhase
-      ),
-    }));
-  }
-  const mode = approval.mode ?? 'builtin';
-  if (mode === 'builtin') {
-    return actions.map((action) => ({
-      ...action,
-      requiresUserCheck: applyTaskExecutePhaseCheck(
-        action,
-        Boolean(action.requiresUserCheck),
-        taskExecuteCheckPolicy,
-        false,
-        currentSubstatePhase
-      ),
-    }));
-  }
+  const mode = effectiveApproval.mode ?? 'category';
 
   if (mode === 'steps') {
     const required = new Set(
-      (approval.requireCheckSteps ?? [])
+      (effectiveApproval.requireCheckSteps ?? [])
         .map((n) => (typeof n === 'number' ? n : Number(n)))
         .filter((n) => Number.isFinite(n))
     );
@@ -68,16 +45,16 @@ function applyApprovalPolicy(
   }
 
   const requiredCategories = new Set(
-    (approval.requireCheckCategories ?? [])
+    (effectiveApproval.requireCheckCategories ?? [])
       .map((c) => normalizeApprovalToken(c))
       .filter(Boolean)
   );
   const skippedCategories = new Set(
-    (approval.skipCheckCategories ?? [])
+    (effectiveApproval.skipCheckCategories ?? [])
       .map((c) => normalizeApprovalToken(c))
       .filter(Boolean)
   );
-  const defaultPolicy = approval.default ?? 'keep';
+  const defaultPolicy = effectiveApproval.default ?? 'keep';
 
   return actions.map((a) => {
     const builtin = Boolean(a.requiresUserCheck);

@@ -40,7 +40,7 @@ function isLegacyGeneratedApprovalConfig(
   approval: Record<string, unknown>
 ): boolean {
   const mode = typeof approval.mode === 'string' ? approval.mode : '';
-  if (mode && mode !== 'builtin') return false;
+  if (mode && mode !== 'category' && mode !== 'steps') return false;
 
   const overrideKeys = [
     'default',
