@@ -118,10 +118,6 @@ test('context --json exposes generic label token policy', async () => {
       'main_orchestrates_subagent_execution'
     );
     assert.equal(
-      payload.agentOrchestration?.delegationPolicy,
-      'prefer_main_handoff_subagent_execution'
-    );
-    assert.equal(
       Array.isArray(payload.agentOrchestration?.pauseAndReportWhen),
       true
     );

@@ -72,7 +72,6 @@ export interface AutoRunPlan {
 
 export interface AgentOrchestrationPolicy {
   mode: 'main_orchestrates_subagent_execution';
-  delegationPolicy: 'prefer_main_handoff_subagent_execution';
   mainAgentResponsibilities: string[];
   subAgentResponsibilities: string[];
   pauseAndReportWhen: string[];
@@ -237,7 +236,6 @@ export function buildAgentOrchestrationPolicy(
     : '';
   return {
     mode: 'main_orchestrates_subagent_execution',
-    delegationPolicy: 'prefer_main_handoff_subagent_execution',
     mainAgentResponsibilities: [
       'Keep user conversation state and approval boundaries',
       'Run the same execution loop directly when sub-agent is unavailable',

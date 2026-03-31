@@ -127,7 +127,6 @@ Emit minimal progress data only when useful to the agent loop:
 ## `agentOrchestration`
 
 - `mode`
-- `delegationPolicy`
 - `delegateCommandExecution`
 - `delegateAutoRunExecution`
 - `fallbackToMainAgentWhenSubAgentUnavailable`
