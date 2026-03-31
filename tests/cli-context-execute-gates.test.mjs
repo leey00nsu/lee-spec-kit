@@ -497,6 +497,15 @@ test('update backfills missing config defaults including warn taskCommitGate', a
   });
 });
 
+test('update help no longer exposes legacy cleanup selector flags', async () => {
+  await withTempDir('lsk-update-help-flags-', async (dir) => {
+    const result = await runCli(dir, ['update', '--help']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.doesNotMatch(result.stdout, /--skills\b/);
+    assert.doesNotMatch(result.stdout, /--templates\b/);
+  });
+});
+
 test('update migrates legacy builtin approval config to spec-first defaults', async () => {
   await withTempDir('lsk-update-approval-migrate-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

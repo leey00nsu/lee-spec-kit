@@ -707,6 +707,42 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.equal(legacyPrTemplateAliasPayload.status, 'ok');
     assert.equal(legacyPrTemplateAliasPayload.doc.id, 'pr-doc');
+
+    const removedIssueMdAlias = await runCli(dir, [
+      'docs',
+      'get',
+      'issue-md',
+      '--json',
+    ]);
+    assert.notEqual(removedIssueMdAlias.code, 0);
+    assert.match(
+      removedIssueMdAlias.stderr || removedIssueMdAlias.stdout,
+      /invalid.+doc/i
+    );
+
+    const removedPrMdAlias = await runCli(dir, [
+      'docs',
+      'get',
+      'pr-md',
+      '--json',
+    ]);
+    assert.notEqual(removedPrMdAlias.code, 0);
+    assert.match(
+      removedPrMdAlias.stderr || removedPrMdAlias.stdout,
+      /invalid.+doc/i
+    );
+
+    const removedFeatureSplitAlias = await runCli(dir, [
+      'docs',
+      'get',
+      'feature-split',
+      '--json',
+    ]);
+    assert.notEqual(removedFeatureSplitAlias.code, 0);
+    assert.match(
+      removedFeatureSplitAlias.stderr || removedFeatureSplitAlias.stdout,
+      /invalid.+doc/i
+    );
   });
 });
 

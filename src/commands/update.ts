@@ -24,8 +24,6 @@ import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
 interface UpdateOptions {
   agents?: boolean;
   agentsMd?: boolean;
-  skills?: boolean;
-  templates?: boolean;
   force?: boolean;
 }
 
@@ -63,8 +61,6 @@ export function updateCommand(program: Command): void {
     .description('Update docs templates to the latest version')
     .option('--agents', 'Update agents/ folder only')
     .option('--agents-md', 'Sync project-scoped AGENTS.md entrypoint')
-    .option('--skills', 'Cleanup legacy agents/skills copies (CLI-managed)')
-    .option('--templates', 'Cleanup legacy feature-base copies (CLI-managed)')
     .option(
       '-f, --force',
       'Force overwrite even if docs has uncommitted changes'

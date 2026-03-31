@@ -136,8 +136,8 @@ export function getBuiltinDocIds(): BuiltinDocId[] {
 export function normalizeBuiltinDocId(input: string): BuiltinDocId | null {
   const normalized = input.trim().toLowerCase().replace(/_/g, '-');
   if (normalized === 'git-workflow') return 'git-workflow';
-  if (normalized === 'issue-doc' || normalized === 'issue-md') return 'issue-doc';
-  if (normalized === 'pr-doc' || normalized === 'pr-md') return 'pr-doc';
+  if (normalized === 'issue-doc') return 'issue-doc';
+  if (normalized === 'pr-doc') return 'pr-doc';
   // Backward-compat aliases (deprecated)
   if (normalized === 'issue-template') return 'issue-doc';
   if (normalized === 'pr-template') return 'pr-doc';
@@ -145,7 +145,7 @@ export function normalizeBuiltinDocId(input: string): BuiltinDocId | null {
   if (normalized === 'execute-task') return 'execute-task';
   if (normalized === 'create-issue') return 'create-issue';
   if (normalized === 'create-pr') return 'create-pr';
-  if (normalized === 'split-feature' || normalized === 'feature-split') {
+  if (normalized === 'split-feature') {
     return 'split-feature';
   }
   if (normalized === 'agents') return 'agents';
