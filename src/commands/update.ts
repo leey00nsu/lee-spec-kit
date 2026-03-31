@@ -116,17 +116,9 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const configBackfill = await backfillMissingConfigDefaults(docsDir);
 
       // 업데이트 대상 결정
-      const hasExplicitSelection = !!(
-        options.agents ||
-        options.agentsMd ||
-        options.skills ||
-        options.templates
-      );
-      const updateAgents = options.agents || options.skills || !hasExplicitSelection;
+      const hasExplicitSelection = !!(options.agents || options.agentsMd);
+      const updateAgents = options.agents || !hasExplicitSelection;
       const updateAgentsMd = options.agentsMd || !hasExplicitSelection;
-      const updateTemplates = options.templates || !hasExplicitSelection;
-      const agentsMode: 'all' | 'skills' =
-        options.skills && !options.agents ? 'skills' : 'all';
 
       console.log(chalk.blue(tr(lang, 'cli', 'update.start')));
       console.log(chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`));
@@ -137,60 +129,50 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
 
       let updatedCount = 0;
 
-      // agents/ 폴더 업데이트 (common 먼저, 타입별 오버라이드)
+      // Update project-scoped agent docs while keeping CLI-managed runtime copies out of docs.
       if (updateAgents) {
-        if (agentsMode === 'skills') {
-          console.log(chalk.blue(tr(lang, 'cli', 'update.updatingSkills')));
-          console.log(
-            chalk.gray(tr(lang, 'cli', 'update.engineManagedSkillsBuiltin'))
+        console.log(chalk.blue(tr(lang, 'cli', 'update.updatingAgents')));
+
+        const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
+        const targetAgentsBase = path.join(docsDir, 'agents');
+
+        const commonAgents = commonAgentsBase;
+        const targetAgents = targetAgentsBase;
+
+        // featurePath 치환
+        const featurePath =
+          projectType === 'multi'
+            ? 'docs/features/{component}'
+            : 'docs/features';
+        const projectName = config.projectName ?? '{{projectName}}';
+        const commonReplacements: Record<string, string> = {
+          '{{projectName}}': projectName,
+          '{{featurePath}}': featurePath,
+        };
+
+        if (await fs.pathExists(commonAgents)) {
+          const count = await updateFolder(
+            commonAgents,
+            targetAgents,
+            forceOverwrite,
+            commonReplacements,
+            lang,
+            {
+              protectedFiles: new Set([
+                'custom.md',
+                'constitution.md',
+                ...ENGINE_MANAGED_AGENT_FILES,
+              ]),
+              skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
+            }
           );
-          console.log(chalk.green(`  ✅ ${tr(lang, 'cli', 'update.skillsUpdated')}`));
-        } else {
-          console.log(chalk.blue(tr(lang, 'cli', 'update.updatingAgents')));
+          updatedCount += count;
         }
-
-        if (agentsMode === 'all') {
-          const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
-          const targetAgentsBase = path.join(docsDir, 'agents');
-
-          const commonAgents = commonAgentsBase;
-          const targetAgents = targetAgentsBase;
-
-          // featurePath 치환
-          const featurePath =
-            projectType === 'multi'
-              ? 'docs/features/{component}'
-              : 'docs/features';
-          const projectName = config.projectName ?? '{{projectName}}';
-          const commonReplacements: Record<string, string> = {
-            '{{projectName}}': projectName,
-            '{{featurePath}}': featurePath,
-          };
-
-          if (await fs.pathExists(commonAgents)) {
-            const count = await updateFolder(
-              commonAgents,
-              targetAgents,
-              forceOverwrite,
-              commonReplacements,
-              lang,
-              {
-                protectedFiles: new Set([
-                  'custom.md',
-                  'constitution.md',
-                  ...ENGINE_MANAGED_AGENT_FILES,
-                ]),
-                skipDirectories: new Set(ENGINE_MANAGED_AGENT_DIRS),
-              }
-            );
-            updatedCount += count;
-          }
-          console.log(
-            chalk.green(
-              `  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`
-            )
-          );
-        }
+        console.log(
+          chalk.green(
+            `  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`
+          )
+        );
       }
 
       if (updateAgentsMd) {
@@ -204,12 +186,6 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
             updatedCount += 1;
           }
         }
-      }
-
-      // feature-base is CLI-managed and no longer synced into docs.
-      if (updateTemplates) {
-        console.log(chalk.blue(tr(lang, 'cli', 'update.updatingFeatureBase')));
-        console.log(chalk.gray(tr(lang, 'cli', 'update.engineManagedFeatureBaseBuiltin')));
       }
 
       const pruned = await pruneEngineManagedDocs(docsDir);

@@ -558,6 +558,100 @@ test('update help no longer exposes legacy cleanup selector flags', async () => 
   });
 });
 
+test('update prunes CLI-managed legacy copies without legacy branch messaging', async () => {
+  await withTempDir('lsk-update-prune-cli-managed-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const gitEmail = await runCommand(dir, 'git', [
+      'config',
+      'user.email',
+      'tester@example.com',
+    ]);
+    assert.equal(gitEmail.code, 0, gitEmail.stderr || gitEmail.stdout);
+    const gitName = await runCommand(dir, 'git', [
+      'config',
+      'user.name',
+      'Tester',
+    ]);
+    assert.equal(gitName.code, 0, gitName.stderr || gitName.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    await fs.mkdir(path.join(dir, 'docs', 'agents', 'skills'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'agents', 'skills', 'old.md'),
+      'legacy\n',
+      'utf-8'
+    );
+    await fs.mkdir(path.join(dir, 'docs', 'features', 'feature-base'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'features', 'feature-base', 'README.md'),
+      'legacy\n',
+      'utf-8'
+    );
+
+    const addLegacyCopies = await runCommand(dir, 'git', [
+      'add',
+      'docs/agents/skills',
+      'docs/features/feature-base',
+    ]);
+    assert.equal(
+      addLegacyCopies.code,
+      0,
+      addLegacyCopies.stderr || addLegacyCopies.stdout
+    );
+    const commitLegacyCopies = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: add stale cli-managed docs copies',
+    ]);
+    assert.equal(
+      commitLegacyCopies.code,
+      0,
+      commitLegacyCopies.stderr || commitLegacyCopies.stdout
+    );
+
+    const updateResult = await runCli(dir, ['update']);
+    assert.equal(
+      updateResult.code,
+      0,
+      updateResult.stderr || updateResult.stdout
+    );
+    assert.match(updateResult.stdout, /Removed 2 CLI-managed docs entries/i);
+    assert.doesNotMatch(updateResult.stdout, /Updating agents\/skills folder/i);
+    assert.doesNotMatch(
+      updateResult.stdout,
+      /Updating features\/feature-base\/ folder/i
+    );
+    assert.equal(
+      await pathExists(path.join(dir, 'docs', 'agents', 'skills')),
+      false
+    );
+    assert.equal(
+      await pathExists(path.join(dir, 'docs', 'features', 'feature-base')),
+      false
+    );
+  });
+});
+
 test('update migrates legacy builtin approval config to spec-first defaults', async () => {
   await withTempDir('lsk-update-approval-migrate-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

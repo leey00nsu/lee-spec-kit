@@ -37,14 +37,7 @@ export const koCli = {
   'update.langLabel': '언어',
   'update.typeLabel': '타입',
   'update.updatingAgents': '📁 agents/ 폴더 업데이트 중...',
-  'update.updatingSkills': '📁 agents/skills 폴더 업데이트 중...',
   'update.agentsUpdated': 'agents/ 업데이트 완료',
-  'update.skillsUpdated': 'agents/skills 업데이트 완료',
-  'update.updatingFeatureBase': '📁 features/feature-base/ 폴더 업데이트 중...',
-  'update.engineManagedSkillsBuiltin':
-    'agents/skills는 CLI 내장 규칙으로 관리되어 docs로 동기화하지 않습니다.',
-  'update.engineManagedFeatureBaseBuiltin':
-    'features/feature-base는 CLI 내장 템플릿으로 관리되어 docs로 동기화하지 않습니다.',
   'update.engineManagedPruned':
     'docs에서 CLI 관리 문서 {count}개를 정리했습니다.',
   'update.filesUpdated': '{count}개 파일 업데이트 완료',

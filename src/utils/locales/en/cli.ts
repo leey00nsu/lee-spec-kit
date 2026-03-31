@@ -35,14 +35,7 @@ export const enCli = {
   'update.langLabel': 'Lang',
   'update.typeLabel': 'Type',
   'update.updatingAgents': '📁 Updating agents/ folder...',
-  'update.updatingSkills': '📁 Updating agents/skills folder...',
   'update.agentsUpdated': 'agents/ updated',
-  'update.skillsUpdated': 'agents/skills updated',
-  'update.updatingFeatureBase': '📁 Updating features/feature-base/ folder...',
-  'update.engineManagedSkillsBuiltin':
-    'agents/skills is CLI-managed and is not synced into docs.',
-  'update.engineManagedFeatureBaseBuiltin':
-    'features/feature-base is CLI-managed and is not synced into docs.',
   'update.engineManagedPruned':
     'Removed {count} CLI-managed docs entries from this docs tree.',
   'update.filesUpdated': '{count} files updated',
