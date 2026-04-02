@@ -83,7 +83,9 @@
 ## 범위 분리
 
 - docs 구조/경로 규칙: `docs/README.md`를 SSOT로 사용
-- `docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*` 같은 공용 계획 산출물은 staging/reference 입력으로만 취급합니다. Feature가 활성화되어 있으면 해당 내용을 Feature 문서로 흡수하고, 최종 SSOT는 Feature 폴더로 봅니다.
+- canonical docs surface는 `docs/README.md`에 정의된 `docs/` 최상위 엔트리만을 의미합니다. allowlist에 없는 추가 `docs/*` 최상위 엔트리는 unmanaged docs로 취급합니다.
+- `docs/plans/*`, `docs/superpowers/*`, 또는 다른 스킬이 만든 docs 폴더 같은 unmanaged docs는 staging/reference 입력으로만 취급합니다. Feature가 활성화되어 있으면 해당 내용을 Feature 문서로 흡수하고, 최종 SSOT는 Feature 폴더로 봅니다.
+- `context`에 `docs_normalize` action/category가 나타나면, 구현이나 다른 workflow action보다 먼저 그 정규화 단계를 완료하세요.
 - ADR 작성 형식: `docs/features/.../decisions.md` 템플릿을 SSOT로 사용
 - 이슈/PR 실행 상태: 각 Feature의 `issue.md`, `pr.md`를 SSOT로 사용
 

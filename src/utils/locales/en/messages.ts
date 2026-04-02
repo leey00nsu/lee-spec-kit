@@ -138,6 +138,8 @@ export const enMessages = {
     'Feature scope is large (tasks: {taskCount}, decisions lines: {decisionsLineCount}). Hard recommendation is 4 issues when tasks >= {recommendFourTaskThreshold} or decisions lines >= {recommendFourDecisionsThreshold}. Follow `{guideCommand}` and split into 4 linked issues with explicit dependency order and sequential PR merges. Use the per-issue template: Goal, Included Scope, Excluded Scope, Depends On, PR Done Criteria.',
   userRequestReplan:
     'You can pause this step and handle a newly requested user requirement first. Summarize it, add it to tasks.md or split it into a separate Feature, then align document statuses and rerun context.',
+  docsUnmanagedNormalize:
+    'Unmanaged docs entries were found outside the lee-spec-kit docs surface: {paths}. Before continuing feature `{featureRef}`, treat them as reference inputs only. Normalize user-facing scope and acceptance into `spec.md`, architecture/file/test details into `plan.md`, executable work into `tasks.md`, and rationale/trade-offs into `decisions.md`, then rerun `npx lee-spec-kit context {featureRef}`.',
   featureDone:
     'All workflow requirements and local cleanup are complete. This feature is fully finished.',
   fallbackRerunContext:

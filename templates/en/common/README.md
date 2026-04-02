@@ -66,9 +66,14 @@ Recommended flow:
     - If a task changes user-facing behavior, acceptance criteria, or feature scope, backfill PRD first and tag the task as `[PRD-...]` instead of leaving it as `[NON-PRD]`.
   - For legacy docs without PRD IDs yet, backfill the source requirements doc first, then link the feature docs.
   - `decisions.md`: record changes/trade-offs/requirement changes (why it changed) with evidence links
-- **Shared planning artifacts (`docs/plans/`, `docs/superpowers/specs/`, `docs/superpowers/plans/`)**: staging/reference docs
-  - These may be created by external agent workflows such as `superpowers`.
-  - Once a feature is active, these artifacts are inputs only. The final SSOT stays in the feature folder.
+- **Canonical docs surface (`docs/`)**: lee-spec-kit-managed top-level entries only
+  - Default directories: `agents/`, `designs/`, `features/`, `ideas/`, `prd/`, `scripts/`
+  - Default files: `README.md`, `.lee-spec-kit.json`, `.gitignore`
+  - Add intentional non-standard entries only via `.lee-spec-kit.json` `allowedDocsEntries`
+- **Unmanaged docs entries**: any top-level docs entry outside the canonical surface
+  - Examples: `docs/plans/`, `docs/superpowers/`, or another skill-created folder
+  - Treat them as staging/reference inputs only, not the active workflow SSOT
+  - Once a feature is active, `context` may block execution with a `docs_normalize` step until these entries are normalized or explicitly allowlisted
   - Normalize them into feature-local docs:
     - design/spec artifact → `spec.md`, `plan.md`, `decisions.md`
     - implementation plan artifact → `plan.md`, `tasks.md`
@@ -86,7 +91,7 @@ When requirements/scope change, the “what to update” must be explicit in doc
      1. backfill/update `docs/prd/*.md`
      2. update `spec.md` `PRD Refs`
      3. retag the task as `[PRD-...]` (or add a replacement task if needed)
-   - If shared planning artifacts exist (`docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*`), absorb them into the feature docs before treating them as part of the active workflow.
+   - If unmanaged docs entries exist (for example `docs/plans/*`, `docs/superpowers/*`, or another skill-created docs folder), absorb them into the feature docs before treating them as part of the active workflow.
    - `docs/features/.../spec.md`: update `PRD Refs` + reflect scope change summary
    - `docs/features/.../tasks.md`: add tasks for the change + tag each task as `[PRD-...]` or `[NON-PRD]`
    - `docs/features/.../plan.md`: update if architecture/testing strategy changed
@@ -109,6 +114,9 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
 - `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output (approval token: `A`, accepted: `A`/`A OK`)
+- `allowedDocsEntries` (object, optional): Allowlist non-standard top-level docs entries so they are not treated as unmanaged docs
+  - `dirs` (string[]): extra allowed directories directly under `docs/`
+  - `files` (string[]): extra allowed files directly under `docs/`
 
 ### Examples
 
@@ -119,6 +127,9 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "lang": "en",
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
+  "allowedDocsEntries": {
+    "dirs": ["plans"]
+  },
   "approval": { "mode": "builtin" }
 }
 ```

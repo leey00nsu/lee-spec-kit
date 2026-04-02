@@ -92,15 +92,20 @@ When things change mid-work, it must be explicit what was updated.
 
 ---
 
-## Shared Planning Artifacts (`superpowers`, etc.)
+## Unmanaged Docs Artifacts
 
-External agent workflows may create shared design/plan docs such as:
+External agent workflows may create docs entries outside the canonical lee-spec-kit docs surface.
+Common examples include:
 
 - `docs/plans/*.md`
-- `docs/superpowers/specs/*.md`
-- `docs/superpowers/plans/*.md`
+- `docs/superpowers/*`
+- another skill-created top-level docs folder
 
 When a feature is already in progress, treat those files as staging/reference artifacts, not the active workflow SSOT.
+
+- If the extra docs entry is intentional, add it to `.lee-spec-kit.json` `allowedDocsEntries`
+- If it is a planning/reference artifact, normalize it before continuing active feature execution
+- If `context` surfaces `docs_normalize`, handle that step first
 
 - Move user-facing scope and acceptance criteria into `spec.md`
 - Move architecture/file structure/test strategy into `plan.md`

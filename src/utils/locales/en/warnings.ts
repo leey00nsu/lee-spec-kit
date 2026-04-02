@@ -9,6 +9,8 @@ export const enWarnings = {
     'Cannot read git status for the docs repo. (Check repo location / git init.)',
   docsPathIgnored:
     'Current feature docs path is ignored by git: {path} (docs commit detection may be limited).',
+  unmanagedDocsEntries:
+    'Unmanaged docs entries are present outside the lee-spec-kit docs surface: {paths}. Treat them as reference inputs only and normalize them into feature-local docs before continuing.',
   docsUncommittedChanges:
     'Docs changes are not committed. (Additional docs commit needed.) Check commit message rules against the git-workflow guide.',
   projectUncommittedChanges:

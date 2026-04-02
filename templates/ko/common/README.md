@@ -66,9 +66,14 @@ npx lee-spec-kit context --json-compact
     - 태스크가 사용자 동작, acceptance criteria, 기능 범위를 바꾸게 되면 `[NON-PRD]`로 끝내지 말고 PRD를 backfill한 뒤 `[PRD-...]`로 연결합니다.
   - 레거시 문서에 PRD ID가 없다면, 먼저 원문 요구사항 문서에 ID를 backfill한 뒤 Feature 문서를 연결합니다.
   - `decisions.md`: 변경/트레이드오프/요구사항 변경(왜 바뀌었는지) 기록 + Evidence 링크
-- **공용 계획 산출물 (`docs/plans/`, `docs/superpowers/specs/`, `docs/superpowers/plans/`)**: staging/reference 문서
-  - `superpowers` 같은 외부 에이전트 워크플로우가 이 위치에 문서를 만들 수 있습니다.
-  - Feature가 활성화된 뒤에는 이 문서들이 입력 자료일 뿐이며, 최종 SSOT는 Feature 폴더에 남습니다.
+- **Canonical docs surface (`docs/`)**: lee-spec-kit가 관리하는 top-level 엔트리만 허용
+  - 기본 디렉터리: `agents/`, `designs/`, `features/`, `ideas/`, `prd/`, `scripts/`
+  - 기본 파일: `README.md`, `.lee-spec-kit.json`, `.gitignore`
+  - 의도적으로 다른 top-level 엔트리를 유지해야 하면 `.lee-spec-kit.json`의 `allowedDocsEntries`에 명시합니다
+- **Unmanaged docs 엔트리**: canonical surface 밖의 모든 `docs/` 최상위 엔트리
+  - 예: `docs/plans/`, `docs/superpowers/`, 또는 다른 스킬이 만든 폴더
+  - 이 문서들은 활성 워크플로우 SSOT가 아니라 staging/reference 입력으로만 취급합니다
+  - Feature가 활성화된 상태에서는 `context`가 `docs_normalize` 단계를 먼저 요구할 수 있으며, 정규화 또는 allowlist 등록 전까지 구현 진행을 막을 수 있습니다
   - 아래처럼 feature-local 문서로 정규화하세요:
     - design/spec 산출물 → `spec.md`, `plan.md`, `decisions.md`
     - implementation plan 산출물 → `plan.md`, `tasks.md`
@@ -86,7 +91,7 @@ npx lee-spec-kit context --json-compact
      1. `docs/prd/*.md` backfill/수정
      2. `spec.md`의 `PRD Refs` 갱신
      3. 해당 태스크를 `[PRD-...]`로 재태깅 (필요하면 대체 태스크 추가)
-   - `docs/plans/*`, `docs/superpowers/specs/*`, `docs/superpowers/plans/*` 같은 공용 계획 문서가 있으면, 활성 워크플로우에 넣기 전에 먼저 Feature 문서로 흡수합니다.
+   - `docs/plans/*`, `docs/superpowers/*`, 또는 다른 스킬이 만든 unmanaged docs가 있으면, 활성 워크플로우에 넣기 전에 먼저 Feature 문서로 흡수합니다.
    - `docs/features/.../spec.md`: `PRD Refs` 갱신 + 스코프 변경 요약 반영
    - `docs/features/.../tasks.md`: 변경을 반영하는 새 태스크 추가 + 각 태스크에 `[PRD-...]` 또는 `[NON-PRD]` 태그 부여
    - `docs/features/.../plan.md`: 아키텍처/테스트 전략이 바뀌면 함께 갱신
@@ -109,6 +114,9 @@ npx lee-spec-kit context --json-compact
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
 - `approval` (object, optional): `context` 출력의 `[확인 필요]` / `requiresUserCheck` 정책 오버라이드 (승인 토큰: `A`, 허용: `A`/`A OK`)
+- `allowedDocsEntries` (object, optional): 비표준 `docs/` top-level 엔트리를 unmanaged docs로 보지 않도록 허용 목록에 추가
+  - `dirs` (string[]): `docs/` 바로 아래에 추가 허용할 디렉터리
+  - `files` (string[]): `docs/` 바로 아래에 추가 허용할 파일
 
 ### 예시
 
@@ -119,6 +127,9 @@ npx lee-spec-kit context --json-compact
   "lang": "ko",
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
+  "allowedDocsEntries": {
+    "dirs": ["plans"]
+  },
   "approval": { "mode": "builtin" }
 }
 ```

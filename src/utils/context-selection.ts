@@ -9,6 +9,7 @@ import {
 } from './context/index.js';
 import { resolveComponentOption } from './context/component-option.js';
 import { tr } from './i18n.js';
+import { collectUnmanagedDocsEntries } from './unmanaged-docs.js';
 
 export type ContextStatus =
   | 'no_features'
@@ -428,6 +429,16 @@ export async function resolveContextSelection(
 ): Promise<ContextSelectionState> {
   const { config } = ctx;
   const { features, branches, warnings } = await scanFeatures(ctx);
+  const unmanagedDocs = await collectUnmanagedDocsEntries(
+    config.docsDir,
+    config.allowedDocsEntries
+  );
+  const unmanagedDocsWarning =
+    unmanagedDocs.length > 0
+      ? tr(config.lang, 'warnings', 'unmanagedDocsEntries', {
+          paths: unmanagedDocs.map((entry) => entry.relPath).join(', '),
+        })
+      : '';
   const selectedComponent = resolveComponentOption(options.component);
   const scopedFeatures = selectedComponent
     ? features.filter((f) => f.type === selectedComponent)
@@ -506,7 +517,35 @@ export async function resolveContextSelection(
     openFeatures,
     targetFeatures
   );
-  const matchedFeature = targetFeatures.length === 1 ? targetFeatures[0] : null;
+  const baseMatchedFeature = targetFeatures.length === 1 ? targetFeatures[0] : null;
+  let matchedFeature = baseMatchedFeature;
+  if (
+    baseMatchedFeature &&
+    !baseMatchedFeature.completion.workflowDone &&
+    unmanagedDocs.length > 0
+  ) {
+    const normalizeMessage = tr(config.lang, 'messages', 'docsUnmanagedNormalize', {
+      paths: unmanagedDocs.map((entry) => entry.relPath).join(', '),
+      featureRef: baseMatchedFeature.folderName,
+    });
+    matchedFeature = {
+      ...baseMatchedFeature,
+      currentSubstateId: 'docs_unmanaged_normalize',
+      currentSubstateOwner: 'main',
+      currentSubstatePhase: 'blocked',
+      warnings: unmanagedDocsWarning
+        ? [...baseMatchedFeature.warnings, unmanagedDocsWarning]
+        : [...baseMatchedFeature.warnings],
+      actions: [
+        {
+          type: 'instruction',
+          category: 'docs_normalize',
+          message: normalizeMessage,
+        } satisfies NextAction,
+      ],
+      nextAction: normalizeMessage,
+    };
+  }
   const actions = annotateActions(matchedFeature?.actions ?? []);
   const actionOptions = toActionOptions(actions, config.lang);
   const contextVersion = getContextVersion(matchedFeature, actionOptions);
@@ -514,7 +553,7 @@ export async function resolveContextSelection(
   return {
     features: scopedFeatures,
     branches,
-    warnings,
+    warnings: unmanagedDocsWarning ? [...warnings, unmanagedDocsWarning] : warnings,
     doneFeatures,
     openFeatures,
     inProgressFeatures,

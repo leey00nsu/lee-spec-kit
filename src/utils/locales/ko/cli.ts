@@ -75,6 +75,8 @@ export const koCli = {
     'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: -`와 `값: Draft | Review | Approved`를 추가하세요.',
   'doctor.issue.tasksPrdTagUnknown':
     'tasks.md에 정의되지 않은 PRD 태그가 있습니다: {ids}{extra}. tasks.md에서 PRD-FR-001 같은 ID를 임의로 만들지 말고, 먼저 docs/prd 또는 상위 요구사항 문서에 ID를 backfill한 뒤 spec.md `PRD Refs`와 tasks 태그를 함께 맞추세요.',
+  'doctor.issue.unmanagedDocsEntry':
+    'lee-spec-kit 문서 표면 밖의 문서 엔트리가 감지되었습니다: {path}. 최종 SSOT로 쓰지 말고 feature-local docs로 정규화하거나, 의도된 경로라면 `.lee-spec-kit.json`의 `allowedDocsEntries`에 추가하세요.',
   'doctor.issue.duplicateFeatureId': '중복 Feature ID 감지: {id} ({count}개)',
   'doctor.issue.missingFeatureId':
     'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',

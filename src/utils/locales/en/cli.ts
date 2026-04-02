@@ -73,6 +73,8 @@ export const enCli = {
     'tasks.md is missing the Doc Status field. Add `- **Doc Status**: -` and `Values: Draft | Review | Approved`.',
   'doctor.issue.tasksPrdTagUnknown':
     'tasks.md uses PRD tags with no matching source definition: {ids}{extra}. Do not invent IDs like PRD-FR-001 in tasks.md. Backfill IDs in docs/prd or the upstream requirements doc first, then align spec.md `PRD Refs` and task tags.',
+  'doctor.issue.unmanagedDocsEntry':
+    'Unmanaged docs entry detected outside the lee-spec-kit docs surface: {path}. Treat it as reference input only, normalize it into feature-local docs, or allowlist it in `.lee-spec-kit.json` `allowedDocsEntries`.',
   'doctor.issue.duplicateFeatureId':
     'Duplicate Feature ID detected: {id} ({count})',
   'doctor.issue.missingFeatureId':

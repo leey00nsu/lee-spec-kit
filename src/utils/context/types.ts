@@ -28,6 +28,7 @@ export const ACTION_CATEGORIES = [
   'plan_approve',
   'tasks_write',
   'tasks_approve',
+  'docs_normalize',
   'docs_commit',
   'issue_create',
   'branch_create',

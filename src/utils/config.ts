@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { resolveProjectComponents } from './components.js';
 import { normalizeProjectType, ProjectType, RawProjectType } from './project-type.js';
+import { AllowedDocsEntriesConfig } from './unmanaged-docs.js';
 
 export const DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES = [
   'spec_approve',
@@ -18,6 +19,7 @@ export interface ProjectConfig {
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | Record<string, string>;
+  allowedDocsEntries?: AllowedDocsEntriesConfig;
   pr?: {
     screenshots?: {
       /**
@@ -189,6 +191,7 @@ interface ConfigFile {
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | Record<string, string>;
+  allowedDocsEntries?: AllowedDocsEntriesConfig;
   pr?: ProjectConfig['pr'];
   workflow?: ProjectConfig['workflow'];
   approval?: ProjectConfig['approval'];
@@ -303,6 +306,7 @@ export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
             pushDocs: configFile.pushDocs,
             docsRemote: configFile.docsRemote,
             projectRoot: configFile.projectRoot,
+            allowedDocsEntries: configFile.allowedDocsEntries,
             pr: configFile.pr,
             workflow: configFile.workflow,
             approval: configFile.approval,

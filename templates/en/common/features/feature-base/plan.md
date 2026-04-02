@@ -1,7 +1,7 @@
 # Implementation Plan: {feature-name}
 
 > Write after spec is approved.
-> If a shared planning artifact exists (`docs/plans/*` or `docs/superpowers/plans/*`), absorb its architecture/file/test content here and treat this file as the final feature-local SSOT.
+> If unmanaged docs artifacts exist outside the canonical docs surface (for example `docs/plans/*` or `docs/superpowers/*`), absorb their architecture/file/test content here and treat this file as the final feature-local SSOT.
 
 ---
 

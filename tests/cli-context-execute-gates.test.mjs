@@ -1070,6 +1070,61 @@ test('context --json returns suggestion labels when no features exist', async ()
   });
 });
 
+test(
+  'context blocks active feature execution until unmanaged docs entries are normalized',
+  async () => {
+  await withTempDir('lsk-context-unmanaged-docs-block-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
+
+    await fs.mkdir(path.join(dir, 'docs', 'plans'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'plans', 'external-plan.md'),
+      '# External plan\n',
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'single_matched');
+    assert.equal(payload.primaryActionCategory, 'docs_normalize');
+    assert.equal(payload.matchedFeature.currentSubstateId, 'docs_unmanaged_normalize');
+    assert.equal(payload.matchedFeature.currentSubstateOwner, 'main');
+    assert.equal(payload.matchedFeature.currentSubstatePhase, 'blocked');
+    assert.match(payload.actionOptions[0].detail, /docs\/plans/);
+    assert.match(payload.actionOptions[0].action.message, /feature-local docs|normalize/i);
+    assert.equal(
+      (payload.matchedFeature.warnings || []).some((warning) =>
+        /unmanaged docs/i.test(String(warning))
+      ),
+      true
+    );
+  });
+  },
+  15000
+);
+
 test('context --json-compact keeps suggestion labels for non-hot-path states', async () => {
   await withTempDir('lsk-context-no-features-compact-suggestions-', async (dir) => {
     const initResult = await runCli(dir, [

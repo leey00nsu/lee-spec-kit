@@ -141,6 +141,8 @@ export const koMessages = {
     'Feature 범위가 큽니다. (tasks: {taskCount}, decisions 줄수: {decisionsLineCount}) tasks >= {recommendFourTaskThreshold} 또는 decisions 줄수 >= {recommendFourDecisionsThreshold}이면 4개 이슈 분할을 강하게 권장합니다. `{guideCommand}`를 따라 4개의 연관 이슈로 분리하고 의존 순서를 명시한 뒤 PR을 순차 머지하세요. 각 이슈 템플릿: 목표, 포함 범위, 제외 범위, 선행 의존성, PR 완료 기준.',
   userRequestReplan:
     '현재 단계와 별개로 사용자가 제안한 새 요구를 먼저 반영할 수 있습니다. 요구사항을 요약해 tasks.md에 추가하거나 별도 Feature로 분리한 뒤, 문서 상태를 맞추고 context를 다시 실행하세요.',
+  docsUnmanagedNormalize:
+    'lee-spec-kit 문서 표면 밖의 문서 엔트리가 감지되었습니다: {paths}. Feature `{featureRef}`를 계속 진행하기 전에 이 문서들은 reference 입력으로만 취급하세요. 사용자 범위/acceptance는 `spec.md`, 아키텍처/파일/테스트 내용은 `plan.md`, 실행 작업은 `tasks.md`, 근거/트레이드오프는 `decisions.md`로 정규화한 뒤 `npx lee-spec-kit context {featureRef}`를 다시 실행하세요.',
   featureDone:
     '워크플로우 요구사항과 로컬 정리까지 모두 끝났습니다. 이 Feature는 완전히 종료되었습니다.',
   fallbackRerunContext:

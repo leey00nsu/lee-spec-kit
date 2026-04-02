@@ -9,6 +9,8 @@ export const koWarnings = {
     'docs 레포의 git 상태를 확인할 수 없습니다. (레포 위치 / git init 확인)',
   docsPathIgnored:
     '현재 Feature 문서 경로가 git ignore 대상입니다: {path} (docs 커밋 감지가 제한될 수 있습니다.)',
+  unmanagedDocsEntries:
+    'lee-spec-kit 문서 표면 밖의 문서 엔트리가 있습니다: {paths}. reference 입력으로만 취급하고, 계속 진행하기 전에 feature-local docs로 정규화하세요.',
   docsUncommittedChanges:
     '문서 변경사항이 커밋되지 않았습니다. (추가 문서 커밋 필요) 커밋 메시지 규칙은 git-workflow 가이드를 기준으로 확인하세요.',
   projectUncommittedChanges:

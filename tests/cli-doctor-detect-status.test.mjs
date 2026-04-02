@@ -295,6 +295,85 @@ test('doctor --json warns when tasks use invented PRD IDs without source definit
   });
 });
 
+test('doctor --json warns on unmanaged docs entries outside the canonical docs surface', async () => {
+  await withTempDir('lsk-doctor-unmanaged-docs-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    await fs.mkdir(path.join(dir, 'docs', 'plans'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'plans', 'external-plan.md'),
+      '# External plan\n',
+      'utf-8'
+    );
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(payload.status, 'warn');
+    assert.equal(
+      payload.issues.some((issue) => issue.code === 'unmanaged_docs_entry'),
+      true
+    );
+    const issue = payload.issues.find((entry) => entry.code === 'unmanaged_docs_entry');
+    assert.match(String(issue?.message || ''), /docs\/plans/);
+    assert.match(String(issue?.message || ''), /feature-local docs|normalize/i);
+  });
+});
+
+test('doctor ignores unmanaged docs entries that are explicitly allowed in config', async () => {
+  await withTempDir('lsk-doctor-unmanaged-docs-allowed-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.allowedDocsEntries = { dirs: ['plans'] };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    await fs.mkdir(path.join(dir, 'docs', 'plans'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'docs', 'plans', 'external-plan.md'),
+      '# External plan\n',
+      'utf-8'
+    );
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(
+      payload.issues.some((issue) => issue.code === 'unmanaged_docs_entry'),
+      false
+    );
+  });
+});
+
 test('status text-mode errors include reason code and labeled next options', async () => {
   await withTempDir('lsk-status-error-text-', async (dir) => {
     const result = await runCli(dir, ['status']);

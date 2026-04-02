@@ -20,6 +20,7 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { collectUnmanagedDocsEntries, AllowedDocsEntriesConfig } from '../utils/unmanaged-docs.js';
 
 type IssueLevel = 'error' | 'warn' | 'info';
 
@@ -338,6 +339,7 @@ async function checkDocsStructure(
     docsDir: string;
     projectType: 'single' | 'multi';
     lang: 'ko' | 'en';
+    allowedDocsEntries?: AllowedDocsEntriesConfig;
   },
   cwd: string
 ): Promise<DoctorIssue[]> {
@@ -365,6 +367,21 @@ async function checkDocsStructure(
       code: 'missing_config',
       message: tr(config.lang, 'cli', 'doctor.issue.missingConfig'),
       path: formatPath(cwd, configPath),
+    });
+  }
+
+  const unmanagedEntries = await collectUnmanagedDocsEntries(
+    config.docsDir,
+    config.allowedDocsEntries
+  );
+  for (const entry of unmanagedEntries) {
+    issues.push({
+      level: 'warn',
+      code: 'unmanaged_docs_entry',
+      message: tr(config.lang, 'cli', 'doctor.issue.unmanagedDocsEntry', {
+        path: entry.relPath,
+      }),
+      path: formatPath(cwd, entry.absPath),
     });
   }
 
@@ -637,7 +654,15 @@ export function doctorCommand(program: Command): void {
 
         let issues: DoctorIssue[] = [];
         issues.push(
-          ...(await checkDocsStructure({ docsDir, projectType, lang }, cwd))
+          ...(await checkDocsStructure(
+            {
+              docsDir,
+              projectType,
+              lang,
+              allowedDocsEntries: config.allowedDocsEntries,
+            },
+            cwd
+          ))
         );
         issues.push(
           ...(await checkFeatures(
@@ -673,7 +698,15 @@ export function doctorCommand(program: Command): void {
             warnings = scan.warnings;
             issues = [];
             issues.push(
-              ...(await checkDocsStructure({ docsDir, projectType, lang }, cwd))
+              ...(await checkDocsStructure(
+                {
+                  docsDir,
+                  projectType,
+                  lang,
+                  allowedDocsEntries: config.allowedDocsEntries,
+                },
+                cwd
+              ))
             );
             issues.push(
               ...(await checkFeatures(
