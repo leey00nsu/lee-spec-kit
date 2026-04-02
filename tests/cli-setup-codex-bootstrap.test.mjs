@@ -22,11 +22,11 @@ test('setup codex-bootstrap creates managed block in CODEX_HOME config.toml', as
     assert.match(config, /# lee-spec-kit:codex-bootstrap:begin/);
     assert.match(
       config,
-      /project_doc_fallback_filenames = \["docs\/AGENTS\.md"\]/
+      /project_doc_fallback_filenames = \["AGENTS\.md", "docs\/AGENTS\.md"\]/
     );
     assert.match(
       config,
-      /compact_prompt = """[\s\S]*After context compression\/reset, read \.\/docs\/AGENTS\.md again before resuming project-specific work\.[\s\S]*"""/
+      /compact_prompt = """[\s\S]*Preserve any instructions loaded from \.\/AGENTS\.md or \.\/docs\/AGENTS\.md in the compacted summary\.[\s\S]*After context compression\/reset, read \.\/AGENTS\.md or \.\/docs\/AGENTS\.md again before resuming project-specific work\.[\s\S]*"""/
     );
   });
 });

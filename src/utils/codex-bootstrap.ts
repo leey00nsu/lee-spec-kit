@@ -7,8 +7,13 @@ export const LEE_SPEC_KIT_CODEX_BOOTSTRAP_BEGIN =
 export const LEE_SPEC_KIT_CODEX_BOOTSTRAP_END =
   '# lee-spec-kit:codex-bootstrap:end';
 
-const REQUIRED_FALLBACK = 'docs/AGENTS.md';
+const REQUIRED_FALLBACKS = ['AGENTS.md', 'docs/AGENTS.md'] as const;
 const REQUIRED_COMPACT_LINES = [
+  'Preserve any instructions loaded from ./AGENTS.md or ./docs/AGENTS.md in the compacted summary.',
+  'After context compression/reset, read ./AGENTS.md or ./docs/AGENTS.md again before resuming project-specific work.',
+];
+const LEGACY_FALLBACKS = ['docs/AGENTS.md'] as const;
+const LEGACY_COMPACT_LINES = [
   'Preserve any instructions loaded from ./docs/AGENTS.md in the compacted summary.',
   'After context compression/reset, read ./docs/AGENTS.md again before resuming project-specific work.',
 ];
@@ -16,7 +21,7 @@ const REQUIRED_COMPACT_LINES = [
 function renderManagedSegment(): string {
   return [
     LEE_SPEC_KIT_CODEX_BOOTSTRAP_BEGIN,
-    `project_doc_fallback_filenames = ["${REQUIRED_FALLBACK}"]`,
+    `project_doc_fallback_filenames = ["${REQUIRED_FALLBACKS.join('", "')}"]`,
     'compact_prompt = """',
     ...REQUIRED_COMPACT_LINES,
     '"""',
@@ -39,10 +44,13 @@ export function getCodexConfigPath(): string {
 }
 
 function contentIncludesRequiredBootstrap(content: string): boolean {
-  return (
-    content.includes(REQUIRED_FALLBACK) &&
-    REQUIRED_COMPACT_LINES.every((line) => content.includes(line))
-  );
+  const matchesCurrent =
+    REQUIRED_FALLBACKS.every((value) => content.includes(value)) &&
+    REQUIRED_COMPACT_LINES.every((line) => content.includes(line));
+  const matchesLegacy =
+    LEGACY_FALLBACKS.every((value) => content.includes(value)) &&
+    LEGACY_COMPACT_LINES.every((line) => content.includes(line));
+  return matchesCurrent || matchesLegacy;
 }
 
 function hasConflictingTopLevelKey(content: string, key: string): boolean {

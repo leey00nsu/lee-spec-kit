@@ -24,7 +24,7 @@ export function setupCommand(program: Command): void {
   setup
     .command('codex-bootstrap')
     .description(
-      'Install a small Codex global bootstrap that reads ./docs/AGENTS.md'
+      'Install a small Codex global bootstrap that reads ./AGENTS.md or ./docs/AGENTS.md'
     )
     .option(
       '--remove',
