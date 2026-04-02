@@ -14,6 +14,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { getLocalDateString } from '../utils/date.js';
+import { parseTaskLine } from '../utils/task-lines.js';
 
 interface TaskRunOptions {
   component?: string;
@@ -25,24 +26,8 @@ interface ResolvedTaskLine {
   index: number;
   raw: string;
   status: 'TODO' | 'DOING' | 'DONE' | 'REVIEW';
-  priority: string;
   taskId: string;
   title: string;
-}
-
-function parseTaskLine(line: string): ResolvedTaskLine | null {
-  const match = line.match(
-    /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\[([^\]]+)\](?:\[[^\]]+\])*\s+(T-[A-Za-z0-9-]+)\s+(.+?)\s*$/
-  );
-  if (!match) return null;
-  return {
-    index: -1,
-    raw: line,
-    status: match[1] as ResolvedTaskLine['status'],
-    priority: match[2],
-    taskId: match[3],
-    title: match[4],
-  };
 }
 
 function buildTaskRunPrompt(input: {
@@ -166,7 +151,7 @@ async function runTaskRun(
   const resolvedTask = lines
     .map((line, index) => {
       const parsed = parseTaskLine(line);
-      return parsed ? { ...parsed, index } : null;
+      return parsed ? ({ ...parsed, index } as ResolvedTaskLine) : null;
     })
     .find((entry) => entry?.taskId === requestedTaskId);
 

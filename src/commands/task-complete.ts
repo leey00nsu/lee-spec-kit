@@ -14,6 +14,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { getLocalDateString } from '../utils/date.js';
+import { parseTaskLine } from '../utils/task-lines.js';
 
 interface TaskCompleteOptions {
   component?: string;
@@ -27,20 +28,6 @@ interface ResolvedTaskLine {
   status: 'TODO' | 'DOING' | 'DONE' | 'REVIEW';
   taskId: string;
   title: string;
-}
-
-function parseTaskLine(line: string): ResolvedTaskLine | null {
-  const match = line.match(
-    /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\]\[[^\]]+\](?:\[[^\]]+\])*\s+(T-[A-Za-z0-9-]+)\s+(.+?)\s*$/
-  );
-  if (!match) return null;
-  return {
-    index: -1,
-    raw: line,
-    status: match[1] as ResolvedTaskLine['status'],
-    taskId: match[2],
-    title: match[3],
-  };
 }
 
 function setTaskStatus(line: ResolvedTaskLine, nextStatus: 'DONE'): string {
@@ -111,7 +98,7 @@ async function runTaskComplete(
   const resolvedTask = lines
     .map((line, index) => {
       const parsed = parseTaskLine(line);
-      return parsed ? { ...parsed, index } : null;
+      return parsed ? ({ ...parsed, index } as ResolvedTaskLine) : null;
     })
     .find((entry) => entry?.taskId === requestedTaskId);
 

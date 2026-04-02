@@ -53,8 +53,9 @@ Keep `tasks.md` aligned with reality.
 
 - Do not mark `[DONE]` without actually completing the work and verifying criteria.
 - If you need to change a completed task, add a new task instead of rewriting history.
-- If you need to add a new task, append it directly below the last existing task block in the `Task List` section.
-- Do not insert it near the current task, in the middle of the same phase, or right before `Completion Criteria` / the next `##` heading.
+- If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`.
+- If manual editing is unavoidable, append the new task directly below the last existing task block in the `Task List` section.
+- Do not insert it near the current task or right before `Completion Criteria` / the next `##` heading.
 
 ### Step 3.25: Record decisions (strongly recommended, effectively required)
 

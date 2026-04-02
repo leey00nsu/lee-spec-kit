@@ -49,8 +49,9 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 
 ### 3단계: 기록 및 반복 (Record & Loop)
 
-- 새 태스크를 추가해야 한다면 `태스크 목록` 섹션의 마지막 기존 태스크 block 바로 아래에만 append 하세요.
-- 현재 작업 중인 태스크 근처, 같은 Phase 중간, `완료 조건`/다음 `##` 헤더 앞에 끼워 넣지 마세요.
+- 새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`를 사용하세요.
+- 수동 편집이 꼭 필요할 때만 `태스크 목록` 섹션의 마지막 기존 태스크 block 바로 아래에 append 하세요.
+- 현재 작업 중인 태스크 근처나 `완료 조건`/다음 `##` 헤더 앞에 끼워 넣지 마세요.
 
 #### 3-1) Decision 기록 (매우 권장, 사실상 필수)
 

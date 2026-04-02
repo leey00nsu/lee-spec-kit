@@ -6,7 +6,6 @@
 - **Approvals**:
   - `[TODO] → [DOING]`: share task title first + user approval (OK)
   - `[DOING] → [DONE]`: share result/verification first + user approval (OK)
-- **Priority**: P0(urgent) > P1(high) > P2(medium) > P3(low)
 - **PRD mapping (recommended)**: add a PRD requirement ID tag like `[PRD-FR-001]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
@@ -44,15 +43,10 @@
 
 ---
 
-## Task List
-
-### Phase 1: {Phase Name}
-
-> Add tasks below. **At least 1 task is required.**
-> Copy and use the format below.
+## Task Entry Format
 
 ```markdown
-- [TODO][P1][PRD-FR-001] T-F{number}-01 {Task Title}
+- [TODO][PRD-FR-001] T-{feature-ref}-01 {Task Title}
   - Date: YYYY-MM-DD
   - Acceptance:
     - (verification condition)
@@ -63,21 +57,14 @@
 > `PRD-FR-001` in the example means an ID that already exists in the PRD source. If it is not defined yet, do not add it to tasks first.
 > If a task began as exploration/internal work but became a product requirement change, update PRD first, then retag the task from `[NON-PRD]` to `[PRD-...]`.
 
-(Recommended) Requirement/scope change task:
+---
 
-Record mid-work changes as **new tasks**, and explicitly list which docs need updating via `Impact Docs`.
-When adding a new task, append it below the last existing task block in `Task List` instead of inserting it near the current task or in the middle of a phase.
+## Task List
 
-```markdown
-- [TODO][P1][PRD-FR-001][CHANGE] T-F{number}-02 {Task Title} (requirement/scope change)
-  - Impact Docs:
-    - docs/prd/... (when requirements change)
-    - spec.md (PRD Refs/AC/scope)
-    - plan.md (architecture/testing strategy)
-    - decisions.md (why it changed + evidence)
-```
-
-> Use `[NON-PRD][CHANGE]` only when the change stays internal and does not alter user-visible requirements.
+> Add tasks below. **At least 1 task is required.**
+> Keep tasks as one ordered list. The list order itself is the execution priority.
+> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`.
+> If you must edit manually, append it below the last existing task block in `Task List` instead of inserting it near the current task or right before `Completion Criteria`.
 
 ---
 

@@ -20,6 +20,7 @@ import { codeReviewRunCommand } from './commands/code-review-run.js';
 import { requirementsCommand } from './commands/requirements.js';
 import { taskRunCommand } from './commands/task-run.js';
 import { taskCompleteCommand } from './commands/task-complete.js';
+import { taskCommand } from './commands/task.js';
 import { setupCommand } from './commands/setup.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
@@ -117,6 +118,7 @@ prePrReviewCommand(program);
 codeReviewRunCommand(program);
 taskRunCommand(program);
 taskCompleteCommand(program);
+taskCommand(program);
 requirementsCommand(program);
 setupCommand(program);
 

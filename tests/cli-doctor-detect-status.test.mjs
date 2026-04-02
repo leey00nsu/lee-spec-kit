@@ -554,7 +554,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       executeTaskPayload.doc.content,
-      /새 태스크를 추가해야 한다면 `태스크 목록` 섹션의 마지막 기존 태스크 block 바로 아래에만 append/
+      /새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`를 사용하세요/
     );
 
     const koAgentsDoc = await fs.readFile(
@@ -622,7 +622,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       koTasksTemplateDoc,
-      /새 태스크를 추가할 때는 현재 태스크 근처나 Phase 중간에 끼워 넣지 말고, `태스크 목록`의 마지막 기존 태스크 block 아래에 append/
+      /새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`로 추가하세요/
     );
 
     const enExecuteTaskDoc = await fs.readFile(
@@ -639,7 +639,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       enExecuteTaskDoc,
-      /If you need to add a new task, append it directly below the last existing task block in the `Task List` section/i
+      /If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`/i
     );
 
     const enTasksTemplateDoc = await fs.readFile(
@@ -656,7 +656,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       enTasksTemplateDoc,
-      /append it below the last existing task block in `Task List` instead of inserting it near the current task or in the middle of a phase/i
+      /prefer `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`/i
     );
 
     const enAgentsDoc = await fs.readFile(
