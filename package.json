@@ -1,7 +1,7 @@
 {
   "name": "lee-spec-kit",
   "version": "0.7.5",
-  "description": "Project documentation structure generator for AI-assisted development",
+  "description": "Agent-guided development harness CLI for spec-driven projects",
   "type": "module",
   "bin": {
     "lee-spec-kit": "./dist/index.js",
@@ -32,7 +32,10 @@
     "ai",
     "agent",
     "specification",
-    "documentation"
+    "documentation",
+    "harness",
+    "orchestration",
+    "workflow"
   ],
   "author": "Lee Yoonsu",
   "license": "MIT",
