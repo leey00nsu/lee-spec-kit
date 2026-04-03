@@ -374,6 +374,40 @@ test('doctor ignores unmanaged docs entries that are explicitly allowed in confi
   });
 });
 
+test('doctor treats docs/AGENTS.md as part of the managed docs surface', async () => {
+  await withTempDir('lsk-doctor-managed-docs-agents-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    await fs.writeFile(
+      path.join(dir, 'docs', 'AGENTS.md'),
+      '# Project Agents\n',
+      'utf-8'
+    );
+
+    const doctor = await runCli(dir, ['doctor', '--json']);
+    assert.equal(doctor.code, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.trim());
+    assert.equal(
+      payload.issues.some((issue) => issue.code === 'unmanaged_docs_entry'),
+      false
+    );
+  });
+});
+
 test('status text-mode errors include reason code and labeled next options', async () => {
   await withTempDir('lsk-status-error-text-', async (dir) => {
     const result = await runCli(dir, ['status']);

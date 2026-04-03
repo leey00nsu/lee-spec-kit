@@ -68,7 +68,7 @@ Recommended flow:
   - `decisions.md`: record changes/trade-offs/requirement changes (why it changed) with evidence links
 - **Canonical docs surface (`docs/`)**: lee-spec-kit-managed top-level entries only
   - Default directories: `agents/`, `designs/`, `features/`, `ideas/`, `prd/`, `scripts/`
-  - Default files: `README.md`, `.lee-spec-kit.json`, `.gitignore`
+  - Default files: `AGENTS.md`, `README.md`, `.lee-spec-kit.json`, `.gitignore`
   - Add intentional non-standard entries only via `.lee-spec-kit.json` `allowedDocsEntries`
 - **Unmanaged docs entries**: any top-level docs entry outside the canonical surface
   - Examples: `docs/plans/`, `docs/superpowers/`, or another skill-created folder

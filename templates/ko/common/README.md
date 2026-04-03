@@ -68,7 +68,7 @@ npx lee-spec-kit context --json-compact
   - `decisions.md`: 변경/트레이드오프/요구사항 변경(왜 바뀌었는지) 기록 + Evidence 링크
 - **Canonical docs surface (`docs/`)**: lee-spec-kit가 관리하는 top-level 엔트리만 허용
   - 기본 디렉터리: `agents/`, `designs/`, `features/`, `ideas/`, `prd/`, `scripts/`
-  - 기본 파일: `README.md`, `.lee-spec-kit.json`, `.gitignore`
+  - 기본 파일: `AGENTS.md`, `README.md`, `.lee-spec-kit.json`, `.gitignore`
   - 의도적으로 다른 top-level 엔트리를 유지해야 하면 `.lee-spec-kit.json`의 `allowedDocsEntries`에 명시합니다
 - **Unmanaged docs 엔트리**: canonical surface 밖의 모든 `docs/` 최상위 엔트리
   - 예: `docs/plans/`, `docs/superpowers/`, 또는 다른 스킬이 만든 폴더

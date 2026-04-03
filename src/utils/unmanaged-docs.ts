@@ -23,6 +23,7 @@ export const DEFAULT_MANAGED_DOC_DIRS = [
 ] as const;
 
 export const DEFAULT_MANAGED_DOC_FILES = [
+  'AGENTS.md',
   'README.md',
   '.lee-spec-kit.json',
   '.gitignore',
