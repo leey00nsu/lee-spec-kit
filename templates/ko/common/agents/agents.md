@@ -5,20 +5,22 @@
 
 ---
 
-## 🚨 사용자 확인 필수 규칙 (MUST)
+## 🚨 사용자 승인 처리 규칙 (MUST)
 
-> ⚠️ 아래 작업은 사용자 승인 경계에 해당하면 반드시 명시 승인 후에만 진행합니다.
+> ⚠️ 액션 종류만 보고 승인 필요 여부를 판단하지 마세요. workflow 승인 대기 여부는 항상 최신 `context --json-compact` / `flow --json-compact` 출력으로 결정합니다.
 > ✅ 승인 대기 상태에서는 응답 형식이 항상 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)입니다.
+> ℹ️ 기본 정책에서 주요 workflow 승인 경계는 `spec_approve`, `implementation_approve` 두 곳입니다. 프로젝트 config가 추가 경계를 둘 수 있습니다.
+> ℹ️ 일부 원격 helper 명령은 `--confirm OK` 같은 명시 확인을 별도로 요구합니다. 이 command-level confirm은 라벨 기반 workflow 승인과 별개입니다.
 
-| 작업 | 확인 시점 | 공유 내용 |
-| --- | --- | --- |
-| 스펙 작성 | `spec.md` 작성 후 | 스펙 내용 전문 |
-| 태스크 실행 | 각 태스크 시작 전 | 태스크 제목 |
-| 커밋 생성 | `git commit` 전 | 커밋 메시지, 포함 파일 목록 |
-| 이슈 생성 | `npx lee-spec-kit github issue <featureRef> --create` 전 | 제목, 본문, 라벨 |
-| PR 생성 | `npx lee-spec-kit github pr <featureRef> --create` 전 | 제목, 본문, 라벨 |
-| Assignee 변경 | 본인 외 지정 시 | 대상 사용자명 |
-| Git 원격 작업 | `push`, `merge` 전 (머지 커밋 포함) | 브랜치, 변경 사항 |
+현재 액션이 승인 대기 상태라면, 실행 전에 해당 내용을 공유하세요:
+
+| 현재 액션 예시 | 공유 내용 |
+| --- | --- |
+| spec / plan / tasks 검토 | 검토 대상 문서 또는 정확한 섹션 |
+| 태스크 완료 / 최종 체크리스트 | 결과와 검증 근거 |
+| 커밋 / push / merge | 커밋 메시지, 포함 파일, 브랜치 |
+| 이슈 / PR 생성 | 제목, 본문, 라벨 |
+| Assignee 변경 | 대상 사용자명 |
 
 확인 절차:
 1. 작업 내용을 먼저 공유

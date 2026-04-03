@@ -8,7 +8,7 @@ Execution-state SSOT is the feature-local `issue.md`.
 ## Prerequisites
 
 - [ ] `spec.md` completed
-- [ ] User approval received
+- [ ] Latest `context --json-compact` checked
 
 ---
 
@@ -38,22 +38,29 @@ Use `issue.md` status (`Draft | Ready`) as the actual workflow state.
 | Labels   | `enhancement`, `bug`, `documentation`, etc. |
 | Assignee | `@me` (default)                             |
 
-### 2. Request User Approval + Move to `Ready`
+### 2. Move to `Ready` (request approval only when context requires it)
 
-> 🚨 **User Approval Required**
+> ⚠️ **Workflow label approval is conditional**
 
-Share the `issue.md` draft and wait for label approval (`A` or `A OK`):
+Share the `issue.md` draft:
 
 - Title
 - Full body draft (from `issue.md`)
 - Labels
 
-After approval, set `issue.md` status to `Ready`.
+Then re-check the latest `npx lee-spec-kit context --json-compact`.
+
+- If `approvalRequest.required=true`, show the exact CLI-provided approval lines and wait for a label reply (`A` or `A OK`) before continuing.
+- If `approvalRequest.required=false`, do not invent a separate label prompt; refine the draft and set `issue.md` status to `Ready`.
 
 ### 3. Create Issue (when `issue.md` is `Ready`)
 
 Remote issue creation must use the lee-spec-kit helper.
 Do not call `gh issue create` directly or pass raw `issue.md` to `--body-file`.
+Command-level remote confirmation is still required even when workflow label approval is not:
+
+- share the final title/body/labels with the user
+- then run the helper with `--confirm OK`
 
 ```bash
 npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
@@ -69,5 +76,6 @@ After creation:
 
 - **Draft generator**: `npx lee-spec-kit github issue <feature-name>`
 - **Remote creation rule**: must use `npx lee-spec-kit github issue <feature-name> --create --confirm OK --labels ...`
-- **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
+- **Workflow approval rule**: only wait for label approval when `approvalRequest.required=true`
+- **Remote confirm rule**: share title/body/labels first, then run `--create --confirm OK`
 - **Execution-state SSOT**: `docs/features/.../<feature>/issue.md`

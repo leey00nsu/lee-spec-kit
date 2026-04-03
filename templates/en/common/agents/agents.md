@@ -5,20 +5,22 @@ This document covers **policy only**.
 
 ---
 
-## 🚨 User Approval Required (MUST)
+## 🚨 User Approval Handling (MUST)
 
-> ⚠️ The actions below require explicit user approval when they are at an approval boundary.
+> ⚠️ Do not decide approval only from the action type. Workflow approval-waiting is determined by the latest `context --json-compact` / `flow --json-compact` output.
 > ✅ In approval-waiting state, replies must be in `<label>` or `<label> OK` format (e.g. `A`, `A OK`).
+> ℹ️ Under the default policy, the main workflow approval boundaries are `spec_approve` and `implementation_approve`. Project config may add more.
+> ℹ️ Some direct remote helper commands still require explicit command confirmation such as `--confirm OK`; that command-level confirm is separate from label-gated workflow approval.
 
-| Action | When to confirm | What to share |
-| --- | --- | --- |
-| Spec writing | After writing `spec.md` | Full spec content |
-| Task execution | Before each task | Task title |
-| Commit creation | Before `git commit` | Commit message, included files |
-| Issue creation | Before `npx lee-spec-kit github issue <featureRef> --create` | Title, body, labels |
-| PR creation | Before `npx lee-spec-kit github pr <featureRef> --create` | Title, body, labels |
-| Assignee change | When assigning someone else | Target username |
-| Remote Git operations | Before `push`, `merge` (including merge commits) | Branch, changes |
+If the current action is approval-waiting, share the matching details before execution:
+
+| Current action (examples) | What to share |
+| --- | --- |
+| Spec / plan / tasks review | The document or the exact section being reviewed |
+| Task completion / final checklist | Outcome and verification evidence |
+| Commit / push / merge | Commit message, included files, branch |
+| Issue / PR creation | Title, body, labels |
+| Assignee change | Target username |
 
 Approval flow:
 1. Share details first
