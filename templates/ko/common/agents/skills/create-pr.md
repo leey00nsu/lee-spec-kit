@@ -145,23 +145,31 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 - PR 본문에 Mermaid **`sequenceDiagram`**을 작성하고, 생성된 본문 템플릿 형식과 일치하게 유지합니다.
 - 이 기준은 프론트/백엔드 구분이 아니라 변경 유형(로직/구조) 기준으로 적용합니다.
 
-### 4. 사용자 확인 요청 + `Ready` 전환
+### 4. `Ready` 전환 (context가 요구할 때만 승인 요청)
 
-> 🚨 **사용자 확인 필수**
+> ⚠️ **workflow 라벨 승인은 조건부입니다**
 
-PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하고, 승인 대기 상태면 CLI가 준 `<라벨>` 또는 `<라벨> OK` 응답을 기다리세요:
+PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하세요:
 
 - 제목
 - 본문 전체 템플릿 (`pr.md` 기준)
 - 라벨(최소 1개, 비워둘 수 없음)
 
-승인/생성 전에 `pr.md`의 변경 사항/테스트 섹션을 실제 작업 기준으로 보완하세요.
-승인 후 `pr.md` 상태를 `Ready`로 변경하세요.
+그 다음 최신 `npx lee-spec-kit context --json-compact`를 다시 확인합니다.
+
+- `approvalRequest.required=true`이면 CLI가 준 `<라벨>` 또는 `<라벨> OK` 응답을 기다립니다.
+- `approvalRequest.required=false`이면 별도 라벨 승인 문구를 만들지 않습니다.
+
+이후 `pr.md`의 변경 사항/테스트 섹션을 실제 작업 기준으로 보완하고 `Ready`로 변경하세요.
 
 ### 5. PR 생성 (`pr.md`가 `Ready`일 때)
 
 원격 PR 생성은 반드시 lee-spec-kit helper로만 실행합니다.
 `gh pr create`를 직접 호출하거나 raw `pr.md`를 그대로 `--body-file`에 넘기지 마세요.
+workflow 라벨 승인과 별개로, 원격 생성 command 자체의 명시 확인은 계속 필요합니다.
+
+- 최종 제목/본문/라벨을 사용자에게 공유하고
+- 그 다음 `--confirm OK`를 붙여 helper를 실행하세요
 
 ```bash
 npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
@@ -213,5 +221,6 @@ PR 본문의 파일 링크는 **현재 브랜치명**을 사용:
 
 - **본문 템플릿 생성기**: `npx lee-spec-kit github pr <feature-name>`
 - **원격 생성 규칙**: 반드시 `npx lee-spec-kit github pr <feature-name> --create --confirm OK --labels ...` 사용
-- **승인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
+- **workflow 승인 규칙**: `approvalRequest.required=true`일 때만 라벨 승인을 기다립니다
+- **원격 확인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
 - **실행 상태 SSOT**: `docs/features/.../<feature>/pr.md`

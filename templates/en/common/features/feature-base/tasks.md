@@ -3,9 +3,12 @@
 ## Task Rules
 
 - **Status**: `[TODO]` → `[DOING]` → `[DONE]`
-- **Approvals**:
-  - `[TODO] → [DOING]`: share task title first + user approval (OK)
-  - `[DOING] → [DONE]`: share result/verification first + user approval (OK)
+- **Task communication / confirmation**:
+  - `[TODO] → [DOING]`: share the task title first, then follow the latest `context --json-compact`
+  - `[DOING] → [DONE]`: share the result/verification first, then follow the latest `context --json-compact`
+  - If `approvalRequest.required=true`, wait for the exact CLI-provided label reply before changing task state.
+  - If `approvalRequest.required=false`, do not invent a separate `OK` approval step; update task state after real completion/verification.
+  - `task-complete` rejects `[DONE]` while any item in that task's `Checklist` remains unchecked.
 - **PRD mapping (recommended)**: add a PRD requirement ID tag like `[PRD-FR-001]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
@@ -63,7 +66,8 @@
 
 > Add tasks below. **At least 1 task is required.**
 > Keep tasks as one ordered list. The list order itself is the execution priority.
-> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`.
+> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001 --acceptance "..." --check "..."`.
+> Do not leave placeholder `Acceptance` / `Checklist` content in place. `task-run` will block execution until those items are concrete.
 > If you must edit manually, append it below the last existing task block in `Task List` instead of inserting it near the current task or right before `Completion Criteria`.
 
 ---
@@ -74,7 +78,7 @@
 
 - [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked
 - [ ] Tests executed and passing (record command/result below)
-- [ ] Final user approval (OK) received (review the outcome)
+- [ ] Final outcome shared and user confirmation recorded according to the current `context` approval state
 
 ### Test Run Log (Latest by Command)
 

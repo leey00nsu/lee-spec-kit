@@ -14,7 +14,11 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { getLocalDateString } from '../utils/date.js';
-import { parseTaskLine } from '../utils/task-lines.js';
+import {
+  parseTaskAcceptance,
+  parseTaskChecklist,
+  parseTaskLine,
+} from '../utils/task-lines.js';
 
 interface TaskRunOptions {
   component?: string;
@@ -30,6 +34,22 @@ interface ResolvedTaskLine {
   title: string;
 }
 
+function ensureTaskDetailsReady(lines: string[], task: ResolvedTaskLine): void {
+  const acceptance = parseTaskAcceptance(lines, task.index);
+  const checklist = parseTaskChecklist(lines, task.index);
+  const acceptanceHasPlaceholder =
+    !acceptance || acceptance.items.length === 0 || acceptance.placeholderCount > 0;
+  const checklistHasPlaceholder =
+    !checklist || checklist.total === 0 || checklist.placeholderCount > 0;
+
+  if (acceptanceHasPlaceholder || checklistHasPlaceholder) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      `Task "${task.taskId}" still contains Acceptance/Checklist placeholder content. Fill concrete Acceptance items and Checklist items before running task-run.`
+    );
+  }
+}
+
 function buildTaskRunPrompt(input: {
   featureRef: string;
   taskId: string;
@@ -43,8 +63,8 @@ function buildTaskRunPrompt(input: {
     'Use additional helper agents only when parallel analysis is clearly worth the extra slot cost.',
     'Keep one writer for overlapping files; do not let multiple sub-agents edit the same files concurrently.',
     'If helper-agent quota is exhausted, continue the task in the main agent instead of blocking progress.',
-    'Update the assigned task status and verification notes in `tasks.md` before leaving this task.',
-    'Mark the task `DONE` only after code changes and verification are complete.',
+    'Update the assigned task status, task-local checklist boxes, and verification notes in `tasks.md` before leaving this task.',
+    'Mark the task `DONE` only after code changes and verification are complete. `task-complete` will reject the transition if checklist items remain unchecked.',
   ];
 
   if (input.lang === 'ko') {
@@ -168,6 +188,8 @@ async function runTaskRun(
       `Task "${requestedTaskId}" is already DONE.`
     );
   }
+
+  ensureTaskDetailsReady(lines, resolvedTask);
 
   const mode = resolvedTask.status === 'TODO' ? 'start' : 'continue';
   let tasksUpdated = false;

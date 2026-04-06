@@ -3,9 +3,12 @@
 ## 태스크 규칙
 
 - **상태**: `[TODO]` → `[DOING]` → `[DONE]`
-- **승인**:
-  - `[TODO] → [DOING]`: 시작 전 태스크 제목 공유 + 사용자 승인(OK)
-  - `[DOING] → [DONE]`: 완료 전 결과/검증 공유 + 사용자 승인(OK)
+- **태스크 공유 / 확인**:
+  - `[TODO] → [DOING]`: 시작 전 태스크 제목을 공유하고 최신 `context --json-compact` 기준을 따릅니다
+  - `[DOING] → [DONE]`: 완료 전 결과/검증을 공유하고 최신 `context --json-compact` 기준을 따릅니다
+  - `approvalRequest.required=true`이면 CLI가 제공한 라벨 응답을 받은 뒤에만 태스크 상태를 변경합니다.
+  - `approvalRequest.required=false`이면 별도 `OK` 승인 단계를 만들지 말고, 실제 완료/검증 후 상태를 갱신합니다.
+  - 해당 태스크의 `Checklist`에 unchecked 항목이 남아 있으면 `task-complete`는 `[DONE]` 전환을 거부합니다.
 - **PRD 매핑(권장)**: 각 태스크 라인에 `[PRD-FR-001]` 같은 PRD 요구사항 ID 태그를 추가하거나, PRD와 무관한 태스크는 `[NON-PRD]`로 표시하세요.
   - 단, `tasks.md`에서 PRD ID를 임의로 만들지 마세요. `docs/prd` 또는 상위 요구사항 문서에 먼저 정의된 ID만 참조해야 합니다.
   - 레거시 문서에 아직 PRD ID가 없다면, 먼저 원문 요구사항 문서에 ID를 backfill한 뒤 `spec.md`의 `PRD Refs`와 태스크 태그를 함께 맞추세요.
@@ -63,7 +66,8 @@
 
 > 아래에 태스크를 추가하세요. **최소 1개가 필요**합니다.
 > 태스크는 하나의 순차 리스트로 유지하고, 위에서 아래 순서 자체를 실행 우선순위로 취급하세요.
-> 새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`로 추가하세요.
+> 새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001 --acceptance "..." --check "..."`로 추가하세요.
+> placeholder 상태의 `Acceptance` / `Checklist`를 그대로 두지 마세요. concrete item이 아니면 `task-run`이 실행을 막습니다.
 > 수동 편집이 필요하면 현재 태스크 근처가 아니라 `태스크 목록`의 마지막 기존 태스크 block 아래에만 append 하세요.
 
 ---
@@ -74,7 +78,7 @@
 
 - [ ] 모든 태스크가 `[DONE]`이며, 각 태스크의 `Acceptance` 검증 및 `Checklist` 체크 완료
 - [ ] 테스트 실행 및 통과 (아래에 명령어/결과 기록)
-- [ ] 최종 사용자 승인(OK) 완료 (결과물 확인)
+- [ ] 최종 결과를 공유했고, 현재 `context` 승인 상태에 맞는 사용자 확인을 기록함
 
 ### 테스트 실행 기록
 

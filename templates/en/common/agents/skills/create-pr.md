@@ -145,23 +145,31 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 - Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated body template format.
 - Apply this rule based on change type (logic/structure), not by frontend/backend classification.
 
-### 4. Request User Approval + Move to `Ready`
+### 4. Move to `Ready` (request approval only when context requires it)
 
-> 🚨 **User Approval Required**
+> ⚠️ **Workflow label approval is conditional**
 
-Before creating the PR, share the following **in a code block** and, if approval is currently required, wait for the CLI-provided `<LABEL>` or `<LABEL> OK` reply:
+Before creating the PR, share the following **in a code block**:
 
 - Title
 - Full body template (from `pr.md`)
 - Labels (at least 1; cannot be empty)
 
-Before approval/create, refine `pr.md` Changes/Tests sections based on actual work.
-After approval, set `pr.md` status to `Ready`.
+Then re-check the latest `npx lee-spec-kit context --json-compact`.
+
+- If `approvalRequest.required=true`, wait for the exact CLI-provided `<LABEL>` or `<LABEL> OK` reply.
+- If `approvalRequest.required=false`, do not invent a separate label prompt.
+
+Before moving on, refine `pr.md` Changes/Tests sections based on actual work and set `pr.md` status to `Ready`.
 
 ### 5. Create PR (when `pr.md` is `Ready`)
 
 Remote PR creation must use the lee-spec-kit helper.
 Do not call `gh pr create` directly or pass raw `pr.md` to `--body-file`.
+Command-level remote confirmation is still required even when workflow label approval is not:
+
+- share the final title/body/labels with the user
+- then run the helper with `--confirm OK`
 
 ```bash
 npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
@@ -213,5 +221,6 @@ Use **current branch name** for file links in PR body:
 
 - **Body template generator**: `npx lee-spec-kit github pr <feature-name>`
 - **Remote creation rule**: must use `npx lee-spec-kit github pr <feature-name> --create --confirm OK --labels ...`
-- **Approval rule**: share title/body/labels first, then run `--create --confirm OK`
+- **Workflow approval rule**: only wait for label approval when `approvalRequest.required=true`
+- **Remote confirm rule**: share title/body/labels first, then run `--create --confirm OK`
 - **Execution-state SSOT**: `docs/features/.../<feature>/pr.md`

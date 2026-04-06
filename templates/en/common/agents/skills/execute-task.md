@@ -53,7 +53,8 @@ Keep `tasks.md` aligned with reality.
 
 - Do not mark `[DONE]` without actually completing the work and verifying criteria.
 - If you need to change a completed task, add a new task instead of rewriting history.
-- If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`.
+- If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001 --acceptance "..." --check "..."`.
+- Do not leave placeholder `Acceptance` / `Checklist` items in a newly added task. `task-run` will block until those fields contain concrete execution/verification items.
 - If manual editing is unavoidable, append the new task directly below the last existing task block in the `Task List` section.
 - Do not insert it near the current task or right before `Completion Criteria` / the next `##` heading.
 
@@ -87,10 +88,10 @@ Use the feature’s `decisions.md` template format as final SSOT. (Context/Const
 ### Step 3.5: Commit per task (important)
 
 - Complete **only one task at a time** (do not batch-finish multiple tasks in one commit).
-- After you share the outcome/verification, mark the task `[DONE]` (and update any checklist items). If approval is required (`approvalRequest.required=true`), reuse the exact CLI-provided approval lines and wait for a `<LABEL>` or `<LABEL> OK` reply first. If approval is not required, do not invent a separate approval prompt before marking `[DONE]`.
+- After you share the outcome/verification, mark the task `[DONE]` and update the task-local checklist items in the same edit. `task-complete` will reject `[DONE]` if unchecked checklist boxes remain. If approval is required (`approvalRequest.required=true`), reuse the exact CLI-provided approval lines and wait for a `<LABEL>` or `<LABEL> OK` reply first. If approval is not required, do not invent a separate approval prompt before marking `[DONE]`.
 - In `tasks.md` test logs, keep one entry per test command and update its date/result on reruns (do not keep appending duplicates). Use `YYYY-MM-DD` in local date.
 - If `context` shows `[CHECK required]`, for commits/push/merge, **share the commit message + included files and wait for the latest CLI-provided label reply** before running the commands.
-- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user. If that point is approval-waiting, get a `<LABEL>` or `<LABEL> OK` reply before checking it; otherwise get a normal confirmation reply. (especially the **Final user approval received** item).
+- Once all tasks are `[DONE]`, share the "Completion Criteria" checklist with the user. If that point is approval-waiting, get a `<LABEL>` or `<LABEL> OK` reply before checking it; otherwise get a normal confirmation reply. (especially the final outcome/user confirmation item).
   - Note: both progress approval and final approval must follow the current `approvalRequest.required` state. When approval is label-gated, always use label replies instead of standalone `OK` as the approval token.
 
 ### Step 4: Repeat

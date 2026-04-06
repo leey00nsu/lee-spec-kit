@@ -16,7 +16,9 @@ npx lee-spec-kit context --json-compact
 ```
 
 - `isLeeSpecKitProject: true`일 때만 lee-spec-kit 워크플로우를 적용합니다.
-- `actionOptions`가 있으면 `approvalPrompt`/`finalPrompt`를 그대로 사용자에게 보여주고 승인(`<LABEL>` 또는 `<LABEL> OK`)을 받은 뒤 실행합니다.
+- 승인 대기 여부는 항상 최신 `context --json-compact` / `flow --json-compact`를 기준으로 판단합니다.
+- `approvalRequest.required=true`일 때만 `approvalPrompt`/`finalPrompt`를 그대로 사용자에게 보여주고 승인(`<LABEL>` 또는 `<LABEL> OK`)을 받은 뒤 실행합니다.
+- `approvalRequest.required=false`이면 별도 라벨 승인 문구를 만들지 않습니다.
 - `isLeeSpecKitProject: false`면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행합니다.
 
 ## 신규 프로젝트 시작 순서
@@ -113,7 +115,13 @@ npx lee-spec-kit context --json-compact
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
-- `approval` (object, optional): `context` 출력의 `[확인 필요]` / `requiresUserCheck` 정책 오버라이드 (승인 토큰: `A`, 허용: `A`/`A OK`)
+- `approval` (object, optional): `context` 출력의 `[확인 필요]` / `requiresUserCheck` 정책 오버라이드
+  - 현재 기본값:
+    - `mode: "category"`
+    - `default: "skip"`
+    - `requireCheckCategories: ["spec_approve", "implementation_approve"]`
+  - 승인 토큰: `A`
+  - 허용 응답: `A`, `A OK`
 - `allowedDocsEntries` (object, optional): 비표준 `docs/` top-level 엔트리를 unmanaged docs로 보지 않도록 허용 목록에 추가
   - `dirs` (string[]): `docs/` 바로 아래에 추가 허용할 디렉터리
   - `files` (string[]): `docs/` 바로 아래에 추가 허용할 파일
@@ -130,7 +138,11 @@ npx lee-spec-kit context --json-compact
   "allowedDocsEntries": {
     "dirs": ["plans"]
   },
-  "approval": { "mode": "builtin" }
+  "approval": {
+    "mode": "category",
+    "default": "skip",
+    "requireCheckCategories": ["spec_approve", "implementation_approve"]
+  }
 }
 ```
 
@@ -143,6 +155,10 @@ npx lee-spec-kit context --json-compact
   "docsRepo": "standalone",
   "pushDocs": true,
   "docsRemote": "git@github.com:org/{{projectName}}-docs.git",
-  "approval": { "mode": "builtin" }
+  "approval": {
+    "mode": "category",
+    "default": "skip",
+    "requireCheckCategories": ["spec_approve", "implementation_approve"]
+  }
 }
 ```

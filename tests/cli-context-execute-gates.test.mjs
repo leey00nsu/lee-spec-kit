@@ -3497,7 +3497,7 @@ test('task-run marks TODO task as DOING and returns sub-agent handoff prompt', a
     );
     tasks = tasks.replace(
       '## Task List',
-      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell\n  - Date: 2026-04-06\n  - Acceptance:\n    - shell works\n  - Checklist:\n    - [ ] add command\n    - [ ] verify shell output'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
@@ -3598,7 +3598,7 @@ test('task-complete marks active DOING task as DONE', async () => {
     );
     tasks = tasks.replace(
       '## Task List',
-      '## Task List\n\n- [DOING][P1] T-F001-alpha-01 implement alpha shell'
+      '## Task List\n\n- [DOING][P1] T-F001-alpha-01 implement alpha shell\n  - Date: 2026-04-06\n  - Acceptance:\n    - shell works\n  - Checklist:\n    - [x] code changes applied\n    - [x] verification evidence recorded'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 

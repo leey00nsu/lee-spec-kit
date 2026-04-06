@@ -16,7 +16,9 @@ npx lee-spec-kit context --json-compact
 ```
 
 - Apply lee-spec-kit workflow only when `isLeeSpecKitProject: true`.
-- When `actionOptions` exist, show `approvalPrompt`/`finalPrompt` exactly as provided and wait for user approval (`<LABEL>` or `<LABEL> OK`) before execution.
+- Determine approval waiting only from the latest `context --json-compact` / `flow --json-compact`.
+- When `approvalRequest.required=true`, show `approvalPrompt`/`finalPrompt` exactly as provided and wait for user approval (`<LABEL>` or `<LABEL> OK`) before execution.
+- When `approvalRequest.required=false`, do not invent a separate label approval prompt.
 - If `isLeeSpecKitProject: false`, skip lee-spec-kit-specific flow and continue with normal workflow.
 
 ## New Project Start Order
@@ -113,7 +115,13 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output (approval token: `A`, accepted: `A`/`A OK`)
+- `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output
+  - Current default:
+    - `mode: "category"`
+    - `default: "skip"`
+    - `requireCheckCategories: ["spec_approve", "implementation_approve"]`
+  - Approval token: `A`
+  - Accepted replies: `A`, `A OK`
 - `allowedDocsEntries` (object, optional): Allowlist non-standard top-level docs entries so they are not treated as unmanaged docs
   - `dirs` (string[]): extra allowed directories directly under `docs/`
   - `files` (string[]): extra allowed files directly under `docs/`
@@ -130,7 +138,11 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "allowedDocsEntries": {
     "dirs": ["plans"]
   },
-  "approval": { "mode": "builtin" }
+  "approval": {
+    "mode": "category",
+    "default": "skip",
+    "requireCheckCategories": ["spec_approve", "implementation_approve"]
+  }
 }
 ```
 
@@ -143,6 +155,10 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "docsRepo": "standalone",
   "pushDocs": true,
   "docsRemote": "git@github.com:org/{{projectName}}-docs.git",
-  "approval": { "mode": "builtin" }
+  "approval": {
+    "mode": "category",
+    "default": "skip",
+    "requireCheckCategories": ["spec_approve", "implementation_approve"]
+  }
 }
 ```

@@ -24,7 +24,36 @@ interface TaskAddOptions {
   component?: string;
   title: string;
   ref: string;
+  acceptance?: string[];
+  check?: string[];
   json?: boolean;
+}
+
+function collectRepeatableOption(
+  value: string,
+  previous: string[] = []
+): string[] {
+  return [...previous, value];
+}
+
+function normalizeTaskDetailItems(
+  values: string[] | undefined,
+  flagName: '--acceptance' | '--check'
+): string[] {
+  const normalized = (values || [])
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  for (const value of normalized) {
+    if (value === '-' || /^todo$/i.test(value)) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        `${flagName} must contain concrete text, not placeholder values like "-" or "TODO".`
+      );
+    }
+  }
+
+  return normalized;
 }
 
 function escapeRegExp(value: string): string {
@@ -109,14 +138,20 @@ function formatTaskBlock(input: {
   taskId: string;
   title: string;
   recordedAt: string;
+  acceptanceItems: string[];
+  checklistItems: string[];
 }): string[] {
   return [
     `- [TODO][${input.ref}] ${input.taskId} ${input.title}`,
     `  - Date: ${input.recordedAt}`,
     '  - Acceptance:',
-    '    - -',
+    ...(input.acceptanceItems.length > 0
+      ? input.acceptanceItems.map((item) => `    - ${item}`)
+      : ['    - -']),
     '  - Checklist:',
-    '    - [ ] -',
+    ...(input.checklistItems.length > 0
+      ? input.checklistItems.map((item) => `    - [ ] ${item}`)
+      : ['    - [ ] -']),
   ];
 }
 
@@ -158,6 +193,11 @@ async function runTaskAdd(
   if (!title) {
     throw createCliError('INVALID_ARGUMENT', '`--title` must not be empty.');
   }
+  const acceptanceItems = normalizeTaskDetailItems(
+    options.acceptance,
+    '--acceptance'
+  );
+  const checklistItems = normalizeTaskDetailItems(options.check, '--check');
 
   const ref = normalizeTaskRef(options.ref);
   if (isPrdRequirementId(ref)) {
@@ -201,7 +241,14 @@ async function runTaskAdd(
     nextSectionHeadingIndex
   );
   const recordedAt = getLocalDateString();
-  const blockLines = formatTaskBlock({ ref, taskId, title, recordedAt });
+  const blockLines = formatTaskBlock({
+    ref,
+    taskId,
+    title,
+    recordedAt,
+    acceptanceItems,
+    checklistItems,
+  });
 
   const shouldPrefixBlank =
     insertIndex > taskListHeadingIndex + 1 &&
@@ -248,6 +295,18 @@ export function taskCommand(program: Command): void {
     .description('Append a new task to the end of Task List')
     .requiredOption('--title <title>', 'Task title')
     .requiredOption('--ref <ref>', 'Requirement ref: NON-PRD or PRD-FR-001')
+    .option(
+      '--acceptance <text>',
+      'Acceptance item. Repeat to add more than one.',
+      collectRepeatableOption,
+      []
+    )
+    .option(
+      '--check <text>',
+      'Checklist item. Repeat to add more than one.',
+      collectRepeatableOption,
+      []
+    )
     .option('--component <component>', 'Component name for multi projects')
     .option('--json', 'Output JSON')
     .action(async (featureName: string | undefined, options: TaskAddOptions) => {

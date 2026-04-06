@@ -14,7 +14,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { getLocalDateString } from '../utils/date.js';
-import { parseTaskLine } from '../utils/task-lines.js';
+import { parseTaskChecklist, parseTaskLine } from '../utils/task-lines.js';
 
 interface TaskCompleteOptions {
   component?: string;
@@ -120,6 +120,14 @@ async function runTaskComplete(
     throw createCliError(
       'PRECONDITION_FAILED',
       `Task "${requestedTaskId}" must be DOING/REVIEW before marking it DONE.`
+    );
+  }
+
+  const checklist = parseTaskChecklist(lines, resolvedTask.index);
+  if (checklist && checklist.unchecked > 0) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      `Task "${requestedTaskId}" still has unchecked checklist items (${checklist.checked}/${checklist.total}).`
     );
   }
 
