@@ -38,9 +38,9 @@ function ensureTaskDetailsReady(lines: string[], task: ResolvedTaskLine): void {
   const acceptance = parseTaskAcceptance(lines, task.index);
   const checklist = parseTaskChecklist(lines, task.index);
   const acceptanceHasPlaceholder =
-    !acceptance || acceptance.items.length === 0 || acceptance.placeholderCount > 0;
+    !!acceptance && (acceptance.items.length === 0 || acceptance.placeholderCount > 0);
   const checklistHasPlaceholder =
-    !checklist || checklist.total === 0 || checklist.placeholderCount > 0;
+    !!checklist && (checklist.total === 0 || checklist.placeholderCount > 0);
 
   if (acceptanceHasPlaceholder || checklistHasPlaceholder) {
     throw createCliError(

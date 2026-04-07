@@ -5,11 +5,7 @@ import path from 'path';
 import { createDefaultApprovalConfig, getConfig } from '../utils/config.js';
 import { createCliContext } from '../utils/cli-context.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
-import {
-  resolvePrePrReviewPolicy,
-  resolveTaskCommitGatePolicy,
-  resolveWorkflowPolicy,
-} from '../utils/workflow.js';
+import { resolveWorkflowRuntime } from '../core/workflow/engine.js';
 import {
   createCliError,
   getCliErrorSuggestions,
@@ -100,9 +96,11 @@ export async function runContext(
   const cwd = process.cwd();
   const config = await getConfig(cwd);
   const lang = config?.lang ?? 'en';
-  const workflowPolicy = resolveWorkflowPolicy(config?.workflow);
-  const prePrReviewPolicy = resolvePrePrReviewPolicy(config?.workflow);
-  const taskCommitGatePolicy = resolveTaskCommitGatePolicy(config?.workflow);
+  const {
+    workflowPolicy,
+    prePrReviewPolicy,
+    taskCommitGatePolicy,
+  } = resolveWorkflowRuntime(config?.workflow);
 
   if (!config) {
     throw createCliError(

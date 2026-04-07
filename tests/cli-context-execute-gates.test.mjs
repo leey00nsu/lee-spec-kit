@@ -410,6 +410,7 @@ test('update succeeds on clean docs worktree (internal lock ignored)', async () 
 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.workflow?.preset, 'local');
     assert.equal(config.workflow?.taskCommitGate, 'warn');
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
@@ -525,6 +526,7 @@ test('update backfills missing config defaults including warn taskCommitGate', a
     );
 
     const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(nextConfig.workflow?.preset, 'local');
     assert.equal(nextConfig.workflow?.taskCommitGate, 'warn');
     assert.equal(nextConfig.workflow?.codeDirtyScope, 'auto');
     assert.equal(nextConfig.workflow?.auto?.defaultPreset, 'pr-handoff');

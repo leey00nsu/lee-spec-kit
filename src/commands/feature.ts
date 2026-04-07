@@ -34,6 +34,9 @@ import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-
 import { getTemplatesDir } from '../utils/paths.js';
 import { sleep } from '../utils/async.js';
 import { resolveIdeaReference } from '../utils/idea-promotion.js';
+import {
+  getSchemaAdapterForConfig,
+} from '../adapters/schema/index.js';
 
 export interface FeatureOptions {
   component?: string;
@@ -145,6 +148,7 @@ export async function runFeature(
 
   const { docsDir, projectType, lang } = config;
   const projectName = config.projectName;
+  const schemaAdapter = getSchemaAdapterForConfig(config);
   const configuredComponents = resolveProjectComponents(
     projectType,
     config.components
@@ -218,23 +222,34 @@ export async function runFeature(
         );
         featureId = options.id;
       } else {
-        featureId = await getNextFeatureId(
+        if (!schemaAdapter?.getNextFeatureId) {
+          throw createCliError(
+            'PRECONDITION_FAILED',
+            `Schema "${config.schemaId || 'unknown'}" does not support feature ID allocation.`
+          );
+        }
+        featureId = await schemaAdapter.getNextFeatureId({
           docsDir,
           projectType,
-          configuredComponents
+          components: configuredComponents,
+        });
+      }
+
+      if (!schemaAdapter?.resolveFeaturePaths) {
+        throw createCliError(
+          'PRECONDITION_FAILED',
+          `Schema "${config.schemaId || 'unknown'}" does not support feature path resolution.`
         );
       }
 
-      // 기능 폴더 경로
-      let featuresDir: string;
-      if (projectType === 'multi') {
-        featuresDir = path.join(docsDir, 'features', component);
-      } else {
-        featuresDir = path.join(docsDir, 'features');
-      }
-
-      const featureFolderName = `${featureId}-${name}`;
-      const featureDir = path.join(featuresDir, featureFolderName);
+      const { featureFolderName, featureDir, featurePathFromDocs } =
+        schemaAdapter.resolveFeaturePaths({
+          docsDir,
+          projectType,
+          component: projectType === 'multi' ? component : undefined,
+          featureId,
+          featureName: name,
+        });
 
       // 중복 확인
       if (await fs.pathExists(featureDir)) {
@@ -336,7 +351,7 @@ export async function runFeature(
         featureName: name,
         component: projectType === 'multi' ? component : undefined,
         featurePath: featureDir,
-        featurePathFromDocs: path.relative(docsDir, featureDir),
+        featurePathFromDocs,
       };
     },
     { owner: 'feature' }
@@ -438,41 +453,4 @@ async function waitForConfigAfterInit(
   }
 
   return getConfig(cwd);
-}
-
-async function getNextFeatureId(
-  docsDir: string,
-  projectType: string,
-  components: string[]
-): Promise<string> {
-  const featuresDir = path.join(docsDir, 'features');
-  let max = 0;
-
-  const scanDirs: string[] = [];
-
-  if (projectType === 'multi') {
-    scanDirs.push(
-      ...components.map((component) => path.join(featuresDir, component))
-    );
-  } else {
-    scanDirs.push(featuresDir);
-  }
-
-  for (const dir of scanDirs) {
-    if (!(await fs.pathExists(dir))) continue;
-
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const match = entry.name.match(/^F(\d+)-/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > max) max = num;
-      }
-    }
-  }
-
-  const next = max + 1;
-  const width = Math.max(3, String(next).length);
-  return `F${String(next).padStart(width, '0')}`;
 }

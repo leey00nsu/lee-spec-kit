@@ -7,7 +7,7 @@
 </div>
 
 <p align="center">
-  <strong>Agent-guided development harness CLI for spec-driven projects</strong>
+  <strong>Orchestration harness CLI for AI agent-driven development</strong>
 </p>
 
 <p align="center">
@@ -48,24 +48,21 @@ npx lee-spec-kit flow
 
 ## Why It Exists
 
-This CLI was built to make spec-driven development more consistent when working with AI agents.
-The goal is not just to generate a docs folder, but to make it easier for both humans and agents to follow how a project moves from requirements, through ideas, into concrete implementation work.
+This CLI was built to keep documents and actual execution flow together when working with an AI agent.
 
-To do that, `lee-spec-kit` structures work as `PRD → idea → feature`, and then connects that document flow to a git-centered issue/PR workflow.
-The focus is to keep planning artifacts and code workflow aligned, so the agent-readable state and the human-reviewable state stay in the same operating model.
+It is not just a tool that creates a docs folder. The main agent can use it to understand which feature is active, what the next action is, and where user approval is required.
 
-In that flow, PRD lives in the top-level `docs/prd/` space created by `init`.
-Ideas capture candidates and experiments that come out of those requirements, and Features turn the approved work into executable units with `spec.md`, `plan.md`, and `tasks.md`.
+The project structure follows `PRD → idea → feature`. PRD is where top-level requirements are written under `docs/prd/`, idea is for candidate approaches or experiments, and feature is the stage where actual work is managed through `spec.md`, `plan.md`, and `tasks.md`.
 
-Structurally, it draws inspiration from [spec-kit](https://github.com/github/spec-kit) and [OpenSpec](https://github.com/Fission-AI/OpenSpec),
-but it is adapted toward a more practical project workflow with explicit document stages, feature-level execution units, and tighter git workflow integration for agent orchestration.
+The overall approach is influenced by [spec-kit](https://github.com/github/spec-kit) and [OpenSpec](https://github.com/Fission-AI/OpenSpec). The difference is that this project is less about inventing a new standard and more about keeping my own document flow and execution flow in one CLI.
 
 ## What This CLI Does
 
-`lee-spec-kit` is less a power-user operator console and more a development harness that helps the main agent read project state and choose the next action.
+`lee-spec-kit` is less a power-user console and more an opinionated harness that helps the main agent read project state and choose the next action.
 
 - Humans usually ask in natural language.
-- The main agent translates those requests into commands like `detect`, `context`, `flow`, `idea`, and `feature`.
+- The human-facing surface stays small: `init`, `idea`, `feature`, `context`, `flow`.
+- In practice, the main agent runs `detect`, `context`, and `flow` first.
 - Deeper operational commands still exist, but they are no longer front-loaded in the default help output.
 
 ## How It Works
@@ -85,14 +82,18 @@ but it is adapted toward a more practical project workflow with explicit documen
 - "What is the next action right now?"
 - "Check the overall project state."
 
-## Commands The Agent Usually Runs
+## Commands
 
-- `init`: initialize docs/workflow scaffolding
-- `idea`: create a pre-feature idea document
-- `feature`: create a concrete execution unit
-- `detect`: detect whether the workspace uses lee-spec-kit
-- `context`: read current feature state and next actions
-- `flow`: summarize workflow state
+- The core agent-facing commands are the three commands below.
+  - `detect`: detect whether the workspace uses lee-spec-kit
+  - `context`: read the current feature state and next actions
+  - `flow`: summarize workflow state and auto-run progress
+- The public human-facing commands are the five commands below.
+  - `init`: initialize docs/workflow scaffolding
+  - `idea`: create a pre-feature idea document
+  - `feature`: create a concrete execution unit
+  - `context`: show the current state and next action
+  - `flow`: summarize workflow health
 
 ## Agent Kickoff Prompt
 

@@ -127,7 +127,7 @@ export const enCli = {
   'init.log.nextSteps3':
     '  3. Run setup checks: npx lee-spec-kit onboard --strict',
   'init.log.nextSteps4':
-    '  4. If you use Codex without repo-root AGENTS.md, install bootstrap: npx lee-spec-kit setup codex-bootstrap',
+    '  4. If you use Codex without repo-root AGENTS.md, you can optionally install the bootstrap helper: npx lee-spec-kit integrations codex',
   'init.log.gitRepoDetectedCommit': '📦 Git repo detected, committing docs...',
   'init.log.gitInit': '📦 Initializing Git...',
   'init.warn.stagedChangesSkip':
@@ -153,13 +153,13 @@ export const enCli = {
   'idea.nextSteps3': '  3. Mark it dropped if it should not become a feature',
 
   'setup.codexBootstrapInstalled':
-    '✅ Codex bootstrap installed: {path}',
+    '✅ Optional Codex bootstrap installed: {path}',
   'setup.codexBootstrapAlreadyInstalled':
-    '✅ Codex bootstrap already installed: {path}',
+    '✅ Optional Codex bootstrap already installed: {path}',
   'setup.codexBootstrapRemoved':
-    '✅ Codex bootstrap removed: {path}',
+    '✅ Optional Codex bootstrap removed: {path}',
   'setup.codexBootstrapAlreadyAbsent':
-    '✅ Codex bootstrap is already absent: {path}',
+    '✅ Optional Codex bootstrap is already absent: {path}',
 
   'github.cmdGithubDescription':
     'GitHub workflow helpers (issue/pr templates, validation, merge retry)',

@@ -1,6 +1,9 @@
 # Agent CLI Reference
 
-These commands are primarily for the main agent and automation.
+These commands are meant for the main agent and automation in this project.
+They are the most stable machine-facing interface inside this CLI.
+
+The point of this interface is to let the agent decide the next action, approval boundaries, and resumable progress without re-parsing the whole docs tree every time.
 
 ## Agent Kickoff Prompt
 
@@ -25,7 +28,7 @@ npx lee-spec-kit detect --json
 
 ### `context`
 
-Machine-readable current feature context and next actions.
+Read the current feature context and next actions in a machine-readable form.
 
 ```bash
 npx lee-spec-kit context --json-compact
@@ -35,7 +38,7 @@ npx lee-spec-kit context F001-alpha --approve A --execute
 
 ### `flow`
 
-Combined workflow orchestration over context, status, and doctor.
+Read the combined workflow status used for orchestration, including approval and resume flow.
 
 ```bash
 npx lee-spec-kit flow --json-compact
@@ -44,4 +47,5 @@ npx lee-spec-kit flow F001-alpha --approve A --execute
 
 ## Notes
 
-- JSON contracts should be treated as the stable interface for agents.
+- JSON output should be treated as the stable interface for agents.
+- Human-facing command names can change, but these machine-facing contracts should stay compatible.

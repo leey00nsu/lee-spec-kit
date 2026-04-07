@@ -30,11 +30,8 @@ import {
   WorkflowDocStatus,
 } from './types.js';
 import { ProjectConfig } from '../config.js';
-import {
-  resolveCodeDirtyScopePolicy,
-  resolvePrePrReviewPolicy,
-  resolveWorkflowPolicy,
-} from '../workflow.js';
+import { resolveWorkflowRuntime } from '../../core/workflow/engine.js';
+import { resolveCodeDirtyScopePolicy } from '../workflow.js';
 
 const FEATURE_SCOPE_SPLIT_TASK_THRESHOLD = 40;
 const FEATURE_SCOPE_SPLIT_DECISIONS_LINE_THRESHOLD = 1200;
@@ -1260,8 +1257,9 @@ export async function parseFeature(
   }
 ): Promise<FeatureContext> {
   const lang = options.lang;
-  const workflowPolicy = resolveWorkflowPolicy(options.workflow);
-  const prePrReviewPolicy = resolvePrePrReviewPolicy(options.workflow);
+  const { workflowPolicy, prePrReviewPolicy } = resolveWorkflowRuntime(
+    options.workflow
+  );
   const folderName = path.basename(featurePath);
   const match = folderName.match(/^(F\d+)-(.+)$/);
   const id = match?.[1];

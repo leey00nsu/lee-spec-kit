@@ -1,6 +1,6 @@
 # Internal CLI Reference
 
-These commands remain available, but are intentionally not front-loaded in the root help output.
+These commands remain available for advanced or maintenance work, but are intentionally not front-loaded in the root help output.
 
 ## Project and docs maintenance
 
@@ -11,7 +11,7 @@ These commands remain available, but are intentionally not front-loaded in the r
 - `update`
 - `config`
 - `docs`
-- `setup`
+- `integrations`
 - `requirements`
 
 ## GitHub workflow helpers

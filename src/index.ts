@@ -21,7 +21,7 @@ import { requirementsCommand } from './commands/requirements.js';
 import { taskRunCommand } from './commands/task-run.js';
 import { taskCompleteCommand } from './commands/task-complete.js';
 import { taskCommand } from './commands/task.js';
-import { setupCommand } from './commands/setup.js';
+import { integrationsCommand } from './commands/integrations.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -90,9 +90,7 @@ const cliVersion = getCliVersion();
 
 program
   .name('lee-spec-kit')
-  .description(
-    'Agent-guided development harness for spec-driven projects'
-  )
+  .description('Orchestration harness CLI for AI agent-driven development')
   .version(cliVersion)
   .option('--no-banner', 'Hide banner in help output');
 
@@ -120,7 +118,7 @@ taskRunCommand(program);
 taskCompleteCommand(program);
 taskCommand(program);
 requirementsCommand(program);
-setupCommand(program);
+integrationsCommand(program);
 
 configureRootCommandSurface();
 

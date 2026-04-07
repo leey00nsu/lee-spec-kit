@@ -1101,6 +1101,7 @@ test('init writes workflow.codeDirtyScope=auto, warn taskCommitGate, and default
 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(config.workflow?.preset, 'local');
     assert.equal(config.workflow?.codeDirtyScope, 'auto');
     assert.equal(config.workflow?.taskCommitGate, 'warn');
     assert.equal(config.workflow?.auto?.defaultPreset, 'pr-handoff');
@@ -1578,7 +1579,7 @@ test('help output omits ASCII banner in non-TTY mode by default', async () => {
   });
 });
 
-test('root help highlights the simplified public command surface', async () => {
+test('root help highlights the core command surface', async () => {
   await withTempDir('lsk-root-help-public-surface-', async (dir) => {
     const result = await runCli(dir, ['--no-banner', '--help']);
     assert.equal(result.code, 0, result.stderr || result.stdout);
@@ -1588,6 +1589,8 @@ test('root help highlights the simplified public command surface', async () => {
     assert.match(result.stdout, /context \[options\] \[feature-name\]/);
     assert.match(result.stdout, /flow \[options\] \[feature-name\]/);
     assert.match(result.stdout, /Core Commands:/);
+    assert.doesNotMatch(result.stdout, /next \[options\] \[feature-name\]/);
+    assert.doesNotMatch(result.stdout, /check \[options\] \[feature-name\]/);
     assert.doesNotMatch(result.stdout, /status \[options\]/);
     assert.doesNotMatch(result.stdout, /doctor \[options\]/);
     assert.doesNotMatch(result.stdout, /view \[options\] \[feature-name\]/);
@@ -1618,14 +1621,14 @@ test('core agent commands remain directly callable from the root surface', async
   });
 });
 
-test('removed facade commands are no longer available', async () => {
-  await withTempDir('lsk-removed-facade-commands-', async (dir) => {
+test('legacy public facade commands are removed', async () => {
+  await withTempDir('lsk-public-facade-commands-removed-', async (dir) => {
     const nextResult = await runCli(dir, ['next']);
-    assert.notEqual(nextResult.code, 0);
-    assert.match(nextResult.stderr || nextResult.stdout, /unknown command 'next'/i);
+    assert.notEqual(nextResult.code, 0, nextResult.stderr || nextResult.stdout);
+    assert.match(nextResult.stderr || nextResult.stdout, /unknown command/i);
 
     const checkResult = await runCli(dir, ['check']);
-    assert.notEqual(checkResult.code, 0);
-    assert.match(checkResult.stderr || checkResult.stdout, /unknown command 'check'/i);
+    assert.notEqual(checkResult.code, 0, checkResult.stderr || checkResult.stdout);
+    assert.match(checkResult.stderr || checkResult.stdout, /unknown command/i);
   });
 });

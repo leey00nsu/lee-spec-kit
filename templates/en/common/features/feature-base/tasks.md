@@ -66,7 +66,7 @@
 
 > Add tasks below. **At least 1 task is required.**
 > Keep tasks as one ordered list. The list order itself is the execution priority.
-> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001 --acceptance "..." --check "..."`.
+> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`. Add `--acceptance` and `--check` inline when you already know the concrete items.
 > Do not leave placeholder `Acceptance` / `Checklist` content in place. `task-run` will block execution until those items are concrete.
 > If you must edit manually, append it below the last existing task block in `Task List` instead of inserting it near the current task or right before `Completion Criteria`.
 

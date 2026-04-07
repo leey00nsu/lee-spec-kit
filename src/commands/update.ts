@@ -349,6 +349,8 @@ async function backfillMissingConfigDefaults(
     changedPaths.push('workflow');
   }
   const workflow = raw.workflow as Record<string, unknown>;
+  const inferredPreset = workflow.mode === 'local' ? 'local' : 'github';
+  setIfMissing(workflow, 'preset', inferredPreset, 'workflow.preset');
   setIfMissing(workflow, 'mode', 'github', 'workflow.mode');
   setIfMissing(workflow, 'requireWorktree', false, 'workflow.requireWorktree');
   setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');

@@ -31,6 +31,26 @@ test('setup codex-bootstrap creates managed block in CODEX_HOME config.toml', as
   });
 });
 
+test('integrations codex creates managed block in CODEX_HOME config.toml', async () => {
+  await withTempDir('lsk-integrations-codex-bootstrap-', async (dir) => {
+    const homeDir = path.join(dir, 'home');
+    const env = { HOME: homeDir };
+
+    const result = await runCli(dir, ['integrations', 'codex'], env);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const configPath = path.join(homeDir, '.codex', 'config.toml');
+    const config = await fs.readFile(configPath, 'utf-8');
+
+    assert.match(config, /# lee-spec-kit:codex-bootstrap:begin/);
+    assert.match(
+      config,
+      /project_doc_fallback_filenames = \["AGENTS\.md", "docs\/AGENTS\.md"\]/
+    );
+  });
+});
+
 test('setup codex-bootstrap preserves custom global instructions and updates managed block', async () => {
   await withTempDir('lsk-setup-codex-bootstrap-update-', async (dir) => {
     const homeDir = path.join(dir, 'home');
@@ -71,7 +91,7 @@ test('setup codex-bootstrap preserves custom global instructions and updates man
   });
 });
 
-test('init output recommends codex bootstrap setup command', async () => {
+test('init output recommends codex bootstrap integrations command', async () => {
   await withTempDir('lsk-init-codex-bootstrap-hint-', async (dir) => {
     const homeDir = path.join(dir, 'home');
     const result = await runCli(
@@ -94,6 +114,6 @@ test('init output recommends codex bootstrap setup command', async () => {
     );
 
     assert.equal(result.code, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /npx lee-spec-kit setup codex-bootstrap/);
+    assert.match(result.stdout, /npx lee-spec-kit integrations codex/);
   });
 });

@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
-import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import {
@@ -9,6 +8,7 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { detectSchemaProject } from '../adapters/schema/index.js';
 
 interface DetectOptions {
   dir?: string;
@@ -57,7 +57,8 @@ export function detectCommand(program: Command): void {
 async function runDetect(options: DetectOptions): Promise<void> {
   const cwd = process.cwd();
   const targetCwd = options.dir ? path.resolve(cwd, options.dir) : cwd;
-  const config = await getConfig(targetCwd);
+  const detection = await detectSchemaProject(targetCwd);
+  const config = detection.config;
 
   const detected = !!config;
   const reasonCode: DetectionReasonCode = detected
@@ -88,12 +89,6 @@ async function runDetect(options: DetectOptions): Promise<void> {
       return;
     }
 
-    const configPath = path.join(config.docsDir, '.lee-spec-kit.json');
-    const configFilePresent = await fs.pathExists(configPath);
-    const detectionSource: DetectionSource = configFilePresent
-      ? 'config'
-      : 'heuristic';
-
     console.log(
       JSON.stringify(
         {
@@ -101,10 +96,10 @@ async function runDetect(options: DetectOptions): Promise<void> {
           reasonCode,
           isLeeSpecKitProject: true,
           targetCwd,
-          docsDir: config.docsDir,
-          configPath: configFilePresent ? configPath : null,
-          configFilePresent,
-          detectionSource,
+          docsDir: detection.docsDir,
+          configPath: detection.configPath,
+          configFilePresent: detection.configFilePresent,
+          detectionSource: detection.detectionSource,
           projectType: config.projectType,
           lang: config.lang,
           projectName: config.projectName ?? null,
@@ -128,18 +123,12 @@ async function runDetect(options: DetectOptions): Promise<void> {
     return;
   }
 
-  const configPath = path.join(config.docsDir, '.lee-spec-kit.json');
-  const configFilePresent = await fs.pathExists(configPath);
-  const detectionSource: DetectionSource = configFilePresent
-    ? 'config'
-    : 'heuristic';
-
   console.log(chalk.green(`- ${tr(lang, 'cli', 'detect.resultDetected')}`));
-  console.log(chalk.gray(`- ${tr(lang, 'cli', 'detect.labelDocsDir')}: ${config.docsDir}`));
+  console.log(chalk.gray(`- ${tr(lang, 'cli', 'detect.labelDocsDir')}: ${detection.docsDir}`));
   console.log(
     chalk.gray(
       `- ${tr(lang, 'cli', 'detect.labelConfigPath')}: ${
-        configFilePresent ? configPath : '-'
+        detection.configPath || '-'
       }`
     )
   );
@@ -148,7 +137,7 @@ async function runDetect(options: DetectOptions): Promise<void> {
       `- ${tr(lang, 'cli', 'detect.labelSource')}: ${tr(
         lang,
         'cli',
-        detectionSource === 'config'
+        detection.detectionSource === 'config'
           ? 'detect.sourceConfig'
           : 'detect.sourceHeuristic'
       )}`

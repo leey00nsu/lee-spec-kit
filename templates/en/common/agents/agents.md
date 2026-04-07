@@ -7,6 +7,8 @@ This document covers **policy only**.
 
 ## 🚨 User Approval Handling (MUST)
 
+These are the mandatory user approval rules.
+
 > ⚠️ Do not decide approval only from the action type. Workflow approval-waiting is determined by the latest `context --json-compact` / `flow --json-compact` output.
 > ✅ In approval-waiting state, replies must be in `<label>` or `<label> OK` format (e.g. `A`, `A OK`).
 > ℹ️ Under the default policy, the main workflow approval boundaries are `spec_approve` and `implementation_approve`. Project config may add more.
@@ -19,7 +21,8 @@ If the current action is approval-waiting, share the matching details before exe
 | Spec / plan / tasks review | The document or the exact section being reviewed |
 | Task completion / final checklist | Outcome and verification evidence |
 | Commit / push / merge | Commit message, included files, branch |
-| Issue / PR creation | Title, body, labels |
+| Issue creation | Before `npx lee-spec-kit github issue <featureRef> --create` |
+| PR creation | Before `npx lee-spec-kit github pr <featureRef> --create` |
 | Assignee change | Target username |
 
 Approval flow:

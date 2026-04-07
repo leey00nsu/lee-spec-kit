@@ -3,11 +3,12 @@ import { tr } from '../i18n.js';
 import { CliContext } from '../cli-context.js';
 import path from 'path';
 import fs from 'fs';
-import {
-  resolvePrePrReviewPolicy,
-  resolveTaskCommitGatePolicy,
-  resolveWorkflowPolicy,
-} from '../workflow.js';
+import { resolveWorkflowRuntime } from '../../core/workflow/engine.js';
+import type {
+  PrePrReviewPolicy,
+  TaskCommitGatePolicy,
+  WorkflowPolicy,
+} from '../../core/workflow/policies.js';
 import {
   getCodeReviewPrompt,
 } from '../agent-orchestration.js';
@@ -43,7 +44,7 @@ function isPrMetadataConfigured(feature: FeatureState): boolean {
 
 function isReviewIterationPhase(
   feature: FeatureState,
-  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>
+  workflowPolicy: WorkflowPolicy
 ): boolean {
   return (
     workflowPolicy.requirePr &&
@@ -56,8 +57,8 @@ function isReviewIterationPhase(
 
 function isPrePrFixIterationPhase(
   feature: FeatureState,
-  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
-  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
+  workflowPolicy: WorkflowPolicy,
+  prePrReviewPolicy: PrePrReviewPolicy
 ): boolean {
   return (
     prePrReviewPolicy.enabled &&
@@ -71,7 +72,7 @@ function isPrePrFixIterationPhase(
 
 function isPrePrReviewSatisfied(
   feature: FeatureState,
-  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
+  prePrReviewPolicy: PrePrReviewPolicy
 ): boolean {
   if (!prePrReviewPolicy.enabled) return true;
   if (
@@ -100,8 +101,8 @@ function isPrePrReviewSatisfied(
 
 function isFeatureDone(
   feature: FeatureState,
-  workflowPolicy: ReturnType<typeof resolveWorkflowPolicy>,
-  prePrReviewPolicy: ReturnType<typeof resolvePrePrReviewPolicy>
+  workflowPolicy: WorkflowPolicy,
+  prePrReviewPolicy: PrePrReviewPolicy
 ): boolean {
   return (
     feature.specStatus === 'Approved' &&
@@ -398,7 +399,7 @@ interface TaskCommitGateCheck {
 }
 
 function shouldBlockTaskCommitGate(
-  policy: ReturnType<typeof resolveTaskCommitGatePolicy>,
+  policy: TaskCommitGatePolicy,
   check: TaskCommitGateCheck
 ): boolean {
   if (policy !== 'strict') return false;
@@ -603,10 +604,11 @@ function getTaskCommitGateReasonText(
 
 export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   const lang = ctx.config.lang;
-  const workflow = ctx.config.workflow;
-  const workflowPolicy = resolveWorkflowPolicy(workflow);
-  const prePrReviewPolicy = resolvePrePrReviewPolicy(workflow);
-  const taskCommitGatePolicy = resolveTaskCommitGatePolicy(workflow);
+  const {
+    workflowPolicy,
+    prePrReviewPolicy,
+    taskCommitGatePolicy,
+  } = resolveWorkflowRuntime(ctx.config.workflow);
   const isTaskExecuteCurrent = (f: FeatureState): boolean =>
     f.docs.tasksExists &&
     f.tasks.total > 0 &&

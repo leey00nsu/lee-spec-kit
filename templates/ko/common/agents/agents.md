@@ -7,6 +7,8 @@
 
 ## 🚨 사용자 승인 처리 규칙 (MUST)
 
+사용자 확인 필수 규칙입니다.
+
 > ⚠️ 액션 종류만 보고 승인 필요 여부를 판단하지 마세요. workflow 승인 대기 여부는 항상 최신 `context --json-compact` / `flow --json-compact` 출력으로 결정합니다.
 > ✅ 승인 대기 상태에서는 응답 형식이 항상 `<라벨>` 또는 `<라벨> OK` 형식(예: `A`, `A OK`)입니다.
 > ℹ️ 기본 정책에서 주요 workflow 승인 경계는 `spec_approve`, `implementation_approve` 두 곳입니다. 프로젝트 config가 추가 경계를 둘 수 있습니다.
@@ -19,7 +21,8 @@
 | spec / plan / tasks 검토 | 검토 대상 문서 또는 정확한 섹션 |
 | 태스크 완료 / 최종 체크리스트 | 결과와 검증 근거 |
 | 커밋 / push / merge | 커밋 메시지, 포함 파일, 브랜치 |
-| 이슈 / PR 생성 | 제목, 본문, 라벨 |
+| 이슈 생성 | `npx lee-spec-kit github issue <featureRef> --create` 전 |
+| PR 생성 | `npx lee-spec-kit github pr <featureRef> --create` 전 |
 | Assignee 변경 | 대상 사용자명 |
 
 확인 절차:

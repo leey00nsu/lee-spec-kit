@@ -6,6 +6,7 @@ import {
 } from '../utils/context-selection.js';
 import { AutoRunSummary } from './FlowOrchestrator.js';
 import { buildDelegatedActionContract } from './ContextPresenter.js';
+import type { AgentOrchestrationPolicy } from '../core/workflow/types.js';
 
 export interface CompactFlowFeatureSummary {
   ref: string;
@@ -35,29 +36,6 @@ export interface CompactFlowFeatureSummary {
     checked: number;
   };
   warnings: string[];
-}
-
-export interface AgentOrchestrationPolicy {
-  mode: 'main_orchestrates_subagent_execution';
-  mainAgentResponsibilities: string[];
-  subAgentResponsibilities: string[];
-  pauseAndReportWhen: string[];
-  subAgentHandoff: {
-    required: boolean;
-    mode: 'command' | 'auto_run' | null;
-    featureRef: string | null;
-    category: string | null;
-    cwd: string | null;
-    cmd: string | null;
-    verify: {
-      runOncePerSession: true;
-      cacheKey: string;
-      expectedCwd: string;
-      commands: string[];
-      onMismatch: 'stop_and_report';
-      collectDetailedLogsOnMismatchOnly: true;
-    } | null;
-  };
 }
 
 export function getFeatureRef(

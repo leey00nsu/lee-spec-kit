@@ -25,7 +25,7 @@ import { getLocalDateString } from '../utils/date.js';
 import { pruneEngineManagedDocs } from '../utils/engine-managed-docs.js';
 import { runGitOrThrow } from '../utils/git-run.js';
 import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
-import { hasLeeSpecKitCodexBootstrap } from '../utils/codex-bootstrap.js';
+import { hasLeeSpecKitCodexBootstrap } from '../integrations/codex/bootstrap.js';
 import {
   getComponentFeaturesReadme,
   parseComponentProjectRootsOption,
@@ -664,6 +664,7 @@ async function runInit(options: InitOptions): Promise<void> {
         createdAt: getLocalDateString(),
         docsRepo,
         workflow: {
+          preset: workflowMode,
           mode: workflowMode,
           requireWorktree: false,
           codeDirtyScope: 'auto',

@@ -66,7 +66,7 @@
 
 > 아래에 태스크를 추가하세요. **최소 1개가 필요**합니다.
 > 태스크는 하나의 순차 리스트로 유지하고, 위에서 아래 순서 자체를 실행 우선순위로 취급하세요.
-> 새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001 --acceptance "..." --check "..."`로 추가하세요.
+> 새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`로 추가하세요. 필요하면 `--acceptance`, `--check`로 바로 구체 항목을 함께 적을 수 있습니다.
 > placeholder 상태의 `Acceptance` / `Checklist`를 그대로 두지 마세요. concrete item이 아니면 `task-run`이 실행을 막습니다.
 > 수동 편집이 필요하면 현재 태스크 근처가 아니라 `태스크 목록`의 마지막 기존 태스크 block 아래에만 append 하세요.
 
