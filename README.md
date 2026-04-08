@@ -72,7 +72,7 @@ npx lee-spec-kit flow
 3. `idea`로 후보/실험을 정리하거나, 바로 `feature`로 실행 단위를 만듭니다.
 4. 메인 에이전트가 `detect`와 `context`를 읽고 진행합니다.
 5. 사람은 승인, 예외 처리, 방향 수정 시점에 개입합니다.
-6. 현재 다음 액션과 승인 대기 상태는 `context`, 전체 상태 요약은 `flow`로 확인합니다.
+6. 현재 다음 액션과 승인 대기 상태는 `context`, 기본 workflow 실행/재개는 `flow`로 진행합니다.
 
 ## 사람은 보통 이렇게 요청합니다
 
@@ -87,13 +87,13 @@ npx lee-spec-kit flow
 - 실제 에이전트 실행 기준 명령은 아래 3개입니다.
   - `detect`: 현재 워크스페이스가 lee-spec-kit 프로젝트인지 감지합니다.
   - `context`: 현재 feature 상태와 다음 액션을 읽습니다.
-  - `flow`: 전체 workflow 상태와 auto-run 진행 상태를 읽습니다.
+  - `flow`: 기본 workflow auto-run을 진행하고 선택/승인/수동/재개 경계에서 멈춥니다.
 - 사람용 public 명령은 아래 다섯 개입니다.
   - `init`: docs/workflow 구조를 초기화합니다.
   - `idea`: 구현 전 아이디어 문서를 생성합니다.
   - `feature`: 실제 작업 단위를 생성합니다.
   - `context`: 현재 feature 상태와 다음 액션을 읽습니다.
-  - `flow`: 전체 워크플로우 상태를 요약합니다.
+  - `flow`: 기본 workflow auto-run을 진행하고 선택/승인/수동/재개 경계에서 멈춥니다.
 
 ## 에이전트 킥오프 프롬프트
 

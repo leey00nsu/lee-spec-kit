@@ -62,7 +62,7 @@ Auto-run continuity (main/sub-agent orchestration):
   3. Else run \`npx lee-spec-kit context --json-compact\` (fallback: \`--json\`) and continue from current \`actionOptions\`/\`autoRun\`.
 - Pause and report to user only when:
   - \`approvalRequest.required === true\`, or
-  - \`autoRun.reasonCode\` is \`AUTO_GATE_REACHED\`, \`AUTO_DELEGATED_HANDOFF\`, or \`AUTO_MANUAL_REQUIRED\`, or
+  - \`autoRun.reasonCode\` is \`AUTO_GATE_REACHED\`, \`AUTO_DELEGATED_HANDOFF\`, \`AUTO_MANUAL_REQUIRED\`, or \`AUTO_SELECTION_REQUIRED\`, or
   - command execution fails (non-zero/error), or
   - user explicitly asks to pause.
 

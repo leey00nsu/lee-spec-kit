@@ -47,7 +47,7 @@ npx lee-spec-kit context F001-alpha
 
 ### `flow`
 
-Summarize the overall workflow state.
+Run the default workflow auto-loop and pause at selection/approval/manual/resume boundaries.
 
 ```bash
 npx lee-spec-kit flow
@@ -67,6 +67,7 @@ npx lee-spec-kit flow
 ## Notes
 
 - `context` reads the current feature state and next actions.
-- `flow` combines context, status, and doctor into one workflow summary.
+- `flow` is the default execution entrypoint. It auto-runs using the configured default policy and reports the before/after workflow snapshot.
+- If a single feature is not selected yet, `flow` pauses at the selection boundary instead of failing immediately.
 - These wrappers intentionally hide some approval and orchestration detail that still exists in `context` and `flow`.
 - Detailed agent and internal commands are documented separately.

@@ -67,7 +67,9 @@ import {
 export function flowCommand(program: Command): void {
   program
     .command('flow [feature-name]')
-    .description('Run combined workflow checks (context + status + doctor)')
+    .description(
+      'Run the default workflow auto-loop and pause at selection/approval/manual/resume boundaries'
+    )
     .option('--json', 'Output in JSON format for agents')
     .option(
       '--json-compact',
@@ -272,15 +274,6 @@ export async function runFlow(
       }
     }
   }
-  if (autoMode && !featureName) {
-    if (!resolvedFeatureName) {
-      throw createCliError(
-        'CONTEXT_SELECTION_REQUIRED',
-        'Auto mode requires explicit <feature-name> (e.g. F004).'
-      );
-    }
-  }
-
   if (options.startAuto && !autoMode) {
     throw createCliError(
       'INVALID_ARGUMENT',

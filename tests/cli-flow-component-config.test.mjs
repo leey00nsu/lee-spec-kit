@@ -80,6 +80,77 @@ test('flow --json aggregates context/status/doctor', async () => {
   });
 });
 
+test('flow --json uses workflow.auto.defaultPreset by default for explicit feature', async () => {
+  await withTempDir('lsk-flow-default-auto-explicit-feature-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const result = await runCli(dir, ['flow', 'F001-alpha', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.autoRun?.enabled, true);
+    assert.equal(payload.autoRun?.source, 'config:workflow.auto.defaultPreset');
+    assert.equal(payload.autoRun?.preset, 'pr-handoff');
+    assert.equal(payload.autoRun?.status, 'manual_required');
+    assert.equal(payload.autoRun?.reasonCode, 'AUTO_MANUAL_REQUIRED');
+  });
+});
+
+test('flow --json surfaces selection boundary via autoRun by default when multiple features are active', async () => {
+  await withTempDir('lsk-flow-default-auto-selection-boundary-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureA = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureA.code, 0, featureA.stderr || featureA.stdout);
+    const featureB = await runCli(dir, ['feature', 'beta', '--id', 'F002']);
+    assert.equal(featureB.code, 0, featureB.stderr || featureB.stdout);
+
+    const result = await runCli(dir, ['flow', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.context.before.reasonCode, 'MULTIPLE_ACTIVE_FEATURES');
+    assert.equal(payload.autoRun?.enabled, true);
+    assert.equal(payload.autoRun?.source, 'config:workflow.auto.defaultPreset');
+    assert.equal(payload.autoRun?.preset, 'pr-handoff');
+    assert.equal(payload.autoRun?.status, 'selection_required');
+    assert.equal(payload.autoRun?.reasonCode, 'AUTO_SELECTION_REQUIRED');
+  });
+});
+
 test('flow --json-compact returns reduced payload for agents', async () => {
   await withTempDir('lsk-flow-json-compact-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -252,10 +323,11 @@ test('flow --json auto-until-category stops at gate and exposes approval lines',
       'spec_write',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
 
-    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.autoRun?.enabled, true);
     assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.reasonCode, 'AUTO_MANUAL_REQUIRED');
@@ -320,9 +392,11 @@ test('flow --json auto-until-category applies --request via user_request_replan 
       'spec_write',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
 
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.executions?.length > 0, true);
     assert.equal(payload.autoRun.executions[0].kind, 'request');
@@ -365,11 +439,11 @@ test('flow --json auto mode can promote an explicit idea ref before any feature 
       'spec_write',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.status, 'error');
-    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.context?.after?.matchedFeature?.folderName, 'F001-login-rate-limit');
 
@@ -409,7 +483,7 @@ test('flow --json --start-auto emits resumable run metadata', async () => {
       '--start-auto',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.autoRun?.run?.mode, 'started');
     assert.equal(payload.autoRun?.run?.status, 'paused');
@@ -575,11 +649,11 @@ test('flow --json auto pauses at task commit checkpoint before starting the next
       'docs_commit',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.status, 'error');
-    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.manual?.category, 'task_execute');
     assert.equal(
@@ -622,7 +696,7 @@ test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
       '--start-auto',
       '--json',
     ]);
-    assert.equal(first.code, 1, first.stderr || first.stdout);
+    assert.equal(first.code, 0, first.stderr || first.stdout);
     const firstPayload = JSON.parse(first.stdout.trim());
     const runId = firstPayload.autoRun?.run?.runId || '';
     assert.equal(typeof runId, 'string');
@@ -634,7 +708,7 @@ test('flow --resume <run-id> reuses stored auto checkpoint', async () => {
       runId,
       '--json',
     ]);
-    assert.equal(resumed.code, 1, resumed.stderr || resumed.stdout);
+    assert.equal(resumed.code, 0, resumed.stderr || resumed.stdout);
     const resumedPayload = JSON.parse(resumed.stdout.trim());
     assert.equal(resumedPayload.autoRun?.run?.mode, 'resumed');
     assert.equal(resumedPayload.autoRun?.run?.runId, runId);
@@ -671,10 +745,10 @@ test('flow --json auto-preset pr-handoff resolves categories and enters auto mod
       'pr-handoff',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.status, 'error');
-    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.autoRun?.enabled, true);
     assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.preset, 'pr-handoff');
@@ -721,10 +795,10 @@ test('flow --json --request uses workflow.auto.defaultPreset when no auto flag i
       'issue 004를 F004로 승격시켜서 진행해',
       '--json',
     ]);
-    assert.equal(result.code, 1, result.stderr || result.stdout);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
     const payload = JSON.parse(result.stdout.trim());
-    assert.equal(payload.status, 'error');
-    assert.equal(payload.reasonCode, 'AUTO_MANUAL_REQUIRED');
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
     assert.equal(payload.autoRun?.status, 'manual_required');
     assert.equal(payload.autoRun?.enabled, true);
     assert.equal(payload.autoRun?.preset, 'pr-handoff');
@@ -1617,7 +1691,10 @@ test('core agent commands remain directly callable from the root surface', async
 
     const flowHelp = await runCli(dir, ['--no-banner', 'flow', '--help']);
     assert.equal(flowHelp.code, 0, flowHelp.stderr || flowHelp.stdout);
-    assert.match(flowHelp.stdout, /Run combined workflow checks/);
+    assert.match(
+      flowHelp.stdout,
+      /Run the default workflow auto-loop/
+    );
   });
 });
 

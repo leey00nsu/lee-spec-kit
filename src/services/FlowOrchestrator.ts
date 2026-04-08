@@ -177,7 +177,7 @@ export function buildSelectionArgs(
 }
 
 export function buildAutoResume(
-  featureName: string,
+  featureName: string | undefined,
   selectionOptions: ContextSelectionOptions,
   untilCategories: string[],
   requestText: string | undefined,
@@ -388,7 +388,10 @@ export function resolveAutoMode(
   if (requestText) {
     return resolveConfigDefaultAutoMode(config);
   }
-  return null;
+  if (options.approve || options.execute || options.resume) {
+    return null;
+  }
+  return resolveConfigDefaultAutoMode(config);
 }
 
 export function toAutoReasonCode(
@@ -412,8 +415,6 @@ export function isAutoRunFailureStatus(
   status: AutoRunSummary['status']
 ): boolean {
   return [
-    'manual_required',
-    'selection_required',
     'no_progress',
     'request_label_missing',
     'request_failed',
@@ -428,10 +429,10 @@ export function toFlowRunStatus(
     case 'delegated_handoff':
     case 'gate_reached':
     case 'manual_required':
+    case 'selection_required':
       return 'paused';
     case 'no_action_options':
       return 'completed';
-    case 'selection_required':
     case 'no_progress':
     case 'request_label_missing':
     case 'request_failed':
@@ -462,7 +463,7 @@ function isTaskCommitCheckpointOption(
 
 export async function runAutoUntilCategory(
   config: LoadedConfig,
-  featureName: string,
+  featureName: string | undefined,
   selectionOptions: ContextSelectionOptions,
   untilCategories: string[],
   requestText: string | undefined,
@@ -546,7 +547,7 @@ export async function runAutoUntilCategory(
         gate: null,
         manual: null,
         error:
-          'Auto-run requires a single matched feature. Specify the feature explicitly.',
+          'Auto-run paused because a single matched feature is required before execution can continue.',
       };
     }
 

@@ -195,9 +195,17 @@ export function buildAgentOrchestrationPolicy(
   autoRun: AutoRunSummary | null,
   featureRef: string | null
 ): AgentOrchestrationPolicy {
+  const resumableStatuses = new Set<AutoRunSummary['status']>([
+    'delegated_handoff',
+    'gate_reached',
+    'manual_required',
+  ]);
   const resumeCommand =
     autoRun?.run?.resumeCommand || autoRun?.resume?.flowCommand || null;
-  const handoffRequired = !!autoRun && !!resumeCommand;
+  const handoffRequired =
+    !!autoRun &&
+    !!resumeCommand &&
+    resumableStatuses.has(autoRun.status);
   const verifyCacheKey = handoffRequired
     ? `${(featureRef || 'unknown').toLowerCase()}|${Buffer.from(
         resumeCommand as string

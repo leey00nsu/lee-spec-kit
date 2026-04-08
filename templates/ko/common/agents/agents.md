@@ -43,6 +43,7 @@
 - `flow --json-compact`(또는 `flow --json`)의 auto 결과를 사용할 때는 `autoRun.resume.flowCommand`를 재개 SSOT로 사용합니다. (컨텍스트 압축/리셋 후 동일 규칙 적용)
 - `AUTO_DELEGATED_HANDOFF`는 delegated run 일시정지 상태이며 실패가 아닙니다. 같은 승인 라벨을 다시 열지 말고 delegated 경로를 이어서 진행하거나 재개합니다.
 - `AUTO_MANUAL_REQUIRED`는 instruction-only 자동화 경계 상태이며 실패 단정 신호가 아닙니다. `context --json-compact` 재확인 후 `approvalRequest.required` 기준으로 멈춤/보고를 판단합니다. (상세 디버깅 필드가 필요할 때만 `context --json`)
+- `AUTO_SELECTION_REQUIRED`는 feature 선택 경계 일시정지 상태이며 실행 실패가 아닙니다. 먼저 활성 feature 선택을 해소한 뒤 최신 `context --json-compact` 또는 `flow`로 이어서 진행합니다.
 - 승인 대기 상태에서는 `context --json-compact`의 `approvalRequest.userFacingLines`를 우선 그대로 보여주세요. 전체 `--json`을 쓸 때만 `actionOptions[*].approvalPrompt`와 `approvalRequest.finalPrompt` 조합으로 폴백합니다. 이 사이에 에이전트가 임의로 다시 쓴 라벨 요약을 끼워 넣지 않습니다.
 - 위임 판단 SSOT는 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 우선 사용하세요.
 - 비승인 상태의 진행 보고/분석/일반 답변에서는 라벨 블록이나 `approvalRequest.finalPrompt`를 덧붙이지 않습니다. 현재 옵션을 사용자가 직접 물었을 때만 예외입니다.

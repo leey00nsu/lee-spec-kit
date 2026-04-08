@@ -43,6 +43,7 @@ Prohibited:
 - When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
 - Treat `AUTO_DELEGATED_HANDOFF` as a delegated pause, not a failure. Continue or resume the delegated run path and do not reopen the same approval label.
 - Treat `AUTO_MANUAL_REQUIRED` as an instruction-only automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
+- Treat `AUTO_SELECTION_REQUIRED` as a feature-selection pause, not an execution failure. Resolve the active feature first, then continue with fresh `context --json-compact` or `flow`.
 - In approval-waiting state, prefer `approvalRequest.userFacingLines` from `context --json-compact`. If full `--json` is used, fall back to `actionOptions[*].approvalPrompt` plus `approvalRequest.finalPrompt`. Do not add your own rewritten label summary before or between those lines.
 - Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT.
 - In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.

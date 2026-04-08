@@ -38,7 +38,7 @@ npx lee-spec-kit context F001-alpha --approve A --execute
 
 ### `flow`
 
-Read the combined workflow status used for orchestration, including approval and resume flow.
+Run the default workflow auto-loop used for orchestration, pausing at selection, approval, manual, and resume boundaries.
 
 ```bash
 npx lee-spec-kit flow --json-compact
@@ -48,4 +48,6 @@ npx lee-spec-kit flow F001-alpha --approve A --execute
 ## Notes
 
 - JSON output should be treated as the stable interface for agents.
+- `context --json-compact` remains the read-only state probe; `flow --json-compact` is the default execution/resume entrypoint.
+- `AUTO_SELECTION_REQUIRED` is a pause state, not an execution failure; resolve feature selection, then continue with `context` or `flow`.
 - Human-facing command names can change, but these machine-facing contracts should stay compatible.

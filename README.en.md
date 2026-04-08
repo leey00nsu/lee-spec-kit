@@ -72,7 +72,7 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 3. Create work with `idea` or `feature`.
 4. Let the main agent read `detect` and `context`.
 5. Humans step in for approvals, exceptions, and direction changes.
-6. Use `context` for the current action and `flow` for overall workflow health.
+6. Use `context` for the current action and `flow` as the default workflow runner.
 
 ## Humans Usually Ask Like This
 
@@ -87,13 +87,13 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 - The core agent-facing commands are the three commands below.
   - `detect`: detect whether the workspace uses lee-spec-kit
   - `context`: read the current feature state and next actions
-  - `flow`: summarize workflow state and auto-run progress
+  - `flow`: run the default workflow auto-loop and pause at selection/approval/manual/resume boundaries
 - The public human-facing commands are the five commands below.
   - `init`: initialize docs/workflow scaffolding
   - `idea`: create a pre-feature idea document
   - `feature`: create a concrete execution unit
   - `context`: show the current state and next action
-  - `flow`: summarize workflow health
+  - `flow`: run the default workflow auto-loop and pause at selection/approval/manual/resume boundaries
 
 ## Agent Kickoff Prompt
 
