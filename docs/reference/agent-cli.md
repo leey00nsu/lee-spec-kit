@@ -11,9 +11,10 @@ The point of this interface is to let the agent decide the next action, approval
 Start procedure:
 1) Run npx lee-spec-kit detect --json
 2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact
-3) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval
-4) Do not execute before approval; execute requiresUserCheck=true actions only after approval
-5) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
+3) Use context as the read-only state probe, and use flow as the default execution/resume entrypoint
+4) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval
+5) Do not execute before approval; for command execution, default to npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute
+6) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
 ```
 
 ## Commands
@@ -33,7 +34,6 @@ Read the current feature context and next actions in a machine-readable form.
 ```bash
 npx lee-spec-kit context --json-compact
 npx lee-spec-kit context F001-alpha --json
-npx lee-spec-kit context F001-alpha --approve A --execute
 ```
 
 ### `flow`

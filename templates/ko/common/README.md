@@ -16,8 +16,10 @@ npx lee-spec-kit context --json-compact
 ```
 
 - `isLeeSpecKitProject: true`일 때만 lee-spec-kit 워크플로우를 적용합니다.
+- `context --json-compact`는 read-only 상태 확인용으로 쓰고, 실제 실행/재개 기본 엔트리포인트는 `flow`를 사용합니다.
 - 승인 대기 여부는 항상 최신 `context --json-compact` / `flow --json-compact`를 기준으로 판단합니다.
 - `approvalRequest.required=true`일 때만 `approvalPrompt`/`finalPrompt`를 그대로 사용자에게 보여주고 승인(`<LABEL>` 또는 `<LABEL> OK`)을 받은 뒤 실행합니다.
+- 명령 실행은 기본적으로 `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`를 사용합니다.
 - `approvalRequest.required=false`이면 별도 라벨 승인 문구를 만들지 않습니다.
 - `isLeeSpecKitProject: false`면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행합니다.
 

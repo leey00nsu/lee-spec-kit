@@ -79,6 +79,7 @@ npx lee-spec-kit status --write
 When things change mid-work, it must be explicit what was updated.
 
 - Record changes as **new tasks** (do not edit `[DONE]` tasks; create a new task instead).
+- During that sync, `tasks.md` may temporarily carry `Pending Change Request` as an internal marker. Clear it after the request is reflected in the new task(s) and related docs.
 - Every change task must be tagged as `[PRD-...]` or `[NON-PRD]`. (Recommended: also add `[CHANGE]`.)
 - If a change starts as internal exploration but ends up changing user-visible behavior, do not leave it as `[NON-PRD]`.
   - Backfill/update `docs/prd/*.md`

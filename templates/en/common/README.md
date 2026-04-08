@@ -16,8 +16,10 @@ npx lee-spec-kit context --json-compact
 ```
 
 - Apply lee-spec-kit workflow only when `isLeeSpecKitProject: true`.
+- Use `context --json-compact` as the read-only state probe, then use `flow` as the default execution/resume entrypoint.
 - Determine approval waiting only from the latest `context --json-compact` / `flow --json-compact`.
 - When `approvalRequest.required=true`, show `approvalPrompt`/`finalPrompt` exactly as provided and wait for user approval (`<LABEL>` or `<LABEL> OK`) before execution.
+- For command execution, default to `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`.
 - When `approvalRequest.required=false`, do not invent a separate label approval prompt.
 - If `isLeeSpecKitProject: false`, skip lee-spec-kit-specific flow and continue with normal workflow.
 
