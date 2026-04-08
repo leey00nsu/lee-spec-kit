@@ -65,6 +65,8 @@ export const koContext = {
     'tasks.md에 최소 1개 이상의 태스크를 추가하세요',
   'context.actionDetail.tasksWriteImprove':
     'tasks.md를 보완하고 문서 상태를 정렬하세요',
+  'context.actionDetail.tasksWriteChangeSync':
+    '추가 구현 전에 새 사용자 요청을 tasks.md에 먼저 반영하세요',
   'context.actionDetail.tasksApprove': 'tasks.md를 승인합니다',
   'context.actionDetail.issueCreate':
     '이슈를 생성하고 tasks.md의 이슈 정보를 맞추세요',

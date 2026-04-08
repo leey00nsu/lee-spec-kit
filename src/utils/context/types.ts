@@ -133,6 +133,7 @@ export interface FeatureState {
   folderName: string;
   type: RepoType;
   path: string;
+  pendingChangeRequest?: string;
   completion: {
     /**
      * Implementation is considered done when:

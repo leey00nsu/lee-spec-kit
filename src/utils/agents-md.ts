@@ -65,6 +65,7 @@ Auto-run continuity (main/sub-agent orchestration):
   - \`autoRun.reasonCode\` is \`AUTO_GATE_REACHED\`, \`AUTO_DELEGATED_HANDOFF\`, \`AUTO_MANUAL_REQUIRED\`, or \`AUTO_SELECTION_REQUIRED\`, or
   - command execution fails (non-zero/error), or
   - user explicitly asks to pause.
+- Special case: if \`matchedFeature.currentSubstateId === "change_request_sync"\` or \`matchedFeature.pendingChangeRequest\` is present, treat that \`AUTO_MANUAL_REQUIRED\` state as an internal docs-sync step first, not an immediate user-facing stop. Update \`tasks.md\` first, and if shipped behavior or scope changed, sync \`decisions.md\` plus \`spec.md\` / PRD refs as needed. Clear the pending change field after syncing, then continue with fresh \`context\`/\`flow\`. Only pause/report there if approval becomes required, execution fails, or the user explicitly asked to pause.
 
 User-facing output rule (state-aware):
 

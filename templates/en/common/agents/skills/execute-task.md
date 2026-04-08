@@ -42,6 +42,7 @@ Execute exactly one option from `👉 Next Options (Atomic)` as printed by the C
 - Treat `AUTO_DELEGATED_HANDOFF` as a delegated pause, not a crash. Reuse the delegated run path and continue the delegated work before asking for a fresh approval label.
 - Treat `AUTO_MANUAL_REQUIRED` as an automation boundary (instruction-only segment), not an immediate crash. Re-check `context --json-compact` and report whether `approvalRequest.required` is now true.
 - Treat `AUTO_SELECTION_REQUIRED` as a feature-selection pause, not a crash. Resolve the active feature first, then rerun `context --json-compact` or `flow`.
+- If `matchedFeature.currentSubstateId === "change_request_sync"` or `matchedFeature.pendingChangeRequest` is present, sync docs before more code work: update `tasks.md` first, add or retag the affected task, and if shipped behavior or scope changed, sync `decisions.md` plus `spec.md` / PRD refs as needed. Clear `Pending Change Request` after syncing, then rerun `context --json-compact` or `flow`.
 - If the CLI prints commands, copy/paste them. (In standalone setups commands may include `git -C ...` and scopes like `project`/`docs`.)
 - Follow `agents.md` **"Label Response Contract (SSOT)"**. Show label prompts only in approval-waiting state, and reuse the exact CLI-provided approval lines instead of paraphrasing them.
 - For non-delegated command options, default to `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` and avoid split `context --approve` / `context --execute --ticket` runs across turns.
@@ -58,6 +59,7 @@ Keep `tasks.md` aligned with reality.
 - Do not leave placeholder `Acceptance` / `Checklist` items in a newly added task. `task-run` will block until those fields contain concrete execution/verification items.
 - If manual editing is unavoidable, append the new task directly below the last existing task block in the `Task List` section.
 - Do not insert it near the current task or right before `Completion Criteria` / the next `##` heading.
+- When handling a mid-implementation user change request, treat `Pending Change Request` as a temporary sync marker: reflect the request in `tasks.md`, sync supporting docs if the behavior/scope changed, then clear that field before resuming implementation.
 
 ### Step 3.25: Record decisions (strongly recommended, effectively required)
 

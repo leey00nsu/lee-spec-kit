@@ -405,6 +405,93 @@ test('flow --json auto-until-category applies --request via user_request_replan 
   });
 }, 20_000);
 
+test('flow --json pauses for change-request docs sync before task execution after --request', async () => {
+  await withTempDir('lsk-flow-request-change-sync-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare request change sync flow',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const result = await runCli(dir, [
+      'flow',
+      'F001-alpha',
+      '--request',
+      'Add dark mode toggle to the shipped settings page',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'FLOW_SUMMARY');
+    assert.equal(payload.autoRun?.status, 'manual_required');
+    assert.equal(payload.autoRun?.manual?.category, 'tasks_write');
+    assert.equal(
+      payload.context?.after?.matchedFeature?.currentSubstateId,
+      'change_request_sync'
+    );
+    assert.equal(
+      payload.context?.after?.matchedFeature?.pendingChangeRequest,
+      'Add dark mode toggle to the shipped settings page'
+    );
+    assert.equal(payload.autoRun?.executions?.[0]?.kind, 'request');
+    assert.equal(payload.autoRun?.executions?.[0]?.category, 'user_request_replan');
+    assert.equal(
+      payload.autoRun?.executions?.[0]?.approveStatus,
+      'approved_selected'
+    );
+  });
+}, 20_000);
+
 test('flow --json auto mode can promote an explicit idea ref before any feature exists', async () => {
   await withTempDir('lsk-flow-auto-promote-idea-', async (dir) => {
     const initResult = await runCli(dir, [

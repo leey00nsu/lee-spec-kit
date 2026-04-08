@@ -1706,6 +1706,96 @@ test('context active DOING task still exposes user_request_replan option', async
   });
 });
 
+test('context replan request persists pending change sync and prioritizes docs update before task execution', async () => {
+  await withTempDir('lsk-context-replan-change-sync-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const specPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'spec.md');
+    const planPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'plan.md');
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+
+    const spec = (await fs.readFile(specPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(specPath, spec, 'utf-8');
+
+    const plan = (await fs.readFile(planPath, 'utf-8')).replace(
+      '- **Status**: -',
+      '- **Status**: Approved'
+    );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(
+      '## Task List',
+      '## Task List\n\n- [TODO][P1] T-F001-alpha-01 implement alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsGitRoot = path.join(dir, 'docs');
+    await runCommand(docsGitRoot, 'git', ['config', 'user.email', 'tester@example.com']);
+    await runCommand(docsGitRoot, 'git', ['config', 'user.name', 'Tester']);
+    await runCommand(docsGitRoot, 'git', ['add', 'features/F001-alpha']);
+    const docsCommit = await runCommand(docsGitRoot, 'git', [
+      'commit',
+      '-m',
+      'docs: prepare replan change sync',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    const requestText = 'Add dark mode toggle to the shipped settings page';
+    const approve = await runCli(dir, [
+      'context',
+      'F001-alpha',
+      '--approve',
+      requestText,
+      '--json',
+    ]);
+    assert.equal(approve.code, 0, approve.stderr || approve.stdout);
+    const approvePayload = JSON.parse(approve.stdout.trim());
+    assert.equal(approvePayload.status, 'approved_selected');
+    assert.equal(approvePayload.action.category, 'user_request_replan');
+    assert.equal(approvePayload.userRequest, requestText);
+
+    const tasksAfterApprove = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(
+      tasksAfterApprove,
+      /\*\*Pending Change Request\*\*:\s*Add dark mode toggle to the shipped settings page/
+    );
+
+    const context = await runCli(dir, ['context', 'F001-alpha', '--json']);
+    assert.equal(context.code, 0, context.stderr || context.stdout);
+    const payload = JSON.parse(context.stdout.trim());
+    assert.equal(payload.matchedFeature.currentStep, 10);
+    assert.equal(payload.matchedFeature.currentSubstateId, 'change_request_sync');
+    assert.equal(
+      payload.matchedFeature.pendingChangeRequest,
+      'Add dark mode toggle to the shipped settings page'
+    );
+    assert.equal(primaryActionOption(payload).action.category, 'tasks_write');
+    assert.equal(primaryActionOption(payload).action.requiresUserCheck, false);
+  });
+});
+
 test('default spec-first approval skips normal task execution but stops at implementation review', async () => {
   await withTempDir('lsk-context-spec-first-implementation-gate-', async (dir) => {
     const initResult = await runCli(dir, [

@@ -1,5 +1,7 @@
 import chalk from 'chalk';
 import { execSync } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
 import { getConfig } from '../utils/config.js';
 import { createCliContext } from '../utils/cli-context.js';
 import { parseApprovalReply } from '../utils/context/approval-reply.js';
@@ -38,6 +40,104 @@ export interface ContextOptions {
   ticket?: string;
   execute?: boolean;
   executeStrict?: boolean;
+}
+
+const PENDING_CHANGE_REQUEST_KEYS = [
+  'Pending Change Request',
+  '대기 중 변경 요청',
+] as const;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findSpecLineIndex(lines: string[], keys: readonly string[]): number {
+  const escaped = keys.map((key) => escapeRegExp(key));
+  const re = new RegExp(
+    `^\\s*-\\s*\\*\\*(?:${escaped.join('|')})\\*\\*\\s*:`,
+    'i'
+  );
+  return lines.findIndex((line) => re.test(line));
+}
+
+function replaceSpecLine(
+  line: string,
+  keys: readonly string[],
+  preferredKey: string,
+  value: string
+): string {
+  const escaped = keys.map((key) => escapeRegExp(key));
+  const re = new RegExp(
+    `^(\\s*-\\s*\\*\\*)(?:${escaped.join('|')})(\\*\\*\\s*:\\s*)(.*)$`,
+    'i'
+  );
+  if (!re.test(line)) return line;
+  return line.replace(re, `$1${preferredKey}$2${value}`);
+}
+
+function computeSpecInsertIndex(lines: string[], anchorKeys: readonly string[]): number {
+  const anchorIndex = findSpecLineIndex(lines, anchorKeys);
+  if (anchorIndex !== -1) {
+    let cursor = anchorIndex + 1;
+    while (cursor < lines.length && /^\s{2,}-\s+/.test(lines[cursor])) {
+      cursor += 1;
+    }
+    return cursor;
+  }
+  const sectionIndex = lines.findIndex((line) =>
+    /^\s*##\s+(Task List|태스크 목록)\s*$/.test(line)
+  );
+  if (sectionIndex !== -1) return sectionIndex;
+  return lines.length;
+}
+
+function upsertPendingChangeRequestLine(
+  content: string,
+  requestText: string,
+  lang: 'ko' | 'en'
+): string {
+  const normalizedRequest = requestText.trim().replace(/\s+/g, ' ');
+  const preferredKey =
+    lang === 'ko' ? '대기 중 변경 요청' : 'Pending Change Request';
+  const lines = content.split('\n');
+  const index = findSpecLineIndex(lines, PENDING_CHANGE_REQUEST_KEYS);
+  if (index !== -1) {
+    lines[index] = replaceSpecLine(
+      lines[index],
+      PENDING_CHANGE_REQUEST_KEYS,
+      preferredKey,
+      normalizedRequest
+    );
+    return lines.join('\n');
+  }
+
+  const insertAt = computeSpecInsertIndex(lines, [
+    'Branch',
+    '브랜치',
+    'Issue',
+    'Issue Number',
+    '이슈 번호',
+  ]);
+  lines.splice(insertAt, 0, `- **${preferredKey}**: ${normalizedRequest}`);
+  return lines.join('\n');
+}
+
+async function persistPendingChangeRequest(
+  featurePath: string,
+  requestText: string,
+  lang: 'ko' | 'en'
+): Promise<void> {
+  const tasksPath = path.join(featurePath, 'tasks.md');
+  let content: string;
+  try {
+    content = await fs.readFile(tasksPath, 'utf-8');
+  } catch {
+    return;
+  }
+
+  const nextContent = upsertPendingChangeRequestLine(content, requestText, lang);
+  if (nextContent === content) return;
+  await fs.writeFile(tasksPath, nextContent, 'utf-8');
 }
 
 function executeCommandAction(
@@ -222,6 +322,23 @@ export async function runApprovedOption(
     action: freshSelected.action,
   });
   const featureRef = freshState.matchedFeature.folderName;
+
+  if (
+    selectedAction.category === 'user_request_replan' &&
+    userRequest &&
+    freshState.matchedFeature.docs.tasksExists
+  ) {
+    await withFileLock(
+      getDocsLockPath(config.docsDir),
+      async () =>
+        persistPendingChangeRequest(
+          freshState.matchedFeature!.path,
+          userRequest!,
+          lang
+        ),
+      { owner: 'context-approve:pending-change-request' }
+    );
+  }
 
   if (!options.execute) {
     const ticket = executeRequiresTicket

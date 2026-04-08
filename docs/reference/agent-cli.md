@@ -49,5 +49,6 @@ npx lee-spec-kit flow F001-alpha --approve A --execute
 
 - JSON output should be treated as the stable interface for agents.
 - `context --json-compact` remains the read-only state probe; `flow --json-compact` is the default execution/resume entrypoint.
+- If `flow` pauses with `AUTO_MANUAL_REQUIRED`, inspect `matchedFeature.currentSubstateId` / `pendingChangeRequest` first. `change_request_sync` is an internal docs-sync boundary: update docs and continue, rather than treating it as an immediate user-facing stop.
 - `AUTO_SELECTION_REQUIRED` is a pause state, not an execution failure; resolve feature selection, then continue with `context` or `flow`.
 - Human-facing command names can change, but these machine-facing contracts should stay compatible.

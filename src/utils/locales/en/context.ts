@@ -66,6 +66,8 @@ export const enContext = {
     'Add at least one task to tasks.md',
   'context.actionDetail.tasksWriteImprove':
     'Refine tasks.md and align Doc Status',
+  'context.actionDetail.tasksWriteChangeSync':
+    'Sync the new user request into tasks.md before more implementation',
   'context.actionDetail.tasksApprove': 'Approve tasks.md',
   'context.actionDetail.issueCreate':
     'Create the issue and sync issue fields in tasks.md',

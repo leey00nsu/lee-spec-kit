@@ -42,6 +42,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - `AUTO_DELEGATED_HANDOFF`는 실패가 아니라 delegated run 일시정지입니다. 새 승인 라벨을 다시 열기 전에 delegated 경로를 재사용해 작업을 이어갑니다.
 - `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.
 - `AUTO_SELECTION_REQUIRED`는 실패가 아니라 feature 선택 경계 일시정지입니다. 활성 feature 선택을 먼저 해소한 뒤 `context --json-compact` 또는 `flow`를 다시 실행합니다.
+- `matchedFeature.currentSubstateId === "change_request_sync"`이거나 `matchedFeature.pendingChangeRequest`가 있으면 코드 작업보다 문서 동기화가 먼저입니다. `tasks.md`에 요청을 반영해 태스크를 추가/재태깅하고, 실제 사용자 동작이나 범위가 바뀌면 `decisions.md`와 `spec.md` / PRD 참조도 함께 맞춘 뒤 `대기 중 변경 요청` 필드를 비우고 `context --json-compact` 또는 `flow`를 다시 실행하세요.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.
 - 위임 대상이 아닌 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
@@ -54,6 +55,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - 새로 추가한 태스크에 placeholder `Acceptance` / `Checklist`를 남기지 마세요. concrete item이 아니면 `task-run`이 실행을 막습니다.
 - 수동 편집이 꼭 필요할 때만 `태스크 목록` 섹션의 마지막 기존 태스크 block 바로 아래에 append 하세요.
 - 현재 작업 중인 태스크 근처나 `완료 조건`/다음 `##` 헤더 앞에 끼워 넣지 마세요.
+- 구현 도중 새 사용자 요청을 반영할 때는 `대기 중 변경 요청`을 임시 sync marker로 취급하세요. 요청을 `tasks.md`에 반영하고, 동작/범위 변경이면 관련 문서까지 맞춘 뒤 해당 필드를 비우고 구현으로 돌아갑니다.
 
 #### 3-1) Decision 기록 (매우 권장, 사실상 필수)
 

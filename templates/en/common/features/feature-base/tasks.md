@@ -23,6 +23,9 @@
 - **Repo**: {{projectName}}-{component}
 - **Issue**: #{issue-number}
 - **Branch**: `feat/{issue-number}-{feature-name}`
+- **Pending Change Request**: -
+  - Temporary sync marker for a newly accepted user request during implementation
+  - Clear it after reflecting the request in `tasks.md` and related docs
 - **PR**: -
   - Example: `#123` or PR URL
 - **PR Status**: -

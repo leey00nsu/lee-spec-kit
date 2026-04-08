@@ -31,7 +31,10 @@ import {
 } from './types.js';
 import { ProjectConfig } from '../config.js';
 import { resolveWorkflowRuntime } from '../../core/workflow/engine.js';
-import { resolveCodeDirtyScopePolicy } from '../workflow.js';
+import {
+  resolveCodeDirtyScopePolicy,
+  resolvePrePrReviewPolicy,
+} from '../workflow.js';
 
 const FEATURE_SCOPE_SPLIT_TASK_THRESHOLD = 40;
 const FEATURE_SCOPE_SPLIT_DECISIONS_LINE_THRESHOLD = 1200;
@@ -80,6 +83,16 @@ function extractFirstSpecValue(
     if (value) return value;
   }
   return undefined;
+}
+
+function parsePendingChangeRequest(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) return undefined;
+  if (/^(?:-|#|none|n\/a|na|없음|미정)$/i.test(normalized)) {
+    return undefined;
+  }
+  return normalized;
 }
 
 function parseDocStatus(value: string | undefined): DocStatus | undefined {
@@ -1330,6 +1343,7 @@ export async function parseFeature(
   let lastDoneTask: TaskRef | undefined;
   let nextTodoTask: TaskRef | undefined;
   let tasksDocStatus: DocStatus | undefined;
+  let pendingChangeRequest: string | undefined;
   let tasksDocStatusFieldExists = false;
   let completionChecklist: CompletionChecklistSummary | undefined;
   let prePrReviewStatus: PrePrReviewStatus | undefined;
@@ -1395,6 +1409,12 @@ export async function parseFeature(
       'Doc Status',
     ]);
     tasksDocStatus = parseDocStatus(tasksDocStatusValue);
+
+    const pendingChangeRequestValue = extractFirstSpecValue(content, [
+      'Pending Change Request',
+      '대기 중 변경 요청',
+    ]);
+    pendingChangeRequest = parsePendingChangeRequest(pendingChangeRequestValue);
 
     const prValue = extractFirstSpecValue(content, ['PR', 'Pull Request']);
     prFieldExists = hasAnySpecKey(content, ['PR', 'Pull Request']);
@@ -1929,6 +1949,7 @@ export async function parseFeature(
     folderName,
     type,
     path: featurePath,
+    pendingChangeRequest,
     completion: {
       implementationDone,
       workflowDone,

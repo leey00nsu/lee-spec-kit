@@ -28,6 +28,11 @@ function isTasksDocApproved(feature: FeatureState): boolean {
   );
 }
 
+function hasPendingChangeRequest(feature: FeatureState): boolean {
+  return typeof feature.pendingChangeRequest === 'string' &&
+    feature.pendingChangeRequest.trim().length > 0;
+}
+
 function isImplementationDone(feature: FeatureState): boolean {
   return (
     feature.docs.tasksExists &&
@@ -612,11 +617,24 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
   const isTaskExecuteCurrent = (f: FeatureState): boolean =>
     f.docs.tasksExists &&
     f.tasks.total > 0 &&
-    (f.tasks.done < f.tasks.total || !isCompletionChecklistDone(f)) &&
+    (hasPendingChangeRequest(f) ||
+      f.tasks.done < f.tasks.total ||
+      !isCompletionChecklistDone(f)) &&
     isTasksDocApproved(f) &&
     (!workflowPolicy.requireBranch ||
       f.git.onExpectedBranch ||
       f.tasks.done === f.tasks.total);
+  const getChangeRequestSyncActions = (f: FeatureState): NextAction[] => [
+    {
+      type: 'instruction',
+      category: 'tasks_write',
+      requiresUserCheck: false,
+      uiDetailKey: 'context.actionDetail.tasksWriteChangeSync',
+      message: tr(lang, 'messages', 'changeRequestSync', {
+        request: f.pendingChangeRequest || '-',
+      }),
+    },
+  ];
   const isTaskExecuteWorktreeBlocked = (f: FeatureState): boolean =>
     isTaskExecuteCurrent(f) &&
     workflowPolicy.requireWorktree &&
@@ -1663,6 +1681,14 @@ export function getStepDefinitions(ctx: CliContext): StepDefinition[] {
           f.tasks.total > 0 ? `(${f.tasks.done}/${f.tasks.total})` : '',
       },
       substates: [
+        {
+          id: 'change_request_sync',
+          phase: 'ready',
+          owner: 'main',
+          category: 'tasks_write',
+          when: (f) => isTaskExecuteCurrent(f) && hasPendingChangeRequest(f),
+          actions: (f) => getChangeRequestSyncActions(f),
+        },
         {
           id: 'task_blocked',
           phase: 'blocked',
