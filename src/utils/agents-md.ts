@@ -70,18 +70,16 @@ Auto-run continuity (main/sub-agent orchestration):
 User-facing output rule (state-aware):
 
 - Treat approval as a separate state.
-- Approval-waiting state means:
-  - \`context --json-compact\` (or \`context --json\`) includes one or more \`actionOptions\`, and
-  - you are explicitly waiting for user approval before execution.
+- Approval-waiting state means the latest \`context --json-compact\` / \`flow --json-compact\` (fallback: \`context --json\` / \`flow --json\`) shows \`approvalRequest.required === true\`.
+- Do not infer approval-waiting from conversation tone, action type, or whether \`actionOptions[]\` merely exist.
 
 In approval-waiting state:
 
-1. Show \`actionOptions[*].approvalPrompt\` lines (at minimum, the primary label line like \`A: ...\`) exactly as provided.
-2. End with \`approvalRequest.finalPrompt\` exactly as provided.
-3. Do not paraphrase or omit these lines.
-4. Prefer \`approvalRequest.userFacingLines\` as the source for user-facing approval text.
-5. Prefer \`matchedFeature.currentSubstateOwner\` plus \`agentOrchestration.subAgentHandoff\` as the delegation SSOT.
-6. When \`matchedFeature.currentSubstateOwner="subagent"\` and \`agentOrchestration.subAgentHandoff.required=true\` with \`mode="command"\`, call \`spawn_agent\` first and do not execute the delegated command directly from the main agent. If the delegated command is handoff-only, continue the delegated work immediately and do not re-open the same approval label.
+1. If \`matchedFeature.currentSubstateId\` is present, prepend one brief current-stage recap derived from \`matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase\`.
+2. Then show \`approvalRequest.userFacingLines\` exactly as provided. If those lines are unavailable, fall back to \`actionOptions[*].approvalPrompt\` plus \`approvalRequest.finalPrompt\`.
+3. Do not paraphrase, reorder, or omit the CLI-provided approval lines.
+4. Prefer \`matchedFeature.currentSubstateOwner\` plus \`agentOrchestration.subAgentHandoff\` as the delegation SSOT.
+5. When \`matchedFeature.currentSubstateOwner="subagent"\` and \`agentOrchestration.subAgentHandoff.required=true\` with \`mode="command"\`, call \`spawn_agent\` first and do not execute the delegated command directly from the main agent. If the delegated command is handoff-only, continue the delegated work immediately and do not re-open the same approval label.
 
 In non-approval state (progress updates, analysis, tool execution logs, unrelated Q&A):
 
@@ -92,10 +90,11 @@ In non-approval state (progress updates, analysis, tool execution logs, unrelate
 If approval is still pending after answering an unrelated question:
 
 - First answer the question.
-- Then re-open approval using both:
-  - \`actionOptions[*].approvalPrompt\` (label meaning included), and
-  - \`approvalRequest.finalPrompt\` (format line).
-- Never output \`finalPrompt\` alone without the matching \`A: ...\` prompt.`;
+- Re-check the latest \`approvalRequest.required\`.
+- If it is still \`true\`, re-open approval with:
+  - one brief current-stage recap from \`matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase\` when available, then
+  - the exact CLI-provided approval lines from \`approvalRequest.userFacingLines\` (fallback: \`actionOptions[*].approvalPrompt\` + \`approvalRequest.finalPrompt\`).
+- Never output \`finalPrompt\` alone without the matching \`A: ...\` prompt, and do not add custom label-summary wrappers such as \`Available labels:\`.`;
 
 function renderManagedSegment(
   lang: 'ko' | 'en',

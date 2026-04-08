@@ -443,7 +443,7 @@ export async function runContext(
       approvalRequest: {
         guidance: approvalGuidance.replace(
           'Before asking for approval, show only `actionOptions[].approvalPrompt` lines and `approvalRequest.finalPrompt` to the user.',
-          'User-facing output must include only approval prompts (`A: ...`) and `finalPrompt`.'
+          'If approval is pending, you may prepend one brief current-stage recap derived from `matchedFeature.currentSubstate*`, then user-facing output must reuse the exact approval prompts (`A: ...`) and `finalPrompt`.'
         ),
         required: approvalRequired,
         finalPrompt: finalApprovalPrompt,

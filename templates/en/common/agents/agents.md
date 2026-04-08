@@ -38,17 +38,19 @@ Prohibited:
 
 ## 🧾 Label Response Contract (SSOT)
 
-- Treat approval-waiting as a separate state. Approval-waiting means `context --json-compact` (or `context --json`) exposes executable `actionOptions[]` and you are explicitly waiting for user approval.
+- Treat approval-waiting as a separate state. Approval-waiting means the latest `context --json-compact` / `flow --json-compact` (fallback: `context --json` / `flow --json`) shows `approvalRequest.required=true`.
+- Do not infer approval-waiting from conversation tone, action type, or the mere presence of `actionOptions[]`.
 - Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
 - When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
 - Treat `AUTO_DELEGATED_HANDOFF` as a delegated pause, not a failure. Continue or resume the delegated run path and do not reopen the same approval label.
 - Treat `AUTO_MANUAL_REQUIRED` as an instruction-only automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
 - Special case: if `matchedFeature.currentSubstateId === "change_request_sync"` or `matchedFeature.pendingChangeRequest` is present, treat that manual boundary as an internal docs-sync step first, not an immediate user-facing stop. Sync docs, clear the pending change field, then continue with fresh `context --json-compact` or `flow`.
 - Treat `AUTO_SELECTION_REQUIRED` as a feature-selection pause, not an execution failure. Resolve the active feature first, then continue with fresh `context --json-compact` or `flow`.
-- In approval-waiting state, prefer `approvalRequest.userFacingLines` from `context --json-compact`. If full `--json` is used, fall back to `actionOptions[*].approvalPrompt` plus `approvalRequest.finalPrompt`. Do not add your own rewritten label summary before or between those lines.
+- In approval-waiting state, if `matchedFeature.currentSubstateId` exists, prepend one brief current-stage recap derived from `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`.
+- Then prefer `approvalRequest.userFacingLines` from `context --json-compact`. If full `--json` is used, fall back to `actionOptions[*].approvalPrompt` plus `approvalRequest.finalPrompt`. Do not add your own rewritten label summary before or between those lines.
 - Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT.
 - In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.
-- If approval is still pending after answering an unrelated question, answer first, then re-open approval with the exact CLI-provided approval lines (`approvalRequest.userFacingLines`, or `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt` in full `--json`).
+- If approval is still pending after answering an unrelated question, answer first, re-check `approvalRequest.required`, and if it is still `true`, re-open approval with one brief current-stage recap plus the exact CLI-provided approval lines (`approvalRequest.userFacingLines`, or `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt` in full `--json`).
 - If user input does not contain a valid label, do not execute; request label selection again.
 - For non-delegated command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
 - If `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
@@ -59,7 +61,7 @@ Prohibited:
 - Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution).
 - When fallback is used, report a one-line fallback reason to the user before running the command in the main agent.
 
-Approval-waiting output must reuse the exact CLI-provided prompt lines. Do not invent a custom wrapper such as `Current status:` / `Available labels:` if the CLI did not provide those lines.
+Approval-waiting output must reuse the exact CLI-provided prompt lines. A single concise current-stage recap derived from `matchedFeature.currentSubstate*` is allowed before those lines. Do not invent label-summary wrappers such as `Current status:` / `Available labels:` or paraphrase label meanings.
 
 ---
 

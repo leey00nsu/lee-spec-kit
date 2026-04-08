@@ -15,7 +15,7 @@ export const koContext = {
   'context.actionOptionHint':
     '라벨 응답 규칙: `A`, `A OK`, `A 진행해` 중 하나의 형식으로 응답',
   'context.actionExplainHint':
-    'CLI가 준 승인 문구를 먼저 그대로 보여주세요. 추가 설명은 사용자가 물을 때만 덧붙이고, 승인 문구 자체는 바꾸지 마세요.',
+    '승인 대기 상태라면 `matchedFeature.currentSubstate*` 기반 현재 단계 한 줄 요약을 먼저 붙일 수 있고, 그 다음 CLI가 준 승인 문구를 그대로 보여주세요. 추가 설명은 사용자가 물을 때만 덧붙이고, 승인 문구 자체는 바꾸지 마세요.',
   'context.finalLabelPrompt':
     '현재 선택 가능한 라벨: {labels}. 라벨 응답 규칙(`A`, `A OK`, `A 진행해`)으로 응답하세요. (예: `{example}`)',
   'context.finalLabelPromptWithRequest':

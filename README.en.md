@@ -102,7 +102,7 @@ Start procedure:
 1) Run npx lee-spec-kit detect --json
 2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact
 3) Use context as the read-only state probe, and use flow as the default execution/resume entrypoint
-4) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval
+4) If approvalRequest.required=true, briefly restate the current stage from matchedFeature.currentSubstate* when available, then show approvalRequest.userFacingLines exactly as provided and wait for user approval
 5) Do not execute before approval; for command execution, default to npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute
 6) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
 ```

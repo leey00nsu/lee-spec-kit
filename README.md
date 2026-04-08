@@ -102,7 +102,7 @@ npx lee-spec-kit flow
 1) npx lee-spec-kit detect --json
 2) isLeeSpecKitProject === true 이면 npx lee-spec-kit context --json-compact 실행
 3) 상태 확인은 context를 read-only probe로 사용하고, 실제 실행/재개는 flow를 기본 엔트리포인트로 사용
-4) approvalRequest.required=true 이면 approvalRequest.userFacingLines를 그대로 사용자에게 제시하고 승인 대기
+4) approvalRequest.required=true 이면 matchedFeature.currentSubstate* 기반 현재 단계 한 줄 요약을 먼저 짧게 말하고 approvalRequest.userFacingLines를 그대로 사용자에게 제시한 뒤 승인 대기
 5) 승인 전에는 실행하지 말고, 명령 실행은 기본적으로 npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute 사용
 6) isLeeSpecKitProject === false 이면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행
 ```

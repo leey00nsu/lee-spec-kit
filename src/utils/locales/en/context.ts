@@ -15,7 +15,7 @@ export const enContext = {
   'context.actionOptionHint':
     'Label reply rules: answer as `A`, `A OK`, or `A proceed`',
   'context.actionExplainHint':
-    'Use the exact approval lines from the CLI first. Add extra explanation only if the user asks, and do not paraphrase the approval prompts.',
+    'If approval is pending, you may add one brief current-stage recap from `matchedFeature.currentSubstate*`, then use the exact approval lines from the CLI. Add further explanation only if the user asks, and do not paraphrase the approval prompts.',
   'context.finalLabelPrompt':
     'Available labels now: {labels}. Reply using label-token rules (`A`, `A OK`, `A proceed`). (e.g. `{example}`)',
   'context.finalLabelPromptWithRequest':

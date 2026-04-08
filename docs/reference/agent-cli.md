@@ -12,7 +12,7 @@ Start procedure:
 1) Run npx lee-spec-kit detect --json
 2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact
 3) Use context as the read-only state probe, and use flow as the default execution/resume entrypoint
-4) If approvalRequest.required=true, show approvalRequest.userFacingLines exactly as provided, then wait for user approval
+4) If approvalRequest.required=true, briefly restate the current stage from matchedFeature.currentSubstate* when available, then show approvalRequest.userFacingLines exactly as provided and wait for user approval
 5) Do not execute before approval; for command execution, default to npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute
 6) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
 ```
@@ -49,6 +49,8 @@ npx lee-spec-kit flow F001-alpha --approve A --execute
 
 - JSON output should be treated as the stable interface for agents.
 - `context --json-compact` remains the read-only state probe; `flow --json-compact` is the default execution/resume entrypoint.
+- Approval-waiting is determined strictly by the latest `approvalRequest.required=true`; do not infer it from action type or conversation tone.
+- If approval is still pending after answering an unrelated question, answer first, then briefly restate `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase` and re-show the exact CLI approval lines before waiting again.
 - If `flow` pauses with `AUTO_MANUAL_REQUIRED`, inspect `matchedFeature.currentSubstateId` / `pendingChangeRequest` first. `change_request_sync` is an internal docs-sync boundary: update docs and continue, rather than treating it as an immediate user-facing stop.
 - `AUTO_SELECTION_REQUIRED` is a pause state, not an execution failure; resolve feature selection, then continue with `context` or `flow`.
 - Human-facing command names can change, but these machine-facing contracts should stay compatible.

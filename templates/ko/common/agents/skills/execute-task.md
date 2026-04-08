@@ -45,6 +45,7 @@ CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단
 - `matchedFeature.currentSubstateId === "change_request_sync"`이거나 `matchedFeature.pendingChangeRequest`가 있으면 코드 작업보다 문서 동기화가 먼저입니다. `tasks.md`에 요청을 반영해 태스크를 추가/재태깅하고, 실제 사용자 동작이나 범위가 바뀌면 `decisions.md`와 `spec.md` / PRD 참조도 함께 맞춘 뒤 `대기 중 변경 요청` 필드를 비우고 `context --json-compact` 또는 `flow`를 다시 실행하세요.
 - CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
 - 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.
+- `approvalRequest.required=true`인 상태에서 옆 질문에 먼저 답했다면, 답변 후 `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase` 기반 현재 단계 한 줄 요약을 짧게 붙이고 CLI가 준 승인 문구를 그대로 다시 보여준 뒤 대기하세요.
 - 위임 대상이 아닌 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
 - 현재 command가 delegated 상태(`matchedFeature.currentSubstateOwner="subagent"` + `agentOrchestration.subAgentHandoff.required=true` + `mode="command"`)라면 메인 에이전트에서 직접 실행하지 말고 먼저 `spawn_agent`를 호출해 handoff 계약을 넘기세요.
 - `flow/context --execute --json` 결과가 `approved_handoff_prepared`이면 같은 라벨을 다시 승인 루프로 열지 말고, 먼저 delegated work를 완료한 뒤 context를 새로 확인합니다.
