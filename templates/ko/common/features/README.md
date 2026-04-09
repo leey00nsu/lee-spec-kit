@@ -65,8 +65,8 @@ npx lee-spec-kit status --write
 
 ## PRD 요구사항 추적 (권장)
 
-- PRD 문서(`docs/prd/*.md`)에 `PRD-FR-001` 같은 요구사항 ID를 부여하세요.
-- `tasks.md`의 각 태스크 라인에 `[PRD-FR-001]` 태그로 연결하세요. PRD와 무관한 태스크는 `[NON-PRD]`를 사용하세요.
+- PRD 문서(`docs/prd/*.md`)에 `PRD-FR-001` 또는 `PRD-SCOPE-V1-DESKTOP-EDITOR` 같은 `PRD-*` 요구사항 ID를 부여하세요.
+- `tasks.md`의 각 태스크 라인에 `[PRD-FR-001]` 또는 `[PRD-SCOPE-V1-DESKTOP-EDITOR]` 태그로 연결하세요. PRD와 무관한 태스크는 `[NON-PRD]`를 사용하세요.
 - `[NON-PRD]`는 refactor, 테스트 전용 작업, tooling, rename, cleanup 같은 내부 구현 작업에만 사용하세요.
 - 변경이 사용자 동작, acceptance criteria, 범위를 바꾸면 PRD를 먼저 갱신하고 태스크도 `[PRD-...]`로 다시 연결하세요.
 - 단, 태스크 문서에서 PRD ID를 임의 생성하지 않습니다. 먼저 PRD 원문에 정의하고, 레거시 문서는 원문 ID backfill 후 연결하세요.

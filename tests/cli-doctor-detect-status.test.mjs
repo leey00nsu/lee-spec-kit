@@ -667,7 +667,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       executeTaskPayload.doc.content,
-      /새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`를 사용하세요/
+      /새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-\*`를 사용하세요/
     );
 
     const koAgentsDoc = await fs.readFile(
@@ -735,7 +735,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       koTasksTemplateDoc,
-      /새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`로 추가하세요/
+      /새 태스크는 가급적 `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-\*`로 추가하세요/
     );
 
     const enExecuteTaskDoc = await fs.readFile(
@@ -752,7 +752,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       enExecuteTaskDoc,
-      /If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`/i
+      /If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-\*`/i
     );
 
     const enTasksTemplateDoc = await fs.readFile(
@@ -769,7 +769,7 @@ test('docs list/get expose CLI-managed built-in docs without restoring agents.md
     );
     assert.match(
       enTasksTemplateDoc,
-      /prefer `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-FR-001`/i
+      /prefer `npx lee-spec-kit task add <feature-ref> --title "\.\.\." --ref NON-PRD\|PRD-\*`/i
     );
 
     const enAgentsDoc = await fs.readFile(

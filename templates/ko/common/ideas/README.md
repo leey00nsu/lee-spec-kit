@@ -17,7 +17,7 @@ Feature로 발전하기 전의 아이디어 / To-do / 실험 기록을 모아두
   - `Idea ID` (`I###` 형식의 indexed idea인 경우)
   - 목적/배경
   - 대략 범위(뭘 할지/안 할지)
-  - PRD Refs(권장): `PRD-FR-001, PRD-US-002` (PRD와 무관하면 `NON-PRD` 명시)
+  - PRD Refs(권장): `PRD-FR-001, PRD-US-002` 또는 `PRD-SCOPE-V1-DESKTOP-EDITOR` (PRD와 무관하면 `NON-PRD` 명시)
   - 대상 컴포넌트(필요 시): `api` / `app` / `worker` / `all`
   - 상태: `Active | Featureized | Dropped`
   - Feature: 승격되면 `F###-slug`
@@ -32,7 +32,7 @@ Feature로 발전하기 전의 아이디어 / To-do / 실험 기록을 모아두
 3. `--idea`를 사용하면 새 Feature의 `spec.md`에 source idea 경로가 자동 기록됩니다
 4. 승격 후에도 다음은 직접 채워야 합니다
    - `spec.md`의 `PRD Refs`
-   - `tasks.md` 태스크 라인의 PRD ID 태그(`[PRD-FR-001]` 등)
+   - `tasks.md` 태스크 라인의 PRD ID 태그(`[PRD-FR-001]`, `[PRD-SCOPE-V1-DESKTOP-EDITOR]` 등)
 5. 아이디어 문서는 삭제하지 말고 `Status: Featureized`, `Feature: F00X-...`로 남기는 것을 권장합니다
 
 > 💡 source idea 문서를 남겨두면 “왜 이 Feature가 생겼는지” 추적하기 쉽습니다.

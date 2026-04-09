@@ -55,17 +55,17 @@ npx lee-spec-kit context --json-compact
 
 - **PRD (`docs/prd/`)**: 요구사항 SSOT
   - 이 공간은 `init`이 만들어 주며, 별도 생성 명령 없이 여기에서 직접 PRD를 관리합니다.
-  - 요구사항마다 ID를 부여합니다: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
+  - 요구사항마다 안정적인 `PRD-*` ID를 부여합니다: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003` 같은 numeric ID 또는 `PRD-SCOPE-V1-DESKTOP-EDITOR` 같은 semantic key
   - ID는 안정적으로 유지합니다. (삭제 대신 `Deprecated` 표기 권장, 재번호 부여 금지)
   - PRD ID는 PRD 원문에 먼저 정의합니다. Feature 문서에서 임의 생성하지 않습니다.
 - **Ideas (`docs/ideas/`)**: Feature 전 단계 SSOT (가설/실험/후보)
   - 가능하면 PRD에서 출발한 후보라는 점이 보이도록 `PRD Refs`를 유지합니다.
-  - Idea 문서 상단에 `PRD Refs:`를 기록합니다. (예: `PRD-FR-001, PRD-US-002`)
+  - Idea 문서 상단에 `PRD Refs:`를 기록합니다. (예: `PRD-FR-001, PRD-US-002` 또는 `PRD-SCOPE-V1-DESKTOP-EDITOR`)
   - Feature로 승격되면 SSOT는 `docs/features/`로 이동하고, Idea는 archive로 정리합니다.
 - **Features (`docs/features/`)**: 구현 범위/진행 SSOT
   - Feature는 PRD와 idea를 바탕으로 실제 구현을 진행하는 실행 단위입니다.
   - `spec.md`: 범위 정의 + `PRD Refs`(기능이 커버하는 PRD ID 목록)
-  - `tasks.md`: 태스크 단위로 PRD ID를 태그(`[PRD-FR-001]`)로 매핑하거나, PRD 무관 태스크는 `[NON-PRD]`로 표시
+  - `tasks.md`: 태스크 단위로 PRD ID를 태그(`[PRD-FR-001]`, `[PRD-SCOPE-V1-DESKTOP-EDITOR]`)로 매핑하거나, PRD 무관 태스크는 `[NON-PRD]`로 표시
     - `[NON-PRD]`는 refactor, rename, tooling, 테스트, cleanup 같은 내부 작업에만 사용합니다.
     - 태스크가 사용자 동작, acceptance criteria, 기능 범위를 바꾸게 되면 `[NON-PRD]`로 끝내지 말고 PRD를 backfill한 뒤 `[PRD-...]`로 연결합니다.
   - 레거시 문서에 PRD ID가 없다면, 먼저 원문 요구사항 문서에 ID를 backfill한 뒤 Feature 문서를 연결합니다.

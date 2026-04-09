@@ -18,11 +18,14 @@ export interface ParsedTaskLine {
   line: number; // 1-based
 }
 
+const PRD_REQUIREMENT_ID_EXACT_RE =
+  /^PRD-[A-Z0-9]+(?:-[A-Z0-9]+)*$/i;
+
 export const PRD_REQUIREMENT_ID_RE =
-  /\bPRD-(?:FR|US|NFR)-\d+\b/gi;
+  /\bPRD-[A-Z0-9]+(?:-[A-Z0-9]+)*\b/gi;
 
 export function isPrdRequirementId(value: string): boolean {
-  return /^PRD-(?:FR|US|NFR)-\d+$/i.test(value.trim());
+  return PRD_REQUIREMENT_ID_EXACT_RE.test(value.trim());
 }
 
 export function isNonPrdTag(value: string): boolean {

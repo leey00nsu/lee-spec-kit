@@ -65,8 +65,8 @@ npx lee-spec-kit status --write
 
 ## PRD Requirement Traceability (Recommended)
 
-- Assign stable requirement IDs in PRD docs (`docs/prd/*.md`) like `PRD-FR-001`.
-- Link each task line in `tasks.md` with a tag like `[PRD-FR-001]`. For non-PRD tasks, use `[NON-PRD]`.
+- Assign stable `PRD-*` requirement IDs in PRD docs (`docs/prd/*.md`) like `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`.
+- Link each task line in `tasks.md` with a tag like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]`. For non-PRD tasks, use `[NON-PRD]`.
 - Use `[NON-PRD]` only for internal implementation work such as refactors, test-only work, tooling, renames, and cleanup.
 - If a change affects user-facing behavior, acceptance criteria, or scope, update PRD first and retag the task as `[PRD-...]`.
 - Do not invent PRD IDs inside feature docs. Define them in the PRD source first, and backfill legacy docs before linking tasks.

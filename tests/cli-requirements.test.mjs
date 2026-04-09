@@ -97,6 +97,65 @@ test('requirements --json reports PRD requirement coverage from tasks tags', asy
   });
 });
 
+test('requirements --json reports semantic PRD requirement coverage from tasks tags', async () => {
+  await withTempDir('lsk-requirements-semantic-json-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--yes',
+      '--name',
+      'ReqSemanticJson',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    await fs.writeFile(
+      path.join(dir, 'docs', 'prd', 'req-prd.md'),
+      `# Demo PRD\n\n## Requirements\n\n- PRD-SKILL-AUTO-TAG: Auto-tag tasks from semantic requirement keys\n- PRD-SCOPE-V1-DESKTOP-EDITOR: Editor scope\n`,
+      'utf-8'
+    );
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    await fs.writeFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      `# Tasks: alpha\n\n## Task List\n\n- [TODO][PRD-SKILL-AUTO-TAG] T-F001-01 wire semantic task tagging\n- [DONE][PRD-SCOPE-V1-DESKTOP-EDITOR] T-F001-02 align editor scope\n- [DONE][NON-PRD] T-F001-03 refactor internals\n`,
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['requirements', '--json']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'REQUIREMENTS_REPORTED');
+    assert.equal(payload.counts.defined, 2);
+    assert.equal(payload.counts.referenced, 2);
+    assert.equal(payload.counts.unknownReferences, 0);
+    assert.equal(payload.counts.unmappedTasks, 0);
+
+    const byId = new Map(payload.requirements.map((r) => [r.id, r]));
+    assert.equal(byId.get('PRD-SKILL-AUTO-TAG')?.defined, true);
+    assert.equal(byId.get('PRD-SKILL-AUTO-TAG')?.tasks?.todo, 1);
+    assert.equal(byId.get('PRD-SCOPE-V1-DESKTOP-EDITOR')?.defined, true);
+    assert.equal(byId.get('PRD-SCOPE-V1-DESKTOP-EDITOR')?.tasks?.done, 1);
+  });
+});
+
 test('requirements --strict exits non-zero when unknown refs or unmapped tasks exist', async () => {
   await withTempDir('lsk-requirements-strict-', async (dir) => {
     const initResult = await runCli(dir, [

@@ -9,7 +9,7 @@
   - If `approvalRequest.required=true`, wait for the exact CLI-provided label reply before changing task state.
   - If `approvalRequest.required=false`, do not invent a separate `OK` approval step; update task state after real completion/verification.
   - `task-complete` rejects `[DONE]` while any item in that task's `Checklist` remains unchecked.
-- **PRD mapping (recommended)**: add a PRD requirement ID tag like `[PRD-FR-001]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
+- **PRD mapping (recommended)**: add an existing PRD requirement ID tag like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
   - `[NON-PRD]` is for internal implementation work only. If the task changes user-facing behavior, acceptance criteria, or scope, backfill PRD first and tag it as `[PRD-...]`.
@@ -60,7 +60,7 @@
     - [ ] (subtask)
 ```
 
-> `PRD-FR-001` in the example means an ID that already exists in the PRD source. If it is not defined yet, do not add it to tasks first.
+> `PRD-FR-001` in the example is just one valid `PRD-*` key. If the key is not defined in the PRD source yet, do not add it to tasks first.
 > If a task began as exploration/internal work but became a product requirement change, update PRD first, then retag the task from `[NON-PRD]` to `[PRD-...]`.
 
 ---
@@ -69,7 +69,7 @@
 
 > Add tasks below. **At least 1 task is required.**
 > Keep tasks as one ordered list. The list order itself is the execution priority.
-> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`. Add `--acceptance` and `--check` inline when you already know the concrete items.
+> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`. Use an existing PRD key such as `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`. Add `--acceptance` and `--check` inline when you already know the concrete items.
 > Do not leave placeholder `Acceptance` / `Checklist` content in place. `task-run` will block execution until those items are concrete.
 > If you must edit manually, append it below the last existing task block in `Task List` instead of inserting it near the current task or right before `Completion Criteria`.
 

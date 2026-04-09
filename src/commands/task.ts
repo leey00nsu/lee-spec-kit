@@ -101,7 +101,7 @@ function normalizeTaskRef(value: string): string {
   if (!trimmed) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--ref` is required. Use `NON-PRD` or an existing `PRD-...` requirement ID.'
+      '`--ref` is required. Use `NON-PRD` or an existing `PRD-*` requirement ID.'
     );
   }
 
@@ -111,7 +111,7 @@ function normalizeTaskRef(value: string): string {
   if (!isPrdRequirementId(normalized)) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      '`--ref` must be `NON-PRD` or an existing `PRD-FR-001`-style requirement ID.'
+      '`--ref` must be `NON-PRD` or an existing `PRD-*` requirement ID (for example `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`).'
     );
   }
 
@@ -294,7 +294,7 @@ export function taskCommand(program: Command): void {
     .command('add [feature-name]')
     .description('Append a new task to the end of Task List')
     .requiredOption('--title <title>', 'Task title')
-    .requiredOption('--ref <ref>', 'Requirement ref: NON-PRD or PRD-FR-001')
+    .requiredOption('--ref <ref>', 'Requirement ref: NON-PRD or existing PRD-* key')
     .option(
       '--acceptance <text>',
       'Acceptance item. Repeat to add more than one.',

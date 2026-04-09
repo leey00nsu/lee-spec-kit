@@ -28,9 +28,9 @@ PRD에서 시작한 작업이라면, 이후 문서에서도 `PRD Refs`와 태스
 
 PRD의 “어느 요구사항이 구현됐는지”를 CLI가 집계할 수 있도록, 요구사항에 **안정적인 ID**를 부여하세요.
 
-- 형식: `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003`
+- 안정적인 `PRD-*` key를 사용하세요. `PRD-FR-001`, `PRD-US-002`, `PRD-NFR-003` 같은 numeric ID와 `PRD-SCOPE-V1-DESKTOP-EDITOR` 같은 semantic key를 모두 사용할 수 있습니다.
 - 같은 줄(헤더/불릿) 안에 ID만 포함되어 있으면 됩니다.
-- Feature의 `tasks.md` 태스크 라인에 `[PRD-FR-001]`처럼 **대괄호 태그**로 참조하세요.
+- Feature의 `tasks.md` 태스크 라인에 `[PRD-FR-001]` 또는 `[PRD-SCOPE-V1-DESKTOP-EDITOR]`처럼 **대괄호 태그**로 참조하세요.
 - PRD와 무관한 태스크는 `[NON-PRD]` 태그로 표시하세요.
 - 중요한 점: `tasks.md`나 `spec.md`에서 PRD ID를 임의로 만들지 않습니다. 항상 이 폴더나 상위 요구사항 원문에 먼저 정의한 뒤 참조하세요.
 - 레거시 PRD/요구사항 문서에 아직 ID가 없다면, 먼저 원문 문서에 ID를 backfill한 뒤 Feature의 `PRD Refs`와 태스크 태그를 맞추세요.

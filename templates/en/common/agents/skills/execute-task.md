@@ -56,7 +56,7 @@ Keep `tasks.md` aligned with reality.
 
 - Do not mark `[DONE]` without actually completing the work and verifying criteria.
 - If you need to change a completed task, add a new task instead of rewriting history.
-- If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-FR-001`. Add `--acceptance` and `--check` inline when you already know the concrete items.
+- If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`. Use an existing PRD key such as `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`. Add `--acceptance` and `--check` inline when you already know the concrete items.
 - Do not leave placeholder `Acceptance` / `Checklist` items in a newly added task. `task-run` will block until those fields contain concrete execution/verification items.
 - If manual editing is unavoidable, append the new task directly below the last existing task block in the `Task List` section.
 - Do not insert it near the current task or right before `Completion Criteria` / the next `##` heading.

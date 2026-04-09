@@ -17,7 +17,7 @@ Typical flow: PRD defines the requirement, Idea explores or scopes the candidate
   - `Idea ID` (`I###` for indexed ideas)
   - Goal / context
   - Rough scope (what’s in/out)
-  - PRD Refs (recommended): `PRD-FR-001, PRD-US-002` (use `NON-PRD` when not tied to PRD)
+  - PRD Refs (recommended): `PRD-FR-001, PRD-US-002` or `PRD-SCOPE-V1-DESKTOP-EDITOR` (use `NON-PRD` when not tied to PRD)
   - Target component (optional): `api` / `app` / `worker` / `all`
   - Status: `Active | Featureized | Dropped`
   - Feature: `F###-slug` when promoted
@@ -32,7 +32,7 @@ Typical flow: PRD defines the requirement, Idea explores or scopes the candidate
 3. In the new Feature, record all of the following:
 - The source idea path is stamped into `spec.md` automatically when `--idea` is used.
 - `PRD Refs` still need to be completed in `spec.md`.
-- `tasks.md` still needs PRD mapping tags like `[PRD-FR-001]`.
+- `tasks.md` still needs PRD mapping tags like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]`.
 4. Keep the idea doc for history and update it to `Status: Featureized`, `Feature: F00X-...`
 
 > Tip: keeping the source idea doc is usually better than deleting it for traceability (“why this feature exists”).

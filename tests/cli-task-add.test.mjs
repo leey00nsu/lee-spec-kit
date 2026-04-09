@@ -140,6 +140,59 @@ test('task add accepts explicit acceptance and checklist items', async () => {
   });
 });
 
+test('task add accepts semantic PRD refs defined in docs/prd', async () => {
+  await withTempDir('lsk-task-add-semantic-prd-ref-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const feature = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+
+    const prdPath = path.join(dir, 'docs', 'prd', 'alpha.md');
+    await fs.mkdir(path.dirname(prdPath), { recursive: true });
+    await fs.writeFile(
+      prdPath,
+      '# Alpha PRD\n\n- PRD-SKILL-AUTO-TAG: Auto-tag tasks from semantic requirement keys\n',
+      'utf-8'
+    );
+
+    const addTask = await runCli(dir, [
+      'task',
+      'add',
+      'F001-alpha',
+      '--title',
+      'wire semantic prd mapping',
+      '--ref',
+      'PRD-SKILL-AUTO-TAG',
+      '--json',
+    ]);
+    assert.equal(addTask.code, 0, addTask.stderr || addTask.stdout);
+    const payload = JSON.parse(addTask.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.ref, 'PRD-SKILL-AUTO-TAG');
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasks = await fs.readFile(tasksPath, 'utf-8');
+    assert.match(
+      tasks,
+      /\[TODO\]\[PRD-SKILL-AUTO-TAG\] T-F001-alpha-01 wire semantic prd mapping/
+    );
+  });
+});
+
 test('task add appends after the last task block and task-run/task-complete work without priority tags', async () => {
   await withTempDir('lsk-task-add-next-', async (dir) => {
     const initResult = await runCli(dir, [
