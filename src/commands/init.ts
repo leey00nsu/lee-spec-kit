@@ -840,7 +840,7 @@ async function runInit(options: InitOptions): Promise<void> {
 
       // Ensure agent entrypoint exists (idempotent managed block).
       // - embedded: write to repo root (git toplevel when available) so it can be committed.
-      // - standalone: write to docs root and workspace root without touching project repos.
+      // - standalone: write to shared workspace root only, without touching project repos.
       const extraCommitPathsAbs: string[] = [];
       try {
         if (docsRepo === 'embedded') {
@@ -858,18 +858,10 @@ async function runInit(options: InitOptions): Promise<void> {
               'Standalone workspace root could not be resolved. Re-run init from the shared workspace root above the docs directory.'
             );
           }
-          // Docs repo root (always safe).
-          await upsertLeeSpecKitAgentsMd(path.join(targetDir, 'AGENTS.md'), {
+          await upsertLeeSpecKitAgentsMd(path.join(standaloneWorkspaceRoot, 'AGENTS.md'), {
             lang,
             docsRepo,
           });
-
-          if (standaloneWorkspaceRoot !== path.resolve(targetDir)) {
-            await upsertLeeSpecKitAgentsMd(path.join(standaloneWorkspaceRoot, 'AGENTS.md'), {
-              lang,
-              docsRepo,
-            });
-          }
         }
       } catch {
         // Best-effort: do not fail init due to agent docs.

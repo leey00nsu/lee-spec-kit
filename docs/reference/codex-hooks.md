@@ -26,7 +26,7 @@ Install location depends on your repo mode:
 - `embedded`: run from the project repo root
 - `standalone`: run from the shared `workspaceRoot` above `docs/` and `project/`
 
-For `standalone`, both `workspaceRoot` and `projectRoot` are required topology pointers in `.lee-spec-kit.json`. `projectRoot` alone is not enough, and `workspaceRoot` is rejected if it cannot be validated against the configured project root. The command installs hooks at the configured shared workspace root even when you invoke it from the docs repo. If either value is missing or invalid, migrate first:
+For `standalone`, both `workspaceRoot` and `projectRoot` are required topology pointers in `.lee-spec-kit.json`. `projectRoot` alone is not enough, and `workspaceRoot` is rejected if it cannot be validated against the configured project root. The command installs hooks at the configured shared workspace root even when you invoke it from the docs repo, and `AGENTS.md` is managed at that workspace root instead of the docs repo. If either value is missing or invalid, migrate first:
 
 ```bash
 npx lee-spec-kit update --agents-md

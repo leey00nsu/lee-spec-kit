@@ -346,7 +346,7 @@ test('init standalone non-interactive supports explicit standalone options', asy
   });
 });
 
-test('init standalone seeds workspace and docs AGENTS without touching project root', async () => {
+test('init standalone seeds workspace AGENTS without touching docs or project roots', async () => {
   await withTempDir('lsk-init-standalone-workspace-agents-', async (dir) => {
     const projectRoot = path.join(dir, 'project');
     await fs.mkdir(projectRoot, { recursive: true });
@@ -372,7 +372,7 @@ test('init standalone seeds workspace and docs AGENTS without touching project r
 
     assert.equal(result.code, 0, result.stderr || result.stdout);
     assert.equal(await pathExists(path.join(dir, 'AGENTS.md')), true);
-    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), true);
+    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), false);
     assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
   });
 });
@@ -581,7 +581,7 @@ test('init standalone allows a git-backed workspace root when the project repo i
 
     assert.equal(result.code, 0, result.stderr || result.stdout);
     assert.equal(await pathExists(path.join(dir, 'AGENTS.md')), true);
-    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), true);
+    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), false);
     assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
   });
 });
@@ -625,7 +625,7 @@ test('init standalone multi supports custom components with component project ro
   });
 });
 
-test('update --agents-md in standalone syncs workspace and docs AGENTS without modifying project root', async () => {
+test('update --agents-md in standalone syncs workspace AGENTS without modifying docs or project roots', async () => {
   await withTempDir('lsk-update-standalone-agents-md-', async (dir) => {
     const projectRoot = path.join(dir, 'project');
     await fs.mkdir(projectRoot, { recursive: true });
@@ -660,9 +660,8 @@ test('update --agents-md in standalone syncs workspace and docs AGENTS without m
     assert.equal(projectAgents, '# Project-owned instructions\n');
 
     const workspaceAgents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8');
-    const docsAgents = await fs.readFile(path.join(dir, 'docs', 'AGENTS.md'), 'utf-8');
     assert.match(workspaceAgents, /<!-- lee-spec-kit:begin -->/);
-    assert.match(docsAgents, /<!-- lee-spec-kit:begin -->/);
+    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), false);
   });
 });
 

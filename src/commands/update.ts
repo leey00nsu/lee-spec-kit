@@ -272,7 +272,6 @@ async function collectAgentsMdTargets(
     return [...targets];
   }
 
-  targets.add(path.join(config.docsDir, 'AGENTS.md'));
   const workspaceRoot = resolveConfiguredStandaloneWorkspaceRoot(config);
   if (!workspaceRoot) {
     throw createCliError(
@@ -280,9 +279,7 @@ async function collectAgentsMdTargets(
       'Standalone workspaceRoot is missing or invalid. Run `npx lee-spec-kit update --agents-md` from the shared workspace root to migrate this project.'
     );
   }
-  if (workspaceRoot !== path.resolve(config.docsDir)) {
-    targets.add(path.join(workspaceRoot, 'AGENTS.md'));
-  }
+  targets.add(path.join(workspaceRoot, 'AGENTS.md'));
 
   return [...targets];
 }
