@@ -257,7 +257,7 @@ test('integrations codex preserves existing compact prompt and fallback settings
     assert.match(config, /compact_prompt = """keep my compaction rules"""/);
     assert.match(config, /project_doc_fallback_filenames = \["AGENTS\.md"\]/);
     assert.match(config, /# lee-spec-kit:codex-bootstrap:begin/);
-    assert.match(config, /features\.codex_hooks = true/);
+    assert.match(config, /^codex_hooks = true$/m);
   });
 });
 
@@ -269,7 +269,7 @@ test('integrations codex does not treat commented codex_hooks text as an install
     await fs.mkdir(codexDir, { recursive: true });
     await fs.writeFile(
       configPath,
-      ['# features.codex_hooks = true', ''].join('\n'),
+      ['# codex_hooks = true', ''].join('\n'),
       'utf-8'
     );
 
@@ -281,7 +281,7 @@ test('integrations codex does not treat commented codex_hooks text as an install
       config.match(/# lee-spec-kit:codex-bootstrap:begin/g)?.length,
       1
     );
-    assert.match(config, /^features\.codex_hooks = true$/m);
+    assert.match(config, /^codex_hooks = true$/m);
   });
 });
 
@@ -295,7 +295,7 @@ test('integrations codex ignores codex_hooks text that only appears inside multi
       configPath,
       [
         'description = """',
-        'features.codex_hooks = true',
+        'codex_hooks = true',
         '"""',
         '',
       ].join('\n'),
@@ -310,7 +310,7 @@ test('integrations codex ignores codex_hooks text that only appears inside multi
       config.match(/# lee-spec-kit:codex-bootstrap:begin/g)?.length,
       1
     );
-    assert.match(config, /^features\.codex_hooks = true$/m);
+    assert.match(config, /^codex_hooks = true$/m);
   });
 });
 
@@ -324,7 +324,7 @@ test('integrations codex rejects conflicting codex_hooks settings outside an exi
       configPath,
       [
         '# lee-spec-kit:codex-bootstrap:begin',
-        'features.codex_hooks = true',
+        'codex_hooks = true',
         '# lee-spec-kit:codex-bootstrap:end',
         '',
         '[features]',

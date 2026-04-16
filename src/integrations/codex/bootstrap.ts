@@ -7,7 +7,7 @@ export const LEE_SPEC_KIT_CODEX_BOOTSTRAP_BEGIN =
 export const LEE_SPEC_KIT_CODEX_BOOTSTRAP_END =
   '# lee-spec-kit:codex-bootstrap:end';
 
-const REQUIRED_HOOKS_FLAG_LINE = 'features.codex_hooks = true';
+const REQUIRED_HOOKS_FLAG_LINE = 'codex_hooks = true';
 
 function renderManagedSegment(): string {
   return [
@@ -114,6 +114,36 @@ function stripManagedBlock(content: string): string {
   return `${content.slice(0, beginIndex)}${content.slice(replaceEnd)}`;
 }
 
+function findFirstTableHeaderIndex(content: string): number {
+  const sanitized = sanitizeTomlScanContent(content);
+  const match = sanitized.match(/^\s*\[[^\]]+\](?:\s*#.*)?$/m);
+  return match?.index ?? -1;
+}
+
+function insertManagedBlockAtTopLevel(content: string, block: string): string {
+  const normalizedBlock = block.trimEnd();
+  const firstTableIndex = findFirstTableHeaderIndex(content);
+
+  if (firstTableIndex === -1) {
+    let next = content;
+    if (next.length > 0 && !next.endsWith('\n')) next += '\n';
+    if (next.trim().length > 0 && !next.endsWith('\n\n')) next += '\n';
+    next += `${normalizedBlock}\n`;
+    return next;
+  }
+
+  const before = content.slice(0, firstTableIndex).trimEnd();
+  const after = content.slice(firstTableIndex).replace(/^\n+/, '');
+
+  let next = '';
+  if (before.length > 0) {
+    next += before;
+    if (!next.endsWith('\n\n')) next += next.endsWith('\n') ? '\n' : '\n\n';
+  }
+  next += `${normalizedBlock}\n\n${after}`;
+  return next;
+}
+
 export function getCodexHome(): string {
   const explicit = String(process.env.CODEX_HOME || '').trim();
   if (explicit) return explicit;
@@ -140,7 +170,7 @@ function hasConflictingTopLevelKey(content: string, key: string): boolean {
 }
 
 function hasEnabledTopLevelCodexHooksKey(content: string): boolean {
-  return /^\s*features\.codex_hooks\s*=\s*true\b/m.test(
+  return /^\s*codex_hooks\s*=\s*true\b/m.test(
     sanitizeTomlScanContent(content)
   );
 }
@@ -257,6 +287,7 @@ export async function upsertLeeSpecKitCodexBootstrap(
   const endIndex = current.indexOf(LEE_SPEC_KIT_CODEX_BOOTSTRAP_END);
 
   if (
+    hasConflictingTopLevelKey(externalContent, 'codex_hooks') ||
     hasConflictingTopLevelKey(externalContent, 'features.codex_hooks') ||
     hasConflictingFeaturesTableKey(externalContent, 'codex_hooks') ||
     hasConflictingFeaturesInlineTableKey(externalContent, 'codex_hooks')
@@ -280,10 +311,7 @@ export async function upsertLeeSpecKitCodexBootstrap(
     return { changed: false, action: 'noop', filePath };
   }
 
-  let next = current;
-  if (next.length > 0 && !next.endsWith('\n')) next += '\n';
-  if (next.trim().length > 0 && !next.endsWith('\n\n')) next += '\n';
-  next += block;
+  const next = insertManagedBlockAtTopLevel(current, block);
 
   await fs.writeFile(filePath, next, 'utf-8');
   return { changed: true, action: 'appended', filePath };
