@@ -13,6 +13,7 @@ This guide defines how to start or continue a feature in the Codex-native lee-sp
    - create the feature with `npx lee-spec-kit feature <name> --idea <ref>` only for that explicit ref
    - otherwise create it with `npx lee-spec-kit feature <name> -d "<description>"`
 4. Resolve the active feature and read its docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
+5. Run `npx lee-spec-kit workflow-stage <feature-ref> --json` before taking the next workflow action.
 
 ## Working Rules
 
@@ -21,7 +22,8 @@ This guide defines how to start or continue a feature in the Codex-native lee-sp
   - `spec.md` defines scope and review state
   - `plan.md` defines the implementation approach
   - `tasks.md` drives execution order
-  - `issue.md` / `pr.md` are used only when the feature reaches GitHub workflow stages
+  - `issue.md` / `pr.md` are part of the stage gate once the feature reaches GitHub workflow stages
+- Do not begin implementation just because `tasks.md` exists. Implementation starts only when `workflow-stage --json` allows it.
 - When scope or behavior changes, update the active feature docs in the same turn before continuing.
 - Ask for approval at documented review checkpoints and before remote or destructive actions.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` when docs-path validation matters.

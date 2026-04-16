@@ -8,7 +8,10 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 ## 사전 조건
 
 - [ ] `spec.md` 작성 완료
+- [ ] `plan.md` 작성 완료
+- [ ] `tasks.md` 작성 완료 및 execution-ready
 - [ ] 활성 feature 문서 검토
+- [ ] `npx lee-spec-kit workflow-stage <feature-ref> --json` 결과가 issue 준비 또는 issue 생성 단계여야 함
 
 ---
 
@@ -64,6 +67,7 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 생성 후:
 - 생성된 이슈 번호를 `tasks.md`에 기록
 - `issue.md` 상태는 `Ready`로 유지 (생성 상태는 `tasks.md`에서 관리)
+- 바로 구현으로 가지 말고 `npx lee-spec-kit workflow-stage <feature-ref> --json`를 다시 실행해 반환된 다음 단계부터 이어갑니다
 
 ---
 

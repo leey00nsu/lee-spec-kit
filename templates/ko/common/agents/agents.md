@@ -23,11 +23,14 @@
 - 활성 feature를 정한 뒤에는 해당 feature 폴더를 작업 SSOT로 사용합니다.
 - 최소 기준 문서는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`입니다.
 - GitHub 워크플로우가 얽히면 `issue.md`, `pr.md`도 함께 봅니다.
+- 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
 
 ## 실행 규칙
 
 - lee-spec-kit은 문서 구조, workflow 단계, validator를 담당합니다.
 - Codex는 실행 루프, 도구 사용, hook lifecycle을 담당합니다.
+- `workflow-stage --json`가 `stage === "implementation"`이고 `implementationAllowed === true`를 반환하기 전에는 구현을 시작하지 않습니다.
+- spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
 - 동작이나 범위가 바뀌는 코드 변경이 있으면 같은 턴 안에서 feature 문서를 같이 동기화합니다.
 - staged된 docs 경로 검사가 필요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
 - 기본 docs sync 검사는 `npx lee-spec-kit workflow-audit --json`를 사용합니다.
@@ -42,6 +45,7 @@
 | PR 생성 | `npx lee-spec-kit github pr <featureRef> --create` 전 |
 
 - 문서화된 workflow checkpoint와 원격/파괴적 작업 전에만 사용자 승인을 요청합니다.
+- `workflow-stage --json`가 `approvalRequired === true`를 반환하면 그 checkpoint에서 멈추고 사용자 승인을 받습니다.
 - GitHub 원격 작업 전에는 올릴 artifact나 계획을 먼저 공유합니다.
 
 ## 표기 규칙

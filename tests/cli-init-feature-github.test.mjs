@@ -129,6 +129,7 @@ test('init --non-interactive works with explicit flags without --yes', async () 
       agentsMd,
       /If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically\./
     );
+    assert.match(agentsMd, /workflow-stage <feature-ref> --json/);
   });
 });
 

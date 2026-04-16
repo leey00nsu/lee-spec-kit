@@ -10,6 +10,7 @@ import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
 import { integrationsCommand } from './commands/integrations.js';
+import { workflowStageCommand } from './commands/workflow-stage.js';
 import { workflowAuditCommand } from './commands/workflow-audit.js';
 import { commitAuditCommand } from './commands/commit-audit.js';
 import { getBanner } from './utils/banner.js';
@@ -72,6 +73,7 @@ function configureRootCommandSurface(): void {
     ['docs', 'Workflow Policy Commands:'],
     ['detect', 'Workflow Policy Commands:'],
     ['github', 'Workflow Policy Commands:'],
+    ['workflow-stage', 'Workflow Policy Commands:'],
     ['integrations', 'Codex Integration Commands:'],
     ['commit-audit', 'Codex Integration Commands:'],
     ['workflow-audit', 'Codex Integration Commands:'],
@@ -107,6 +109,7 @@ configCommand(program);
 githubCommand(program);
 docsCommand(program);
 detectCommand(program);
+workflowStageCommand(program);
 integrationsCommand(program);
 workflowAuditCommand(program);
 commitAuditCommand(program);

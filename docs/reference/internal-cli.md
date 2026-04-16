@@ -8,6 +8,7 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `config`
 - `detect`
 - `docs`
+- `workflow-stage`
 - `workflow-audit`
 - `commit-audit`
 - `integrations`
@@ -19,4 +20,4 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 
 ## Guidance
 
-- For the normal Codex-native path, prefer `detect`, `docs get`, `workflow-audit`, `commit-audit`, workspace-scoped `AGENTS.md`, and official hooks.
+- For the normal Codex-native path, prefer `detect`, `docs get`, `workflow-stage`, `workflow-audit`, `commit-audit`, workspace-scoped `AGENTS.md`, and official hooks.

@@ -5,6 +5,7 @@
 - `lee-spec-kit`: docs schema, workflow policy, validators
 - Codex `AGENTS.md`: workspace-scoped instructions
 - Codex official hooks: guardrails, context injection, end-of-turn continuation
+- `workflow-stage --json`: high-level stage gate before implementation
 
 ## Install
 
@@ -40,6 +41,7 @@ If you run `integrations codex-hooks` from an unrelated project repo where `lee-
 
 - Detects whether the workspace is a lee-spec-kit project
 - Injects workflow context into Codex developer instructions
+- Tells Codex to resolve the next allowed stage through `workflow-stage --json`
 
 ### `UserPromptSubmit`
 

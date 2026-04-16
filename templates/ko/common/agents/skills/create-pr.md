@@ -9,6 +9,7 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 - [ ] 모든 태스크 `[DONE]` 상태
 - [ ] `tasks.md`의 "완료 조건" 체크리스트 모두 체크
+- [ ] `npx lee-spec-kit workflow-stage <feature-ref> --json` 결과가 PR 준비 또는 PR 생성 단계여야 함
 - [ ] 변경 사항 커밋 완료
 - [ ] 브랜치 푸시 완료
 
@@ -172,6 +173,7 @@ npx lee-spec-kit github pr F001 --create --confirm OK --labels enhancement
 - 생성된 PR 링크를 `tasks.md`에 기록
 - PR 상태를 `Review`로 기록/유지
 - `pr.md` 상태는 `Ready`로 유지 (생성/머지 상태는 `tasks.md`의 PR/PR 상태로 관리)
+- `npx lee-spec-kit workflow-stage <feature-ref> --json`를 다시 실행하고 반환된 review/merge 단계로 이어갑니다
 
 ---
 

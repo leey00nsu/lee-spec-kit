@@ -8,7 +8,10 @@ Execution-state SSOT is the feature-local `issue.md`.
 ## Prerequisites
 
 - [ ] `spec.md` completed
+- [ ] `plan.md` completed
+- [ ] `tasks.md` completed and execution-ready
 - [ ] Active feature docs reviewed
+- [ ] `npx lee-spec-kit workflow-stage <feature-ref> --json` says the next stage is issue preparation or issue creation
 
 ---
 
@@ -64,6 +67,7 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 After creation:
 - sync created issue number into `tasks.md`
 - keep `issue.md` status as `Ready` (creation state is tracked in `tasks.md`)
+- re-run `npx lee-spec-kit workflow-stage <feature-ref> --json` and continue from the returned next stage instead of jumping straight into implementation
 
 ---
 

@@ -6,6 +6,8 @@ Use the active feature folder as the execution SSOT.
 
 ## 1. Pick the current task
 
+- Before touching code, run `npx lee-spec-kit workflow-stage <feature-ref> --json`.
+- Only continue if it reports `stage === "implementation"` and `implementationAllowed === true`.
 - Resolve the active feature first.
 - In `tasks.md`, either:
   - continue the single `[DOING]` task, or
@@ -45,3 +47,4 @@ Use the active feature folder as the execution SSOT.
 1. Do not skip required doc updates.
 2. Do not rewrite `[DONE]` tasks.
 3. Do not treat unmanaged docs artifacts as active workflow state until they are normalized or allowlisted.
+4. Do not start implementation while the workflow is still blocked on issue creation, branch creation, or any earlier stage gate.

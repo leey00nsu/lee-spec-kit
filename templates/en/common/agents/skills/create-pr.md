@@ -9,6 +9,7 @@ Execution-state SSOT is the feature-local `pr.md`.
 
 - [ ] All tasks in `[DONE]` state
 - [ ] All checkboxes in `tasks.md` "Completion Criteria" are checked
+- [ ] `npx lee-spec-kit workflow-stage <feature-ref> --json` says the next stage is PR preparation or PR creation
 - [ ] Changes committed
 - [ ] Branch pushed
 
@@ -172,6 +173,7 @@ After creation:
 - record created PR link into `tasks.md`
 - record/keep PR status as `Review`
 - keep `pr.md` status as `Ready` (creation/merge state is tracked by `tasks.md` PR/PR Status)
+- re-run `npx lee-spec-kit workflow-stage <feature-ref> --json` and continue from the returned review/merge stage
 
 ---
 

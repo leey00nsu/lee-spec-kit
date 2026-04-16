@@ -104,6 +104,7 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
       sessionStartScript,
       /Prefer Codex native execution with workspace-scoped AGENTS\.md plus official hooks/
     );
+    assert.match(sessionStartScript, /workflow-stage --json/);
     assert.match(stopScript, /workflow-audit --json/);
     const preToolScript = await fs.readFile(
       path.join(hooksDir, 'pre_tool_use_policy.mjs'),
@@ -1248,6 +1249,7 @@ test('generated session-start hook injects workflow context when project is dete
     assert.equal(payload.hookSpecificOutput.hookEventName, 'SessionStart');
     assert.match(payload.hookSpecificOutput.additionalContext, /lee-spec-kit project detected/);
     assert.match(payload.hookSpecificOutput.additionalContext, /Docs dir:/);
+    assert.match(payload.hookSpecificOutput.additionalContext, /workflow-stage --json/);
   });
 });
 
@@ -1286,6 +1288,7 @@ test('generated user-prompt hook injects workflow context for generic requests',
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
     assert.match(payload.hookSpecificOutput.additionalContext, /generic rule-following requests/);
+    assert.match(payload.hookSpecificOutput.additionalContext, /workflow-stage --json/);
   });
 });
 
@@ -1619,6 +1622,7 @@ test('root help exposes the supported Codex-native command surface', async () =>
     assert.match(help.stdout, /\bfeature\b/);
     assert.match(help.stdout, /\bdocs\b/);
     assert.match(help.stdout, /\bdetect\b/);
+    assert.match(help.stdout, /\bworkflow-stage\b/);
     assert.match(help.stdout, /\bgithub\b/);
     assert.match(help.stdout, /\bintegrations\b/);
     assert.match(help.stdout, /\bcommit-audit\b/);

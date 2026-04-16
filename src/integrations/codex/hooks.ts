@@ -148,6 +148,7 @@ const detected = detectedResult.ok ? detectedResult.data : null;
 
 if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
   const docsDir = detected.docsDir || '(unknown docs dir)';
+  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
   const lines = [
     'lee-spec-kit project detected.',
     'Use lee-spec-kit docs and workflow policy only when explicitly detected.',
@@ -155,9 +156,23 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
     'If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.',
     'infer the workflow automatically even for generic rule-following requests.',
     \`Docs dir: \${docsDir}\`,
-    'Start by reading npx lee-spec-kit docs get agents --json and the active feature docs before editing code.',
+    'Start by reading npx lee-spec-kit docs get agents --json and the active feature docs.',
+    'Run npx lee-spec-kit workflow-stage --json before the next stage and only follow its nextAction.',
     'Keep docs as the SSOT and treat workflow-audit as the end-of-turn sync guard.',
   ];
+  if (stageResult.ok && stageResult.data?.status === 'ok') {
+    lines.push(
+      \`Current workflow stage: \${stageResult.data.stage}\`,
+      \`Next allowed action: \${stageResult.data.nextAction?.category || 'none'}\`,
+      \`Approval required: \${stageResult.data.approvalRequired ? 'yes' : 'no'}\`,
+      \`Implementation allowed: \${stageResult.data.implementationAllowed ? 'yes' : 'no'}\`
+    );
+  } else if (stageResult.ok && stageResult.data?.status === 'error') {
+    lines.push(
+      \`Workflow stage is unresolved: \${stageResult.data.reasonCode}\`,
+      'Resolve feature selection or create/select the target feature before continuing.'
+    );
+  }
   printAdditionalContext('SessionStart', lines.join('\\n'));
 }
 `;
@@ -175,11 +190,27 @@ const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 const detected = detectedResult.ok ? detectedResult.data : null;
 
 if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
+  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
   const lines = [
     'This prompt is inside a lee-spec-kit workspace.',
     'Interpret generic rule-following requests through the lee-spec-kit docs workflow automatically.',
     'Prefer docs get plus feature-local docs as the primary context source.',
+    'Use workflow-stage --json to determine the next allowed stage before implementation.',
   ];
+  if (stageResult.ok && stageResult.data?.status === 'ok') {
+    lines.push(
+      \`Current workflow stage: \${stageResult.data.stage}\`,
+      \`Next allowed action: \${stageResult.data.nextAction?.category || 'none'}\`,
+      \`Approval required: \${stageResult.data.approvalRequired ? 'yes' : 'no'}\`,
+      \`Implementation allowed: \${stageResult.data.implementationAllowed ? 'yes' : 'no'}\`,
+      'Do not jump ahead of the reported nextAction.'
+    );
+  } else if (stageResult.ok && stageResult.data?.status === 'error') {
+    lines.push(
+      \`Workflow stage is unresolved: \${stageResult.data.reasonCode}\`,
+      'Resolve feature selection before attempting implementation.'
+    );
+  }
   printAdditionalContext('UserPromptSubmit', lines.join('\\n'));
 }
 `;
@@ -648,6 +679,31 @@ const isDangerousGhCommand =
   /\\bgh(?:\\.cmd|\\.exe)?\\s+repo\\s+(?:delete|archive|rename|edit)\\b/i.test(command) ||
   /\\bgh(?:\\.cmd|\\.exe)?\\s+release\\s+(?:create|delete|edit)\\b/i.test(command) ||
   /\\bgh(?:\\.cmd|\\.exe)?\\s+api\\b[\\s\\S]{0,160}(?:--method=(?:DELETE|PATCH|POST|PUT)|(?:-X|--method)\\s+(?:DELETE|PATCH|POST|PUT))\\b/i.test(command);
+const isGitCreateBranch =
+  (isGitCheckout && /(^|\\s)-b(\\s|$)/.test(normalizedCommand)) ||
+  (isGitSwitch && /(^|\\s)(?:-c|--create)(\\s|$)/.test(normalizedCommand));
+const isLeeSpecKitIssueCreate =
+  /\\blee-spec-kit\\b[\\s\\S]{0,120}\\bgithub\\s+issue\\b[\\s\\S]{0,160}\\b--create\\b/i.test(command);
+const isLeeSpecKitPrCreate =
+  /\\blee-spec-kit\\b[\\s\\S]{0,120}\\bgithub\\s+pr\\b[\\s\\S]{0,160}\\b--create\\b/i.test(command);
+const isLeeSpecKitPrMerge =
+  /\\blee-spec-kit\\b[\\s\\S]{0,120}\\bgithub\\s+pr\\b[\\s\\S]{0,160}\\b--merge\\b/i.test(command);
+const isGhIssueCreate =
+  isDangerousGhCommand && /\\bgh(?:\\.cmd|\\.exe)?\\s+issue\\s+create\\b/i.test(command);
+const isGhPrCreate =
+  isDangerousGhCommand && /\\bgh(?:\\.cmd|\\.exe)?\\s+pr\\s+create\\b/i.test(command);
+const isGhPrMerge =
+  isDangerousGhCommand && /\\bgh(?:\\.cmd|\\.exe)?\\s+pr\\s+merge\\b/i.test(command);
+let stageBoundAction = null;
+if (isGitCreateBranch) {
+  stageBoundAction = 'branch_create';
+} else if (isGhIssueCreate || isLeeSpecKitIssueCreate) {
+  stageBoundAction = 'issue_create';
+} else if (isGhPrCreate || isLeeSpecKitPrCreate) {
+  stageBoundAction = 'pr_create';
+} else if (isGhPrMerge || isLeeSpecKitPrMerge) {
+  stageBoundAction = 'pr_merge';
+}
 const isDangerousCommand =
   isAlwaysBlockedGhOperation ||
   hasUnsupportedShellWrappedDangerousCommand ||
@@ -665,7 +721,10 @@ const isDangerousCommand =
   isGitBranchDelete ||
   isGitTagDelete ||
   isGitResetHard ||
-  isDangerousGhCommand;
+  isDangerousGhCommand ||
+  isLeeSpecKitIssueCreate ||
+  isLeeSpecKitPrCreate ||
+  isLeeSpecKitPrMerge;
 
 if (!command || !isDangerousCommand) {
   process.exit(0);
@@ -694,6 +753,25 @@ if (!detectedResult.ok) {
 const detected = detectedResult.data;
 if (!(detected?.status === 'ok' && detected?.isLeeSpecKitProject === true)) {
   process.exit(0);
+}
+
+if (stageBoundAction) {
+  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
+  if (!stageResult.ok) {
+    printBlock('lee-spec-kit workflow-stage failed inside the Codex hook. Resolve the workflow stage before running this stage-bound command.');
+    process.exit(0);
+  }
+  const stage = stageResult.data;
+  if (stage?.status !== 'ok') {
+    printBlock('Resolve feature selection and workflow stage before running this stage-bound command.');
+    process.exit(0);
+  }
+  if (stage?.nextAction?.category !== stageBoundAction) {
+    printBlock(
+      \`Current workflow stage is \${stage?.stage || 'unknown'} and only \${stage?.nextAction?.category || 'the current nextAction'} is allowed next. Do not jump ahead to \${stageBoundAction}.\`
+    );
+    process.exit(0);
+  }
 }
 
 if (path.resolve(gitCommandCwd) !== path.resolve(cwd) && !isGitCommit) {

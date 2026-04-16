@@ -23,11 +23,14 @@ This document defines workflow policy, not a custom runtime loop.
 - Resolve the active feature, then use that feature folder as the working SSOT.
 - Minimum active feature docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
 - When GitHub workflow is involved, also use `issue.md` and `pr.md`.
+- After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
 
 ## Execution Rules
 
 - lee-spec-kit owns docs structure, workflow stages, and validators.
 - Codex owns the execution loop, tool usage, and hook lifecycle.
+- Do not start implementation unless `workflow-stage --json` reports `stage === "implementation"` and `implementationAllowed === true`.
+- Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
 - Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.
@@ -40,6 +43,7 @@ This document defines workflow policy, not a custom runtime loop.
 | PR creation | Before `npx lee-spec-kit github pr <featureRef> --create` |
 
 - Ask the user for approval at documented workflow checkpoints and before remote or destructive actions.
+- If `workflow-stage --json` says `approvalRequired === true`, stop and ask the user at that checkpoint.
 - Share the exact artifact or plan before remote GitHub actions.
 
 ## Formatting Rules

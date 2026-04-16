@@ -6,6 +6,8 @@
 
 ## 1. 현재 태스크 선택
 
+- 코드를 건드리기 전에 `npx lee-spec-kit workflow-stage <feature-ref> --json`를 실행합니다.
+- 반환값이 `stage === "implementation"`이고 `implementationAllowed === true`일 때만 구현을 계속합니다.
 - 먼저 활성 feature를 정합니다.
 - `tasks.md`에서:
   - 이미 `[DOING]`인 태스크가 하나 있으면 그것을 이어서 수행하고
@@ -45,3 +47,4 @@
 1. 필요한 문서 업데이트를 건너뛰지 않습니다.
 2. `[DONE]` 태스크를 다시 쓰지 않습니다.
 3. unmanaged docs 산출물은 정규화하거나 allowlist하기 전까지 active workflow 상태로 취급하지 않습니다.
+4. issue 생성, branch 생성, 그 이전 단계가 막혀 있으면 구현을 시작하지 않습니다.
