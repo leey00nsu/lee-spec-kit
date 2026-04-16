@@ -106,7 +106,7 @@ When a feature is already in progress, treat those files as staging/reference ar
 
 - If the extra docs entry is intentional, add it to `.lee-spec-kit.json` `allowedDocsEntries`
 - If it is a planning/reference artifact, normalize it before continuing active feature execution
-- If `context` surfaces `docs_normalize`, handle that step first
+- `commit-audit` blocks staged unmanaged or non-canonical feature docs until they are normalized or allowlisted
 
 - Move user-facing scope and acceptance criteria into `spec.md`
 - Move architecture/file structure/test strategy into `plan.md`

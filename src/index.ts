@@ -4,24 +4,14 @@ import path from 'path';
 import { initCommand } from './commands/init.js';
 import { featureCommand } from './commands/feature.js';
 import { ideaCommand } from './commands/idea.js';
-import { statusCommand } from './commands/status.js';
 import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
-import { contextCommand } from './commands/context.js';
-import { doctorCommand } from './commands/doctor.js';
-import { viewCommand } from './commands/view.js';
-import { flowCommand } from './commands/flow.js';
 import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
 import { detectCommand } from './commands/detect.js';
-import { onboardCommand } from './commands/onboard.js';
-import { prePrReviewCommand } from './commands/pre-pr-review.js';
-import { codeReviewRunCommand } from './commands/code-review-run.js';
-import { requirementsCommand } from './commands/requirements.js';
-import { taskRunCommand } from './commands/task-run.js';
-import { taskCompleteCommand } from './commands/task-complete.js';
-import { taskCommand } from './commands/task.js';
 import { integrationsCommand } from './commands/integrations.js';
+import { workflowAuditCommand } from './commands/workflow-audit.js';
+import { commitAuditCommand } from './commands/commit-audit.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -75,11 +65,22 @@ function getCliVersion(): string {
 }
 
 function configureRootCommandSurface(): void {
-  const publicCommands = new Set(['init', 'idea', 'feature', 'context', 'flow']);
+  const groupedCommands = new Map<string, string>([
+    ['init', 'Docs Schema Commands:'],
+    ['idea', 'Docs Schema Commands:'],
+    ['feature', 'Docs Schema Commands:'],
+    ['docs', 'Workflow Policy Commands:'],
+    ['detect', 'Workflow Policy Commands:'],
+    ['github', 'Workflow Policy Commands:'],
+    ['integrations', 'Codex Integration Commands:'],
+    ['commit-audit', 'Codex Integration Commands:'],
+    ['workflow-audit', 'Codex Integration Commands:'],
+  ]);
 
   for (const command of program.commands) {
-    if (publicCommands.has(command.name())) {
-      command.helpGroup('Core Commands:');
+    const helpGroup = groupedCommands.get(command.name());
+    if (helpGroup) {
+      command.helpGroup(helpGroup);
       continue;
     }
     (command as Command & { _hidden?: boolean })._hidden = true;
@@ -90,7 +91,7 @@ const cliVersion = getCliVersion();
 
 program
   .name('lee-spec-kit')
-  .description('Orchestration harness CLI for AI agent-driven development')
+  .description('Document-centered harness engineering toolkit for AI agent development')
   .version(cliVersion)
   .option('--no-banner', 'Hide banner in help output');
 
@@ -101,24 +102,14 @@ if (shouldShowBanner()) {
 initCommand(program);
 ideaCommand(program);
 featureCommand(program);
-statusCommand(program);
 updateCommand(program);
 configCommand(program);
-contextCommand(program);
-doctorCommand(program);
-viewCommand(program);
-flowCommand(program);
 githubCommand(program);
 docsCommand(program);
 detectCommand(program);
-onboardCommand(program);
-prePrReviewCommand(program);
-codeReviewRunCommand(program);
-taskRunCommand(program);
-taskCompleteCommand(program);
-taskCommand(program);
-requirementsCommand(program);
 integrationsCommand(program);
+workflowAuditCommand(program);
+commitAuditCommand(program);
 
 configureRootCommandSurface();
 

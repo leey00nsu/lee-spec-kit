@@ -11,23 +11,23 @@ npx lee-spec-kit onboard --strict
 # 1) Detect project
 npx lee-spec-kit detect --json
 
-# 2) If detected, read context first
-npx lee-spec-kit context --json-compact
+# 2) If detected, read the workflow policy
+npx lee-spec-kit docs get agents --json
 ```
 
 - Apply lee-spec-kit workflow only when `isLeeSpecKitProject: true`.
-- Use `context --json-compact` as the read-only state probe, then use `flow` as the default execution/resume entrypoint.
-- Determine approval waiting only from the latest `context --json-compact` / `flow --json-compact`.
-- When `approvalRequest.required=true`, keep approval open until it is resolved: briefly restate the current stage from `matchedFeature.currentSubstate*` when available, then show the exact CLI approval lines and wait for user approval (`<LABEL>` or `<LABEL> OK`) before execution.
-- For command execution, default to `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`.
-- When `approvalRequest.required=false`, do not invent a separate label approval prompt.
+- Use workspace-scoped `AGENTS.md`, official Codex hooks, and the active feature docs as the default runtime path.
+- Resolve the active feature, then treat `spec.md`, `plan.md`, `tasks.md`, and `decisions.md` as the working SSOT.
+- Ask for approval only at documented workflow checkpoints and before remote or destructive actions.
+- Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
+- Use `npx lee-spec-kit workflow-audit --json` before stopping when code or feature docs changed.
 - If `isLeeSpecKitProject: false`, skip lee-spec-kit-specific flow and continue with normal workflow.
 
 ## New Project Start Order
 
 - Scaffold the code project first (for example Next.js/NestJS), then run `lee-spec-kit init`.
 - After that, write top-level requirements in `docs/prd/`, then continue with `idea` and `feature`.
-- Verify detection with `detect --json`, then continue with `context`.
+- Verify detection with `detect --json`, then continue through `docs get agents --json` and the active feature docs.
 - In most cases (default: embedded), the steps above are all you need.
 - Choose standalone only when docs are managed separately from the code repo. In that case, prefer running init from a parent workspace folder (for example `workspace/docs`, `workspace/project`) and set both docs/project paths together. (e.g. `npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project`)
 
@@ -77,7 +77,7 @@ Recommended flow:
 - **Unmanaged docs entries**: any top-level docs entry outside the canonical surface
   - Examples: `docs/plans/`, `docs/superpowers/`, or another skill-created folder
   - Treat them as staging/reference inputs only, not the active workflow SSOT
-  - Once a feature is active, `context` may block execution with a `docs_normalize` step until these entries are normalized or explicitly allowlisted
+  - Normalize or allowlist them before commit; `commit-audit` blocks staged non-canonical docs paths
   - Normalize them into feature-local docs:
     - design/spec artifact → `spec.md`, `plan.md`, `decisions.md`
     - implementation plan artifact → `plan.md`, `tasks.md`
@@ -117,7 +117,9 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `approval` (object, optional): Override `[CHECK required]` / `requiresUserCheck` policy in `context` output
+- `approval` (object, optional): optional approval-checkpoint metadata for repo policy and custom validators
+  - The Codex-native default path still asks at documented checkpoints and before remote/destructive actions first.
+  - Legacy runtime consumed this field directly; keep it only when you intentionally want category-based checkpoint metadata.
   - Current default:
     - `mode: "category"`
     - `default: "skip"`

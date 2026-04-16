@@ -15,6 +15,7 @@ interface ConfigFile {
   lang: 'ko' | 'en';
   createdAt: string;
   docsRepo?: 'embedded' | 'standalone';
+  workspaceRoot?: string;
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | Record<string, string>;
@@ -105,6 +106,7 @@ function toProjectConfig(
     components: projectType === 'multi' ? components : undefined,
     lang: configFile.lang,
     docsRepo: configFile.docsRepo,
+    workspaceRoot: configFile.workspaceRoot,
     pushDocs: configFile.pushDocs,
     docsRemote: configFile.docsRemote,
     projectRoot: configFile.projectRoot,

@@ -27,6 +27,10 @@ import { runGitOrThrow } from '../utils/git-run.js';
 import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
 import { hasLeeSpecKitCodexBootstrap } from '../integrations/codex/bootstrap.js';
 import {
+  resolveStandaloneWorkspaceRoot,
+  serializeStandaloneWorkspaceRoot,
+} from '../utils/standalone-workspace.js';
+import {
   getComponentFeaturesReadme,
   parseComponentProjectRootsOption,
   parseStandaloneMultiProjectRootJson,
@@ -66,6 +70,60 @@ function getGitTopLevelOrNull(cwd: string): string | null {
   } catch {
     return null;
   }
+}
+
+function isSameOrWithinDir(parentDir: string, candidateDir: string): boolean {
+  const resolvedParent = path.resolve(parentDir);
+  const resolvedCandidate = path.resolve(candidateDir);
+  return (
+    resolvedParent === resolvedCandidate ||
+    resolvedCandidate.startsWith(`${resolvedParent}${path.sep}`)
+  );
+}
+
+function getContainingGitRoot(targetDir: string): string | null {
+  let current = path.resolve(targetDir);
+
+  while (true) {
+    if (fs.existsSync(current)) {
+      return getGitTopLevelOrNull(current);
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+function resolveStandaloneInitProjectRoots(
+  projectRoot: string | Record<string, string> | undefined,
+  cwd: string
+): string[] {
+  if (!projectRoot) return [];
+  const rawRoots =
+    typeof projectRoot === 'string' ? [projectRoot] : Object.values(projectRoot);
+  const deduped = new Set<string>();
+  for (const rawRoot of rawRoots) {
+    const value = String(rawRoot || '').trim();
+    if (!value) continue;
+    deduped.add(path.resolve(cwd, value));
+  }
+  return [...deduped];
+}
+
+function hasStandaloneProjectRepoOutsideWorkspaceGitRoot(
+  workspaceGitRoot: string,
+  projectRoots: string[]
+): boolean {
+  return projectRoots.some((projectRoot) => {
+    const resolvedProjectRoot = path.resolve(projectRoot);
+    if (!isSameOrWithinDir(workspaceGitRoot, resolvedProjectRoot)) {
+      return true;
+    }
+    const projectGitRoot = getContainingGitRoot(resolvedProjectRoot);
+    return !!projectGitRoot && path.resolve(projectGitRoot) !== path.resolve(workspaceGitRoot);
+  });
 }
 
 interface InitOptions {
@@ -152,6 +210,7 @@ async function runInit(options: InitOptions): Promise<void> {
     typeof options.pushDocs === 'boolean' ? options.pushDocs : undefined;
   let docsRemote: string | undefined = options.docsRemote;
   let projectRoot: string | Record<string, string> | undefined;
+  let standaloneWorkspaceRoot: string | null = null;
   const componentProjectRoots = options.componentProjectRoots
     ? parseComponentProjectRootsOption(options.componentProjectRoots)
     : {};
@@ -560,6 +619,72 @@ async function runInit(options: InitOptions): Promise<void> {
     if (pushDocs === false) {
       docsRemote = undefined;
     }
+
+    const cwdGitRoot = getGitTopLevelOrNull(cwd);
+    const standaloneProjectRoots = resolveStandaloneInitProjectRoots(projectRoot, cwd);
+    standaloneWorkspaceRoot = resolveStandaloneWorkspaceRoot(cwd, targetDir);
+    const targetMatchesProjectRoot = standaloneProjectRoots.some(
+      (projectRootPath) => path.resolve(projectRootPath) === path.resolve(targetDir)
+    );
+    const allowWorkspaceGitRoot =
+      !!cwdGitRoot &&
+      path.resolve(cwdGitRoot) === path.resolve(cwd) &&
+      hasStandaloneProjectRepoOutsideWorkspaceGitRoot(
+        cwdGitRoot,
+        standaloneProjectRoots
+      );
+
+    if (cwdGitRoot && isSameOrWithinDir(cwdGitRoot, targetDir) && !allowWorkspaceGitRoot) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'Standalone init must be started from the shared workspace root, not from inside an existing project git repository. Choose a docs directory outside the current git repo.'
+      );
+    }
+
+    if (targetMatchesProjectRoot) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'Standalone init cannot place docs at the project repo root. Choose a dedicated docs directory outside the project repo.'
+      );
+    }
+
+    if (path.resolve(standaloneWorkspaceRoot) === path.resolve(targetDir)) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'Standalone init must be started from the shared workspace root above the docs directory, not from the docs repo root.'
+      );
+    }
+
+    const targetGitRoot = getContainingGitRoot(targetDir);
+    const targetIsGitRoot =
+      !!targetGitRoot && path.resolve(targetGitRoot) === path.resolve(targetDir);
+    const targetIsVerifiedWorkspaceRoot =
+      !!targetGitRoot &&
+      !!cwdGitRoot &&
+      allowWorkspaceGitRoot &&
+      path.resolve(targetGitRoot) === path.resolve(cwdGitRoot) &&
+      path.resolve(targetDir) === path.resolve(cwd);
+    if (targetIsGitRoot && !targetIsVerifiedWorkspaceRoot) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'Standalone init cannot place docs at an existing git repo root unless that root is the verified shared workspace root. Choose a dedicated docs directory instead.'
+      );
+    }
+    if (
+      targetGitRoot &&
+      isSameOrWithinDir(targetGitRoot, targetDir) &&
+      !targetIsGitRoot &&
+      !(
+        allowWorkspaceGitRoot &&
+        cwdGitRoot &&
+        path.resolve(targetGitRoot) === path.resolve(cwdGitRoot)
+      )
+    ) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'Standalone init cannot place docs inside an existing project git repository. Choose the shared workspace root and a docs directory outside any project repo.'
+      );
+    }
   }
 
   const initLockPath = getInitLockPath(targetDir);
@@ -691,6 +816,16 @@ async function runInit(options: InitOptions): Promise<void> {
 
       // standalone일 때만 pushDocs, projectRoot 추가
       if (docsRepo === 'standalone') {
+        if (!standaloneWorkspaceRoot) {
+          throw createCliError(
+            'PRECONDITION_FAILED',
+            'Standalone workspace root could not be resolved. Re-run init from the shared workspace root above the docs directory.'
+          );
+        }
+        config.workspaceRoot = serializeStandaloneWorkspaceRoot(
+          targetDir,
+          standaloneWorkspaceRoot
+        );
         config.pushDocs = pushDocs;
         if (pushDocs && docsRemote) {
           config.docsRemote = docsRemote;
@@ -703,9 +838,9 @@ async function runInit(options: InitOptions): Promise<void> {
       const configPath = path.join(targetDir, '.lee-spec-kit.json');
       await fs.writeJson(configPath, config, { spaces: 2 });
 
-      // Ensure project-scoped agent entrypoint exists (idempotent managed block).
+      // Ensure agent entrypoint exists (idempotent managed block).
       // - embedded: write to repo root (git toplevel when available) so it can be committed.
-      // - standalone: write to docs repo root and optionally to project roots when they are inside cwd.
+      // - standalone: write to docs root and workspace root without touching project repos.
       const extraCommitPathsAbs: string[] = [];
       try {
         if (docsRepo === 'embedded') {
@@ -717,36 +852,23 @@ async function runInit(options: InitOptions): Promise<void> {
           });
           if (result.changed) extraCommitPathsAbs.push(agentsMdPath);
         } else {
+          if (!standaloneWorkspaceRoot) {
+            throw createCliError(
+              'PRECONDITION_FAILED',
+              'Standalone workspace root could not be resolved. Re-run init from the shared workspace root above the docs directory.'
+            );
+          }
           // Docs repo root (always safe).
           await upsertLeeSpecKitAgentsMd(path.join(targetDir, 'AGENTS.md'), {
             lang,
             docsRepo,
           });
 
-          // Also seed project roots when paths are local to this workspace.
-          const roots: string[] = [];
-          if (typeof projectRoot === 'string') {
-            roots.push(projectRoot);
-          } else if (projectRoot && typeof projectRoot === 'object') {
-            roots.push(...Object.values(projectRoot));
-          }
-
-          const resolvedCwd = path.resolve(cwd);
-          for (const raw of roots) {
-            const value = String(raw || '').trim();
-            if (!value) continue;
-            const abs = path.resolve(cwd, value);
-            if (abs === resolvedCwd || abs.startsWith(`${resolvedCwd}${path.sep}`)) {
-              if (await fs.pathExists(abs)) {
-                const stat = await fs.stat(abs);
-                if (stat.isDirectory()) {
-                  await upsertLeeSpecKitAgentsMd(path.join(abs, 'AGENTS.md'), {
-                    lang,
-                    docsRepo,
-                  });
-                }
-              }
-            }
+          if (standaloneWorkspaceRoot !== path.resolve(targetDir)) {
+            await upsertLeeSpecKitAgentsMd(path.join(standaloneWorkspaceRoot, 'AGENTS.md'), {
+              lang,
+              docsRepo,
+            });
           }
         }
       } catch {
@@ -775,8 +897,9 @@ async function runInit(options: InitOptions): Promise<void> {
       );
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps2')));
       console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps3')));
+      console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps4')));
       if (!(await hasLeeSpecKitCodexBootstrap())) {
-        console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps4')));
+        console.log(chalk.gray(tr(lang, 'cli', 'init.log.nextSteps5')));
       }
       console.log();
     },

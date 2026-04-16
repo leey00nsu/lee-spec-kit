@@ -1,56 +1,63 @@
 # Agent CLI Reference
 
-These commands are meant for the main agent and automation in this project.
-They are the most stable machine-facing interface inside this CLI.
+This is the machine-facing contract for Codex-native usage.
 
-The point of this interface is to let the agent decide the next action, approval boundaries, and resumable progress without re-parsing the whole docs tree every time.
-
-## Agent Kickoff Prompt
+## Default Agent Startup
 
 ```text
-Start procedure:
-1) Run npx lee-spec-kit detect --json
-2) If isLeeSpecKitProject === true, run npx lee-spec-kit context --json-compact
-3) Use context as the read-only state probe, and use flow as the default execution/resume entrypoint
-4) If approvalRequest.required=true, briefly restate the current stage from matchedFeature.currentSubstate* when available, then show approvalRequest.userFacingLines exactly as provided and wait for user approval
-5) Do not execute before approval; for command execution, default to npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute
-6) If isLeeSpecKitProject === false, skip lee-spec-kit-specific flow and continue with normal workflow
+1. Run npx lee-spec-kit detect --json
+2. If detected, read npx lee-spec-kit docs get agents --json
+3. Read every unread requiredDocs[*].command
+4. Resolve the active feature and use that feature folder as the SSOT
+5. Prefer Codex native execution with workspace-scoped `AGENTS.md` plus official hooks
+6. Use workflow-audit --json as the default docs-sync validator before stopping
+7. Use commit-audit --json before git commit when hooks need commit-time docs path enforcement
 ```
 
-## Commands
+## Stable Commands
 
 ### `detect`
 
-Detect whether the current workspace uses lee-spec-kit.
+Machine-readable project detection.
 
 ```bash
 npx lee-spec-kit detect --json
 ```
 
-### `context`
+### `docs get`
 
-Read the current feature context and next actions in a machine-readable form.
-
-```bash
-npx lee-spec-kit context --json-compact
-npx lee-spec-kit context F001-alpha --json
-```
-
-### `flow`
-
-Run the default workflow auto-loop used for orchestration, pausing at selection, approval, manual, and resume boundaries.
+Machine-readable built-in policy docs.
 
 ```bash
-npx lee-spec-kit flow --json-compact
-npx lee-spec-kit flow F001-alpha --approve A --execute
+npx lee-spec-kit docs get agents --json
+npx lee-spec-kit docs get create-pr --json
 ```
 
-## Notes
+### `workflow-audit`
 
-- JSON output should be treated as the stable interface for agents.
-- `context --json-compact` remains the read-only state probe; `flow --json-compact` is the default execution/resume entrypoint.
-- Approval-waiting is determined strictly by the latest `approvalRequest.required=true`; do not infer it from action type or conversation tone.
-- If approval is still pending after answering an unrelated question, answer first, then briefly restate `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase` and re-show the exact CLI approval lines before waiting again.
-- If `flow` pauses with `AUTO_MANUAL_REQUIRED`, inspect `matchedFeature.currentSubstateId` / `pendingChangeRequest` first. `change_request_sync` is an internal docs-sync boundary: update docs and continue, rather than treating it as an immediate user-facing stop.
-- `AUTO_SELECTION_REQUIRED` is a pause state, not an execution failure; resolve feature selection, then continue with `context` or `flow`.
-- Human-facing command names can change, but these machine-facing contracts should stay compatible.
+Docs sync validator for Codex hooks and end-of-turn checks.
+
+```bash
+npx lee-spec-kit workflow-audit --json
+```
+
+### `commit-audit`
+
+Commit-time docs path validator for Codex hooks.
+
+```bash
+npx lee-spec-kit commit-audit --json
+```
+
+## Runtime Policy
+
+- Default runtime: Codex + workspace-scoped `AGENTS.md` + official hooks
+- Docs SSOT: active feature docs and linked issue/PR docs
+- Approval: ask only at documented workflow checkpoints or before remote/destructive actions
+- Commit guard: block `git commit` when staged docs paths fall outside the canonical docs surface or feature-local file set
+- Standalone workspace mode: when `docsRepo === "standalone"`, both `workspaceRoot` and `projectRoot` are required; `workspaceRoot` is the shared root above `docs/` and the code repo(s), and `.codex/` plus managed `AGENTS.md` stay on the workspace/docs side instead of the project repo
+- Docs sync proof: after syncing code back into the active feature docs, refresh a marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in `tasks.md`, `decisions.md`, or another active-feature canonical doc so `workflow-audit` can verify the sync happened after the latest code change
+
+## Important Rule
+
+If the user gives a generic request such as continuing the next feature according to the rules, interpret that request through the detected lee-spec-kit workflow automatically.

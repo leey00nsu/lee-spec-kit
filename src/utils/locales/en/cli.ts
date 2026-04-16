@@ -4,11 +4,6 @@ export const enCli = {
   'common.configNotFound': 'Config file not found. Run `init` first.',
   'common.docsNotFound': 'docs folder not found. Run `init` first.',
 
-  'status.noFeatures': 'No features found.',
-  'status.duplicateIds': 'Duplicate Feature IDs found:',
-  'status.missingIds': 'Entries missing Feature ID:',
-  'status.wrote': '✅ Wrote {path}',
-
   'feature.selectRepo': 'Select a repository:',
   'feature.folderExists': 'Folder already exists: {path}',
   'feature.baseNotFound': 'Built-in feature template not found.',
@@ -46,39 +41,6 @@ export const enCli = {
     'Cannot determine git status (not a git repo or git unavailable). Use --force to overwrite.',
   'update.docsWorktreeDirty':
     'Docs working tree has changes. Commit/stash your changes, or run with --force to overwrite.',
-
-  'doctor.title': '🔎 Docs Doctor',
-  'doctor.envWarnings': '⚠️  Environment warnings:',
-  'doctor.noIssues': '✅ No issues found.',
-  'doctor.errorsTitle': 'Errors',
-  'doctor.warningsTitle': 'Warnings',
-  'doctor.tipJson':
-    'Tip: Agent JSON output: npx lee-spec-kit doctor --json{strictFlag}',
-  'doctor.issue.missingRequiredDir': 'Missing required directory: {dir}',
-  'doctor.issue.missingConfig':
-    'Missing .lee-spec-kit.json. Some commands may rely on folder-structure heuristics.',
-  'doctor.issue.noFeatures':
-    'No feature folders found. (Only feature-base exists, or no features created yet.)',
-  'doctor.issue.placeholdersLeft':
-    'Leftover placeholders detected: {placeholders}',
-  'doctor.issue.missingSpec': 'Missing spec.md.',
-  'doctor.issue.specStatusUnset':
-    'spec.md Status is not set. (May still be a template)',
-  'doctor.issue.planStatusUnset':
-    'plan.md Status is not set. (May still be a template)',
-  'doctor.issue.tasksEmpty': 'tasks.md has no tasks.',
-  'doctor.issue.tasksDocStatusUnset':
-    'tasks.md Doc Status is not set. (Set it to Draft, Review, or Approved.)',
-  'doctor.issue.tasksDocStatusMissing':
-    'tasks.md is missing the Doc Status field. Add `- **Doc Status**: -` and `Values: Draft | Review | Approved`.',
-  'doctor.issue.tasksPrdTagUnknown':
-    'tasks.md uses PRD tags with no matching source definition: {ids}{extra}. Do not invent `PRD-*` IDs in tasks.md. Backfill IDs in docs/prd or the upstream requirements doc first, then align spec.md `PRD Refs` and task tags.',
-  'doctor.issue.unmanagedDocsEntry':
-    'Unmanaged docs entry detected outside the lee-spec-kit docs surface: {path}. Treat it as reference input only, normalize it into feature-local docs, or allowlist it in `.lee-spec-kit.json` `allowedDocsEntries`.',
-  'doctor.issue.duplicateFeatureId':
-    'Duplicate Feature ID detected: {id} ({count})',
-  'doctor.issue.missingFeatureId':
-    'Feature folder name is not in F001-... format. (Cannot extract ID)',
 
   'init.selectLangPrompt': 'Select docs language:',
   'init.currentDirectoryLabel': '📍 Current directory',
@@ -125,9 +87,11 @@ export const enCli = {
   'init.log.nextSteps2':
     '  2. Add a feature with: npx lee-spec-kit feature <name>',
   'init.log.nextSteps3':
-    '  3. Run setup checks: npx lee-spec-kit onboard --strict',
+    '  3. Install workspace-local Codex hooks for the lee-spec-kit workflow: npx lee-spec-kit integrations codex-hooks',
   'init.log.nextSteps4':
-    '  4. If you use Codex without repo-root AGENTS.md, you can optionally install the bootstrap helper: npx lee-spec-kit integrations codex',
+    '  4. If you need the optional global Codex hooks bootstrap flag too: npx lee-spec-kit integrations codex',
+  'init.log.nextSteps5':
+    '',
   'init.log.gitRepoDetectedCommit': '📦 Git repo detected, committing docs...',
   'init.log.gitInit': '📦 Initializing Git...',
   'init.warn.stagedChangesSkip':
@@ -160,6 +124,14 @@ export const enCli = {
     '✅ Optional Codex bootstrap removed: {path}',
   'setup.codexBootstrapAlreadyAbsent':
     '✅ Optional Codex bootstrap is already absent: {path}',
+  'setup.codexHooksInstalled':
+    '✅ Repo-local Codex hooks installed: {path}',
+  'setup.codexHooksAlreadyInstalled':
+    '✅ Repo-local Codex hooks already installed: {path}',
+  'setup.codexHooksRemoved':
+    '✅ Repo-local Codex hooks removed: {path}',
+  'setup.codexHooksAlreadyAbsent':
+    '✅ Repo-local Codex hooks are already absent: {path}',
 
   'github.cmdGithubDescription':
     'GitHub workflow helpers (issue/pr templates, validation, merge retry)',
@@ -336,8 +308,8 @@ export const enCli = {
     'If using automation, validate arguments before invoking CLI.',
   'cliError.precondition.satisfyPreconditions':
     'Satisfy the command preconditions first (environment/worktree).',
-  'cliError.precondition.runDoctor':
-    'Run workspace diagnostics to inspect current state.',
+  'cliError.precondition.inspectDocsAndConfig':
+    'Inspect docs policy and current configuration before retrying.',
   'cliError.precondition.considerForce':
     'If overwrite is intentional, consider the force flag.',
   'cliError.duplicateId.resolveDuplicates':
@@ -351,14 +323,6 @@ export const enCli = {
   'cliError.missingId.alignDocs':
     'Align Feature IDs in spec/tasks docs after renaming.',
   'cliError.missingId.inspectJson': 'Inspect missing IDs via JSON diagnostics.',
-  'cliError.invalidApproval.fetchLatestOptions': 'Fetch latest options first.',
-  'cliError.invalidApproval.replyWithValidLabel':
-    'Reply with a valid label only (or "<label> OK"), e.g. A.',
-  'cliError.invalidApproval.oneLabelOnly': 'Use one label at a time.',
-  'cliError.invalidApproval.userRequestRequired':
-    'Label "{label}" requires a user request. Use `{example}`.',
-  'cliError.approvalRequired.reRunWithApprove':
-    'For context approval flow, re-run with --approve <label>.',
   'cliError.approvalRequired.githubConfirmOk':
     'For github remote create/merge, pass --confirm OK.',
   'cliError.approvalRequired.shareAndGetApproval':
@@ -369,29 +333,16 @@ export const enCli = {
     'Narrow by component in multi mode.',
   'cliError.contextSelection.inspectAllCandidates':
     'Inspect all candidates first.',
-  'cliError.noActionOptions.refreshContext':
-    'Refresh context to see current state.',
-  'cliError.noActionOptions.completeChecklist':
-    'Open feature docs and complete the missing checklist item.',
-  'cliError.noActionOptions.listAllFeatures':
-    'List all features to find one with actionable options.',
-  'cliError.contextStale.refreshBeforeApprove':
-    'Get fresh context before approving.',
-  'cliError.contextStale.reapproveWithFreshLabel':
-    'Approve again using a label from the latest output.',
-  'cliError.contextStale.executeAfterFreshApproval':
-    'Execute only after re-approval of the fresh label.',
-  'cliError.execution.notCommand':
-    'Check whether the approved label points to a command action.',
   'cliError.execution.failed':
     'Review the failed command output and fix prerequisites.',
-  'cliError.execution.rerunContextAndExecute':
-    'Re-run context and execute one fresh label.',
+  'cliError.execution.retryAfterFixingInputs':
+    'Fix the failing prerequisite or input, then retry the command.',
   'cliError.execution.runManually':
     'Run the command manually to isolate environment issues.',
   'cliError.unknown.rerunAndCaptureLogs':
     'Re-run with the same input and capture full error logs.',
-  'cliError.unknown.runDoctor': 'Run diagnostics for workspace state.',
+  'cliError.unknown.inspectWorkspaceState':
+    'Inspect workspace detection and configuration state.',
   'cliError.unknown.reportReasonCode':
     'Report the reasonCode and logs to maintainers.',
 

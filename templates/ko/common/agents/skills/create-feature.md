@@ -1,62 +1,34 @@
-# 기능 구현 프로세스: CLI 주도형
+# 기능 구현 프로세스: Docs-first
 
-이 문서는 새 기능(Feature)을 추가할 때 따르는 **유일한 규칙**입니다.
-에이전트는 자신의 판단을 신뢰하지 않고, 오직 **CLI 도구의 지시**에 따라 행동합니다.
-
----
-
-## 🔄 The Loop (무한 반복)
-
-Feature 구현이 완료될 때까지(문서 커밋까지) 다음 과정을 **계속 반복**하세요.
-
-### 1단계: 상태 확인
-
-작업을 시작하거나 한 단계를 마칠 때마다 **반드시** 아래 명령어를 실행합니다.
-
-```bash
-npx lee-spec-kit context
-```
-
-### 2단계: 지시 수행 (Next Options)
-
-CLI가 출력하는 **`👉 Next Options (Atomic)` 목록에서 단 하나의 옵션(A/B/C)을 선택**해 수행합니다.
-승인이 필요한 작업은 사용자에게 공유한 뒤 **`<라벨>` 또는 `<라벨> OK` 응답(예: `A`, `A OK`)**을 받은 옵션만 실행합니다.
-
-- **승인 대기(Review)** 상태라면 사용자에게 공유하고 멈춥니다.
-- CLI가 파일 작성을 지시하면 해당 파일을 작성합니다.
-- CLI가 이슈 생성을 지시하면 이슈를 생성합니다.
-- CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
-- 승인 요청 시 라벨 옵션은 `A: ...` 형식으로 **CLI가 출력한 원문(detail/cmd) 그대로** 공유합니다. 요약/의역하지 않습니다.
-- 승인된 command 옵션을 실행할 때는 세션 불일치 방지를 위해 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용합니다.
-
-### 3단계: 반복
-
-지시된 행동을 완료했다면, **즉시 1단계로 돌아가** 다시 `context`를 확인합니다.
+이 가이드는 Codex-native lee-spec-kit 경로에서 feature를 시작하거나 이어갈 때 따르는 기준입니다.
 
 ---
 
-## 🛑 절대 금지 사항 (Strict Rules)
+## 시작
 
-1. **앞서가지 않기**: CLI가 "Spec 작성"을 지시했는데 "Plan 작성"까지 한 번에 하지 마세요.
-2. **건너뛰지 않기**: "이슈 생성" 단계를 귀찮아서 생략하거나 가짜 번호를 넣지 마세요.
-3. **스스로 판단 금지**: "이 정도면 됐겠지?"라고 생각하지 말고 CLI에게 물어보세요.
+1. `npx lee-spec-kit detect --json`를 실행합니다.
+2. 감지되면 `npx lee-spec-kit docs get agents --json`과 아직 읽지 않은 후속 문서를 확인합니다.
+3. 아직 feature 폴더가 없다면:
+   - 사용자가 실제로 `I001`, `I001-slug`, `docs/ideas/...` 같은 explicit Idea ref를 말한 경우에만 그 ref를 유지합니다
+   - 그럴 때만 `npx lee-spec-kit feature <name> --idea <ref>`를 사용합니다
+   - 그 외에는 `npx lee-spec-kit feature <name> -d "<설명>"`으로 생성합니다
+4. 활성 feature를 정하고 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 읽습니다.
 
-> 참고: 워크플로우 단계는 변경될 수 있으므로, “단계 번호”를 외우지 마세요.
-> **항상 `context` 출력만**을 SSOT로 따르세요.
+## 작업 규칙
 
----
+- 문서가 SSOT입니다. 활성 feature 문서를 직접 따라갑니다.
+- 문서 단계는 직접 따라갑니다:
+  - `spec.md`는 범위와 리뷰 상태를 정의합니다
+  - `plan.md`는 구현 접근을 정의합니다
+  - `tasks.md`는 실제 실행 순서를 정의합니다
+  - `issue.md`, `pr.md`는 GitHub 단계에 도달했을 때만 사용합니다
+- 범위나 동작이 바뀌면 같은 턴 안에서 활성 feature 문서를 같이 업데이트합니다.
+- 사용자 승인은 문서화된 review checkpoint와 원격/파괴적 작업 전에만 요청합니다.
+- docs 경로 검사가 중요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
+- 코드나 feature 문서를 바꿨다면 종료 전에 `npx lee-spec-kit workflow-audit --json`로 동기화 상태를 확인합니다.
 
-## 시작하기
+## 절대 규칙
 
-아직 기능 폴더가 없다면, 먼저 폴더를 생성하고 루프를 시작하세요:
-
-- 사용자의 요청에 `I001`, `I001-slug`, `docs/ideas/...` 같은 **명시적 Idea ref**가 있으면, 일반 생성 대신 해당 ref를 유지해서 `npx lee-spec-kit feature <name> --idea <ref>`를 사용합니다.
-- 이 경우 Idea를 추정하지 않습니다. 요청에 명시된 ref가 있을 때만 `--idea`를 붙입니다.
-
-```bash
-# 1. 생성
-npx lee-spec-kit feature <name> -d "<설명>"
-
-# 2. 루프 진입
-npx lee-spec-kit context
-```
+1. 이슈/PR 번호나 상태를 임의로 만들지 않습니다.
+2. 범위, 동작, evidence가 바뀌었는데 필요한 문서 업데이트를 건너뛰지 않습니다.
+3. unmanaged docs 산출물은 feature 폴더로 정규화하거나 allowlist하기 전까지 active workflow SSOT로 취급하지 않습니다.

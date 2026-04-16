@@ -12,7 +12,14 @@ const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 function runWithTimeout(command, commandArgs, options = {}) {
   const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
   return new Promise((resolve) => {
-    const child = spawn(command, commandArgs, options.spawnOptions ?? {});
+    const spawnOptions = {
+      ...(options.spawnOptions ?? {}),
+      stdio:
+        options.input !== undefined
+          ? ['pipe', 'pipe', 'pipe']
+          : (options.spawnOptions?.stdio ?? ['ignore', 'pipe', 'pipe']),
+    };
+    const child = spawn(command, commandArgs, spawnOptions);
 
     let stdout = '';
     let stderr = '';
@@ -40,6 +47,11 @@ function runWithTimeout(command, commandArgs, options = {}) {
       stderr += String(chunk);
     });
 
+    if (options.input !== undefined && child.stdin) {
+      child.stdin.write(String(options.input));
+      child.stdin.end();
+    }
+
     child.on('close', (code) => {
       if (settled) {
         return;
@@ -52,36 +64,44 @@ function runWithTimeout(command, commandArgs, options = {}) {
 }
 
 function runCli(cwd, args, env = {}, options = {}) {
-  return runWithTimeout(process.execPath, [cliEntrypoint, ...args], {
-    timeoutMs: options.timeoutMs,
-    spawnOptions: {
-      cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        ...env,
+  const invoke = () =>
+    runWithTimeout(process.execPath, [cliEntrypoint, ...args], {
+      timeoutMs: options.timeoutMs,
+      spawnOptions: {
+        cwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          ...env,
+        },
       },
-    },
-  });
-}
+    });
 
-async function issueApprovalTicket(cwd, featureRef, reply = 'A', env = {}) {
-  const approve = await runCli(
-    cwd,
-    ['context', featureRef, '--approve', reply, '--json'],
-    env
-  );
-  assert.equal(approve.code, 0, approve.stderr || approve.stdout);
-  const payload = JSON.parse(approve.stdout.trim());
-  assert.equal(payload.status, 'approved_selected');
-  assert.equal(typeof payload?.approvalTicket?.token, 'string');
-  assert.equal(payload.approvalTicket.token.length > 0, true);
-  return payload.approvalTicket.token;
+  return invoke().then(async (result) => {
+    const isCliEntrypointResolutionFailure =
+      result.code !== 0 &&
+      /Cannot find module '.*[\\/]dist[\\/]index\.js'/.test(
+        `${result.stderr || ''}\n${result.stdout || ''}`
+      );
+
+    if (!isCliEntrypointResolutionFailure) {
+      return result;
+    }
+
+    try {
+      await fs.access(cliEntrypoint);
+    } catch {
+      return result;
+    }
+
+    return invoke();
+  });
 }
 
 function runCommand(cwd, command, args, options = {}) {
   return runWithTimeout(command, args, {
     timeoutMs: options.timeoutMs,
+    input: options.input,
     spawnOptions: {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -176,6 +196,99 @@ process.exit(0);
   return {
     logPath,
     cwdLogPath,
+    env: {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+    },
+  };
+}
+
+async function setupFakeNpxCli(dir, options = {}) {
+  const binDir = path.join(dir, 'fake-npx-bin');
+  const failCommand = String(options.failCommand || '').trim();
+  const failMode = String(options.failMode || 'invalid-json').trim();
+  await fs.mkdir(binDir, { recursive: true });
+
+  if (process.platform === 'win32') {
+    const jsPath = path.join(binDir, 'npx.js');
+    const cmdPath = path.join(binDir, 'npx.cmd');
+    await fs.writeFile(
+      jsPath,
+      `const { spawnSync } = require('node:child_process');
+const args = process.argv.slice(2);
+const failCommand = ${JSON.stringify(failCommand)};
+const failMode = ${JSON.stringify(failMode)};
+
+if (args[0] !== 'lee-spec-kit') {
+  console.error('unexpected npx command: ' + args.join(' '));
+  process.exit(1);
+}
+
+if (failCommand && args[1] === failCommand) {
+  if (failMode === 'exit-1') {
+    process.stderr.write('forced failure\\n');
+    process.exit(1);
+  }
+  process.stdout.write('not-json\\n');
+  process.exit(0);
+}
+
+const result = spawnSync(process.execPath, [${JSON.stringify(cliEntrypoint)}, ...args.slice(1)], {
+  cwd: process.cwd(),
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`,
+      'utf-8'
+    );
+    await fs.writeFile(
+      cmdPath,
+      `@echo off\r\n"${process.execPath}" "%~dp0\\npx.js" %*\r\n`,
+      'utf-8'
+    );
+  } else {
+    const scriptPath = path.join(binDir, 'npx');
+    await fs.writeFile(
+      scriptPath,
+      `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
+const args = process.argv.slice(2);
+const failCommand = ${JSON.stringify(failCommand)};
+const failMode = ${JSON.stringify(failMode)};
+
+if (args[0] !== 'lee-spec-kit') {
+  console.error('unexpected npx command: ' + args.join(' '));
+  process.exit(1);
+}
+
+if (failCommand && args[1] === failCommand) {
+  if (failMode === 'exit-1') {
+    process.stderr.write('forced failure\\n');
+    process.exit(1);
+  }
+  process.stdout.write('not-json\\n');
+  process.exit(0);
+}
+
+const result = spawnSync(process.execPath, [${JSON.stringify(cliEntrypoint)}, ...args.slice(1)], {
+  cwd: process.cwd(),
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`,
+      'utf-8'
+    );
+    await fs.chmod(scriptPath, 0o755);
+  }
+
+  return {
     env: {
       PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
     },
@@ -376,12 +489,10 @@ export {
   pathExists,
   normalizePathForCompare,
   setupFakeGhCli,
+  setupFakeNpxCli,
   setFeatureAsDone,
   setMultiFeatureAsDone,
   writeIssueBodyWithoutTodo,
   writePrBodyWithoutTodo,
-  issueApprovalTicket,
-  primaryActionOption,
   actionOptionByLabel,
-  suggestionOptionByLabel,
 };

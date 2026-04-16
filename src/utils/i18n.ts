@@ -5,7 +5,7 @@ export type Lang = 'ko' | 'en';
 
 export const DEFAULT_LANG: Lang = 'en';
 
-export type I18nCategory = 'cli' | 'steps' | 'messages' | 'warnings';
+export type I18nCategory = 'cli';
 
 export type I18nData = Record<I18nCategory, Record<string, string>>;
 

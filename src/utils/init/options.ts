@@ -78,8 +78,7 @@ export function getComponentFeaturesReadme(lang: Lang, component: string): strin
 이 폴더는 \`${component}\` 컴포넌트의 Feature 문서를 보관합니다.
 
 - 새 Feature 생성: \`npx lee-spec-kit feature <name> --component ${component}\`
-- 상태 점검: \`npx lee-spec-kit status\`
-- 컨텍스트 확인: \`npx lee-spec-kit context --component ${component}\`
+- 워크플로우 문서 읽기: \`npx lee-spec-kit docs get agents --json\`
 `;
   }
 
@@ -88,8 +87,7 @@ export function getComponentFeaturesReadme(lang: Lang, component: string): strin
 This directory stores feature documents for the \`${component}\` component.
 
 - Create a new feature: \`npx lee-spec-kit feature <name> --component ${component}\`
-- Check status: \`npx lee-spec-kit status\`
-- Show context: \`npx lee-spec-kit context --component ${component}\`
+- Read the docs workflow: \`npx lee-spec-kit docs get agents --json\`
 `;
 }
 

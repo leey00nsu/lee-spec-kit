@@ -1,117 +1,47 @@
-# 태스크 실행 프로세스: CLI 주도형
+# 태스크 실행 프로세스: Docs-first
 
-기능 구현(tasks.md) 단계에서 태스크를 하나씩 실행할 때 따르는 가이드입니다.
-에이전트는 자신의 판단을 신뢰하지 않고, 오직 **CLI 도구의 지시**에 따라 행동합니다.
-
----
-
-## 🔄 The Execution Loop (실행 반복)
-
-모든 태스크가 완료될 때까지(`[DONE]`) 다음 과정을 **계속 반복**하세요.
-
-### 1단계: 할 일 확인
-
-작업을 시작하거나 하나를 마칠 때마다 **반드시** 아래 명령어를 실행합니다.
-
-```bash
-npx lee-spec-kit context
-```
-
-### 2단계: 태스크 수행 (Action)
-
-CLI가 가리키는 **Active Task** 또는 **`👉 Next Options (Atomic)`의 단일 옵션**을 수행합니다.
-
-- **[DOING] 상태인 태스크가 있다면**: 해당 태스크를 최우선으로 완료하세요.
-- 태스크 상태 전환 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 SSOT로 따릅니다.
-- 승인 대기 여부는 `context --json-compact`의 `approvalRequest.required`를 SSOT로 따릅니다. (`--json`은 상세 디버깅이 필요할 때만 사용) `false`면 라벨 승인 없이 진행하고, `true`면 라벨 규칙(`A`, `A OK`)으로 승인 후 진행합니다.
-- 기본 실행 모델은 **메인 에이전트 오케스트레이션 + 서브에이전트 소유 run 상태의 우선 위임 실행**입니다. `context --json-compact`에 `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`가 있으면 그것을 실행 상태 SSOT로 사용합니다.
-- 메인 에이전트는 승인 경계, 상태 전이, record/commit 단계, 원격 작업을 담당합니다. `subagent` 소유 command substate(예: `task_run`, `pre_pr_review_run`, `code_review_run`, auto-run handoff command)는 서브 에이전트 실행이 기본입니다.
-- `pre_pr_review`는 `pre_pr_review_run`(서브 에이전트 리뷰 실행)과 `pre_pr_review_record`(메인 에이전트의 결과 기록)로 분리됩니다.
-- PR 리뷰도 같은 패턴입니다. `code_review_run`은 서브 에이전트 리뷰/수정 실행 상태이고, push/merge/최종 결정은 메인 에이전트 finalize 상태에 남깁니다.
-- 위임 판단은 `matchedFeature.currentSubstateOwner`와 `agentOrchestration.subAgentHandoff`를 SSOT로 우선 사용하세요.
-- `matchedFeature.currentSubstateOwner="subagent"`이고 `agentOrchestration.subAgentHandoff.required=true`이며 `mode="command"`면 위임이 필수입니다. 먼저 `spawn_agent`를 호출하고, 해당 명령을 메인 에이전트에서 직접 실행하지 않습니다.
-- `autoRun.available`만으로 auto 루프 위임을 결정하지 않습니다. `agentOrchestration.subAgentHandoff.required=true`이고 `agentOrchestration.subAgentHandoff.mode="auto_run"`일 때만 auto 루프를 서브 에이전트에 위임합니다.
-- `agentOrchestration.subAgentHandoff`를 최소 handoff 계약(`featureRef`, `category`, `cwd`, `cmd`)으로 사용합니다.
-- action option에 `handoffOnly=true`와 `advancesWorkflow=false`가 있으면 `--execute` 성공을 workflow 전진으로 간주하지 않습니다. delegated work와 필요한 evidence/state 갱신을 끝낸 뒤에 다시 `context`를 실행합니다.
-- `subAgentHandoff.verify.commands`(`pwd`, `git rev-parse --show-toplevel`)은 `verify.cacheKey` 기준 세션당 1회만 실행합니다. 불일치 시 즉시 중단/보고하고, 상세 로그는 불일치 시에만 수집합니다.
-- 메인 에이전트 fallback은 서브 에이전트 실행이 불가능한 경우(예: 도구 미지원, spawn 실패, 명령 실행 전 서브 에이전트 실패)에만 허용합니다. fallback 실행 전에는 사유를 사용자에게 한 줄로 먼저 알립니다.
-- `context --json-compact`에서 `autoRun.available=true`일 때만 `autoRun.command`를 사용해 자동 루프를 시작합니다.
-- `autoRun.policyEligible=true`이지만 `autoRun.executableNow=false`이면 auto 루프를 시작하지 말고 `autoRun.manualBoundary`를 먼저 처리합니다.
-- 장시간 자동 실행이 필요하면 `flow <feature> --auto-... --start-auto --json-compact`으로 run id를 생성하고, 중단/압축 후에는 `autoRun.run.resumeCommand`(`flow --resume <RUN_ID>`)를 우선 사용해 재개합니다. (상세 디버깅 필드가 필요할 때만 `--json`)
-- auto 실행이 중단되면 `flow --json-compact`(또는 `flow --json`)의 `autoRun.resume`를 SSOT로 따릅니다. 컨텍스트 압축/리셋 후에는 `autoRun.resume.flowCommand`로 재개하고, 필요 시 `autoRun.resume.contextCommand`로 상태를 먼저 확인합니다.
-- `AUTO_DELEGATED_HANDOFF`는 실패가 아니라 delegated run 일시정지입니다. 새 승인 라벨을 다시 열기 전에 delegated 경로를 재사용해 작업을 이어갑니다.
-- `AUTO_MANUAL_REQUIRED`는 실패가 아니라 자동화 경계(현재 instruction-only 구간)입니다. 즉시 오류로 단정하지 말고 현재 `context --json-compact`를 다시 확인한 뒤 승인 필요 여부(`approvalRequest.required`)를 보고합니다.
-- `AUTO_SELECTION_REQUIRED`는 실패가 아니라 feature 선택 경계 일시정지입니다. 활성 feature 선택을 먼저 해소한 뒤 `context --json-compact` 또는 `flow`를 다시 실행합니다.
-- `matchedFeature.currentSubstateId === "change_request_sync"`이거나 `matchedFeature.pendingChangeRequest`가 있으면 코드 작업보다 문서 동기화가 먼저입니다. `tasks.md`에 요청을 반영해 태스크를 추가/재태깅하고, 실제 사용자 동작이나 범위가 바뀌면 `decisions.md`와 `spec.md` / PRD 참조도 함께 맞춘 뒤 `대기 중 변경 요청` 필드를 비우고 `context --json-compact` 또는 `flow`를 다시 실행하세요.
-- CLI가 명령어를 출력하면 **그대로 복사해 실행**합니다. (standalone 환경에서도 레포 경로가 포함될 수 있습니다)
-- 사용자 응답 포맷은 `agents.md`의 **"라벨 응답 계약 (SSOT)"** 을 따릅니다. 라벨 문구는 승인 대기 상태에서만 보여주고, CLI가 준 승인 문구를 임의로 바꾸지 않습니다.
-- `approvalRequest.required=true`인 상태에서 옆 질문에 먼저 답했다면, 답변 후 `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase` 기반 현재 단계 한 줄 요약을 짧게 붙이고 CLI가 준 승인 문구를 그대로 다시 보여준 뒤 대기하세요.
-- 위임 대상이 아닌 command 옵션 실행은 `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute`를 기본으로 사용하고, `context --approve`와 `context --execute --ticket` 분리 실행은 지양합니다.
-- 현재 command가 delegated 상태(`matchedFeature.currentSubstateOwner="subagent"` + `agentOrchestration.subAgentHandoff.required=true` + `mode="command"`)라면 메인 에이전트에서 직접 실행하지 말고 먼저 `spawn_agent`를 호출해 handoff 계약을 넘기세요.
-- `flow/context --execute --json` 결과가 `approved_handoff_prepared`이면 같은 라벨을 다시 승인 루프로 열지 말고, 먼저 delegated work를 완료한 뒤 context를 새로 확인합니다.
-
-### 3단계: 기록 및 반복 (Record & Loop)
-
-- 새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`를 사용하세요. `PRD-FR-001`이나 `PRD-SCOPE-V1-DESKTOP-EDITOR`처럼 이미 정의된 PRD key를 넣으면 됩니다. 필요하면 `--acceptance`, `--check`로 바로 구체 항목을 함께 추가할 수 있습니다.
-- 새로 추가한 태스크에 placeholder `Acceptance` / `Checklist`를 남기지 마세요. concrete item이 아니면 `task-run`이 실행을 막습니다.
-- 수동 편집이 꼭 필요할 때만 `태스크 목록` 섹션의 마지막 기존 태스크 block 바로 아래에 append 하세요.
-- 현재 작업 중인 태스크 근처나 `완료 조건`/다음 `##` 헤더 앞에 끼워 넣지 마세요.
-- 구현 도중 새 사용자 요청을 반영할 때는 `대기 중 변경 요청`을 임시 sync marker로 취급하세요. 요청을 `tasks.md`에 반영하고, 동작/범위 변경이면 관련 문서까지 맞춘 뒤 해당 필드를 비우고 구현으로 돌아갑니다.
-
-#### 3-1) Decision 기록 (매우 권장, 사실상 필수)
-
-에이전트가 “왜 이렇게 구현했지?” 라는 질문에 답할 수 있도록, **비직관적이거나 선택의 여지가 있었던 구현**이 들어갔다면 `decisions.md`에 반드시 기록합니다.
-
-다음 중 하나라도 해당되면 기록하세요:
-
-- 구현 방식에 대한 **트레이드오프(성능/안정성/보안/유지보수성)** 가 있었다
-- **새로운 규칙/휴리스틱/상태 전이**가 추가되었다 (예: context 판단 로직, 예외 처리 기준)
-- 사용자가 “왜 이렇게 했나요?” 라고 **이유/근거**를 물었다
-- 사용자가 “이렇게 바꿔주세요” 처럼 **직접 변경을 요청**했다 (요구사항/정책/기준 변경 포함)
-- 기존 동작을 **호환성/버그 회피** 목적으로 변경했다
-- 데이터 구조/파일 구조/CLI 출력 규칙이 바뀌었다
-- “나중에 보면 헷갈릴 것 같은” 결정이 있었다
-
-작성 시점 규칙:
-
-- 태스크를 `[DOING]`으로 전환할 때 `Context/Constraints`와 `Trace(초기 가설)`를 1~3줄로 먼저 기록합니다.
-- 태스크를 `[DONE]`으로 전환하기 전에 `Options/Decision/Rationale`를 최종화하고 `Trace(확정 근거)`를 보강합니다.
-- PR 머지 후 `Trace(머지 후 확인)`에 실제 결과/영향을 1~2줄로 추가합니다.
-
-증거 링크 규칙:
-
-- 모든 ADR에는 최소 1개 이상의 Evidence 링크(커밋/PR/테스트 로그 중 하나 이상)를 남깁니다.
-- 가능하면 `Commit`, `PR`, `Test/Log` 3가지를 모두 채우고, 미해당 항목은 `N/A`로 명시합니다.
-
-최종 형식은 Feature의 `decisions.md` 템플릿을 따릅니다. (Context/Constraints/Options/Decision/Rationale/Trace/Evidence/Consequences)
-
-#### 3-2) 태스크/체크리스트 업데이트 + 커밋
-
-1. 작업이 끝나면 결과/검증을 공유합니다. `[DONE]`으로 바꿀 때는 같은 수정에서 task-local `Checklist`도 함께 갱신해야 하며, unchecked box가 남아 있으면 `task-complete`가 `[DONE]` 전환을 거부합니다. 승인 대기(`approvalRequest.required=true`) 상태라면 CLI가 준 승인 문구를 그대로 제시하고 사용자의 `<라벨>` 또는 `<라벨> OK` 응답을 받은 뒤 `[DONE]`으로 변경합니다. 비승인 상태면 별도 승인 문구 없이 `[DONE]`과 `Acceptance/Checklist`를 갱신합니다.
-2. **한 번에 하나의 태스크만** `[DONE]` 처리합니다. (태스크 2개 이상을 한 번에 완료/커밋으로 묶지 않기)
-3. `tasks.md`의 테스트 실행 기록은 명령어별 1개 행만 유지하고, 같은 명령어 재실행 시 날짜/결과를 갱신합니다. (중복 누적 금지, 날짜 형식: 로컬 `YYYY-MM-DD`)
-4. 커밋을 생성합니다 (코드 커밋 + 문서 커밋). 태스크 단위로 커밋이 남아야 합니다.
-   - `context`에 `[확인 필요]`가 보이면, **커밋/푸시 같은 원격 작업은 사용자에게 커밋 메시지/포함 파일을 공유한 뒤 최신 CLI 승인 문구의 라벨 응답을 받은 후** 실행합니다.
-5. 모든 태스크가 `[DONE]`가 되면, "완료 조건" 체크리스트를 사용자에게 공유합니다. 이 시점이 승인 대기 상태면 `<라벨>` 또는 `<라벨> OK` 응답을 받은 뒤 체크하고, 비승인 상태면 일반 확인 응답을 받은 뒤 체크합니다. (특히 최종 결과/사용자 확인 항목)
-   - 참고: 진행 승인/최종 승인은 모두 현재 `approvalRequest.required` 상태를 기준으로 판단합니다. 라벨 승인 상태면 항상 라벨 응답을 사용하고, 비승인 상태면 standalone `OK`를 승인 토큰처럼 강제하지 않습니다.
-6. **즉시 1단계로 돌아가** 다음 할 일을 CLI에게 물어봅니다.
+활성 feature 폴더를 실행 SSOT로 사용하세요.
 
 ---
 
-## 🛑 절대 금지 사항 (Strict Rules)
+## 1. 현재 태스크 선택
 
-1. **병렬 처리 금지**: 한 번에 하나의 태스크만 `[DOING]`으로 만드세요.
-2. **임의 건너뛰기 금지**: CLI가 가리키는 순서대로 진행하세요.
-3. **완료된 태스크 수정 금지**: 이미 `[DONE]` 된 태스크는 절대 건드리지 마세요. 수정이 필요하면 새 태스크를 추가하세요.
+- 먼저 활성 feature를 정합니다.
+- `tasks.md`에서:
+  - 이미 `[DOING]`인 태스크가 하나 있으면 그것을 이어서 수행하고
+  - 없으면 가장 우선순위가 높은 `[TODO]` 태스크를 `[DOING]`으로 바꿉니다
+- 한 번에 하나의 태스크만 진행합니다.
 
----
+## 2. 실행과 기록
 
-## 참조: 태스크 상태 전환 규칙
+- `tasks.md`를 현실과 맞게 유지합니다:
+  - 실제 완료/검증 없이 `[DONE]`로 바꾸지 않습니다
+  - 태스크를 닫을 때는 같은 수정에서 `Acceptance`와 `Checklist`도 함께 갱신합니다
+  - 완료된 태스크에 후속 작업이 생기면 히스토리를 고치지 말고 새 태스크를 추가합니다
+- 새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`를 사용하세요.
+- 새 태스크에 placeholder `Acceptance` 또는 `Checklist`를 남기지 않습니다.
 
-> ⚠️ 직접 판단하지 말고 CLI가 시키는 대로 하세요.
+## 3. 문서 동기화
 
-태스크 상태 전환/승인 규칙은 `tasks.md`의 **"태스크 규칙"** 섹션을 따르세요.
+- `spec.md`: 사용자-visible scope 또는 acceptance criteria가 바뀌면 갱신합니다
+- `plan.md`: 아키텍처, 파일 구조, 테스트 전략이 바뀌면 갱신합니다
+- `decisions.md`: 비자명한 결정, 트레이드오프, 호환성 처리, 사용자 요청으로 바뀐 동작을 기록합니다
+- `대기 중 변경 요청`이 있으면 먼저 `tasks.md`에 반영하고, 관련 문서를 맞춘 뒤 필드를 비우고 구현을 이어갑니다
 
-## 비상시 대처 (Emergency)
+## 4. 커밋과 종료 가드레일
 
-만약 CLI가 이상한 태스크를 가리키거나 멈춘다면, 사용자가 직접 `tasks.md`를 수동으로 수정하도록 요청하세요. 에이전트가 임의로 판단하지 마세요.
+- docs 경로 검사가 중요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
+- 코드나 feature 문서를 바꿨다면 종료 전에 `npx lee-spec-kit workflow-audit --json`로 동기화 상태를 확인합니다.
+- `tasks.md` 테스트 로그는 명령어당 1개 행만 유지하고, 재실행 시 기존 행을 갱신합니다.
+
+## 5. 승인 경계
+
+- 사용자 승인은 문서화된 review checkpoint와 원격/파괴적 작업 전에만 요청합니다.
+- issue 생성, PR 생성, push, merge 같은 원격 작업 전에는 올릴 artifact나 계획을 먼저 공유합니다.
+- 구현 자체는 Codex가 필요하면 위임할 수 있지만, 문서 갱신, 승인 처리, 원격 작업은 메인 세션에서 유지합니다.
+
+## 절대 규칙
+
+1. 필요한 문서 업데이트를 건너뛰지 않습니다.
+2. `[DONE]` 태스크를 다시 쓰지 않습니다.
+3. unmanaged docs 산출물은 정규화하거나 allowlist하기 전까지 active workflow 상태로 취급하지 않습니다.

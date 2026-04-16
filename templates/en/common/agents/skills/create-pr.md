@@ -22,7 +22,7 @@ Always run this checklist in Pre-PR review. Treat it as the minimum baseline, th
 2. Inspect regression, exception handling, critical/security risks, side effects, user flow impact, and release readiness.
 3. Check maintainability: split oversized functions/files when needed, reuse/integrate existing code where appropriate, and remove obsolete code.
 4. Judge whether the implementation actually fits the feature intent and scope documented in `spec.md` / `plan.md` / `tasks.md`.
-5. When `workflow.prePrReview.evidenceMode=path_required` (default), run the review agent first, generate `review-trace.json`, then run `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`. In `evidenceMode=any`, direct record mode without `--evidence` is also allowed unless execution evidence is explicitly enforced.
+5. When `workflow.prePrReview.evidenceMode=path_required` (default), generate a real review artifact such as `review-trace.json` before approval. In `evidenceMode=any`, direct record mode without a separate artifact is also allowed unless execution evidence is explicitly enforced.
 6. `Pre-PR Evidence` should follow the configured evidence policy. In `path_required`, it must point to a real existing path.
 7. Record `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, and `Residual Risks` with non-placeholder content.
 8. Use `commandsExecuted` only for optional audit/targeted verification that you actually chose to run during review.
@@ -145,9 +145,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 - Write a Mermaid **`sequenceDiagram`** in the PR body and keep it aligned with the generated body template format.
 - Apply this rule based on change type (logic/structure), not by frontend/backend classification.
 
-### 4. Move to `Ready` (request approval only when context requires it)
-
-> ⚠️ **Workflow label approval is conditional**
+### 4. Move to `Ready`
 
 Before creating the PR, share the following **in a code block**:
 
@@ -155,18 +153,13 @@ Before creating the PR, share the following **in a code block**:
 - Full body template (from `pr.md`)
 - Labels (at least 1; cannot be empty)
 
-Then re-check the latest `npx lee-spec-kit context --json-compact`.
-
-- If `approvalRequest.required=true`, wait for the exact CLI-provided `<LABEL>` or `<LABEL> OK` reply.
-- If `approvalRequest.required=false`, do not invent a separate label prompt.
-
 Before moving on, refine `pr.md` Changes/Tests sections based on actual work and set `pr.md` status to `Ready`.
 
 ### 5. Create PR (when `pr.md` is `Ready`)
 
 Remote PR creation must use the lee-spec-kit helper.
 Do not call `gh pr create` directly or pass raw `pr.md` to `--body-file`.
-Command-level remote confirmation is still required even when workflow label approval is not:
+Remote confirmation is always required:
 
 - share the final title/body/labels with the user
 - then run the helper with `--confirm OK`
@@ -221,6 +214,6 @@ Use **current branch name** for file links in PR body:
 
 - **Body template generator**: `npx lee-spec-kit github pr <feature-name>`
 - **Remote creation rule**: must use `npx lee-spec-kit github pr <feature-name> --create --confirm OK --labels ...`
-- **Workflow approval rule**: only wait for label approval when `approvalRequest.required=true`
+- **Workflow approval rule**: ask the user for approval before remote PR creation or merge
 - **Remote confirm rule**: share title/body/labels first, then run `--create --confirm OK`
 - **Execution-state SSOT**: `docs/features/.../<feature>/pr.md`

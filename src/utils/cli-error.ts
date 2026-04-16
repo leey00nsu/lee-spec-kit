@@ -8,15 +8,8 @@ export type CliReasonCode =
   | 'LOCK_ACQUIRE_TIMEOUT'
   | 'PRECONDITION_FAILED'
   | 'INVALID_ARGUMENT'
-  | 'DUPLICATE_FEATURE_ID'
-  | 'MISSING_FEATURE_ID'
-  | 'INVALID_APPROVAL'
   | 'APPROVAL_REQUIRED'
   | 'CONTEXT_SELECTION_REQUIRED'
-  | 'NO_ACTION_OPTIONS'
-  | 'CONTEXT_STALE'
-  | 'ACTION_NOT_AVAILABLE'
-  | 'EXECUTION_NOT_COMMAND'
   | 'EXECUTION_FAILED'
   | 'VALIDATION_FAILED'
   | 'UNKNOWN_ERROR';
@@ -92,7 +85,7 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
     },
     {
       titleKey: 'configOrDocs.verifyDocsLocation',
-      command: 'npx lee-spec-kit doctor --json',
+      command: 'npx lee-spec-kit detect --json',
     },
     { titleKey: 'configOrDocs.runFromDocsDir' },
   ],
@@ -103,7 +96,7 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
     },
     {
       titleKey: 'configOrDocs.verifyDocsLocation',
-      command: 'npx lee-spec-kit doctor --json',
+      command: 'npx lee-spec-kit detect --json',
     },
     { titleKey: 'configOrDocs.runFromDocsDir' },
   ],
@@ -128,40 +121,12 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
   PRECONDITION_FAILED: [
     { titleKey: 'precondition.satisfyPreconditions' },
     {
-      titleKey: 'precondition.runDoctor',
-      command: 'npx lee-spec-kit doctor --json',
+      titleKey: 'precondition.inspectDocsAndConfig',
+      command: 'npx lee-spec-kit docs get agents --json',
     },
     { titleKey: 'precondition.considerForce' },
   ],
-  DUPLICATE_FEATURE_ID: [
-    { titleKey: 'duplicateId.resolveDuplicates' },
-    { titleKey: 'duplicateId.ensureUniqueFormat' },
-    {
-      titleKey: 'duplicateId.inspectJson',
-      command: 'npx lee-spec-kit doctor --json',
-    },
-  ],
-  MISSING_FEATURE_ID: [
-    { titleKey: 'missingId.renameFolders' },
-    { titleKey: 'missingId.alignDocs' },
-    {
-      titleKey: 'missingId.inspectJson',
-      command: 'npx lee-spec-kit doctor --json',
-    },
-  ],
-  INVALID_APPROVAL: [
-    {
-      titleKey: 'invalidApproval.fetchLatestOptions',
-      command: 'npx lee-spec-kit context',
-    },
-    { titleKey: 'invalidApproval.replyWithValidLabel' },
-    { titleKey: 'invalidApproval.oneLabelOnly' },
-  ],
   APPROVAL_REQUIRED: [
-    {
-      titleKey: 'approvalRequired.reRunWithApprove',
-      command: 'npx lee-spec-kit context --approve A',
-    },
     {
       titleKey: 'approvalRequired.githubConfirmOk',
       command: 'npx lee-spec-kit github pr F001 --create --confirm OK',
@@ -171,54 +136,12 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
   CONTEXT_SELECTION_REQUIRED: [
     {
       titleKey: 'contextSelection.specifySelector',
-      command: 'npx lee-spec-kit context <slug|F001|F001-slug>',
+      command: 'npx lee-spec-kit github issue <slug|F001|F001-slug> --json',
     },
     {
       titleKey: 'contextSelection.narrowByComponent',
-      command: 'npx lee-spec-kit context --component <component>',
-    },
-    {
-      titleKey: 'contextSelection.inspectAllCandidates',
-      command: 'npx lee-spec-kit context --all',
-    },
-  ],
-  NO_ACTION_OPTIONS: [
-    {
-      titleKey: 'noActionOptions.refreshContext',
-      command: 'npx lee-spec-kit context',
-    },
-    { titleKey: 'noActionOptions.completeChecklist' },
-    {
-      titleKey: 'noActionOptions.listAllFeatures',
-      command: 'npx lee-spec-kit context --all',
-    },
-  ],
-  CONTEXT_STALE: [
-    {
-      titleKey: 'contextStale.refreshBeforeApprove',
-      command: 'npx lee-spec-kit context',
-    },
-    {
-      titleKey: 'contextStale.reapproveWithFreshLabel',
-      command: 'npx lee-spec-kit context --approve A',
-    },
-    {
-      titleKey: 'contextStale.executeAfterFreshApproval',
-      command: 'npx lee-spec-kit context --approve A --execute',
-    },
-  ],
-  ACTION_NOT_AVAILABLE: [
-    {
-      titleKey: 'contextStale.refreshBeforeApprove',
-      command: 'npx lee-spec-kit context',
-    },
-    {
-      titleKey: 'contextStale.reapproveWithFreshLabel',
-      command: 'npx lee-spec-kit context --approve A',
-    },
-    {
-      titleKey: 'contextStale.executeAfterFreshApproval',
-      command: 'npx lee-spec-kit context --approve A --execute',
+      command:
+        'npx lee-spec-kit github issue <slug|F001|F001-slug> --component <component> --json',
     },
   ],
   VALIDATION_FAILED: [
@@ -230,10 +153,7 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
   ],
   UNKNOWN_ERROR: [
     { titleKey: 'unknown.rerunAndCaptureLogs' },
-    {
-      titleKey: 'unknown.runDoctor',
-      command: 'npx lee-spec-kit doctor --json',
-    },
+    { titleKey: 'unknown.inspectWorkspaceState', command: 'npx lee-spec-kit detect --json' },
     { titleKey: 'unknown.reportReasonCode' },
   ],
 };
@@ -243,19 +163,13 @@ export function getCliErrorSuggestions(
   lang: Lang = DEFAULT_LANG
 ): CliSuggestion[] {
   const resolvedLang = normalizeLang(lang);
-  if (code === 'EXECUTION_FAILED' || code === 'EXECUTION_NOT_COMMAND') {
+  if (code === 'EXECUTION_FAILED') {
     return withLabels(
       [
         {
-          titleKey:
-            code === 'EXECUTION_NOT_COMMAND'
-              ? 'execution.notCommand'
-              : 'execution.failed',
+          titleKey: 'execution.failed',
         },
-        {
-          titleKey: 'execution.rerunContextAndExecute',
-          command: 'npx lee-spec-kit context --approve A --execute',
-        },
+        { titleKey: 'execution.retryAfterFixingInputs' },
         { titleKey: 'execution.runManually' },
       ],
       resolvedLang

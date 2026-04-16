@@ -71,6 +71,23 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
   return normalizeTrailingBlankLines(next);
 }
 
+export function applyLocalWorkflowTemplateToContent(
+  fileName: string,
+  content: string,
+  lang: Lang
+): string | null {
+  if (fileName === 'issue.md' || fileName === 'pr.md') {
+    return null;
+  }
+  if (fileName === 'spec.md') {
+    return sanitizeSpecForLocal(content);
+  }
+  if (fileName === 'tasks.md') {
+    return sanitizeTasksForLocal(content, lang);
+  }
+  return content;
+}
+
 async function patchMarkdownIfExists(
   filePath: string,
   transform: (content: string) => string

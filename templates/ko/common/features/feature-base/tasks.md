@@ -4,10 +4,10 @@
 
 - **상태**: `[TODO]` → `[DOING]` → `[DONE]`
 - **태스크 공유 / 확인**:
-  - `[TODO] → [DOING]`: 시작 전 태스크 제목을 공유하고 최신 `context --json-compact` 기준을 따릅니다
-  - `[DOING] → [DONE]`: 완료 전 결과/검증을 공유하고 최신 `context --json-compact` 기준을 따릅니다
-  - `approvalRequest.required=true`이면 CLI가 제공한 라벨 응답을 받은 뒤에만 태스크 상태를 변경합니다.
-  - `approvalRequest.required=false`이면 별도 `OK` 승인 단계를 만들지 말고, 실제 완료/검증 후 상태를 갱신합니다.
+  - `[TODO] → [DOING]`: 시작 전 태스크 제목을 공유하고 `tasks.md`에서 상태를 함께 갱신합니다
+  - `[DOING] → [DONE]`: 완료 전 결과/검증을 공유하고 같은 수정에서 `Acceptance`와 `Checklist`를 함께 갱신합니다
+  - 태스크 상태 변경 전에 승인이 필요한 경우는 문서화된 review checkpoint 또는 원격/파괴적 작업 직전뿐입니다.
+  - 워크플로우가 요구하지 않는 standalone `OK` 승인 단계는 만들지 않습니다.
   - 해당 태스크의 `Checklist`에 unchecked 항목이 남아 있으면 `task-complete`는 `[DONE]` 전환을 거부합니다.
 - **PRD 매핑(권장)**: 각 태스크 라인에 `[PRD-FR-001]` 또는 `[PRD-SCOPE-V1-DESKTOP-EDITOR]` 같은 기존 PRD 요구사항 ID 태그를 추가하거나, PRD와 무관한 태스크는 `[NON-PRD]`로 표시하세요.
   - 단, `tasks.md`에서 PRD ID를 임의로 만들지 마세요. `docs/prd` 또는 상위 요구사항 문서에 먼저 정의된 ID만 참조해야 합니다.
@@ -81,7 +81,7 @@
 
 - [ ] 모든 태스크가 `[DONE]`이며, 각 태스크의 `Acceptance` 검증 및 `Checklist` 체크 완료
 - [ ] 테스트 실행 및 통과 (아래에 명령어/결과 기록)
-- [ ] 최종 결과를 공유했고, 현재 `context` 승인 상태에 맞는 사용자 확인을 기록함
+- [ ] 최종 결과를 공유했고, 필요한 사용자 확인을 문서화된 workflow checkpoint 기준으로 기록함
 
 ### 테스트 실행 기록
 

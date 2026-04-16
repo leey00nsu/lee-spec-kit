@@ -8,7 +8,7 @@ Execution-state SSOT is the feature-local `issue.md`.
 ## Prerequisites
 
 - [ ] `spec.md` completed
-- [ ] Latest `context --json-compact` checked
+- [ ] Active feature docs reviewed
 
 ---
 
@@ -38,9 +38,7 @@ Use `issue.md` status (`Draft | Ready`) as the actual workflow state.
 | Labels   | `enhancement`, `bug`, `documentation`, etc. |
 | Assignee | `@me` (default)                             |
 
-### 2. Move to `Ready` (request approval only when context requires it)
-
-> ⚠️ **Workflow label approval is conditional**
+### 2. Move to `Ready`
 
 Share the `issue.md` draft:
 
@@ -48,16 +46,13 @@ Share the `issue.md` draft:
 - Full body draft (from `issue.md`)
 - Labels
 
-Then re-check the latest `npx lee-spec-kit context --json-compact`.
-
-- If `approvalRequest.required=true`, show the exact CLI-provided approval lines and wait for a label reply (`A` or `A OK`) before continuing.
-- If `approvalRequest.required=false`, do not invent a separate label prompt; refine the draft and set `issue.md` status to `Ready`.
+Refine the draft and set `issue.md` status to `Ready` once the document is complete.
 
 ### 3. Create Issue (when `issue.md` is `Ready`)
 
 Remote issue creation must use the lee-spec-kit helper.
 Do not call `gh issue create` directly or pass raw `issue.md` to `--body-file`.
-Command-level remote confirmation is still required even when workflow label approval is not:
+Remote confirmation is always required:
 
 - share the final title/body/labels with the user
 - then run the helper with `--confirm OK`
@@ -76,6 +71,6 @@ After creation:
 
 - **Draft generator**: `npx lee-spec-kit github issue <feature-name>`
 - **Remote creation rule**: must use `npx lee-spec-kit github issue <feature-name> --create --confirm OK --labels ...`
-- **Workflow approval rule**: only wait for label approval when `approvalRequest.required=true`
+- **Workflow approval rule**: ask the user for approval before remote issue creation
 - **Remote confirm rule**: share title/body/labels first, then run `--create --confirm OK`
 - **Execution-state SSOT**: `docs/features/.../<feature>/issue.md`

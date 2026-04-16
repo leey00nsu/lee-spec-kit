@@ -20,6 +20,12 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { upsertLeeSpecKitAgentsMd } from '../utils/agents-md.js';
+import {
+  canBackfillStandaloneWorkspaceRoot,
+  resolveConfiguredStandaloneWorkspaceRoot,
+  resolveStandaloneWorkspaceRoot,
+  serializeStandaloneWorkspaceRoot,
+} from '../utils/standalone-workspace.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -96,10 +102,18 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
     );
   }
 
-  const { docsDir, projectType, lang } = config;
+  let currentConfig: Awaited<ReturnType<typeof getConfig>> = config;
+  const { docsDir } = currentConfig;
   await withFileLock(
     getDocsLockPath(docsDir),
     async () => {
+      if (!currentConfig) {
+        throw createCliError(
+          'DOCS_NOT_FOUND',
+          tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
+        );
+      }
+      const { projectType, lang } = currentConfig;
       const templatesDir = getTemplatesDir();
       const docsLockPath = getDocsLockPath(docsDir);
 
@@ -110,7 +124,16 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
         (await isDocsWorktreeCleanOrThrow(docsDir, lang, [docsLockPath]));
 
       // Backfill missing config defaults so older projects get current policy keys.
-      const configBackfill = await backfillMissingConfigDefaults(docsDir);
+      const configBackfill = await backfillMissingConfigDefaults(cwd, docsDir);
+      if (configBackfill.changed) {
+        currentConfig = await getConfig(cwd);
+      }
+      if (!currentConfig) {
+        throw createCliError(
+          'DOCS_NOT_FOUND',
+          tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
+        );
+      }
 
       // 업데이트 대상 결정
       const hasExplicitSelection = !!(options.agents || options.agentsMd);
@@ -141,7 +164,7 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           projectType === 'multi'
             ? 'docs/features/{component}'
             : 'docs/features';
-        const projectName = config.projectName ?? '{{projectName}}';
+        const projectName = currentConfig.projectName ?? '{{projectName}}';
         const commonReplacements: Record<string, string> = {
           '{{projectName}}': projectName,
           '{{featurePath}}': featurePath,
@@ -173,11 +196,11 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       }
 
       if (updateAgentsMd) {
-        const agentsMdTargets = await collectAgentsMdTargets(cwd, config);
+        const agentsMdTargets = await collectAgentsMdTargets(cwd, currentConfig);
         for (const target of agentsMdTargets) {
           const result = await upsertLeeSpecKitAgentsMd(target, {
             lang,
-            docsRepo: config.docsRepo ?? 'embedded',
+            docsRepo: currentConfig.docsRepo ?? 'embedded',
           });
           if (result.changed) {
             updatedCount += 1;
@@ -250,26 +273,15 @@ async function collectAgentsMdTargets(
   }
 
   targets.add(path.join(config.docsDir, 'AGENTS.md'));
-
-  const baseDir =
-    getGitTopLevelOrNull(cwd) ||
-    getGitTopLevelOrNull(config.docsDir) ||
-    process.cwd();
-  const rawRoots =
-    typeof config.projectRoot === 'string'
-      ? [config.projectRoot]
-      : config.projectRoot && typeof config.projectRoot === 'object'
-        ? Object.values(config.projectRoot)
-        : [];
-
-  for (const rawRoot of rawRoots) {
-    const value = String(rawRoot || '').trim();
-    if (!value) continue;
-    const resolved = path.resolve(baseDir, value);
-    if (!(await fs.pathExists(resolved))) continue;
-    const stat = await fs.stat(resolved);
-    if (!stat.isDirectory()) continue;
-    targets.add(path.join(resolved, 'AGENTS.md'));
+  const workspaceRoot = resolveConfiguredStandaloneWorkspaceRoot(config);
+  if (!workspaceRoot) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      'Standalone workspaceRoot is missing or invalid. Run `npx lee-spec-kit update --agents-md` from the shared workspace root to migrate this project.'
+    );
+  }
+  if (workspaceRoot !== path.resolve(config.docsDir)) {
+    targets.add(path.join(workspaceRoot, 'AGENTS.md'));
   }
 
   return [...targets];
@@ -319,6 +331,7 @@ function normalizeDecisionEnumList(raw: unknown): string[] {
 }
 
 async function backfillMissingConfigDefaults(
+  cwd: string,
   docsDir: string
 ): Promise<ConfigBackfillResult> {
   const configPath = path.join(docsDir, '.lee-spec-kit.json');
@@ -332,6 +345,18 @@ async function backfillMissingConfigDefaults(
   }
 
   const changedPaths: string[] = [];
+
+  if (
+    raw.docsRepo === 'standalone' &&
+    typeof raw.workspaceRoot !== 'string' &&
+    canBackfillStandaloneWorkspaceRoot(cwd, docsDir)
+  ) {
+    raw.workspaceRoot = serializeStandaloneWorkspaceRoot(
+      docsDir,
+      resolveStandaloneWorkspaceRoot(cwd, docsDir)
+    );
+    changedPaths.push('workspaceRoot');
+  }
 
   const setIfMissing = <T>(
     parent: Record<string, unknown>,

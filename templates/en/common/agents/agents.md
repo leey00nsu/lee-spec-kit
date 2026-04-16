@@ -1,107 +1,49 @@
 # Agents Guide
 
 Operating rules for AI code assistants.
-This document covers **policy only**.
+This document defines workflow policy, not a custom runtime loop.
 
 ---
 
-## 🚨 User Approval Handling (MUST)
+## Detection Gate
 
-These are the mandatory user approval rules.
+- Run `npx lee-spec-kit detect --json` first.
+- Use lee-spec-kit policy only when detection returns `status === "ok"` and `isLeeSpecKitProject === true`.
+- If detection fails or returns false, ignore lee-spec-kit-specific rules and continue normally.
 
-> ⚠️ Do not decide approval only from the action type. Workflow approval-waiting is determined by the latest `context --json-compact` / `flow --json-compact` output.
-> ✅ In approval-waiting state, replies must be in `<label>` or `<label> OK` format (e.g. `A`, `A OK`).
-> ℹ️ Under the default policy, the main workflow approval boundaries are `spec_approve` and `implementation_approve`. Project config may add more.
-> ℹ️ Some direct remote helper commands still require explicit command confirmation such as `--confirm OK`; that command-level confirm is separate from label-gated workflow approval.
+## Default Runtime
 
-If the current action is approval-waiting, share the matching details before execution:
+- Prefer Codex native execution with workspace-scoped `AGENTS.md` plus official Codex hooks.
+- If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.
+
+## Docs Are SSOT
+
+- Read `npx lee-spec-kit docs get agents --json` once at session start or right after context reset.
+- Read every unread `requiredDocs[*].command` from that response.
+- Resolve the active feature, then use that feature folder as the working SSOT.
+- Minimum active feature docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
+- When GitHub workflow is involved, also use `issue.md` and `pr.md`.
+
+## Execution Rules
+
+- lee-spec-kit owns docs structure, workflow stages, and validators.
+- Codex owns the execution loop, tool usage, and hook lifecycle.
+- Keep docs synced with code changes in the same turn whenever behavior or scope changes.
+- Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
+- Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.
+
+## Approval Rules
 
 | Current action (examples) | What to share |
 | --- | --- |
-| Spec / plan / tasks review | The document or the exact section being reviewed |
-| Task completion / final checklist | Outcome and verification evidence |
-| Commit / push / merge | Commit message, included files, branch |
 | Issue creation | Before `npx lee-spec-kit github issue <featureRef> --create` |
 | PR creation | Before `npx lee-spec-kit github pr <featureRef> --create` |
-| Assignee change | Target username |
 
-Approval flow:
-1. Share details first
-2. Check whether approval is currently required via the latest `context --json-compact` (`approvalRequest.required`)
-3. If approval is required, wait for the exact CLI-provided label prompt response; if not, do not invent a separate approval prompt
-4. Execute after approval (for command execution, default to `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`)
+- Ask the user for approval at documented workflow checkpoints and before remote or destructive actions.
+- Share the exact artifact or plan before remote GitHub actions.
 
-Prohibited:
-- Proceeding without user response
+## Formatting Rules
 
----
-
-## 🧾 Label Response Contract (SSOT)
-
-- Treat approval-waiting as a separate state. Approval-waiting means the latest `context --json-compact` / `flow --json-compact` (fallback: `context --json` / `flow --json`) shows `approvalRequest.required=true`.
-- Do not infer approval-waiting from conversation tone, action type, or the mere presence of `actionOptions[]`.
-- Use the latest `npx lee-spec-kit context --json-compact` as the default source (fallback: `context --json` or `flow --json` when full detail is required; prefer `flow --json-compact` for default flow output).
-- When using auto results from `flow --json-compact` (or `flow --json`), treat `autoRun.resume.flowCommand` as SSOT for resume (including after context compression/reset).
-- Treat `AUTO_DELEGATED_HANDOFF` as a delegated pause, not a failure. Continue or resume the delegated run path and do not reopen the same approval label.
-- Treat `AUTO_MANUAL_REQUIRED` as an instruction-only automation boundary, not an immediate failure. Re-check `context --json-compact`, then decide stop/report by `approvalRequest.required` (`context --json` only for full-detail debugging fields).
-- Special case: if `matchedFeature.currentSubstateId === "change_request_sync"` or `matchedFeature.pendingChangeRequest` is present, treat that manual boundary as an internal docs-sync step first, not an immediate user-facing stop. Sync docs, clear the pending change field, then continue with fresh `context --json-compact` or `flow`.
-- Treat `AUTO_SELECTION_REQUIRED` as a feature-selection pause, not an execution failure. Resolve the active feature first, then continue with fresh `context --json-compact` or `flow`.
-- In approval-waiting state, if `matchedFeature.currentSubstateId` exists, prepend one brief current-stage recap derived from `matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase`.
-- Then prefer `approvalRequest.userFacingLines` from `context --json-compact`. If full `--json` is used, fall back to `actionOptions[*].approvalPrompt` plus `approvalRequest.finalPrompt`. Do not add your own rewritten label summary before or between those lines.
-- Prefer `matchedFeature.currentSubstateOwner` plus `agentOrchestration.subAgentHandoff` as the delegation SSOT.
-- In non-approval state, do not append labels or `approvalRequest.finalPrompt` unless the user explicitly asked for current options.
-- If approval is still pending after answering an unrelated question, answer first, re-check `approvalRequest.required`, and if it is still `true`, re-open approval with one brief current-stage recap plus the exact CLI-provided approval lines (`approvalRequest.userFacingLines`, or `actionOptions[*].approvalPrompt` + `approvalRequest.finalPrompt` in full `--json`).
-- If user input does not contain a valid label, do not execute; request label selection again.
-- For non-delegated command options, prefer one-shot `flow --approve <LABEL> --execute`; do not split `context --approve` and `context --execute --ticket` across turns/sessions.
-- If `matchedFeature.currentSubstateOwner="subagent"` and `agentOrchestration.subAgentHandoff.required=true` with `mode="command"`, delegation is mandatory: call `spawn_agent` first. Do not execute that command directly from the main agent.
-- If that delegated command is handoff-only (`handoffOnly=true`, `advancesWorkflow=false`), treat `--execute` as handoff preparation only. Continue the delegated work immediately and do not re-approve the same label.
-- Do not delegate auto loops from `autoRun.available` alone. Delegate auto loops only when `agentOrchestration.subAgentHandoff.required=true` and `agentOrchestration.subAgentHandoff.mode="auto_run"`.
-- Prefer `agentOrchestration.subAgentHandoff` as the handoff SSOT. Pass only its minimal fields (`featureRef`, `category`, `cwd`, `cmd`) to the sub-agent.
-- For delegated runs, execute one-time verification from `subAgentHandoff.verify` (`pwd`, `git rev-parse --show-toplevel`) and cache by `verify.cacheKey`. If mismatched, stop and report; collect detailed logs only on mismatch.
-- Main-agent fallback is allowed only when sub-agent execution is unavailable (for example: tool not available, spawn failed, or sub-agent failed before command execution).
-- When fallback is used, report a one-line fallback reason to the user before running the command in the main agent.
-
-Approval-waiting output must reuse the exact CLI-provided prompt lines. A single concise current-stage recap derived from `matchedFeature.currentSubstate*` is allowed before those lines. Do not invent label-summary wrappers such as `Current status:` / `Available labels:` or paraphrase label meanings.
-
----
-
-## 📚 Built-in Docs Read Policy (MUST)
-
-- Use `docs get` once per session start (or right after context compression/reset).
-- Do not re-read the same doc again in the same session.
-- From `requiredDocs[*].command`, fetch only docs not yet read in this session.
-- You may re-read only when:
-  - user explicitly asks for policy refresh
-  - policy/config changed (for example after `update`)
-  - session restarted or context was compressed/reset
-
----
-
-## Required References
-
-- Highest-priority custom rules: `/docs/agents/custom.md`
-- Project principles: `/docs/agents/constitution.md`
-- Root guide: `npx lee-spec-kit docs get agents --json`
-- Git workflow: `npx lee-spec-kit docs get git-workflow --json`
-- Task execution: `npx lee-spec-kit docs get execute-task --json`
-- Issue procedure/doc: `npx lee-spec-kit docs get create-issue --json` → `npx lee-spec-kit docs get issue-doc --json`
-- PR procedure/doc: `npx lee-spec-kit docs get create-pr --json` → `npx lee-spec-kit docs get pr-doc --json`
-
----
-
-## Scope Split
-
-- Docs structure/path rules: use `docs/README.md` as SSOT
-- Canonical docs surface is limited to the top-level entries defined by `docs/README.md`. Treat any non-allowlisted extra `docs/*` top-level entry as unmanaged docs.
-- Unmanaged docs entries (for example `docs/plans/*`, `docs/superpowers/*`, or another skill-created docs folder) are staging/reference inputs only. When a feature is active, normalize them into feature-local docs and treat the feature folder as the final SSOT.
-- If `context` surfaces a `docs_normalize` action/category, complete that normalization step before continuing implementation or workflow actions.
-- ADR format: use feature `decisions.md` template as SSOT
-- Issue/PR execution state: use each feature's `issue.md` and `pr.md` as SSOT
-
----
-
-## Language / Formatting Rules
-
-- Replies: English (or project language policy in `custom.md`)
-- Code/file names: English
-- Date/time: use user's local system time
+- Replies: English unless project policy overrides it
+- Code and filenames: English
+- Dates and times: use the user's local system time

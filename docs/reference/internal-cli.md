@@ -1,33 +1,22 @@
 # Internal CLI Reference
 
-These commands remain available for advanced or maintenance work, but are intentionally not front-loaded in the root help output.
+These commands are the maintained non-interactive surface for docs policy, GitHub helpers, and Codex hook guardrails.
 
-## Project and docs maintenance
+## Core Commands
 
-- `doctor`
-- `onboard`
-- `status`
-- `view`
 - `update`
 - `config`
+- `detect`
 - `docs`
+- `workflow-audit`
+- `commit-audit`
 - `integrations`
-- `requirements`
 
-## GitHub workflow helpers
+## GitHub Helpers
 
 - `github issue`
 - `github pr`
 
-## Delegated workflow and review helpers
-
-- `task-run`
-- `task-complete`
-- `pre-pr-review`
-- `pre-pr-review-run`
-- `code-review-run`
-
 ## Guidance
 
-- Use these when you explicitly need advanced inspection, maintenance, or delegated workflow control.
-- They stay callable directly with `--help`, but they are no longer part of the main human-facing command surface.
+- For the normal Codex-native path, prefer `detect`, `docs get`, `workflow-audit`, `commit-audit`, workspace-scoped `AGENTS.md`, and official hooks.

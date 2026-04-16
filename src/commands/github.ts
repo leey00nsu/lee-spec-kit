@@ -9,7 +9,6 @@ import {
   getCliErrorSuggestions,
   printCliErrorSuggestions,
 } from '../utils/cli-error.js';
-import { resolveComponentOption } from '../utils/context/component-option.js';
 import { runProcess, runProcessOrThrow } from './github/process.js';
 import * as ghService from '../services/GithubWorkflowService.js';
 
@@ -42,11 +41,10 @@ export function githubCommand(program: Command): void {
         options: ghService.GithubIssueOptions
       ) => {
         try {
-          const selectedComponent = resolveComponentOption(options.component);
           const { config, feature } = await ghService.resolveFeatureOrThrow(
             featureName,
             {
-              component: selectedComponent,
+              component: options.component,
             },
             commandLang
           );
@@ -317,11 +315,10 @@ export function githubCommand(program: Command): void {
         options: ghService.GithubPrOptions
       ) => {
         try {
-          const selectedComponent = resolveComponentOption(options.component);
           const { config, feature } = await ghService.resolveFeatureOrThrow(
             featureName,
             {
-              component: selectedComponent,
+              component: options.component,
             },
             commandLang
           );
@@ -446,7 +443,7 @@ export function githubCommand(program: Command): void {
             );
             const closingIssueNumber = ghService.resolvePrClosingIssueNumber(
               tasksContent,
-              feature.issueNumber,
+              feature.issueNumber ? String(feature.issueNumber) : undefined,
               config.lang
             );
             ghService.assertRemoteIssueExists(
@@ -506,7 +503,7 @@ export function githubCommand(program: Command): void {
           }
 
           if (!prUrl && options.merge) {
-            prUrl = (feature.pr.link || '').trim();
+            prUrl = (ghService.extractTasksPrReference(tasksContent) || '').trim();
           }
 
           if (!prUrl && options.merge) {

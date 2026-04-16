@@ -106,7 +106,7 @@ Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 S
 
 - 의도된 추가 엔트리라면 `.lee-spec-kit.json`의 `allowedDocsEntries`에 등록합니다
 - 계획/참고 산출물이라면 active feature 실행 전에 먼저 정규화합니다
-- `context`가 `docs_normalize`를 제시하면 그 단계를 먼저 처리합니다
+- `commit-audit`는 staged된 unmanaged docs 또는 비정규 feature 문서가 정규화/allowlist되기 전까지 커밋을 막습니다
 
 - 사용자 요구/범위/Acceptance Criteria는 `spec.md`로 옮깁니다
 - 아키텍처/파일 구조/테스트 전략은 `plan.md`로 옮깁니다

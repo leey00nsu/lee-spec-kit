@@ -6,95 +6,48 @@ export const LEE_SPEC_KIT_AGENTS_END = '<!-- lee-spec-kit:end -->';
 type DocsRepoMode = 'embedded' | 'standalone';
 
 // Canonical lee-spec-kit project-scoped agent workflow instructions.
-const CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT = `Use lee-spec-kit workflow only when explicitly detected.
+const CANONICAL_LEE_SPEC_KIT_AGENTS_TEXT = `Use lee-spec-kit docs and workflow policy only when explicitly detected.
 
-Detection gate (always first):
+Detection gate:
 
 1. Run \`npx lee-spec-kit detect --json\`
-2. Apply lee-spec-kit rules only if:
-   - \`status === "ok"\` AND
-   - \`isLeeSpecKitProject === true\`
+2. Apply lee-spec-kit rules only when \`status === "ok"\` and \`isLeeSpecKitProject === true\`
+3. If detection fails or returns false, skip these instructions and continue with the normal non-lee-spec-kit workflow
 
-If detection is false or unusable (\`status !== "ok"\` / parse fail / command fail):
+Default runtime path:
 
-- Skip all lee-spec-kit-specific instructions and commands for this workspace.
-- Continue with normal non-lee-spec-kit workflow.
+- Prefer Codex native execution with workspace-scoped AGENTS.md plus official hooks for the default runtime path.
+- Treat lee-spec-kit as the docs schema, workflow policy, and validation toolkit.
+- If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.
+- Infer the workflow automatically even for generic rule-following requests.
 
-Session doc cache rule:
-
-- Keep an in-session cache of read docs (key: doc \`id\` or exact \`requiredDocs[*].command\`).
-- If a required doc is already read in this session, do not re-run the same doc command.
-- Re-run only when refresh conditions are met.
-
-On session start OR after context compression/reset:
+On session start or after context compression/reset:
 
 1. Run \`npx lee-spec-kit detect --json\`
 2. If detected, run \`npx lee-spec-kit docs get agents --json\` once
-3. If work is already in progress, run \`npx lee-spec-kit context --json-compact\` immediately (use \`--json\` only when full-detail debugging fields are required)
-4. From both outputs, follow \`requiredDocs[*].command\` only for docs not yet read in this session
-5. Complete unread required docs before taking any action
+3. Read any unread \`requiredDocs[*].command\` from that output
+4. Cache built-in docs per session and only re-read them when the user explicitly asks for a policy refresh, \`npx lee-spec-kit update\` changed the policy, or the session restarted
 
-Before doing any task:
+Before implementing or editing:
 
-1. Run \`npx lee-spec-kit detect --json\`
-2. If detected, run \`npx lee-spec-kit context --json-compact\` first (use \`--json\` only when full-detail debugging fields are required)
-3. Follow \`requiredDocs[*].command\` only for docs not yet read in this session
-4. Do not re-run \`npx lee-spec-kit docs get agents --json\` by default
-5. Re-run \`npx lee-spec-kit docs get agents --json\` only when:
-   - session start/reset happened, or
-   - user explicitly requested policy refresh, or
-   - \`npx lee-spec-kit update\` was run, or
-   - policy/config changed
-6. Re-run a previously read \`requiredDocs[*].command\` only when:
-   - session start/reset happened, or
-   - user explicitly requested refresh, or
-   - policy/config changed, or
-   - \`context --json-compact\` (or \`context --json\`) returns a new required doc command not in the current session cache
+1. Confirm the active feature from the request, docs tree, issue/PR context, or the most recently active feature folder
+2. Read the active feature docs as the SSOT: \`spec.md\`, \`plan.md\`, \`tasks.md\`, and \`decisions.md\`
+3. When relevant, also read \`issue.md\` and \`pr.md\`
+4. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
+5. When docs are synced to code, refresh an explicit marker like \`<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->\` in the active feature docs (prefer \`tasks.md\` or \`decisions.md\`) so \`workflow-audit\` can prove the sync happened after the latest code change
 
-Auto-run continuity (main/sub-agent orchestration):
+Approval and remote actions:
 
-- CLI is the state source (\`context\`/\`flow\`), not a sub-agent manager.
-- Main agent may delegate execution to sub-agents, but main agent owns pause/resume and approval boundaries.
-- After context compression/reset, do not ask the user to reconfirm the last command by default.
-- Resume priority after compression/reset:
-  1. If latest \`flow --json-compact\` (or \`flow --json\`) output includes \`autoRun.run.resumeCommand\`, run that first.
-  2. Else if it includes \`autoRun.resume.flowCommand\`, run that.
-  3. Else run \`npx lee-spec-kit context --json-compact\` (fallback: \`--json\`) and continue from current \`actionOptions\`/\`autoRun\`.
-- Pause and report to user only when:
-  - \`approvalRequest.required === true\`, or
-  - \`autoRun.reasonCode\` is \`AUTO_GATE_REACHED\`, \`AUTO_DELEGATED_HANDOFF\`, \`AUTO_MANUAL_REQUIRED\`, or \`AUTO_SELECTION_REQUIRED\`, or
-  - command execution fails (non-zero/error), or
-  - user explicitly asks to pause.
-- Special case: if \`matchedFeature.currentSubstateId === "change_request_sync"\` or \`matchedFeature.pendingChangeRequest\` is present, treat that \`AUTO_MANUAL_REQUIRED\` state as an internal docs-sync step first, not an immediate user-facing stop. Update \`tasks.md\` first, and if shipped behavior or scope changed, sync \`decisions.md\` plus \`spec.md\` / PRD refs as needed. Clear the pending change field after syncing, then continue with fresh \`context\`/\`flow\`. Only pause/report there if approval becomes required, execution fails, or the user explicitly asked to pause.
+- Ask the user for approval only at documented workflow approval boundaries or before remote/destructive actions
+- Before \`git commit\`, prefer \`npx lee-spec-kit commit-audit --json\` when hooks or manual checks need commit-time docs path enforcement
+- Before remote GitHub actions, share the plan or artifact being sent
+- Respect repo policy from docs and config first; hooks only enforce guardrails and continuation checks
 
-User-facing output rule (state-aware):
+Validation:
 
-- Treat approval as a separate state.
-- Approval-waiting state means the latest \`context --json-compact\` / \`flow --json-compact\` (fallback: \`context --json\` / \`flow --json\`) shows \`approvalRequest.required === true\`.
-- Do not infer approval-waiting from conversation tone, action type, or whether \`actionOptions[]\` merely exist.
-
-In approval-waiting state:
-
-1. If \`matchedFeature.currentSubstateId\` is present, prepend one brief current-stage recap derived from \`matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase\`.
-2. Then show \`approvalRequest.userFacingLines\` exactly as provided. If those lines are unavailable, fall back to \`actionOptions[*].approvalPrompt\` plus \`approvalRequest.finalPrompt\`.
-3. Do not paraphrase, reorder, or omit the CLI-provided approval lines.
-4. Prefer \`matchedFeature.currentSubstateOwner\` plus \`agentOrchestration.subAgentHandoff\` as the delegation SSOT.
-5. When \`matchedFeature.currentSubstateOwner="subagent"\` and \`agentOrchestration.subAgentHandoff.required=true\` with \`mode="command"\`, call \`spawn_agent\` first and do not execute the delegated command directly from the main agent. If the delegated command is handoff-only, continue the delegated work immediately and do not re-open the same approval label.
-
-In non-approval state (progress updates, analysis, tool execution logs, unrelated Q&A):
-
-- Do NOT append \`approvalRequest.finalPrompt\`.
-- Do NOT ask for \`<LABEL>\` / \`<LABEL> OK\`.
-- Do NOT show labels unless the user asked for current options.
-
-If approval is still pending after answering an unrelated question:
-
-- First answer the question.
-- Re-check the latest \`approvalRequest.required\`.
-- If it is still \`true\`, re-open approval with:
-  - one brief current-stage recap from \`matchedFeature.currentSubstateId/currentSubstateOwner/currentSubstatePhase\` when available, then
-  - the exact CLI-provided approval lines from \`approvalRequest.userFacingLines\` (fallback: \`actionOptions[*].approvalPrompt\` + \`approvalRequest.finalPrompt\`).
-- Never output \`finalPrompt\` alone without the matching \`A: ...\` prompt, and do not add custom label-summary wrappers such as \`Available labels:\`.`;
+- Prefer \`npx lee-spec-kit commit-audit --json\` for commit-time staged docs path validation
+- Prefer \`npx lee-spec-kit workflow-audit --json\` as the default docs-sync validator for Codex hooks and end-of-turn checks; it expects the active feature docs to carry a fresh \`lee-spec-kit:workflow-sync\` marker after meaningful code/doc sync
+`;
 
 function renderManagedSegment(
   lang: 'ko' | 'en',

@@ -11,23 +11,23 @@ npx lee-spec-kit onboard --strict
 # 1) 프로젝트 감지
 npx lee-spec-kit detect --json
 
-# 2) 감지 성공 시 컨텍스트 조회
-npx lee-spec-kit context --json-compact
+# 2) 감지 성공 시 워크플로우 정책 조회
+npx lee-spec-kit docs get agents --json
 ```
 
 - `isLeeSpecKitProject: true`일 때만 lee-spec-kit 워크플로우를 적용합니다.
-- `context --json-compact`는 read-only 상태 확인용으로 쓰고, 실제 실행/재개 기본 엔트리포인트는 `flow`를 사용합니다.
-- 승인 대기 여부는 항상 최신 `context --json-compact` / `flow --json-compact`를 기준으로 판단합니다.
-- `approvalRequest.required=true`일 때는 승인이 끝날 때까지 승인 상태를 유지합니다. 가능하면 `matchedFeature.currentSubstate*` 기반 현재 단계 한 줄 요약을 먼저 말하고, 그 다음 CLI가 준 승인 문구를 그대로 보여준 뒤 승인(`<LABEL>` 또는 `<LABEL> OK`)을 받은 후 실행합니다.
-- 명령 실행은 기본적으로 `npx lee-spec-kit flow <featureRef> --approve <LABEL> --execute`를 사용합니다.
-- `approvalRequest.required=false`이면 별도 라벨 승인 문구를 만들지 않습니다.
+- 기본 실행 경로는 workspace-scoped `AGENTS.md`, Codex 공식 hooks, 그리고 활성 feature 문서입니다.
+- 활성 feature를 정한 뒤에는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 작업 SSOT로 사용합니다.
+- 사용자 승인 요청은 문서화된 workflow checkpoint와 원격/파괴적 작업 전에만 합니다.
+- staged된 docs 경로 검사가 필요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
+- 코드나 feature 문서를 바꿨다면 종료 전 `npx lee-spec-kit workflow-audit --json`로 동기화 상태를 확인합니다.
 - `isLeeSpecKitProject: false`면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행합니다.
 
 ## 신규 프로젝트 시작 순서
 
 - 코드 프로젝트 스캐폴딩(예: Next.js/NestJS) 후 `lee-spec-kit init`을 실행하세요.
 - 그 다음 `docs/prd/`에 상위 요구사항을 정리하고, `idea`/`feature`로 작업 단위를 구체화하세요.
-- 이후 `detect --json`으로 감지 결과를 확인하고, `context` 순서로 진행하세요.
+- 이후 `detect --json`으로 감지 결과를 확인하고, `docs get agents --json`과 활성 feature 문서 기준으로 진행하세요.
 - 대부분의 경우(기본값: embedded) 위 순서만 따르면 됩니다.
 - docs를 코드 저장소와 분리해 운영할 때만 standalone을 선택하세요. 이때는 상위 워크스페이스 폴더(예: `workspace/docs`, `workspace/project`)에서 `init`을 실행해 docs/project 경로를 함께 지정하는 방식을 권장합니다. (예: `npx lee-spec-kit init --docs-repo standalone --dir ./docs --project-root ./project`)
 
@@ -77,7 +77,7 @@ npx lee-spec-kit context --json-compact
 - **Unmanaged docs 엔트리**: canonical surface 밖의 모든 `docs/` 최상위 엔트리
   - 예: `docs/plans/`, `docs/superpowers/`, 또는 다른 스킬이 만든 폴더
   - 이 문서들은 활성 워크플로우 SSOT가 아니라 staging/reference 입력으로만 취급합니다
-  - Feature가 활성화된 상태에서는 `context`가 `docs_normalize` 단계를 먼저 요구할 수 있으며, 정규화 또는 allowlist 등록 전까지 구현 진행을 막을 수 있습니다
+  - commit 전에 정규화하거나 allowlist에 넣어야 하며, `commit-audit`는 staged된 비정규 docs 경로를 차단합니다
   - 아래처럼 feature-local 문서로 정규화하세요:
     - design/spec 산출물 → `spec.md`, `plan.md`, `decisions.md`
     - implementation plan 산출물 → `plan.md`, `tasks.md`
@@ -117,7 +117,9 @@ npx lee-spec-kit context --json-compact
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
-- `approval` (object, optional): `context` 출력의 `[확인 필요]` / `requiresUserCheck` 정책 오버라이드
+- `approval` (object, optional): repo 정책/커스텀 validator용 승인 checkpoint 메타데이터
+  - 기본 Codex-native 경로는 여전히 문서화된 checkpoint와 원격/파괴적 작업을 우선 기준으로 승인 요청합니다.
+  - legacy runtime은 이 필드를 직접 소비했지만, 이제는 category 기반 checkpoint 메타데이터가 정말 필요할 때만 유지하세요.
   - 현재 기본값:
     - `mode: "category"`
     - `default: "skip"`

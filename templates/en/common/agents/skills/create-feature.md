@@ -1,61 +1,34 @@
-# Feature Implementation Process: CLI-driven
+# Feature Implementation Process: Docs-first
 
-This document defines the **only rule** for adding a new Feature.
-As an agent, do not trust your own judgment—follow the **CLI output** only.
-
----
-
-## 🔄 The Loop (repeat forever)
-
-Repeat this loop until the Feature is complete (docs committed).
-
-### Step 1: Check context
-
-Run this command whenever you start work or finish a step:
-
-```bash
-npx lee-spec-kit context
-```
-
-### Step 2: Execute one option only (Next Options)
-
-Read `👉 Next Options (Atomic)`, choose exactly one option (`A/B/C`), and execute **only that option**.
-For gated actions, proceed only after the user replies in **`<label>` or `<label> OK` format** (e.g. `A`, `A OK`).
-
-- If the CLI indicates **Review**, share the document with the user and stop.
-- If the CLI asks for writing a file, write that file and follow the format.
-- If the CLI prints a command, **copy/paste and run it exactly**. (It may include repo-safe `git -C ...` commands and scopes like `project` vs `docs`.)
-- When requesting approval, present labels as `A: ...` using the exact CLI detail/cmd text. Do not paraphrase command options.
-- For approved command options, default to one-shot execution via `npx lee-spec-kit flow <slug|F001|F001-slug> --approve <LABEL> --execute` to avoid session mismatch.
-
-### Step 3: Repeat
-
-After completing the action, go back to Step 1 and run `context` again.
+This guide defines how to start or continue a feature in the Codex-native lee-spec-kit path.
 
 ---
 
-## 🛑 Strict rules
+## Start
 
-1. **Do not jump ahead**: Never do “Plan” when the CLI says “Spec”.
-2. **Do not skip**: Do not fake issue numbers/statuses to advance steps.
-3. **No self-judgment**: If unsure, run `context` again.
+1. Run `npx lee-spec-kit detect --json`.
+2. If detected, read `npx lee-spec-kit docs get agents --json` and any unread follow-up docs.
+3. If the feature folder does not exist yet:
+   - preserve an explicit Idea ref only when the user actually named one (`I001`, `I001-slug`, or `docs/ideas/...`)
+   - create the feature with `npx lee-spec-kit feature <name> --idea <ref>` only for that explicit ref
+   - otherwise create it with `npx lee-spec-kit feature <name> -d "<description>"`
+4. Resolve the active feature and read its docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
 
-> Note: the workflow steps may change over time. Do not memorize step numbers.
-> Treat `context` output as the SSOT.
+## Working Rules
 
----
+- Docs are the SSOT. Follow the active feature docs directly.
+- Progress through the documented stages directly:
+  - `spec.md` defines scope and review state
+  - `plan.md` defines the implementation approach
+  - `tasks.md` drives execution order
+  - `issue.md` / `pr.md` are used only when the feature reaches GitHub workflow stages
+- When scope or behavior changes, update the active feature docs in the same turn before continuing.
+- Ask for approval at documented review checkpoints and before remote or destructive actions.
+- Use `npx lee-spec-kit commit-audit --json` before `git commit` when docs-path validation matters.
+- Use `npx lee-spec-kit workflow-audit --json` before stopping when code or feature docs changed.
 
-## Getting started
+## Strict Rules
 
-If the Feature folder does not exist yet:
-
-- If the user's request includes an explicit Idea ref such as `I001`, `I001-slug`, or `docs/ideas/...`, preserve that ref and create the feature with `npx lee-spec-kit feature <name> --idea <ref>`.
-- Do not infer an Idea ref. Use `--idea` only when the request explicitly names one.
-
-```bash
-# 1) Create the folder
-npx lee-spec-kit feature <name> -d "<description>"
-
-# 2) Enter the loop
-npx lee-spec-kit context
-```
+1. Do not invent issue/PR numbers or status transitions.
+2. Do not skip required doc updates when scope, behavior, or evidence changed.
+3. Do not treat unmanaged docs artifacts as the active workflow SSOT until they are normalized into the feature folder or allowlisted.

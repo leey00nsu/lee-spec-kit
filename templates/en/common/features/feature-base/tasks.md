@@ -4,10 +4,10 @@
 
 - **Status**: `[TODO]` → `[DOING]` → `[DONE]`
 - **Task communication / confirmation**:
-  - `[TODO] → [DOING]`: share the task title first, then follow the latest `context --json-compact`
-  - `[DOING] → [DONE]`: share the result/verification first, then follow the latest `context --json-compact`
-  - If `approvalRequest.required=true`, wait for the exact CLI-provided label reply before changing task state.
-  - If `approvalRequest.required=false`, do not invent a separate `OK` approval step; update task state after real completion/verification.
+  - `[TODO] → [DOING]`: share the task title first, then update the task state in `tasks.md`
+  - `[DOING] → [DONE]`: share the result and verification first, then update `Acceptance` and `Checklist` in the same edit
+  - Ask for approval before changing task state only when the task crosses a documented review checkpoint or before remote/destructive actions.
+  - Do not invent a standalone `OK` approval step when the workflow does not require one.
   - `task-complete` rejects `[DONE]` while any item in that task's `Checklist` remains unchecked.
 - **PRD mapping (recommended)**: add an existing PRD requirement ID tag like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
@@ -81,7 +81,7 @@
 
 - [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked
 - [ ] Tests executed and passing (record command/result below)
-- [ ] Final outcome shared and user confirmation recorded according to the current `context` approval state
+- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint
 
 ### Test Run Log (Latest by Command)
 

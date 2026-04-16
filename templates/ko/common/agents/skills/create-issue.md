@@ -8,7 +8,7 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 ## 사전 조건
 
 - [ ] `spec.md` 작성 완료
-- [ ] 최신 `context --json-compact` 확인
+- [ ] 활성 feature 문서 검토
 
 ---
 
@@ -38,9 +38,7 @@ npx lee-spec-kit github issue F001 --json
 | 라벨   | `enhancement`, `bug`, `documentation` 등 |
 | 담당자 | `@me` (기본값)                           |
 
-### 2. `Ready` 전환 (context가 요구할 때만 승인 요청)
-
-> ⚠️ **workflow 라벨 승인은 조건부입니다**
+### 2. `Ready` 전환
 
 `issue.md` 초안 기준으로 다음 내용을 공유하세요:
 
@@ -48,16 +46,13 @@ npx lee-spec-kit github issue F001 --json
 - 본문 전체 초안 (`issue.md` 기준)
 - 라벨
 
-그 다음 최신 `npx lee-spec-kit context --json-compact`를 다시 확인합니다.
-
-- `approvalRequest.required=true`이면 CLI가 준 승인 문구를 그대로 보여주고 라벨 응답(`A` 또는 `A OK`)을 기다린 뒤 계속 진행합니다.
-- `approvalRequest.required=false`이면 별도 라벨 승인 문구를 만들지 말고, 초안을 다듬은 뒤 `issue.md` 상태를 `Ready`로 변경합니다.
+초안을 다듬은 뒤 `issue.md` 상태를 `Ready`로 변경합니다.
 
 ### 3. 이슈 생성 (`issue.md`가 `Ready`일 때)
 
 원격 이슈 생성은 반드시 lee-spec-kit helper로만 실행합니다.
 `gh issue create`를 직접 호출하거나 raw `issue.md`를 그대로 `--body-file`에 넘기지 마세요.
-workflow 라벨 승인과 별개로, 원격 생성 command 자체의 명시 확인은 계속 필요합니다.
+원격 생성 command 자체의 명시 확인은 항상 필요합니다.
 
 - 최종 제목/본문/라벨을 사용자에게 공유하고
 - 그 다음 `--confirm OK`를 붙여 helper를 실행하세요
@@ -76,6 +71,6 @@ npx lee-spec-kit github issue F001 --create --confirm OK --labels enhancement
 
 - **초안 생성기**: `npx lee-spec-kit github issue <feature-name>`
 - **원격 생성 규칙**: 반드시 `npx lee-spec-kit github issue <feature-name> --create --confirm OK --labels ...` 사용
-- **workflow 승인 규칙**: `approvalRequest.required=true`일 때만 라벨 승인을 기다립니다
+- **workflow 승인 규칙**: 원격 issue 생성 전에는 항상 사용자 승인을 받습니다
 - **원격 확인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
 - **실행 상태 SSOT**: `docs/features/.../<feature>/issue.md`

@@ -14,6 +14,7 @@ export interface ProjectConfig {
   components?: string[];
   lang: 'ko' | 'en';
   docsRepo?: 'embedded' | 'standalone';
+  workspaceRoot?: string;
   pushDocs?: boolean;
   docsRemote?: string;
   projectRoot?: string | Record<string, string>;

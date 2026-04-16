@@ -1,26 +1,21 @@
 # Public CLI Reference
 
-These are the commands I expect people to reach for first in the normal workflow.
-The surface is intentionally small so users do not need to remember every internal workflow command.
-Lower-level agent commands are documented separately.
+These are the commands humans should care about first.
 
-## Commands
+## Docs Schema Commands
 
 ### `init`
 
-Initialize docs and workflow scaffolding for a project.
-
-Common examples:
+Initialize the current docs schema and seed the workspace-scoped `AGENTS.md` entrypoint.
 
 ```bash
 npx lee-spec-kit init
 npx lee-spec-kit init --name my-project --type multi
-npx lee-spec-kit init --name my-project --type fullstack
 ```
 
 ### `idea`
 
-Capture an idea before implementation.
+Create an indexed idea document before promoting work into a feature.
 
 ```bash
 npx lee-spec-kit idea improve-auth-flow
@@ -28,46 +23,69 @@ npx lee-spec-kit idea improve-auth-flow
 
 ### `feature`
 
-Create a concrete work item.
+Create a concrete feature folder that becomes the working SSOT.
 
 ```bash
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit feature --component api user-auth
-npx lee-spec-kit feature payment --id F123 --desc "Improve payment flow"
+npx lee-spec-kit feature payment --id F123
 ```
 
-### `context`
+### `docs`
 
-Show the current feature state, the next recommended action, and whether user approval is needed.
+Read built-in policy docs that the agent uses at session start.
 
 ```bash
-npx lee-spec-kit context
-npx lee-spec-kit context F001-alpha
+npx lee-spec-kit docs list
+npx lee-spec-kit docs get agents --json
 ```
 
-### `flow`
+### `detect`
 
-Run the default workflow auto-loop and pause at selection/approval/manual/resume boundaries.
+Check whether the current workspace should use lee-spec-kit rules.
 
 ```bash
-npx lee-spec-kit flow
-npx lee-spec-kit flow F001-alpha
+npx lee-spec-kit detect --json
 ```
 
-## Typical Agent-Executed Flow
+### `github`
+
+Generate or validate issue/PR artifacts from the current feature docs.
+
+```bash
+npx lee-spec-kit github issue F001-alpha
+npx lee-spec-kit github pr F001-alpha
+```
+
+## Integration Commands
+
+### `integrations codex-hooks`
+
+Scaffold official Codex hooks for the current workspace.
+
+```bash
+npx lee-spec-kit integrations codex-hooks
+npx lee-spec-kit integrations codex-hooks --remove
+```
+
+For `embedded`, install from the project repo root. For `standalone`, install from the shared workspace root so the project repo stays untouched.
+If a standalone project predates `workspaceRoot`, run `npx lee-spec-kit update --agents-md` from the shared workspace root first.
+
+### `integrations codex`
+
+Install the optional global Codex hooks bootstrap flag in `~/.codex/config.toml`.
+
+```bash
+npx lee-spec-kit integrations codex
+npx lee-spec-kit integrations codex --remove
+```
+
+## Recommended Human Flow
 
 ```bash
 npx lee-spec-kit init
+npx lee-spec-kit integrations codex-hooks
 npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
-npx lee-spec-kit context
-npx lee-spec-kit flow
 ```
 
-## Notes
-
-- `context` reads the current feature state and next actions.
-- `flow` is the default execution entrypoint. It auto-runs using the configured default policy and reports the before/after workflow snapshot.
-- If a single feature is not selected yet, `flow` pauses at the selection boundary instead of failing immediately.
-- These wrappers intentionally hide some approval and orchestration detail that still exists in `context` and `flow`.
-- Detailed agent and internal commands are documented separately.
+After setup, the human can keep using normal requests such as “continue the next feature according to the rules”.

@@ -1,7 +1,7 @@
 {
   "name": "lee-spec-kit",
   "version": "0.7.11",
-  "description": "Agent-guided development harness CLI for spec-driven projects",
+  "description": "Document-centered harness engineering toolkit for AI agent development",
   "type": "module",
   "bin": {
     "lee-spec-kit": "./dist/index.js",

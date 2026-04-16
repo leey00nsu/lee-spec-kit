@@ -6,11 +6,6 @@ export const koCli = {
   'common.docsNotFound':
     'docs 폴더를 찾을 수 없습니다. 먼저 init을 실행하세요.',
 
-  'status.noFeatures': 'Feature를 찾을 수 없습니다.',
-  'status.duplicateIds': '중복 Feature ID 발견:',
-  'status.missingIds': 'Feature ID가 없는 항목:',
-  'status.wrote': '✅ {path} 생성 완료',
-
   'feature.selectRepo': '레포지토리를 선택하세요:',
   'feature.folderExists': '이미 존재하는 폴더입니다: {path}',
   'feature.baseNotFound': 'CLI 내장 feature 템플릿을 찾을 수 없습니다.',
@@ -48,38 +43,6 @@ export const koCli = {
     'git 상태를 확인할 수 없습니다. (git repo가 아니거나 git 실행 불가) --force로 강제 덮어쓰기를 사용하세요.',
   'update.docsWorktreeDirty':
     'docs 작업트리에 변경사항이 있어 update를 진행할 수 없습니다. 변경사항을 커밋/스태시 후 다시 실행하거나 --force로 덮어쓰세요.',
-
-  'doctor.title': '🔎 문서 진단',
-  'doctor.envWarnings': '⚠️  환경 경고:',
-  'doctor.noIssues': '✅ 문제를 찾지 못했습니다.',
-  'doctor.errorsTitle': '오류',
-  'doctor.warningsTitle': '경고',
-  'doctor.tipJson':
-    'Tip: 에이전트용 JSON 출력: npx lee-spec-kit doctor --json{strictFlag}',
-  'doctor.issue.missingRequiredDir': '필수 폴더가 없습니다: {dir}',
-  'doctor.issue.missingConfig':
-    '설정 파일(.lee-spec-kit.json)이 없습니다. 일부 기능이 폴더 구조 추정으로 동작할 수 있습니다.',
-  'doctor.issue.noFeatures':
-    'Feature 폴더를 찾지 못했습니다. (feature-base만 존재하거나 아직 feature를 만들지 않았을 수 있습니다.)',
-  'doctor.issue.placeholdersLeft':
-    '플레이스홀더가 남아있습니다: {placeholders}',
-  'doctor.issue.missingSpec': 'spec.md가 없습니다.',
-  'doctor.issue.specStatusUnset':
-    'spec.md의 Status(상태)가 설정되지 않았습니다. (템플릿 그대로일 수 있음)',
-  'doctor.issue.planStatusUnset':
-    'plan.md의 Status(상태)가 설정되지 않았습니다. (템플릿 그대로일 수 있음)',
-  'doctor.issue.tasksEmpty': 'tasks.md에 태스크가 없습니다.',
-  'doctor.issue.tasksDocStatusUnset':
-    'tasks.md의 문서 상태(Doc Status)가 설정되지 않았습니다. (Draft/Review/Approved 중 하나로 설정하세요.)',
-  'doctor.issue.tasksDocStatusMissing':
-    'tasks.md에 문서 상태(Doc Status) 필드가 없습니다. `- **문서 상태**: -`와 `값: Draft | Review | Approved`를 추가하세요.',
-  'doctor.issue.tasksPrdTagUnknown':
-    'tasks.md에 정의되지 않은 PRD 태그가 있습니다: {ids}{extra}. tasks.md에서 `PRD-*` ID를 임의로 만들지 말고, 먼저 docs/prd 또는 상위 요구사항 문서에 ID를 backfill한 뒤 spec.md `PRD Refs`와 tasks 태그를 함께 맞추세요.',
-  'doctor.issue.unmanagedDocsEntry':
-    'lee-spec-kit 문서 표면 밖의 문서 엔트리가 감지되었습니다: {path}. 최종 SSOT로 쓰지 말고 feature-local docs로 정규화하거나, 의도된 경로라면 `.lee-spec-kit.json`의 `allowedDocsEntries`에 추가하세요.',
-  'doctor.issue.duplicateFeatureId': '중복 Feature ID 감지: {id} ({count}개)',
-  'doctor.issue.missingFeatureId':
-    'Feature 폴더명이 F001-... 형식이 아닙니다. (ID를 추출할 수 없음)',
 
   'init.selectLangPrompt': '문서 언어를 선택하세요:',
   'init.currentDirectoryLabel': '📍 현재 위치',
@@ -124,9 +87,11 @@ export const koCli = {
   'init.log.nextSteps1': '  1. {docsDir}/prd/README.md 작성',
   'init.log.nextSteps2': '  2. npx lee-spec-kit feature <name> 으로 기능 추가',
   'init.log.nextSteps3':
-    '  3. npx lee-spec-kit onboard --strict 로 초기 설정 점검',
+    '  3. lee-spec-kit 워크플로우용 workspace-local Codex hooks 설치: npx lee-spec-kit integrations codex-hooks',
   'init.log.nextSteps4':
-    '  4. 프로젝트 루트 AGENTS.md 없이 Codex를 쓴다면 bootstrap helper 를 선택적으로 설치: npx lee-spec-kit integrations codex',
+    '  4. 필요하면 전역 Codex hooks bootstrap flag도 설치: npx lee-spec-kit integrations codex',
+  'init.log.nextSteps5':
+    '',
   'init.log.gitRepoDetectedCommit': '📦 Git 레포지토리 감지, docs 커밋 중...',
   'init.log.gitInit': '📦 Git 초기화 중...',
   'init.warn.stagedChangesSkip':
@@ -161,6 +126,12 @@ export const koCli = {
     '✅ 선택적 Codex bootstrap 제거 완료: {path}',
   'setup.codexBootstrapAlreadyAbsent':
     '✅ 선택적 Codex bootstrap 이 이미 없습니다: {path}',
+  'setup.codexHooksInstalled': '✅ Repo-local Codex hooks 설치 완료: {path}',
+  'setup.codexHooksAlreadyInstalled':
+    '✅ Repo-local Codex hooks 가 이미 설치되어 있습니다: {path}',
+  'setup.codexHooksRemoved': '✅ Repo-local Codex hooks 제거 완료: {path}',
+  'setup.codexHooksAlreadyAbsent':
+    '✅ Repo-local Codex hooks 가 이미 없습니다: {path}',
 
   'github.cmdGithubDescription':
     'GitHub 워크플로우 도우미 (issue/pr 본문 템플릿 생성, 검증, merge 재시도)',
@@ -333,8 +304,8 @@ export const koCli = {
     '자동화 환경이라면 CLI 호출 전에 인자를 검증하세요.',
   'cliError.precondition.satisfyPreconditions':
     '실행 전제조건을 만족하도록 환경/작업트리를 먼저 정리하세요.',
-  'cliError.precondition.runDoctor':
-    '워크스페이스 진단으로 현재 상태를 확인하세요.',
+  'cliError.precondition.inspectDocsAndConfig':
+    '재시도 전에 docs 정책과 현재 설정을 확인하세요.',
   'cliError.precondition.considerForce':
     '의도한 덮어쓰기라면 강제 옵션 사용을 검토하세요.',
   'cliError.duplicateId.resolveDuplicates':
@@ -347,15 +318,6 @@ export const koCli = {
   'cliError.missingId.alignDocs':
     'spec/tasks 문서의 Feature ID도 함께 정리하세요.',
   'cliError.missingId.inspectJson': '누락 항목을 JSON 진단으로 확인하세요.',
-  'cliError.invalidApproval.fetchLatestOptions':
-    '먼저 최신 옵션을 다시 조회하세요.',
-  'cliError.invalidApproval.replyWithValidLabel':
-    '유효한 라벨(또는 `<라벨> OK`)만 응답하세요. 예: A',
-  'cliError.invalidApproval.oneLabelOnly': '한 번에 라벨 1개만 선택하세요.',
-  'cliError.invalidApproval.userRequestRequired':
-    '라벨 "{label}"은 사용자 요청 텍스트가 필요합니다. `{example}` 형식으로 입력하세요.',
-  'cliError.approvalRequired.reRunWithApprove':
-    'context 승인 흐름이면 --approve <라벨>과 함께 다시 실행하세요.',
   'cliError.approvalRequired.githubConfirmOk':
     'github 원격 생성/머지면 --confirm OK를 함께 전달하세요.',
   'cliError.approvalRequired.shareAndGetApproval':
@@ -366,27 +328,15 @@ export const koCli = {
     'multi 모드에서는 --component로 범위를 좁히세요.',
   'cliError.contextSelection.inspectAllCandidates':
     '먼저 전체 후보를 확인하세요.',
-  'cliError.noActionOptions.refreshContext':
-    '현재 상태를 보기 위해 context를 새로 조회하세요.',
-  'cliError.noActionOptions.completeChecklist':
-    'Feature 문서를 열어 누락된 체크 항목을 완료하세요.',
-  'cliError.noActionOptions.listAllFeatures':
-    '실행 가능한 옵션이 있는 Feature를 찾기 위해 전체를 조회하세요.',
-  'cliError.contextStale.refreshBeforeApprove':
-    '승인 전에 최신 context를 다시 조회하세요.',
-  'cliError.contextStale.reapproveWithFreshLabel':
-    '최신 출력의 라벨로 다시 승인하세요.',
-  'cliError.contextStale.executeAfterFreshApproval':
-    '최신 라벨 재승인 후에만 실행하세요.',
-  'cliError.execution.notCommand': '승인 라벨이 command인지 먼저 확인하세요.',
   'cliError.execution.failed': '실패한 명령의 출력과 선행 조건을 확인하세요.',
-  'cliError.execution.rerunContextAndExecute':
-    'context를 다시 조회하고 최신 라벨 1개를 실행하세요.',
+  'cliError.execution.retryAfterFixingInputs':
+    '실패 원인이나 입력을 정리한 뒤 다시 실행하세요.',
   'cliError.execution.runManually':
     '환경 문제 분리를 위해 명령을 수동 실행해보세요.',
   'cliError.unknown.rerunAndCaptureLogs':
     '같은 입력으로 재실행하고 전체 오류 로그를 수집하세요.',
-  'cliError.unknown.runDoctor': '워크스페이스 상태를 진단하세요.',
+  'cliError.unknown.inspectWorkspaceState':
+    '워크스페이스 감지 결과와 설정 상태를 확인하세요.',
   'cliError.unknown.reportReasonCode':
     'reasonCode와 로그를 유지보수자에게 전달하세요.',
 

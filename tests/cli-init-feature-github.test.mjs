@@ -13,9 +13,6 @@ import {
   setMultiFeatureAsDone,
   writeIssueBodyWithoutTodo,
   writePrBodyWithoutTodo,
-  issueApprovalTicket,
-  primaryActionOption,
-  suggestionOptionByLabel,
 } from './helpers/cli-contract-helpers.mjs';
 
 async function setupMergeGhCli(
@@ -128,6 +125,10 @@ test('init --non-interactive works with explicit flags without --yes', async () 
     const agentsMdPath = path.join(dir, 'AGENTS.md');
     const agentsMd = await fs.readFile(agentsMdPath, 'utf-8');
     assert.match(agentsMd, /<!-- lee-spec-kit:begin -->/);
+    assert.match(
+      agentsMd,
+      /If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically\./
+    );
   });
 });
 
@@ -339,8 +340,249 @@ test('init standalone non-interactive supports explicit standalone options', asy
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(config.docsRepo, 'standalone');
+    assert.equal(config.workspaceRoot, '..');
     assert.equal(config.projectRoot, '/tmp/project-root');
     assert.equal(config.pushDocs, false);
+  });
+});
+
+test('init standalone seeds workspace and docs AGENTS without touching project root', async () => {
+  await withTempDir('lsk-init-standalone-workspace-agents-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(await pathExists(path.join(dir, 'AGENTS.md')), true);
+    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), true);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
+  });
+});
+
+test('init standalone fails when launched from inside an existing project repo', async () => {
+  await withTempDir('lsk-init-standalone-inside-project-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+
+    const result = await runCli(projectRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Standalone init must be started from the shared workspace root/i);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
+    assert.equal(await pathExists(path.join(projectRoot, '.codex')), false);
+  });
+});
+
+test('init standalone fails when launched from the docs repo root instead of the shared workspace root', async () => {
+  await withTempDir('lsk-init-standalone-from-docs-root-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRoot, { recursive: true });
+
+    const result = await runCli(docsRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      '../project',
+      '--dir',
+      '.',
+    ]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /must be started from the shared workspace root above the docs directory/i);
+    assert.equal(await pathExists(path.join(docsRoot, '.lee-spec-kit.json')), false);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
+  });
+});
+
+test('init standalone fails when docs dir points inside an existing project repo', async () => {
+  await withTempDir('lsk-init-standalone-target-inside-project-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './project/docs',
+    ]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Standalone init cannot place docs inside an existing project git repository/i);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
+    assert.equal(await pathExists(path.join(projectRoot, 'docs', '.lee-spec-kit.json')), false);
+  });
+});
+
+test('init standalone fails when docs dir points at the project repo root', async () => {
+  await withTempDir('lsk-init-standalone-target-project-root-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './project',
+    ]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Standalone init cannot place docs at the project repo root/i);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
+    assert.equal(await pathExists(path.join(projectRoot, '.lee-spec-kit.json')), false);
+  });
+});
+
+test('init standalone fails when docs dir points at another existing git repo root', async () => {
+  await withTempDir('lsk-init-standalone-target-other-repo-root-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRepoRoot = path.join(dir, 'docs-repo');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRepoRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    const docsRepoGitInit = await runCommand(docsRepoRoot, 'git', ['init']);
+    assert.equal(docsRepoGitInit.code, 0, docsRepoGitInit.stderr || docsRepoGitInit.stdout);
+
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs-repo',
+    ]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /existing git repo root unless that root is the verified shared workspace root/i);
+    assert.equal(await pathExists(path.join(docsRepoRoot, '.lee-spec-kit.json')), false);
+    assert.equal(await pathExists(path.join(docsRepoRoot, 'AGENTS.md')), false);
+  });
+});
+
+test('init standalone allows a git-backed workspace root when the project repo is separate', async () => {
+  await withTempDir('lsk-init-standalone-git-workspace-root-', async (dir) => {
+    const workspaceGitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(workspaceGitInit.code, 0, workspaceGitInit.stderr || workspaceGitInit.stdout);
+
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal(await pathExists(path.join(dir, 'AGENTS.md')), true);
+    assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), true);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
   });
 });
 
@@ -372,6 +614,7 @@ test('init standalone multi supports custom components with component project ro
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     assert.equal(config.docsRepo, 'standalone');
+    assert.equal(config.workspaceRoot, '..');
     assert.equal(config.projectType, 'multi');
     assert.deepEqual(config.components, ['fe', 'be', 'worker']);
     assert.deepEqual(config.projectRoot, {
@@ -379,6 +622,159 @@ test('init standalone multi supports custom components with component project ro
       be: '/tmp/be',
       worker: '/tmp/worker',
     });
+  });
+});
+
+test('update --agents-md in standalone syncs workspace and docs AGENTS without modifying project root', async () => {
+  await withTempDir('lsk-update-standalone-agents-md-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const projectAgentsPath = path.join(projectRoot, 'AGENTS.md');
+    await fs.writeFile(projectAgentsPath, '# Project-owned instructions\n', 'utf-8');
+
+    const updateResult = await runCli(dir, ['update', '--agents-md', '--force']);
+    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+
+    const projectAgents = await fs.readFile(projectAgentsPath, 'utf-8');
+    assert.equal(projectAgents, '# Project-owned instructions\n');
+
+    const workspaceAgents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8');
+    const docsAgents = await fs.readFile(path.join(dir, 'docs', 'AGENTS.md'), 'utf-8');
+    assert.match(workspaceAgents, /<!-- lee-spec-kit:begin -->/);
+    assert.match(docsAgents, /<!-- lee-spec-kit:begin -->/);
+  });
+});
+
+test('update --agents-md backfills standalone workspaceRoot when run from workspace root', async () => {
+  await withTempDir('lsk-update-standalone-workspace-root-backfill-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    delete config.workspaceRoot;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const updateResult = await runCli(dir, ['update', '--agents-md', '--force']);
+    assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
+
+    const nextConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(nextConfig.workspaceRoot, '..');
+  });
+});
+
+test('update --agents-md in standalone fails when workspaceRoot points into the project repo', async () => {
+  await withTempDir('lsk-update-standalone-invalid-workspace-root-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workspaceRoot = '../project';
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const updateResult = await runCli(dir, ['update', '--agents-md', '--force']);
+    assert.notEqual(updateResult.code, 0);
+    assert.match(updateResult.stderr, /workspaceRoot is missing or invalid/i);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
+  });
+});
+
+test('update --agents-md in standalone fails when projectRoot is missing from config', async () => {
+  await withTempDir('lsk-update-standalone-missing-project-root-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    delete config.projectRoot;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const updateResult = await runCli(dir, ['update', '--agents-md', '--force']);
+    assert.notEqual(updateResult.code, 0);
+    assert.match(updateResult.stderr, /workspaceRoot is missing or invalid/i);
+    assert.equal(await pathExists(path.join(projectRoot, 'AGENTS.md')), false);
   });
 });
 
@@ -476,10 +872,8 @@ test('fullstack init supports custom components and feature --component', async 
     const exists = await fs.stat(featureDir);
     assert.equal(exists.isDirectory(), true);
 
-    const status = await runCli(dir, ['status', '--json']);
-    assert.equal(status.code, 0, status.stderr || status.stdout);
-    const payload = JSON.parse(status.stdout.trim());
-    assert.equal(payload.features[0].repo, 'demo-worker');
+    const featureSpec = await fs.readFile(path.join(featureDir, 'spec.md'), 'utf-8');
+    assert.match(featureSpec, /\*\*Feature ID\*\*:\s*F001/);
   });
 });
 
@@ -1475,7 +1869,7 @@ test('github body template files are project-scoped and overwritten by default',
     assert.match(prBody, /F002-beta/);
     assert.doesNotMatch(prBody, /F001-alpha/);
   });
-});
+}, 15_000);
 
 test('github pr --create requires --confirm OK', async () => {
   await withTempDir('lsk-github-pr-confirm-required-', async (dir) => {

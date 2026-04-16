@@ -4,13 +4,12 @@ import path from 'path';
 import fs from 'fs-extra';
 import { DEFAULT_LANG, I18nKey, Lang, tr } from '../utils/i18n.js';
 import { getConfig } from '../utils/config.js';
-import {
-  ContextSelectionOptions,
-  resolveContextSelection,
-} from '../utils/context-selection.js';
-import { createCliContext } from '../utils/cli-context.js';
-import { FeatureContext } from '../utils/context/index.js';
 import { createCliError } from '../utils/cli-error.js';
+import {
+  getFeatureDocPaths,
+  type ResolvedFeature,
+  resolveFeatureSelection,
+} from '../utils/feature-resolver.js';
 import { assertValid, validatePathWithLang } from '../utils/validation.js';
 import {
   getGithubDraftArtifactHeading,
@@ -76,6 +75,8 @@ export interface IssueViewMeta {
   number: number;
   state?: string;
 }
+
+export { getFeatureDocPaths };
 
 export type GithubTextKey =
   Extract<I18nKey<'cli'>, `github.${string}`> extends `github.${infer Key}`
@@ -502,27 +503,22 @@ export function resolvePrArtifactPolicy(
 
 export async function resolveFeatureOrThrow(
   featureName: string | undefined,
-  options: ContextSelectionOptions,
+  options: { component?: string },
   lang: Lang
 ): Promise<{
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>;
-  feature: FeatureContext;
+  feature: ResolvedFeature;
 }> {
-  const config = await getConfig(process.cwd());
-  if (!config) {
-    throw createCliError(
-      'CONFIG_NOT_FOUND',
-      tr(lang, 'cli', 'common.configNotFound')
-    );
-  }
-
-  const ctx = (await createCliContext({ cwd: process.cwd() }))!;
-  const state = await resolveContextSelection(ctx, featureName, options);
+  const state = await resolveFeatureSelection(
+    process.cwd(),
+    featureName,
+    options.component
+  );
   if (!state.matchedFeature) {
     if (state.status === 'no_features') {
       throw createCliError('PRECONDITION_FAILED', tg(lang, 'noFeatures'));
     }
-    if (state.status === 'multiple_active') {
+    if (state.status === 'multiple_matches') {
       throw createCliError(
         'CONTEXT_SELECTION_REQUIRED',
         tg(lang, 'multipleFeaturesMatched')
@@ -534,19 +530,19 @@ export async function resolveFeatureOrThrow(
     );
   }
 
-  return { config, feature: state.matchedFeature };
+  return { config: state.config, feature: state.matchedFeature };
 }
 
 export function resolveGithubProjectCwd(
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
-  feature: FeatureContext
+  feature: ResolvedFeature
 ): string {
   const projectGitCwd = (feature.git.projectGitCwd || '').trim();
   if (projectGitCwd) return projectGitCwd;
   if (config.docsRepo === 'standalone') {
     throw createCliError(
       'PRECONDITION_FAILED',
-      tr(config.lang, 'messages', 'standaloneNeedsProjectRoot')
+      'Standalone docs mode requires a configured projectRoot.'
     );
   }
   return process.cwd();
@@ -554,7 +550,7 @@ export function resolveGithubProjectCwd(
 
 export function resolveGithubDocsCwd(
   config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
-  feature: FeatureContext
+  feature: ResolvedFeature
 ): string {
   const docsGitCwd = (feature.git.docsGitCwd || '').trim();
   if (docsGitCwd) return docsGitCwd;
@@ -566,25 +562,6 @@ export function shouldPushDocsSync(
 ): boolean {
   if (config.docsRepo !== 'standalone') return true;
   return config.pushDocs === true;
-}
-
-export function getFeatureDocPaths(feature: FeatureContext): {
-  featurePathFromDocs: string;
-  specPath: string;
-  planPath: string;
-  tasksPath: string;
-  issuePath: string;
-  prPath: string;
-} {
-  const featurePathFromDocs = feature.docs.featurePathFromDocs;
-  return {
-    featurePathFromDocs,
-    specPath: `${featurePathFromDocs}/spec.md`,
-    planPath: `${featurePathFromDocs}/plan.md`,
-    tasksPath: `${featurePathFromDocs}/tasks.md`,
-    issuePath: `${featurePathFromDocs}/issue.md`,
-    prPath: `${featurePathFromDocs}/pr.md`,
-  };
 }
 
 export function normalizeHeading(value: string): string {
@@ -1216,7 +1193,7 @@ export function getPrChangesAndTests(
 
 export function resolveOverviewFromSpec(
   specContent: string,
-  feature: FeatureContext,
+  feature: ResolvedFeature,
   lang: Lang
 ): string {
   const fromPurpose = sanitizeOverviewSection(
@@ -1276,7 +1253,7 @@ export function truncateIssueTitleSummary(
 
 export function resolveIssueTitleSummary(
   overview: string,
-  feature: FeatureContext,
+  feature: ResolvedFeature,
   lang: Lang
 ): string {
   const candidates = overview
@@ -1486,7 +1463,7 @@ ${labels.map((label) => `- \`${label}\``).join('\n')}
 }
 
 export function buildPrBody(
-  feature: FeatureContext,
+  feature: ResolvedFeature,
   specContent: string,
   planContent: string,
   tasksContent: string,
@@ -1625,6 +1602,15 @@ export function extractTasksIssueReference(
     'Issue Number',
     '이슈',
     '이슈 번호',
+  ]);
+}
+
+export function extractTasksPrReference(tasksContent: string): string | undefined {
+  return extractDraftMetadataValue(tasksContent, [
+    'PR',
+    'Pull Request',
+    'PR 링크',
+    'PR URL',
   ]);
 }
 

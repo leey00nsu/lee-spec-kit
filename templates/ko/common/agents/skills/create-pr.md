@@ -22,7 +22,7 @@ Pre-PR 리뷰에서 항상 수행하는 최소 기준입니다. 가능한 경우
 2. 회귀/예외 처리, 크리티컬·보안 리스크, 사이드 이펙트, 사용자 흐름 영향, 배포 준비도를 점검합니다.
 3. 유지보수성을 점검합니다: 큰 함수/파일은 필요 시 분리하고, 기존 코드 재사용·통합 가능성을 확인하며, 불필요해진 코드를 정리합니다.
 4. 현재 구현이 `spec.md` / `plan.md` / `tasks.md`에 기록된 feature 의도와 범위에 실제로 맞는지 평가합니다.
-5. `workflow.prePrReview.evidenceMode=path_required`(기본)일 때는 리뷰 에이전트를 먼저 실행해 `review-trace.json`을 만든 뒤 `npx lee-spec-kit pre-pr-review <feature-ref> --evidence review-trace.json`을 실행합니다. `evidenceMode=any`에서는 실행 증거 강제가 없는 한 `--evidence` 없이 직접 기록하는 경로도 허용됩니다.
+5. `workflow.prePrReview.evidenceMode=path_required`(기본)일 때는 승인 전에 `review-trace.json` 같은 실제 리뷰 산출물을 남깁니다. `evidenceMode=any`에서는 실행 증거 강제가 없는 한 별도 산출물 없이 직접 기록하는 경로도 허용됩니다.
 6. `PR 전 리뷰 Evidence`는 설정된 evidence 정책을 따라야 합니다. `path_required`일 때는 실제 존재하는 문서 경로를 사용합니다.
 7. `Summary`, `Feature Intent Summary`, `Implementation Fit`, `Missing Cases`, `Spec Alignment Checked`, `Finding Count`, `Blocking Findings`, `Findings`, `Residual Risks`를 placeholder 없이 기록합니다.
 8. 리뷰 중에 audit/타깃 검증 명령을 실제로 실행했다면 그때만 `commandsExecuted`에 기록합니다.
@@ -145,9 +145,7 @@ echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 - PR 본문에 Mermaid **`sequenceDiagram`**을 작성하고, 생성된 본문 템플릿 형식과 일치하게 유지합니다.
 - 이 기준은 프론트/백엔드 구분이 아니라 변경 유형(로직/구조) 기준으로 적용합니다.
 
-### 4. `Ready` 전환 (context가 요구할 때만 승인 요청)
-
-> ⚠️ **workflow 라벨 승인은 조건부입니다**
+### 4. `Ready` 전환
 
 PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하세요:
 
@@ -155,18 +153,13 @@ PR 생성 전 다음 내용을 **코드블록으로** 사용자에게 공유하�
 - 본문 전체 템플릿 (`pr.md` 기준)
 - 라벨(최소 1개, 비워둘 수 없음)
 
-그 다음 최신 `npx lee-spec-kit context --json-compact`를 다시 확인합니다.
-
-- `approvalRequest.required=true`이면 CLI가 준 `<라벨>` 또는 `<라벨> OK` 응답을 기다립니다.
-- `approvalRequest.required=false`이면 별도 라벨 승인 문구를 만들지 않습니다.
-
 이후 `pr.md`의 변경 사항/테스트 섹션을 실제 작업 기준으로 보완하고 `Ready`로 변경하세요.
 
 ### 5. PR 생성 (`pr.md`가 `Ready`일 때)
 
 원격 PR 생성은 반드시 lee-spec-kit helper로만 실행합니다.
 `gh pr create`를 직접 호출하거나 raw `pr.md`를 그대로 `--body-file`에 넘기지 마세요.
-workflow 라벨 승인과 별개로, 원격 생성 command 자체의 명시 확인은 계속 필요합니다.
+원격 생성 command 자체의 명시 확인은 항상 필요합니다.
 
 - 최종 제목/본문/라벨을 사용자에게 공유하고
 - 그 다음 `--confirm OK`를 붙여 helper를 실행하세요
@@ -221,6 +214,6 @@ PR 본문의 파일 링크는 **현재 브랜치명**을 사용:
 
 - **본문 템플릿 생성기**: `npx lee-spec-kit github pr <feature-name>`
 - **원격 생성 규칙**: 반드시 `npx lee-spec-kit github pr <feature-name> --create --confirm OK --labels ...` 사용
-- **workflow 승인 규칙**: `approvalRequest.required=true`일 때만 라벨 승인을 기다립니다
+- **workflow 승인 규칙**: 원격 PR 생성 또는 merge 전에 사용자 승인을 받습니다
 - **원격 확인 규칙**: 제목/본문/라벨 공유 후 `--create --confirm OK` 실행
 - **실행 상태 SSOT**: `docs/features/.../<feature>/pr.md`
