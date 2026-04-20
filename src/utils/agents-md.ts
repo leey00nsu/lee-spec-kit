@@ -34,18 +34,24 @@ Before taking the next workflow step:
 2. Read the active feature docs as the SSOT: \`spec.md\`, \`plan.md\`, \`tasks.md\`, and \`decisions.md\`
 3. When relevant, also read \`issue.md\` and \`pr.md\`
 4. Run \`npx lee-spec-kit workflow-stage <feature-ref> --json\` and follow only the returned \`nextAction\`
-5. Do not start implementation unless \`stage === "implementation"\` and \`implementationAllowed === true\`
-6. Treat stages before implementation as hard gates:
-   - spec / plan / tasks approvals
+5. If \`workflow-stage --json\` returns \`primaryActionLabel\` and \`actionOptions\`, treat \`primaryActionLabel\` as the default option label and present the exact \`actionOptions[*].reply\` tokens to the user before continuing
+6. Do not start implementation unless \`stage === "implementation"\` and \`implementationAllowed === true\`
+7. Treat stages before implementation as hard gates:
+   - spec approval plus plan / tasks readiness
    - issue preparation / issue creation
    - branch creation
-7. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
-8. When docs are synced to code, refresh an explicit marker like \`<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->\` in the active feature docs (prefer \`tasks.md\` or \`decisions.md\`) so \`workflow-audit\` can prove the sync happened after the latest code change
+   - task commit checkpoints after each completed task
+8. In standalone mode, keep the docs repo on its docs branch and do not create feature branches or worktrees there
+9. In standalone mode, use the project repo through its managed feature worktree under the shared workspace \`.worktrees/\` root instead of checking the feature branch out in the main project repo
+10. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
+11. When docs are synced to code, refresh an explicit marker like \`<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->\` in the active feature docs (prefer \`tasks.md\` or \`decisions.md\`) so \`workflow-audit\` can prove the sync happened after the latest code change
 
 Approval and remote actions:
 
 - Ask the user for approval only at documented workflow approval boundaries or before remote/destructive actions
 - If \`workflow-stage --json\` reports \`approvalRequired === true\`, stop at that boundary and ask the user before proceeding
+- If \`workflow-stage --json\` returns labeled \`actionOptions\` at any approval boundary, keep the same option labels and exact \`reply\` tokens in the user prompt and do not improvise different reply formats
+- If \`workflow-stage --json\` reports \`nextAction.category === "task_commit"\`, make the docs commit and project commit for the just-finished task before starting the next task or moving to the next stage
 - Before \`git commit\`, prefer \`npx lee-spec-kit commit-audit --json\` when hooks or manual checks need commit-time docs path enforcement
 - Before remote GitHub actions, share the plan or artifact being sent
 - Respect repo policy from docs and config first; hooks only enforce guardrails and continuation checks

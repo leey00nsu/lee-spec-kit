@@ -3,16 +3,25 @@ import path from 'node:path';
 import { getConfig } from '../utils/config.js';
 import { runGitCapture } from '../utils/git-run.js';
 import { createCliError, toCliError } from '../utils/cli-error.js';
-import { resolveStandaloneProjectRoots } from '../utils/standalone-workspace.js';
+import {
+  resolveStandaloneManagedWorktreeRoot,
+  resolveStandaloneProjectRoots,
+} from '../utils/standalone-workspace.js';
+import { resolveFeatureSelection } from '../utils/feature-resolver.js';
 import {
   DEFAULT_MANAGED_DOC_DIRS,
   DEFAULT_MANAGED_DOC_FILES,
   type AllowedDocsEntriesConfig,
 } from '../utils/unmanaged-docs.js';
+import {
+  matchesDocsCommitConvention,
+  matchesProjectCommitConvention,
+} from '../utils/commit-conventions.js';
 
 interface CommitAuditOptions {
   json?: boolean;
   gitRoot?: string;
+  message?: string;
 }
 
 type CommitAuditReasonCode =
@@ -22,6 +31,7 @@ type CommitAuditReasonCode =
   | 'NON_CANONICAL_FEATURE_DOC_COMMIT'
   | 'CANONICAL_FEATURE_DOC_DELETION'
   | 'DOCS_COMMIT_POLICY_VIOLATION'
+  | 'COMMIT_MESSAGE_POLICY_VIOLATION'
   | 'NO_GIT_REPOSITORY'
   | 'CONFIG_NOT_FOUND'
   | 'UNEXPECTED_ERROR';
@@ -32,7 +42,8 @@ interface CommitAuditViolation {
     | 'unmanaged_docs_entry'
     | 'non_canonical_feature_doc'
     | 'canonical_feature_doc_deletion'
-    | 'unsupported_git_target';
+    | 'unsupported_git_target'
+    | 'commit_message_policy';
   detail: string;
 }
 
@@ -62,9 +73,14 @@ export function commitAuditCommand(program: Command): void {
     .description('Validate staged docs paths before commit')
     .option('--json', 'Output JSON for hooks and agents')
     .option('--git-root <path>', 'Override the git root used for staged-path inspection')
+    .option('--message <message>', 'Validate a commit subject against the current workflow convention')
     .action(async (options: CommitAuditOptions) => {
       try {
-        const payload = await collectCommitAudit(process.cwd(), options.gitRoot);
+        const payload = await collectCommitAudit(
+          process.cwd(),
+          options.gitRoot,
+          options.message
+        );
         if (options.json) {
           console.log(JSON.stringify(payload, null, 2));
           return;
@@ -103,7 +119,8 @@ export function commitAuditCommand(program: Command): void {
 
 async function collectCommitAudit(
   cwd: string,
-  gitRootOverride?: string
+  gitRootOverride?: string,
+  commitMessage?: string
 ): Promise<CommitAuditPayload> {
   const config = await getConfig(cwd);
   if (!config) {
@@ -153,6 +170,16 @@ async function collectCommitAudit(
     stagedEntries,
     config.allowedDocsEntries
   );
+  const commitMessageViolation = await collectCommitMessageViolation(
+    cwd,
+    config,
+    repoRoot,
+    stagedEntries,
+    commitMessage
+  );
+  if (commitMessageViolation) {
+    violations.push(commitMessageViolation);
+  }
 
   if (violations.length === 0) {
     return {
@@ -210,6 +237,9 @@ function collectAllowedCommitRepoRoots(
       if (projectRepoRoot) {
         allowed.add(path.resolve(projectRepoRoot));
       }
+      for (const worktreeRepoRoot of collectManagedWorktreeRepoRoots(config, projectRoot)) {
+        allowed.add(path.resolve(worktreeRepoRoot));
+      }
     }
     return allowed;
   }
@@ -219,6 +249,39 @@ function collectAllowedCommitRepoRoots(
     allowed.add(path.resolve(cwdRepoRoot));
   }
   return allowed;
+}
+
+function collectManagedWorktreeRepoRoots(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  projectRoot: string
+): string[] {
+  const managedRoot = resolveStandaloneManagedWorktreeRoot(config, projectRoot);
+  if (!managedRoot) {
+    return [];
+  }
+
+  const output = runGitCapture(['worktree', 'list', '--porcelain'], projectRoot) || '';
+  const roots = new Set<string>();
+
+  for (const rawLine of output.split('\n')) {
+    const line = rawLine.trim();
+    if (!line.startsWith('worktree ')) continue;
+    const worktreePath = path.resolve(line.slice('worktree '.length).trim());
+    if (isSameOrWithin(path.resolve(managedRoot), worktreePath)) {
+      roots.add(worktreePath);
+    }
+  }
+
+  return [...roots];
+}
+
+function isSameOrWithin(parentDir: string, candidateDir: string): boolean {
+  const resolvedParent = path.resolve(parentDir);
+  const resolvedCandidate = path.resolve(candidateDir);
+  return (
+    resolvedParent === resolvedCandidate ||
+    resolvedCandidate.startsWith(`${resolvedParent}${path.sep}`)
+  );
 }
 
 function parseStagedPaths(output: string): StagedPathEntry[] {
@@ -331,12 +394,64 @@ function collectCommitViolations(
 function resolveReasonCode(violations: CommitAuditViolation[]): CommitAuditReasonCode {
   const kinds = new Set(violations.map((entry) => entry.kind));
   if (kinds.size > 1) return 'DOCS_COMMIT_POLICY_VIOLATION';
+  if (kinds.has('commit_message_policy')) {
+    return 'COMMIT_MESSAGE_POLICY_VIOLATION';
+  }
   if (kinds.has('unsupported_git_target')) return 'UNSUPPORTED_GIT_TARGET';
   if (kinds.has('unmanaged_docs_entry')) return 'UNMANAGED_DOCS_COMMIT';
   if (kinds.has('canonical_feature_doc_deletion')) {
     return 'CANONICAL_FEATURE_DOC_DELETION';
   }
   return 'NON_CANONICAL_FEATURE_DOC_COMMIT';
+}
+
+async function collectCommitMessageViolation(
+  cwd: string,
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  repoRoot: string,
+  stagedEntries: StagedPathEntry[],
+  commitMessage?: string
+): Promise<CommitAuditViolation | null> {
+  const normalizedMessage = String(commitMessage || '').trim();
+  if (!normalizedMessage) {
+    return null;
+  }
+
+  const selection = await resolveFeatureSelection(cwd);
+  if (selection.status !== 'selected' || !selection.matchedFeature?.issueNumber) {
+    return null;
+  }
+
+  const issueNumber = selection.matchedFeature.issueNumber;
+  const docsRepoRoot = runGitCapture(['rev-parse', '--show-toplevel'], config.docsDir);
+  const normalizedRepoRoot = path.resolve(repoRoot);
+  const normalizedDocsRepoRoot = docsRepoRoot ? path.resolve(docsRepoRoot) : null;
+  const docsOnlyCommit =
+    stagedEntries.length > 0 &&
+    stagedEntries.every((entry) => {
+      const absolutePath = path.resolve(repoRoot, entry.path);
+      const relativeToDocs = normalizeSlashes(path.relative(config.docsDir, absolutePath));
+      return !!relativeToDocs && relativeToDocs !== '' && !relativeToDocs.startsWith('..');
+    });
+  const isDocsCommit =
+    !!normalizedDocsRepoRoot &&
+    normalizedDocsRepoRoot === normalizedRepoRoot &&
+    (config.docsRepo === 'standalone' || docsOnlyCommit);
+  const valid = isDocsCommit
+    ? matchesDocsCommitConvention(normalizedMessage, issueNumber)
+    : matchesProjectCommitConvention(normalizedMessage, issueNumber);
+  if (valid) {
+    return null;
+  }
+
+  const expected = isDocsCommit
+    ? `docs(#${issueNumber}): ...`
+    : `type(#${issueNumber}): ... (feat/fix/refactor/test/chore)`;
+  return {
+    path: '(commit message)',
+    kind: 'commit_message_policy',
+    detail: `Commit subject must follow the issue-scoped convention for this feature. Expected ${expected}, received "${normalizedMessage}".`,
+  };
 }
 
 function normalizeEntryName(value: string): string {

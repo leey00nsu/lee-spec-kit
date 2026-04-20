@@ -148,7 +148,7 @@ test('init appends lee-spec-kit managed block to existing AGENTS.md', async () =
       '--lang',
       'en',
       '--workflow',
-      'local',
+      'github',
       '--dir',
       './docs',
     ]);
@@ -173,7 +173,7 @@ test('init --non-interactive defaults to multi with app component', async () => 
       '--lang',
       'en',
       '--workflow',
-      'local',
+      'github',
       '--dir',
       './docs',
     ]);
@@ -230,7 +230,7 @@ test('idea creates an indexed idea document with canonical metadata', async () =
       '--lang',
       'en',
       '--workflow',
-      'local',
+      'github',
       '--dir',
       './docs',
     ]);
@@ -653,6 +653,10 @@ test('update --agents-md in standalone syncs workspace AGENTS without modifying 
 
     const projectAgentsPath = path.join(projectRoot, 'AGENTS.md');
     await fs.writeFile(projectAgentsPath, '# Project-owned instructions\n', 'utf-8');
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireWorktree = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
 
     const updateResult = await runCli(dir, ['update', '--agents-md', '--force']);
     assert.equal(updateResult.code, 0, updateResult.stderr || updateResult.stdout);
@@ -663,6 +667,8 @@ test('update --agents-md in standalone syncs workspace AGENTS without modifying 
     const workspaceAgents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8');
     assert.match(workspaceAgents, /<!-- lee-spec-kit:begin -->/);
     assert.equal(await pathExists(path.join(dir, 'docs', 'AGENTS.md')), false);
+    const updatedConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    assert.equal(updatedConfig.workflow.requireWorktree, true);
   });
 });
 
@@ -1311,6 +1317,60 @@ test('github issue default title uses overview summary instead of docs-update su
   });
 });
 
+test('github issue falls back to the generated summary title when ready issue.md still uses the bare slug', async () => {
+  await withTempDir('lsk-github-issue-ready-slug-fallback-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'daily-theme-hall-of-fame',
+      '--id',
+      'F013',
+      '--desc',
+      'Reflect daily winners in hall of fame',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const issueDocPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F013-daily-theme-hall-of-fame',
+      'issue.md'
+    );
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc = issueDoc.replace(/- \*\*(Status|상태)\*\*: .*/u, '- **Status**: Ready');
+    issueDoc = issueDoc.replace(/- \*\*(Title|제목)\*\*: .*/u, '- **Title**: daily-theme-hall-of-fame');
+    issueDoc = issueDoc.replace(/- \*\*(Labels|라벨)\*\*: .*/u, '- **Labels**: enhancement');
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const result = await runCli(
+      dir,
+      ['github', 'issue', 'F013-daily-theme-hall-of-fame', '--json']
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(
+      payload.title,
+      'daily-theme-hall-of-fame (Reflect daily winners in hall of fame)'
+    );
+  });
+});
+
 test('github pr default title includes feature ref instead of generic implementation-update suffix', async () => {
   await withTempDir('lsk-github-pr-default-title-feature-ref-', async (dir) => {
     const initResult = await runCli(dir, [
@@ -1459,6 +1519,158 @@ flowchart TD
     assert.doesNotMatch(log, /--title .*`/);
     assert.doesNotMatch(log, /--title .*\*\*/);
     assert.doesNotMatch(log, /--title .*\[PR\]\(/);
+  });
+});
+
+test('github pr --create keeps issue-scoped conventional title even when ready pr.md sets a custom title', async () => {
+  await withTempDir('lsk-github-pr-issue-title-convention-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    await fs.writeFile(
+      tasksPath,
+      /- \*\*(Issue|이슈)\*\*:\s*/.test(tasksContent)
+        ? tasksContent.replace(/^- \*\*(Issue|이슈)\*\*:\s*.*$/m, '- **Issue**: #123')
+        : tasksContent.replace(
+            '## Local Tracking\n',
+            '## Local Tracking\n- **Issue**: #123\n'
+          ),
+      'utf-8'
+    );
+
+    const prDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'pr.md');
+    const prDoc = `# PR Draft: alpha
+
+## Metadata
+
+- **Status**: Ready
+- **Title**: descriptive custom title that should be ignored
+- **Base**: main
+- **Created**: 2026-02-17
+
+## Overview
+
+Issue-linked PRs should keep the existing repo title convention.
+
+## Changes
+
+- [ ] convention preserved
+
+## Tests
+
+- [ ] regression covered
+
+## Architecture Diagram
+
+\`\`\`mermaid
+flowchart TD
+  A[Convention] --> B[Preserved]
+\`\`\`
+
+## Related Docs
+
+- Spec: \`docs/features/F001-alpha/spec.md\`
+- Tasks: \`docs/features/F001-alpha/tasks.md\`
+`;
+    await fs.writeFile(prDocPath, prDoc, 'utf-8');
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      ['github', 'pr', 'F001-alpha', '--create', '--confirm', 'OK', '--json'],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.title, 'feat(#123): alpha (F001-alpha implementation)');
+
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(log, /--title feat\(#123\): alpha \(F001-alpha implementation\)/);
+    assert.doesNotMatch(log, /descriptive custom title that should be ignored/);
+
+    const afterPrDoc = await fs.readFile(prDocPath, 'utf-8');
+    assert.match(afterPrDoc, /- \*\*Title\*\*: feat\(#123\): alpha \(F001-alpha implementation\)/);
+  });
+});
+
+test('github pr --create blocks explicit non-conventional title when issue is linked', async () => {
+  await withTempDir('lsk-github-pr-explicit-title-block-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    const tasksContent = await fs.readFile(tasksPath, 'utf-8');
+    await fs.writeFile(
+      tasksPath,
+      /- \*\*(Issue|이슈)\*\*:\s*/.test(tasksContent)
+        ? tasksContent.replace(/^- \*\*(Issue|이슈)\*\*:\s*.*$/m, '- **Issue**: #123')
+        : tasksContent.replace(
+            '## Local Tracking\n',
+            '## Local Tracking\n- **Issue**: #123\n'
+          ),
+      'utf-8'
+    );
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      dir,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--title',
+        'custom descriptive title',
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
+    assert.match(payload.error, /PR title must follow the existing convention/);
+    const log = await fs.readFile(fakeGh.logPath, 'utf-8');
+    assert.match(log, /issue view 123 --json number,state/);
+    assert.doesNotMatch(log, /pr create/);
   });
 });
 
@@ -2151,7 +2363,7 @@ flowchart TD
     const prPayload = JSON.parse(prCreateResult.stdout.trim());
     assert.equal(prPayload.status, 'ok');
     assert.equal(prPayload.reasonCode, 'PR_CREATED_SYNCED');
-    assert.equal(prPayload.title, 'ready pr.md with coded close keyword');
+    assert.equal(prPayload.title, 'feat(#123): alpha (F001-alpha implementation)');
     assert.match(prPayload.body, /\nCloses #123\n$/);
 
     const normalizedBody = await fs.readFile(prPayload.bodyFile, 'utf-8');
@@ -2773,8 +2985,8 @@ test('github pr --merge treats already-merged remote state as success', async ()
   });
 });
 
-test('github pr --merge keeps success when post-merge checkout fails', async () => {
-  await withTempDir('lsk-github-pr-merge-post-sync-warning-', async (dir) => {
+test('github pr --merge leaves post-merge cleanup to the workflow cleanup stage', async () => {
+  await withTempDir('lsk-github-pr-merge-cleanup-stage-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
       '--non-interactive',
@@ -2817,9 +3029,7 @@ test('github pr --merge keeps success when post-merge checkout fails', async () 
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.merged, true);
-    assert.equal(Array.isArray(payload.postMergeWarnings), true);
-    assert.equal(payload.postMergeWarnings.length > 0, true);
-    assert.match(payload.postMergeWarnings[0], /checkout/i);
+    assert.equal(payload.postMergeWarnings, undefined);
 
     const after = await fs.readFile(tasksPath, 'utf-8');
     assert.match(after, /- \*\*PR Status\*\*: Approved/);

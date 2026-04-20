@@ -205,6 +205,21 @@ export function sanitizeDraftTitleValue(
   return normalized || undefined;
 }
 
+export function isPlaceholderWorkflowDraftTitle(
+  raw: string | undefined,
+  feature: { slug: string; folderName?: string }
+): boolean {
+  const normalized = sanitizeDraftTitleValue(raw);
+  if (!normalized) return true;
+  const lowered = normalized.trim().toLowerCase();
+  const placeholders = new Set(
+    [feature.slug, feature.folderName]
+      .map((value) => (value || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+  return placeholders.has(lowered);
+}
+
 export function parseWorkflowDraftStatus(
   raw: string | undefined
 ): 'draft' | 'ready' | undefined {
@@ -1247,8 +1262,54 @@ export function truncateIssueTitleSummary(
   input: string,
   maxLength = 72
 ): string {
-  if (input.length <= maxLength) return input;
-  return `${input.slice(0, maxLength - 3).trimEnd()}...`;
+  const normalized = input.trim().replace(/\s+/g, ' ');
+  if (normalized.length <= maxLength) return normalized;
+
+  const stripTrailingPunctuation = (value: string): string =>
+    value.trim().replace(/[.!?。]+$/u, '').trim();
+  const rewriteVerboseEnding = (value: string): string =>
+    stripTrailingPunctuation(value)
+      .replace(/공통화하고/gu, '공통화와')
+      .replace(/줄인다$/u, '감소')
+      .replace(/강화한다$/u, '강화')
+      .replace(/개선한다$/u, '개선')
+      .replace(/복구한다$/u, '복구')
+      .replace(/정리한다$/u, '정리')
+      .replace(/도입한다$/u, '도입')
+      .replace(/구현한다$/u, '구현');
+  const addCandidate = (bucket: string[], seen: Set<string>, value: string) => {
+    const cleaned = stripTrailingPunctuation(value);
+    if (!cleaned || seen.has(cleaned)) return;
+    seen.add(cleaned);
+    bucket.push(cleaned);
+  };
+
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  addCandidate(candidates, seen, normalized);
+
+  const commaStripped = normalized.replace(/^[^,，]+[,，]\s*/u, '');
+  addCandidate(candidates, seen, commaStripped);
+
+  const purposeLeadStripped = normalized.replace(/^.+?(?:하도록|하기 위해),\s*/u, '');
+  addCandidate(candidates, seen, purposeLeadStripped);
+
+  for (const base of [...candidates]) {
+    addCandidate(candidates, seen, rewriteVerboseEnding(base));
+  }
+
+  for (const base of [...candidates]) {
+    for (const part of base.split(/[,:;，；]/u)) {
+      addCandidate(candidates, seen, part);
+    }
+  }
+
+  const fitting = candidates.filter((candidate) => candidate.length <= maxLength);
+  if (fitting.length > 0) {
+    return fitting.sort((left, right) => right.length - left.length)[0];
+  }
+
+  return stripTrailingPunctuation(normalized.slice(0, maxLength));
 }
 
 export function resolveIssueTitleSummary(
@@ -1819,7 +1880,8 @@ export function syncTasksIssueMetadata(
 
 export function syncIssueDraftMetadata(
   issueDocPath: string,
-  issueNumber: string
+  issueNumber: string,
+  title?: string
 ): { changed: boolean; path: string } {
   if (!fs.existsSync(issueDocPath)) {
     return { changed: false, path: issueDocPath };
@@ -1841,6 +1903,17 @@ export function syncIssueDraftMetadata(
     const inserted = insertFieldInMetadataSection(next, 'Issue', issueValue);
     next = inserted.content;
     changed = changed || inserted.changed;
+  }
+
+  const normalizedTitle = sanitizeDraftTitleValue(title);
+  if (normalizedTitle) {
+    const titleReplaced = replaceListField(
+      next,
+      ['Title', '제목'],
+      normalizedTitle
+    );
+    next = titleReplaced.content;
+    changed = changed || titleReplaced.changed;
   }
 
   if (changed) {
@@ -1902,7 +1975,8 @@ export function syncTasksPrMetadata(
 export function syncPrDraftMetadata(
   prDocPath: string,
   prUrl: string,
-  nextStatus: 'Review' | 'Approved'
+  nextStatus: 'Review' | 'Approved',
+  title?: string
 ): { changed: boolean; path: string } {
   if (!fs.existsSync(prDocPath)) {
     return { changed: false, path: prDocPath };
@@ -1932,6 +2006,18 @@ export function syncPrDraftMetadata(
     const inserted = insertFieldInMetadataSection(next, 'PR Status', nextStatus);
     next = inserted.content;
     changed = changed || inserted.changed;
+  }
+
+  const normalizedTitle = sanitizeDraftTitleValue(title);
+  if (normalizedTitle) {
+    const titleReplaced = replaceListField(next, ['Title', '제목'], normalizedTitle);
+    next = titleReplaced.content;
+    changed = changed || titleReplaced.changed;
+    if (!titleReplaced.found) {
+      const inserted = insertFieldInMetadataSection(next, 'Title', normalizedTitle);
+      next = inserted.content;
+      changed = changed || inserted.changed;
+    }
   }
 
   if (changed) {

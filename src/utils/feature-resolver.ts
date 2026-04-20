@@ -6,6 +6,7 @@ import { getConfig } from './config.js';
 import { createCliError } from './cli-error.js';
 import { runGitCapture } from './git-run.js';
 import {
+  resolveManagedWorktreePath,
   resolveConfiguredStandaloneWorkspaceRoot,
   resolveGitTopLevelOrNull,
   resolveStandaloneProjectRoots,
@@ -88,6 +89,34 @@ function resolveProjectGitCwd(
   return resolveGitTopLevelOrNull(cwd) || resolveGitTopLevelOrNull(config.docsDir) || cwd;
 }
 
+function resolveProjectRootFromGitCwd(projectGitCwd: string): string {
+  return resolveGitTopLevelOrNull(projectGitCwd) || path.resolve(projectGitCwd);
+}
+
+async function resolveExistingManagedWorktreePath(
+  config: ProjectConfig,
+  projectGitCwd: string,
+  issueNumber: number,
+  slug: string,
+  folderName: string
+): Promise<string | null> {
+  const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
+  const candidates = [
+    `feat/${issueNumber}-${slug}`,
+    `feat/${issueNumber}-${folderName}`,
+  ].map((branchName) =>
+    resolveManagedWorktreePath(config, projectRoot, branchName)
+  );
+
+  for (const candidate of candidates) {
+    if (await fs.pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function toFeaturePathFromDocs(
   projectType: 'single' | 'multi',
   component: string,
@@ -128,6 +157,18 @@ async function listResolvedFeatures(
         ref.folderName
       );
       const featureDir = path.join(config.docsDir, featurePathFromDocs);
+      const issueNumber = await extractIssueNumber(featureDir);
+      const projectGitCwdBase = resolveProjectGitCwd(cwd, config, type);
+      const worktreeProjectGitCwd =
+        config.docsRepo === 'standalone' && issueNumber
+          ? await resolveExistingManagedWorktreePath(
+              config,
+              projectGitCwdBase,
+              issueNumber,
+              ref.slug,
+              ref.folderName
+            )
+          : null;
       return {
         id: ref.id || ref.folderName.split('-')[0] || '',
         slug: ref.slug,
@@ -139,9 +180,9 @@ async function listResolvedFeatures(
         },
         git: {
           docsGitCwd: config.docsDir,
-          projectGitCwd: resolveProjectGitCwd(cwd, config, type),
+          projectGitCwd: worktreeProjectGitCwd || projectGitCwdBase,
         },
-        issueNumber: await extractIssueNumber(featureDir),
+        issueNumber,
       } satisfies ResolvedFeature;
     })
   );

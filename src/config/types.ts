@@ -52,7 +52,7 @@ export interface ProjectConfig {
     };
   };
   approval?: {
-    mode?: 'steps' | 'category';
+    mode?: 'steps' | 'category' | 'builtin';
     requireCheckSteps?: number[];
     default?: 'keep' | 'require' | 'skip';
     requireCheckCategories?: string[];

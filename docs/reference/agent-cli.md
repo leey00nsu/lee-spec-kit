@@ -50,6 +50,11 @@ Machine-readable high-level stage resolver.
 npx lee-spec-kit workflow-stage <featureRef> --json
 ```
 
+Approval note:
+- When `workflow-stage --json` returns `primaryActionLabel` together with `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
+- Local approval checkpoints typically use reply tokens like `A` and `B`.
+- Remote execution checkpoints typically use reply tokens like `A OK` and `B`.
+
 ### `commit-audit`
 
 Commit-time docs path validator for Codex hooks.
@@ -66,6 +71,8 @@ npx lee-spec-kit commit-audit --json
 - Approval: ask only at documented workflow checkpoints or before remote/destructive actions
 - Commit guard: block `git commit` when staged docs paths fall outside the canonical docs surface or feature-local file set
 - Standalone workspace mode: when `docsRepo === "standalone"`, both `workspaceRoot` and `projectRoot` are required; `workspaceRoot` is the shared root above `docs/` and the code repo(s), and `.codex/` plus managed `AGENTS.md` stay on the workspace/docs side instead of the project repo
+- Standalone branch policy: keep the docs repo on its docs branch and never create feature branches or worktrees there
+- Standalone execution policy: use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project root
 - Docs sync proof: after syncing code back into the active feature docs, refresh a marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in `tasks.md`, `decisions.md`, or another active-feature canonical doc so `workflow-audit` can verify the sync happened after the latest code change
 
 ## Important Rule

@@ -167,6 +167,14 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
       \`Approval required: \${stageResult.data.approvalRequired ? 'yes' : 'no'}\`,
       \`Implementation allowed: \${stageResult.data.implementationAllowed ? 'yes' : 'no'}\`
     );
+    if (stageResult.data.primaryActionLabel && Array.isArray(stageResult.data.actionOptions)) {
+      lines.push(
+        \`Primary reply label: \${stageResult.data.primaryActionLabel}\`,
+        ...stageResult.data.actionOptions.map(
+          (option) => \`Option \${option.label} -> reply \${option.reply}: \${option.summary}\`
+        )
+      );
+    }
   } else if (stageResult.ok && stageResult.data?.status === 'error') {
     lines.push(
       \`Workflow stage is unresolved: \${stageResult.data.reasonCode}\`,
@@ -205,6 +213,14 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
       \`Implementation allowed: \${stageResult.data.implementationAllowed ? 'yes' : 'no'}\`,
       'Do not jump ahead of the reported nextAction.'
     );
+    if (stageResult.data.primaryActionLabel && Array.isArray(stageResult.data.actionOptions)) {
+      lines.push(
+        'If labeled action options are present, keep the option labels but ask the user to reply with the exact reply token shown for that option.',
+        ...stageResult.data.actionOptions.map(
+          (option) => \`Option \${option.label} -> reply \${option.reply}: \${option.summary}\`
+        )
+      );
+    }
   } else if (stageResult.ok && stageResult.data?.status === 'error') {
     lines.push(
       \`Workflow stage is unresolved: \${stageResult.data.reasonCode}\`,
@@ -219,6 +235,14 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
 import { printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+
+function normalizeResolvedPath(value) {
+  try {
+    return fs.realpathSync.native(value);
+  } catch {
+    return path.resolve(value);
+  }
+}
 
 const inputResult = readHookInput();
 if (!inputResult.ok) {
@@ -615,6 +639,46 @@ function getGitCommandCwd(value, baseCwd) {
   return currentCwd;
 }
 
+function getGitCommitMessage(value) {
+  const unwrappedValue = unwrapShellCommand(value);
+  const tokens = tokenizeShellCommand(unwrappedValue);
+  const gitIndex = tokens.findIndex(
+    (token) => normalizeExecutableToken(token) === 'git'
+  );
+  if (gitIndex === -1) return null;
+
+  let sawCommit = false;
+  for (let index = gitIndex + 1; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (!token) continue;
+    if (token === '--') break;
+
+    if (!sawCommit) {
+      if (token === 'commit') {
+        sawCommit = true;
+        continue;
+      }
+      if (token.startsWith('-')) {
+        if (GIT_OPTIONS_WITH_VALUE.has(token) && index + 1 < tokens.length) {
+          index += 1;
+        }
+        continue;
+      }
+      break;
+    }
+
+    if (token === '-m' || token === '--message') {
+      return index + 1 < tokens.length ? tokens[index + 1] : null;
+    }
+  }
+
+  return null;
+}
+
+function normalizeCommandText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
 function hasUnsupportedGitTargetOptions(value) {
   const unwrappedValue = unwrapShellCommand(value);
   const tokens = tokenizeShellCommand(unwrappedValue);
@@ -651,6 +715,7 @@ const isGitCommit = gitSubcommand === 'commit';
 const isGitPush = gitSubcommand === 'push';
 const isGitCheckout = gitSubcommand === 'checkout';
 const isGitSwitch = gitSubcommand === 'switch';
+const isGitWorktree = gitSubcommand === 'worktree';
 const isGitRestore = gitSubcommand === 'restore';
 const isGitClean = gitSubcommand === 'clean';
 const isGitRebase = gitSubcommand === 'rebase';
@@ -682,6 +747,8 @@ const isDangerousGhCommand =
 const isGitCreateBranch =
   (isGitCheckout && /(^|\\s)-b(\\s|$)/.test(normalizedCommand)) ||
   (isGitSwitch && /(^|\\s)(?:-c|--create)(\\s|$)/.test(normalizedCommand));
+const isGitWorktreeAdd =
+  isGitWorktree && /(^|\\s)add(\\s|$)/.test(normalizedCommand);
 const isLeeSpecKitIssueCreate =
   /\\blee-spec-kit\\b[\\s\\S]{0,120}\\bgithub\\s+issue\\b[\\s\\S]{0,160}\\b--create\\b/i.test(command);
 const isLeeSpecKitPrCreate =
@@ -697,6 +764,8 @@ const isGhPrMerge =
 let stageBoundAction = null;
 if (isGitCreateBranch) {
   stageBoundAction = 'branch_create';
+} else if (isGitWorktreeAdd) {
+  stageBoundAction = 'branch_create';
 } else if (isGhIssueCreate || isLeeSpecKitIssueCreate) {
   stageBoundAction = 'issue_create';
 } else if (isGhPrCreate || isLeeSpecKitPrCreate) {
@@ -711,6 +780,7 @@ const isDangerousCommand =
   isGitPush ||
   isGitCheckout ||
   isGitSwitch ||
+  isGitWorktree ||
   isGitRestore ||
   isGitClean ||
   isGitRebase ||
@@ -755,18 +825,45 @@ if (!(detected?.status === 'ok' && detected?.isLeeSpecKitProject === true)) {
   process.exit(0);
 }
 
-if (stageBoundAction) {
+const docsDir = typeof detected?.docsDir === 'string' ? detected.docsDir : '';
+const gitTargetIsDocsRepo =
+  !!docsDir &&
+  normalizeResolvedPath(gitCommandCwd) === normalizeResolvedPath(docsDir);
+
+if (
+  gitTargetIsDocsRepo &&
+  (isGitCheckout ||
+    isGitSwitch ||
+    isGitCreateBranch ||
+    isGitWorktreeAdd ||
+    gitSubcommand === 'branch')
+) {
+  printBlock('Standalone docs repos stay on their docs branch and must not be switched into feature branches or worktrees.');
+  process.exit(0);
+}
+
+let stage = null;
+const isPotentialMergeCleanupCommand =
+  !stageBoundAction &&
+  !isGitCommit &&
+  path.resolve(gitCommandCwd) !== path.resolve(cwd) &&
+  (
+    command.includes('worktree remove') ||
+    command.includes('branch -D') ||
+    command.includes('push origin --delete')
+  );
+if (stageBoundAction || isPotentialMergeCleanupCommand) {
   const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
   if (!stageResult.ok) {
     printBlock('lee-spec-kit workflow-stage failed inside the Codex hook. Resolve the workflow stage before running this stage-bound command.');
     process.exit(0);
   }
-  const stage = stageResult.data;
+  stage = stageResult.data;
   if (stage?.status !== 'ok') {
     printBlock('Resolve feature selection and workflow stage before running this stage-bound command.');
     process.exit(0);
   }
-  if (stage?.nextAction?.category !== stageBoundAction) {
+  if (stageBoundAction && stage?.nextAction?.category !== stageBoundAction) {
     printBlock(
       \`Current workflow stage is \${stage?.stage || 'unknown'} and only \${stage?.nextAction?.category || 'the current nextAction'} is allowed next. Do not jump ahead to \${stageBoundAction}.\`
     );
@@ -774,16 +871,27 @@ if (stageBoundAction) {
   }
 }
 
-if (path.resolve(gitCommandCwd) !== path.resolve(cwd) && !isGitCommit) {
+const isExactMergeCleanupCommand =
+  stage?.nextAction?.category === 'merge_cleanup' &&
+  normalizeCommandText(stage?.nextAction?.command) === normalizeCommandText(command);
+
+if (
+  path.resolve(gitCommandCwd) !== path.resolve(cwd) &&
+  !isGitCommit &&
+  !isExactMergeCleanupCommand &&
+  !(stageBoundAction === 'branch_create' && (isGitCreateBranch || isGitWorktreeAdd))
+) {
   printBlock('Git commands targeting another repo via -C are only supported for git commit. Re-run the command from the target repo root instead.');
   process.exit(0);
 }
 
 if (isGitCommit) {
-  const commitAuditResult = runLeeSpecKitJson(
-    ['commit-audit', '--json', '--git-root', gitCommandCwd],
-    cwd
-  );
+  const commitAuditArgs = ['commit-audit', '--json', '--git-root', gitCommandCwd];
+  const commitMessage = getGitCommitMessage(command);
+  if (commitMessage) {
+    commitAuditArgs.push('--message', commitMessage);
+  }
+  const commitAuditResult = runLeeSpecKitJson(commitAuditArgs, cwd);
   if (!commitAuditResult.ok) {
     printBlock('lee-spec-kit commit-audit failed inside the Codex hook. Resolve the docs guardrail failure before committing.');
     process.exit(0);

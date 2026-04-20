@@ -112,6 +112,8 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
     );
     assert.match(preToolScript, /commit-audit', '--json/);
     assert.match(preToolScript, /getGitSubcommand/);
+    assert.match(preToolScript, /getGitCommitMessage/);
+    assert.match(preToolScript, /--message/);
   });
 });
 
@@ -912,6 +914,57 @@ test('generated pre-tool hook blocks docs-repo commit from workspace root in sta
   });
 });
 
+test('generated pre-tool hook blocks docs-repo branch or worktree commands in standalone mode', async () => {
+  await withTempDir('lsk-codex-hook-pre-tool-standalone-docs-branch-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+
+    const hookResult = await runCommand(
+      dir,
+      process.execPath,
+      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+      {
+        input: JSON.stringify({
+          cwd: dir,
+          tool_input: {
+            command: 'git -C docs checkout -b feat/123-alpha',
+          },
+        }),
+      }
+    );
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    const payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.decision, 'block');
+    assert.match(payload.reason, /docs repos stay on their docs branch/i);
+  });
+});
+
 test('generated pre-tool hook blocks project commit from workspace root when standalone docs are not synced', async () => {
   await withTempDir('lsk-codex-hook-pre-tool-standalone-project-', async (dir) => {
     const projectRoot = path.join(dir, 'project');
@@ -1025,6 +1078,50 @@ test('generated pre-tool hook blocks dangerous git -C commands unless they are c
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
     assert.match(payload.reason, /targeting another repo via -C are only supported for git commit/i);
+  });
+});
+
+test('generated pre-tool hook allows the exact merge_cleanup command returned by workflow-stage', async () => {
+  await withTempDir('lsk-codex-hook-pre-tool-merge-cleanup-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+
+    const preToolScript = await fs.readFile(
+      path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs'),
+      'utf-8'
+    );
+    assert.match(preToolScript, /isExactMergeCleanupCommand/);
+    assert.match(preToolScript, /stage\?\.nextAction\?\.category === 'merge_cleanup'/);
+    assert.match(preToolScript, /normalizeCommandText\(stage\?\.nextAction\?\.command\) === normalizeCommandText\(command\)/);
   });
 });
 

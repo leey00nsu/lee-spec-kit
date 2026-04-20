@@ -46,7 +46,9 @@ function isLegacyGeneratedApprovalConfig(
   approval: Record<string, unknown>
 ): boolean {
   const mode = typeof approval.mode === 'string' ? approval.mode : '';
-  if (mode && mode !== 'category' && mode !== 'steps') return false;
+  if (mode && mode !== 'category' && mode !== 'steps' && mode !== 'builtin') {
+    return false;
+  }
 
   const overrideKeys = [
     'default',
@@ -374,7 +376,16 @@ async function backfillMissingConfigDefaults(
   const inferredPreset = workflow.mode === 'local' ? 'local' : 'github';
   setIfMissing(workflow, 'preset', inferredPreset, 'workflow.preset');
   setIfMissing(workflow, 'mode', 'github', 'workflow.mode');
-  setIfMissing(workflow, 'requireWorktree', false, 'workflow.requireWorktree');
+  setIfMissing(
+    workflow,
+    'requireWorktree',
+    raw.docsRepo === 'standalone',
+    'workflow.requireWorktree'
+  );
+  if (raw.docsRepo === 'standalone' && workflow.requireWorktree !== true) {
+    workflow.requireWorktree = true;
+    changedPaths.push('workflow.requireWorktree');
+  }
   setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');
   setIfMissing(workflow, 'taskCommitGate', 'warn', 'workflow.taskCommitGate');
   if (!isPlainObject(workflow.auto)) {

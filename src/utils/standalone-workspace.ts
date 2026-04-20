@@ -148,3 +148,50 @@ export function resolveGitTopLevelOrNull(cwd: string): string | null {
 export function resolveGitTopLevelOrSelf(cwd: string): string {
   return resolveGitTopLevelOrNull(cwd) || path.resolve(cwd);
 }
+
+export function normalizeBranchNameForWorktree(branchName: string): string {
+  return branchName.trim().replace(/[\\/]/g, '-');
+}
+
+export function resolveStandaloneManagedWorktreeRoot(
+  config: Pick<ProjectConfig, 'docsRepo' | 'docsDir' | 'workspaceRoot' | 'projectRoot'>,
+  projectRoot: string
+): string | null {
+  if (config.docsRepo !== 'standalone') return null;
+  const workspaceRoot = resolveConfiguredStandaloneWorkspaceRoot(config);
+  if (!workspaceRoot) return null;
+  return path.resolve(
+    workspaceRoot,
+    '.worktrees',
+    path.basename(path.resolve(projectRoot))
+  );
+}
+
+export function resolveManagedWorktreePath(
+  config: Pick<ProjectConfig, 'docsRepo' | 'docsDir' | 'workspaceRoot' | 'projectRoot'>,
+  projectRoot: string,
+  branchName: string
+): string {
+  const standaloneRoot = resolveStandaloneManagedWorktreeRoot(config, projectRoot);
+  if (standaloneRoot) {
+    return path.resolve(
+      standaloneRoot,
+      normalizeBranchNameForWorktree(branchName)
+    );
+  }
+
+  return path.resolve(
+    path.resolve(projectRoot),
+    '.worktrees',
+    normalizeBranchNameForWorktree(branchName)
+  );
+}
+
+export function buildManagedWorktreeEnvLinkCommand(
+  projectRoot: string,
+  worktreePath: string
+): string {
+  const sourceEnvPath = path.resolve(projectRoot, '.env');
+  const targetEnvPath = path.resolve(worktreePath, '.env');
+  return `if [ -f "${sourceEnvPath}" ] && [ ! -e "${targetEnvPath}" ] && [ ! -L "${targetEnvPath}" ]; then ln -s "${sourceEnvPath}" "${targetEnvPath}"; fi`;
+}

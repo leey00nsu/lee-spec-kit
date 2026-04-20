@@ -2,6 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   fs,
+  normalizePathForCompare,
   path,
   runCli,
   runCommand,
@@ -13,6 +14,8 @@ async function initRepo(dir, options = {}) {
   const { lang = 'en', workflow = 'github' } = options;
   const gitInit = await runCommand(dir, 'git', ['init']);
   assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+  const gitMain = await runCommand(dir, 'git', ['branch', '-M', 'main']);
+  assert.equal(gitMain.code, 0, gitMain.stderr || gitMain.stdout);
   const gitUserName = await runCommand(dir, 'git', ['config', 'user.name', 'Test User']);
   assert.equal(gitUserName.code, 0, gitUserName.stderr || gitUserName.stdout);
   const gitUserEmail = await runCommand(dir, 'git', ['config', 'user.email', 'test@example.com']);
@@ -47,6 +50,62 @@ async function initRepo(dir, options = {}) {
   assert.equal(commitAll.code, 0, commitAll.stderr || commitAll.stdout);
   const commitResult = await runCommand(dir, 'git', ['commit', '-m', 'baseline']);
   assert.equal(commitResult.code, 0, commitResult.stderr || commitResult.stdout);
+}
+
+async function initStandaloneRepo(dir, options = {}) {
+  const { lang = 'en', workflow = 'github' } = options;
+  const projectRoot = path.join(dir, 'project');
+  await fs.mkdir(projectRoot, { recursive: true });
+
+  const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+  assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+  const projectMain = await runCommand(projectRoot, 'git', ['branch', '-M', 'main']);
+  assert.equal(projectMain.code, 0, projectMain.stderr || projectMain.stdout);
+  const gitUserName = await runCommand(projectRoot, 'git', ['config', 'user.name', 'Test User']);
+  assert.equal(gitUserName.code, 0, gitUserName.stderr || gitUserName.stdout);
+  const gitUserEmail = await runCommand(projectRoot, 'git', ['config', 'user.email', 'test@example.com']);
+  assert.equal(gitUserEmail.code, 0, gitUserEmail.stderr || gitUserEmail.stdout);
+  await fs.writeFile(path.join(projectRoot, 'README.md'), '# project\n', 'utf-8');
+  const projectAdd = await runCommand(projectRoot, 'git', ['add', 'README.md']);
+  assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
+  const projectCommit = await runCommand(projectRoot, 'git', ['commit', '-m', 'baseline']);
+  assert.equal(projectCommit.code, 0, projectCommit.stderr || projectCommit.stdout);
+
+  const initResult = await runCli(dir, [
+    'init',
+    '--non-interactive',
+    '--name',
+    'demo',
+    '--type',
+    'single',
+    '--lang',
+    lang,
+    '--workflow',
+    workflow,
+    '--docs-repo',
+    'standalone',
+    '--project-root',
+    './project',
+    '--dir',
+    './docs',
+  ]);
+  assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+  const featureResult = await runCli(dir, [
+    'feature',
+    'alpha',
+    '--id',
+    'F001',
+    '--non-interactive',
+  ]);
+  assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+  const commitDocs = await runCommand(path.join(dir, 'docs'), 'git', ['add', '.']);
+  assert.equal(commitDocs.code, 0, commitDocs.stderr || commitDocs.stdout);
+  const commitDocsResult = await runCommand(path.join(dir, 'docs'), 'git', ['commit', '-m', 'baseline']);
+  assert.equal(commitDocsResult.code, 0, commitDocsResult.stderr || commitDocsResult.stdout);
+
+  return { projectRoot };
 }
 
 function featureDir(dir) {
@@ -164,6 +223,126 @@ async function readStage(dir, env = {}) {
   return JSON.parse(result.stdout.trim());
 }
 
+async function setupFakeReviewGhCli(dir, prViewPayload = {}) {
+  const binDir = path.join(dir, 'fake-review-bin');
+  const scriptPath = path.join(binDir, 'gh');
+  const cmdScriptPath = path.join(binDir, 'gh.cmd');
+  await fs.mkdir(binDir, { recursive: true });
+  await fs.writeFile(
+    scriptPath,
+    `#!/usr/bin/env node
+const args = process.argv.slice(2);
+const payload = ${JSON.stringify({
+      url: 'https://github.com/acme/repo/pull/77',
+      headRefName: 'feature-branch',
+      baseRefName: 'main',
+      state: 'OPEN',
+      mergedAt: null,
+      reviewDecision: '',
+      mergeStateStatus: 'CLEAN',
+      isDraft: false,
+      statusCheckRollup: [],
+      ...prViewPayload,
+    })};
+
+if (args[0] === 'pr' && args[1] === 'view') {
+  console.log(JSON.stringify(payload));
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'view') {
+  console.log(JSON.stringify({ number: 123, state: 'OPEN' }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+    'utf-8'
+  );
+  await fs.chmod(scriptPath, 0o755);
+  await fs.writeFile(
+    cmdScriptPath,
+    `@echo off\r\n"${process.execPath}" "%~dp0\\gh" %*\r\n`,
+    'utf-8'
+  );
+  return {
+    env: {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+    },
+  };
+}
+
+async function setupFailingPrViewGhCli(dir) {
+  const binDir = path.join(dir, 'fake-review-fail-bin');
+  const scriptPath = path.join(binDir, 'gh');
+  const cmdScriptPath = path.join(binDir, 'gh.cmd');
+  await fs.mkdir(binDir, { recursive: true });
+  await fs.writeFile(
+    scriptPath,
+    `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === 'pr' && args[1] === 'view') {
+  if (args.includes('url')) {
+    console.log(JSON.stringify({ url: 'https://github.com/acme/repo/pull/77' }));
+    process.exit(0);
+  }
+  process.stderr.write('remote unavailable\\n');
+  process.exit(1);
+}
+if (args[0] === 'issue' && args[1] === 'view') {
+  console.log(JSON.stringify({ number: 123, state: 'OPEN' }));
+  process.exit(0);
+}
+process.exit(0);
+`,
+    'utf-8'
+  );
+  await fs.chmod(scriptPath, 0o755);
+  await fs.writeFile(
+    cmdScriptPath,
+    `@echo off\r\n"${process.execPath}" "%~dp0\\gh" %*\r\n`,
+    'utf-8'
+  );
+  return {
+    env: {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
+    },
+  };
+}
+
+async function commitFeatureDocs(
+  dir,
+  message = 'docs: F001-alpha progress',
+  extraPaths = []
+) {
+  const add = await runCommand(dir, 'git', [
+    'add',
+    'docs/features/F001-alpha',
+    ...extraPaths,
+  ]);
+  assert.equal(add.code, 0, add.stderr || add.stdout);
+  const commit = await runCommand(dir, 'git', ['commit', '-m', message]);
+  assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+}
+
+async function commitTaskProject(
+  dir,
+  message = 'feat(#123): implement alpha shell',
+  fileName = 'alpha.ts'
+) {
+  const srcDir = path.join(dir, 'src');
+  await fs.mkdir(srcDir, { recursive: true });
+  const filePath = path.join(srcDir, fileName);
+  const stamp = `${Date.now()}`;
+  await fs.writeFile(
+    filePath,
+    `export const ${fileName.replace(/\.ts$/, '').replace(/[^a-zA-Z0-9_]/g, '_')} = ${JSON.stringify(stamp)};\n`,
+    'utf-8'
+  );
+  const add = await runCommand(dir, 'git', ['add', filePath]);
+  assert.equal(add.code, 0, add.stderr || add.stdout);
+  const commit = await runCommand(dir, 'git', ['commit', '-m', message]);
+  assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+}
+
 test('workflow-stage blocks implementation at the issue preparation stage after tasks are ready', async () => {
   await withTempDir('lsk-workflow-stage-issue-prepare-', async (dir) => {
     await initRepo(dir);
@@ -199,6 +378,12 @@ test('workflow-stage moves to spec_approve when spec.md is in review', async () 
     assert.equal(payload.stage, 'spec');
     assert.equal(payload.nextAction.category, 'spec_approve');
     assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].summary, /approve spec\.md/i);
     assert.equal(payload.blockedReasonCode, 'SPEC_NOT_APPROVED');
   });
 });
@@ -225,7 +410,7 @@ test('workflow-stage moves to plan_approve when plan.md is in review', async () 
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'plan');
     assert.equal(payload.nextAction.category, 'plan_approve');
-    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.approvalRequired, false);
     assert.equal(payload.blockedReasonCode, 'PLAN_NOT_APPROVED');
   });
 });
@@ -262,8 +447,42 @@ test('workflow-stage moves to tasks_approve when tasks.md is in review', async (
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'tasks');
     assert.equal(payload.nextAction.category, 'tasks_approve');
-    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.approvalRequired, false);
     assert.equal(payload.blockedReasonCode, 'TASKS_NOT_READY');
+  });
+});
+
+test('workflow-stage exposes local approval labels when tasks_approve is explicitly required', async () => {
+  await withTempDir('lsk-workflow-stage-tasks-approve-labeled-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Approved');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    await insertEnglishTaskBlock(tasksPath, 'TODO');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Review');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_approve', 'implementation_approve', 'tasks_approve'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'tasks');
+    assert.equal(payload.nextAction.category, 'tasks_approve');
+    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].summary, /approve tasks\.md/i);
   });
 });
 
@@ -272,10 +491,25 @@ test('workflow-stage keeps implementation blocked until the issue is actually cr
     await initRepo(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
 
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['issue_create'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'issue');
     assert.equal(payload.nextAction.category, 'issue_create');
     assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A OK'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].command || '', /github issue .* --create --confirm OK/);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'ISSUE_NOT_CREATED');
   });
@@ -306,6 +540,107 @@ test('workflow-stage allows implementation only after issue creation and expecte
   });
 });
 
+test('workflow-stage restores the task commit checkpoint before implementation approval', async () => {
+  await withTempDir('lsk-workflow-stage-task-commit-dirty-', async (dir) => {
+    const fakeGh = await setupFakeGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      ...(config.workflow || {}),
+      taskCommitGate: 'strict',
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'alpha.ts'), 'export const alpha = true;\n', 'utf-8');
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'task_commit');
+    assert.equal(payload.nextAction.category, 'task_commit');
+    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.implementationAllowed, false);
+    assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
+    assert.match(payload.nextAction.summary, /Finish the task-level commit checkpoint/i);
+    assert.match(payload.nextAction.summary, /docs\(#123\): F001-alpha/i);
+    assert.match(payload.nextAction.summary, /feat\(#123\): implement alpha shell/i);
+  });
+});
+
+test('workflow-stage blocks the next task when the latest task commit boundary is invalid in strict mode', async () => {
+  await withTempDir('lsk-workflow-stage-task-commit-strict-', async (dir) => {
+    const fakeGh = await setupFakeGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow = {
+      ...(config.workflow || {}),
+      taskCommitGate: 'strict',
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      `- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-04-16
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [x] add UI
+
+- [TODO][NON-PRD] T-F001-alpha-02 implement beta shell
+  - Date: 2026-04-16
+  - Acceptance:
+    - beta shell renders
+  - Checklist:
+    - [ ] add beta UI`
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트', [
+      'docs/.lee-spec-kit.json',
+    ]);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'alpha.ts'), 'export const alpha = true;\n', 'utf-8');
+    const addProject = await runCommand(dir, 'git', ['add', 'src/alpha.ts']);
+    assert.equal(addProject.code, 0, addProject.stderr || addProject.stdout);
+    const commitProject = await runCommand(dir, 'git', ['commit', '-m', 'feat(#123): unrelated topic']);
+    assert.equal(commitProject.code, 0, commitProject.stderr || commitProject.stdout);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'task_commit');
+    assert.equal(payload.nextAction.category, 'task_commit');
+    assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
+    assert.match(payload.nextAction.summary, /latest project commit subject does not match the just-finished task/i);
+  });
+});
+
 test('workflow-stage restores the GitHub branch gate before implementation', async () => {
   await withTempDir('lsk-workflow-stage-branch-gate-', async (dir) => {
     const fakeGh = await setupFakeGhCli(dir);
@@ -326,6 +661,98 @@ test('workflow-stage restores the GitHub branch gate before implementation', asy
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'BRANCH_NOT_READY');
+  });
+});
+
+test('workflow-stage uses managed worktree creation for standalone projects', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-worktree-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeGhCli(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const payload = await readStage(dir, fakeGh.env);
+    const normalizedProjectRoot = await normalizePathForCompare(projectRoot);
+    const normalizedWorkspaceRoot = await normalizePathForCompare(dir);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
+    assert.match(
+      payload.nextAction.command || '',
+      new RegExp(
+        `git -C \"${normalizedProjectRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\" worktree add \"${path.join(normalizedWorkspaceRoot, '.worktrees', path.basename(normalizedProjectRoot)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
+    );
+    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.implementationAllowed, false);
+  });
+});
+
+test('workflow-stage links the project .env into a new managed worktree by default', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-worktree-env-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeGhCli(dir);
+    await fs.writeFile(path.join(projectRoot, '.env'), 'DATABASE_URL=postgres://demo\n', 'utf-8');
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const payload = await readStage(dir, fakeGh.env);
+    const normalizedProjectRoot = await normalizePathForCompare(projectRoot);
+    const normalizedWorkspaceRoot = await normalizePathForCompare(dir);
+    const expectedWorktreePath = path.join(
+      normalizedWorkspaceRoot,
+      '.worktrees',
+      path.basename(normalizedProjectRoot),
+      'feat-123-alpha'
+    );
+    assert.match(
+      payload.nextAction.command || '',
+      new RegExp(
+        `ln -s \"${path.join(normalizedProjectRoot, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\" \"${path.join(expectedWorktreePath, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\"`
+      )
+    );
+  });
+});
+
+test('workflow-stage uses the standalone managed worktree once it exists', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-worktree-active-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeGhCli(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const worktreePath = path.join(dir, '.worktrees', path.basename(projectRoot), 'feat-123-alpha');
+    const addResult = await runCommand(
+      dir,
+      'git',
+      ['-C', projectRoot, 'worktree', 'add', '-b', 'feat/123-alpha', worktreePath],
+      fakeGh.env
+    );
+    assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'implementation');
+    assert.equal(payload.nextAction.category, 'task_execute');
+    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.implementationAllowed, true);
+    assert.equal(payload.blockedReasonCode, null);
   });
 });
 
@@ -367,11 +794,19 @@ test('workflow-stage restores implementation approval after all tasks are done',
 
     const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'implementation_approve');
     assert.equal(payload.nextAction.category, 'implementation_approve');
     assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].summary, /approve the completed implementation/i);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'IMPLEMENTATION_APPROVAL_REQUIRED');
   });
@@ -404,11 +839,29 @@ test('workflow-stage advances to PR creation only after pre-pr approval is recor
 
     const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['pr_create'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트', ['docs/.lee-spec-kit.json']);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'pr');
     assert.equal(payload.nextAction.category, 'pr_create');
     assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A OK'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].command || '', /github pr .* --create --confirm OK/);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'PR_NOT_CREATED');
   });
@@ -440,6 +893,8 @@ test('workflow-stage does not bypass the PR gate when tasks.md has a PR link but
 
     const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'pr');
@@ -477,6 +932,8 @@ test('workflow-stage restores the pre-pr review gate before PR preparation', asy
 
     const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'pre_pr_review');
@@ -489,7 +946,7 @@ test('workflow-stage restores the pre-pr review gate before PR preparation', asy
 
 test('workflow-stage advances to code review after PR creation but before final review approval', async () => {
   await withTempDir('lsk-workflow-stage-code-review-', async (dir) => {
-    const fakeGh = await setupFakeGhCli(dir);
+    const fakeGh = await setupFakeReviewGhCli(dir);
     await initRepo(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
 
@@ -523,19 +980,331 @@ test('workflow-stage advances to code review after PR creation but before final 
 
     const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'code_review');
     assert.equal(payload.nextAction.category, 'code_review');
-    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.approvalRequired, true);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'PR_REVIEW_NOT_APPROVED');
+    assert.equal(payload.reviewState, 'waiting_review');
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.equal(payload.actionOptions.length, 2);
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+    assert.match(payload.nextAction.summary, /review/i);
   });
 });
 
-test('workflow-stage advances to merge only after PR review approval is recorded', async () => {
-  await withTempDir('lsk-workflow-stage-merge-', async (dir) => {
-    const fakeGh = await setupFakeGhCli(dir);
+test('workflow-stage exposes review-fix label guidance when the remote PR has changes requested', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-changes-requested-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: 'CHANGES_REQUESTED',
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'changes_requested');
+    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.match(payload.nextAction.summary, /requested review changes/i);
+    assert.equal(payload.actionOptions[0].label, 'A');
+    assert.equal(payload.actionOptions[0].reply, 'A');
+    assert.match(payload.actionOptions[0].summary, /address/i);
+  });
+});
+
+test('workflow-stage distinguishes latest-head CodeRabbit rate limiting from generic waiting_review', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-rate-limited-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: '',
+      headRefOid: 'fb7b80916cd91ba05b28db6a4240eb9adfc5fd93',
+      latestReviews: [
+        {
+          author: { login: 'coderabbitai' },
+          state: 'COMMENTED',
+          submittedAt: '2026-04-17T09:11:15Z',
+          body: 'older commented review',
+        },
+      ],
+      comments: [
+        {
+          author: { login: 'coderabbitai' },
+          createdAt: '2026-04-17T09:19:03Z',
+          body: [
+            '<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->',
+            'Rate limit exceeded',
+            'Reviewing files that changed between a150b25304fa9c50dc9f7a4e7da6c4576f844dfa and fb7b80916cd91ba05b28db6a4240eb9adfc5fd93.',
+          ].join('\n'),
+        },
+      ],
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'review_rate_limited');
+    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.match(payload.nextAction.summary, /rate limit/i);
+    assert.match(payload.actionOptions[0].summary, /rate limit/i);
+  });
+});
+
+test('workflow-stage distinguishes stale older CodeRabbit reviews from a fresh review on the latest commit', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-stale-latest-review-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: '',
+      headRefOid: 'fb7b80916cd91ba05b28db6a4240eb9adfc5fd93',
+      latestReviews: [
+        {
+          author: { login: 'coderabbitai' },
+          state: 'COMMENTED',
+          submittedAt: '2026-04-17T09:11:15Z',
+          body: 'Reviewing files that changed from the base of the PR and between afe75e8c42c030125b1d52199b079690d56b78f8 and a150b25304fa9c50dc9f7a4e7da6c4576f844dfa.',
+        },
+      ],
+      comments: [],
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'review_pending_latest_commit');
+    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.match(payload.nextAction.summary, /latest PR commit/i);
+    assert.match(payload.actionOptions[0].summary, /latest commit/i);
+  });
+});
+
+test('workflow-stage exposes merge-handoff labels when the remote PR is approved but docs are not synced yet', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-approved-remote-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: 'APPROVED',
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'approved');
+    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.match(payload.nextAction.summary, /approved PR review state/i);
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].summary, /continue to the merge gate/i);
+  });
+});
+
+test('workflow-stage treats a successful CodeRabbit review check as approved review state even when reviewDecision is empty', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-coderabbit-success-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: '',
+      statusCheckRollup: [
+        {
+          __typename: 'StatusContext',
+          context: 'CodeRabbit',
+          state: 'SUCCESS',
+        },
+      ],
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'approved');
+    assert.equal(payload.approvalRequired, true);
+    assert.match(payload.nextAction.summary, /approved PR review state/i);
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+  });
+});
+
+test('workflow-stage does not skip to merge when stale docs say Approved but remote review requests changes', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-stale-approved-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: 'CHANGES_REQUESTED',
+    });
     await initRepo(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
 
@@ -569,12 +1338,399 @@ test('workflow-stage advances to merge only after PR review approval is recorded
 
     const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'changes_requested');
+    assert.equal(payload.nextAction.category, 'code_review');
+    assert.equal(payload.approvalRequired, true);
+  });
+});
+
+test('workflow-stage keeps draft PRs in code_review even when docs say Approved', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-draft-pr-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: 'APPROVED',
+      isDraft: true,
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Approved\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Approved');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'draft');
+    assert.equal(payload.approvalRequired, true);
+    assert.match(payload.nextAction.summary, /draft PR state/i);
+  });
+});
+
+test('workflow-stage keeps already-merged remote PRs in code_review until docs are synced', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-merged-remote-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      state: 'MERGED',
+      mergedAt: '2026-04-17T03:12:00Z',
+      reviewDecision: 'APPROVED',
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'merged');
+    assert.equal(payload.approvalRequired, true);
+    assert.match(payload.nextAction.summary, /already-merged PR state/i);
+  });
+});
+
+test('workflow-stage requires post-merge cleanup when the remote PR is already merged and docs are already synced', async () => {
+  await withTempDir('lsk-workflow-stage-done-merged-remote-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      headRefName: 'feat/123-alpha',
+      state: 'MERGED',
+      mergedAt: '2026-04-17T03:12:00Z',
+      reviewDecision: 'APPROVED',
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Approved\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Approved');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'cleanup');
+    assert.equal(payload.reviewState, 'merged');
+    assert.equal(payload.nextAction.category, 'merge_cleanup');
+    assert.match(payload.nextAction.summary, /post-merge cleanup/i);
+    assert.match(payload.nextAction.command, /branch -D "feat\/123-alpha"/);
+    assert.match(payload.nextAction.command, /checkout "main"/);
+    assert.equal(payload.approvalRequired, false);
+  });
+});
+
+test('workflow-stage reaches done only after merged PR cleanup is complete', async () => {
+  await withTempDir('lsk-workflow-stage-done-after-merged-cleanup-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      headRefName: 'feat/123-alpha',
+      state: 'MERGED',
+      mergedAt: '2026-04-17T03:12:00Z',
+      reviewDecision: 'APPROVED',
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Approved\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Approved');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const backToMain = await runCommand(dir, 'git', ['checkout', 'main']);
+    assert.equal(backToMain.code, 0, backToMain.stderr || backToMain.stdout);
+    const mergeFeature = await runCommand(dir, 'git', ['merge', '--ff-only', 'feat/123-alpha']);
+    assert.equal(mergeFeature.code, 0, mergeFeature.stderr || mergeFeature.stdout);
+    const deleteBranch = await runCommand(dir, 'git', ['branch', '-D', 'feat/123-alpha']);
+    assert.equal(deleteBranch.code, 0, deleteBranch.stderr || deleteBranch.stdout);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'done');
+    assert.equal(payload.reviewState, 'merged');
+    assert.equal(payload.nextAction, null);
+    assert.equal(payload.approvalRequired, false);
+  });
+});
+
+test('workflow-stage fails closed to code_review when remote PR review state cannot be verified', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-remote-unknown-', async (dir) => {
+    const fakeGh = await setupFailingPrViewGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Approved\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Approved');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'unknown');
+    assert.equal(payload.approvalRequired, true);
+  });
+});
+
+test('workflow-stage advances to merge only after PR review approval is recorded', async () => {
+  await withTempDir('lsk-workflow-stage-merge-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: 'APPROVED',
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Approved\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Approved');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'merge');
     assert.equal(payload.nextAction.category, 'pr_merge');
     assert.equal(payload.approvalRequired, true);
     assert.equal(payload.implementationAllowed, false);
+    assert.equal(payload.reviewState, 'approved');
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.equal(payload.actionOptions.length, 2);
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A OK'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].command || '', /--merge --confirm OK/);
+  });
+});
+
+test('workflow-stage respects explicit approval category overrides', async () => {
+  await withTempDir('lsk-workflow-stage-approval-override-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: ['spec_approve', 'implementation_approve', 'plan_approve'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'plan');
+    assert.equal(payload.nextAction.category, 'plan_approve');
+    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.primaryActionLabel, 'A');
+    assert.deepEqual(
+      payload.actionOptions.map((option) => [option.label, option.reply]),
+      [['A', 'A'], ['B', 'B']]
+    );
+    assert.match(payload.actionOptions[0].summary, /approve plan\.md/i);
+  });
+});
+
+test('workflow-stage treats legacy builtin approval mode like the old default auto policy', async () => {
+  await withTempDir('lsk-workflow-stage-builtin-approval-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = { mode: 'builtin' };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'plan');
+    assert.equal(payload.nextAction.category, 'plan_approve');
+    assert.equal(payload.approvalRequired, false);
+  });
+});
+
+test('workflow-stage defaults category approval configs without a default field to skip', async () => {
+  await withTempDir('lsk-workflow-stage-category-default-skip-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.approval = {
+      mode: 'category',
+      requireCheckCategories: ['spec_approve', 'implementation_approve'],
+    };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'plan');
+    assert.equal(payload.nextAction.category, 'plan_approve');
+    assert.equal(payload.approvalRequired, false);
   });
 });
 
@@ -688,6 +1844,10 @@ test('workflow-stage reaches done when merge is not required and the feature is 
     tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
     tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
     await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs: F001-alpha 문서 업데이트', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir, 'feat(F001-alpha): implement alpha shell');
 
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'done');

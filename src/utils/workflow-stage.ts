@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import type { ProjectConfig } from '../config/types.js';
-import { getConfig } from './config.js';
+import { createDefaultApprovalConfig, getConfig } from './config.js';
 import { createCliError } from './cli-error.js';
 import {
   getFeatureDocPaths,
@@ -10,6 +10,11 @@ import {
   type ResolvedFeature,
 } from './feature-resolver.js';
 import { runGitCapture } from './git-run.js';
+import {
+  buildManagedWorktreeEnvLinkCommand,
+  resolveManagedWorktreePath,
+  resolveStandaloneProjectRoots,
+} from './standalone-workspace.js';
 import {
   parseWorkflowDraftMetadata,
   type WorkflowDraftMetadata,
@@ -23,11 +28,13 @@ export type WorkflowStageId =
   | 'issue'
   | 'branch'
   | 'implementation'
+  | 'task_commit'
   | 'implementation_approve'
   | 'pre_pr_review'
   | 'pr'
   | 'code_review'
   | 'merge'
+  | 'cleanup'
   | 'done';
 
 export interface WorkflowStageAction {
@@ -42,14 +49,43 @@ export interface WorkflowStageAction {
     | 'issue_create'
     | 'branch_create'
     | 'task_execute'
+    | 'task_commit'
     | 'implementation_approve'
     | 'pre_pr_review'
     | 'pr_prepare'
     | 'pr_create'
     | 'code_review'
-    | 'pr_merge';
+    | 'pr_merge'
+    | 'merge_cleanup';
   summary: string;
   approvalRequired: boolean;
+  command: string | null;
+}
+
+export type WorkflowReviewState =
+  | 'waiting_review'
+  | 'review_pending_latest_commit'
+  | 'review_rate_limited'
+  | 'changes_requested'
+  | 'approved'
+  | 'draft'
+  | 'merged'
+  | 'merge_blocked'
+  | 'unknown';
+
+export interface WorkflowStageOption {
+  label: string;
+  reply: string;
+  category:
+    | 'approve_continue'
+    | 'request_changes'
+    | 'remote_execute'
+    | 'review_wait'
+    | 'review_fix'
+    | 'review_sync_approved'
+    | 'pr_merge'
+    | 'hold';
+  summary: string;
   command: string | null;
 }
 
@@ -66,22 +102,28 @@ export interface WorkflowStagePayload {
   nextAction: WorkflowStageAction | null;
   approvalRequired: boolean;
   implementationAllowed: boolean;
+  reviewState?: WorkflowReviewState;
+  primaryActionLabel?: string | null;
+  actionOptions?: WorkflowStageOption[];
   blockedReasonCode:
     | 'SPEC_NOT_APPROVED'
     | 'PLAN_NOT_APPROVED'
     | 'TASKS_NOT_READY'
     | 'ISSUE_NOT_CREATED'
     | 'BRANCH_NOT_READY'
+    | 'TASK_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
     | 'PRE_PR_REVIEW_NOT_APPROVED'
     | 'PR_NOT_CREATED'
     | 'PR_REVIEW_NOT_APPROVED'
+    | 'POST_MERGE_CLEANUP_REQUIRED'
     | null;
 }
 
 type WorkflowRequirements = {
   requireIssue: boolean;
   requireBranch: boolean;
+  requireWorktree: boolean;
   requirePr: boolean;
   requireReview: boolean;
   requireMerge: boolean;
@@ -119,6 +161,51 @@ type ParsedWorkflowDraft = WorkflowDraftMetadata & {
   prStatus: 'review' | 'approved' | null;
 };
 
+type TaskCommitGatePolicy = 'off' | 'warn' | 'strict';
+
+type TaskCommitGateCheck = {
+  pass: boolean;
+  reason?:
+    | 'DONE_TRANSITIONS_COUNT'
+    | 'NO_PROJECT_COMMIT'
+    | 'PROJECT_LOG_UNAVAILABLE'
+    | 'MISMATCH_LAST_DONE';
+  doneTransitions?: number;
+};
+
+type PostMergeCleanupState = {
+  complete: boolean;
+  projectRootGitCwd: string;
+  baseBranch: string;
+  headBranch: string | null;
+  worktreePath: string | null;
+  hasOriginRemote: boolean;
+  localBaseCheckedOut: boolean;
+  baseSyncedWithOrigin: boolean;
+  localFeatureBranchExists: boolean;
+  remoteFeatureBranchExists: boolean;
+  managedWorktreeExists: boolean;
+};
+
+const LEGACY_STEP_BY_ACTION: Partial<Record<WorkflowStageAction['category'], number>> = {
+  spec_write: 2,
+  spec_approve: 3,
+  plan_write: 4,
+  plan_approve: 5,
+  tasks_write: 6,
+  tasks_approve: 6,
+  issue_prepare: 8,
+  issue_create: 8,
+  branch_create: 9,
+  task_execute: 10,
+  implementation_approve: 10,
+  pre_pr_review: 12,
+  pr_prepare: 13,
+  pr_create: 13,
+  code_review: 14,
+  pr_merge: 14,
+};
+
 const DOC_STATUS_LABELS = ['Doc Status', '문서 상태'];
 const ISSUE_LABELS = ['Issue', 'Issue Number', '이슈', '이슈 번호'];
 const BRANCH_LABELS = ['Branch', '브랜치'];
@@ -135,6 +222,9 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
   return {
     requireIssue: workflow.requireIssue ?? !isLocalWorkflow,
     requireBranch: workflow.requireBranch ?? true,
+    requireWorktree: config.docsRepo === 'standalone'
+      ? true
+      : workflow.requireWorktree ?? false,
     requirePr: workflow.requirePr ?? !isLocalWorkflow,
     requireReview: workflow.requireReview ?? !isLocalWorkflow,
     requireMerge: workflow.requireMerge ?? !isLocalWorkflow,
@@ -286,6 +376,321 @@ function sanitizeMetadataValue(value: string | null): string | null {
   return trimmed;
 }
 
+function normalizeCommitTopicText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeTaskTopic(value: string): string {
+  return normalizeCommitTopicText(value).replace(/^T-[A-Za-z0-9-]+\s+/, '');
+}
+
+function normalizeCommitSubjectForGate(value: string): string {
+  return normalizeCommitTopicText(value)
+    .replace(/^[a-z]+(?:\([^)]*\))?!?:\s*/i, '')
+    .toLowerCase();
+}
+
+function toTaskKey(rawTitle: string): string {
+  const trimmed = normalizeCommitTopicText(rawTitle);
+  if (!trimmed) return '';
+  const idMatch = trimmed.match(/^(T-[A-Za-z0-9-]+)/i);
+  if (idMatch) return idMatch[1].toUpperCase();
+  return normalizeTaskTopic(trimmed).toLowerCase();
+}
+
+function normalizeGitRelativePath(value: string): string {
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function toRepoRelativePath(cwd: string, relativePathFromCwd: string): string {
+  const prefix = (runGitCapture(['rev-parse', '--show-prefix'], cwd) || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!prefix) return normalizeGitRelativePath(relativePathFromCwd);
+  return normalizeGitRelativePath(`${prefix}/${relativePathFromCwd}`);
+}
+
+function parseDoneTransitionsFromDiff(diff: string): number {
+  const removedByTask = new Map<
+    string,
+    Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>
+  >();
+  const addedByTask = new Map<
+    string,
+    Set<'TODO' | 'DOING' | 'DONE' | 'REVIEW'>
+  >();
+
+  const parseTaskDiffLine = (
+    line: string
+  ): { key: string; status: 'TODO' | 'DOING' | 'DONE' | 'REVIEW' } | null => {
+    const match = line.match(
+      /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\](?:\[[^\]]+\])*\s+(.+?)\s*$/i
+    );
+    if (!match) return null;
+    const key = toTaskKey(match[2]);
+    if (!key) return null;
+    return {
+      key,
+      status: match[1].toUpperCase() as 'TODO' | 'DOING' | 'DONE' | 'REVIEW',
+    };
+  };
+
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('---') || line.startsWith('+++')) continue;
+
+    if (line.startsWith('-')) {
+      const parsed = parseTaskDiffLine(line.slice(1));
+      if (!parsed) continue;
+      const existing = removedByTask.get(parsed.key) || new Set();
+      existing.add(parsed.status);
+      removedByTask.set(parsed.key, existing);
+      continue;
+    }
+
+    if (line.startsWith('+')) {
+      const parsed = parseTaskDiffLine(line.slice(1));
+      if (!parsed) continue;
+      const existing = addedByTask.get(parsed.key) || new Set();
+      existing.add(parsed.status);
+      addedByTask.set(parsed.key, existing);
+    }
+  }
+
+  let doneTransitions = 0;
+  for (const [taskKey, addedStatuses] of addedByTask.entries()) {
+    if (!addedStatuses.has('DONE')) continue;
+    const removedStatuses = removedByTask.get(taskKey);
+    if (!removedStatuses) continue;
+    if (
+      removedStatuses.has('TODO') ||
+      removedStatuses.has('DOING') ||
+      removedStatuses.has('REVIEW')
+    ) {
+      doneTransitions += 1;
+    }
+  }
+
+  return doneTransitions;
+}
+
+function parseDoneTaskTopicCounts(content: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const line of withoutFencedCodeBlocks(content)) {
+    const match = line.match(
+      /^\s*-\s*\[(DONE)\](?:\[[^\]]+\])*\s+(.+?)\s*$/i
+    );
+    if (!match) continue;
+    const topic = normalizeTaskTopic(match[2] || '');
+    if (!topic) continue;
+    counts.set(topic, (counts.get(topic) || 0) + 1);
+  }
+  return counts;
+}
+
+function countDoneTransitionsInLatestTasksCommit(
+  feature: ResolvedFeature
+): number | undefined {
+  const docsGitCwd = feature.git.docsGitCwd;
+  const tasksRelativePathFromDocs = normalizeGitRelativePath(
+    path.join(feature.docs.featurePathFromDocs, 'tasks.md')
+  );
+  const latestTasksCommit = (
+    runGitCapture(
+      ['rev-list', '-n', '1', 'HEAD', '--', tasksRelativePathFromDocs],
+      docsGitCwd
+    ) || ''
+  ).trim();
+  if (!latestTasksCommit) return undefined;
+
+  const repoTasksPath = toRepoRelativePath(docsGitCwd, tasksRelativePathFromDocs);
+  const currentContent = runGitCapture(
+    ['show', `${latestTasksCommit}:${repoTasksPath}`],
+    docsGitCwd
+  );
+  if (currentContent === undefined) return undefined;
+  const previousContent =
+    runGitCapture(['show', `${latestTasksCommit}^:${repoTasksPath}`], docsGitCwd) || '';
+  const currentDone = parseDoneTaskTopicCounts(currentContent);
+  const previousDone = parseDoneTaskTopicCounts(previousContent);
+
+  let doneTransitions = 0;
+  for (const [topic, currentCount] of currentDone.entries()) {
+    const previousCount = previousDone.get(topic) || 0;
+    if (currentCount > previousCount) {
+      doneTransitions += currentCount - previousCount;
+    }
+  }
+
+  return doneTransitions;
+}
+
+function countPendingDoneTransitions(
+  feature: ResolvedFeature
+): number | undefined {
+  const docsGitCwd = feature.git.docsGitCwd;
+  const tasksRelativePath = normalizeGitRelativePath(
+    path.join(feature.docs.featurePathFromDocs, 'tasks.md')
+  );
+  const diff =
+    runGitCapture(
+      ['diff', '--unified=0', '--no-color', 'HEAD', '--', tasksRelativePath],
+      docsGitCwd
+    ) || '';
+  if (!diff.trim()) return 0;
+  return parseDoneTransitionsFromDiff(diff);
+}
+
+function getLastDoneTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] | null {
+  for (let index = tasks.tasks.length - 1; index >= 0; index -= 1) {
+    if (tasks.tasks[index].status === 'DONE') return tasks.tasks[index];
+  }
+  return null;
+}
+
+function hasOpenTask(tasks: ParsedTasks): boolean {
+  return tasks.tasks.some(
+    (task) => task.status === 'DOING' || task.status === 'REVIEW'
+  );
+}
+
+function hasUncommittedChanges(gitCwd: string | null | undefined): boolean {
+  if (!gitCwd) return false;
+  const status =
+    runGitCapture(
+      ['status', '--porcelain', '--untracked-files=no'],
+      gitCwd
+    ) || '';
+  return status.trim().length > 0;
+}
+
+function resolveTaskCommitGatePolicy(config: ProjectConfig): TaskCommitGatePolicy {
+  const raw = config.workflow?.taskCommitGate;
+  return raw === 'off' || raw === 'strict' ? raw : 'warn';
+}
+
+function checkTaskCommitGate(
+  feature: ResolvedFeature,
+  effectiveProjectGitCwd: string,
+  lastDoneTask: ParsedTasks['tasks'][number] | null
+): TaskCommitGateCheck {
+  const doneTransitions = countDoneTransitionsInLatestTasksCommit(feature);
+  if (doneTransitions === 0) {
+    return { pass: true, doneTransitions };
+  }
+  if (typeof doneTransitions === 'number' && doneTransitions > 1) {
+    return {
+      pass: false,
+      reason: 'DONE_TRANSITIONS_COUNT',
+      doneTransitions,
+    };
+  }
+
+  const lastDoneTopic = normalizeTaskTopic(lastDoneTask?.title || '');
+  if (!effectiveProjectGitCwd || !lastDoneTopic) {
+    return { pass: true };
+  }
+
+  const args = ['log', '-n', '1', '--pretty=%s', '--', '.'];
+  const relativeDocsDir = path.relative(
+    effectiveProjectGitCwd,
+    feature.git.docsGitCwd
+  );
+  const normalizedDocsDir = normalizeGitRelativePath(relativeDocsDir);
+  if (
+    normalizedDocsDir &&
+    normalizedDocsDir !== '.' &&
+    normalizedDocsDir !== '..' &&
+    !normalizedDocsDir.startsWith('../')
+  ) {
+    args.push(`:(exclude)${normalizedDocsDir}/**`);
+  }
+
+  const latestProjectSubject = runGitCapture(args, effectiveProjectGitCwd);
+  if (latestProjectSubject === undefined) {
+    return { pass: false, reason: 'PROJECT_LOG_UNAVAILABLE' };
+  }
+  const normalizedSubject = normalizeCommitSubjectForGate(latestProjectSubject);
+  if (!normalizedSubject) {
+    return { pass: false, reason: 'NO_PROJECT_COMMIT' };
+  }
+
+  if (!normalizedSubject.includes(normalizeTaskTopic(lastDoneTopic).toLowerCase())) {
+    return { pass: false, reason: 'MISMATCH_LAST_DONE' };
+  }
+
+  return { pass: true };
+}
+
+function describeTaskCommitGateFailure(
+  check: TaskCommitGateCheck
+): string {
+  switch (check.reason) {
+    case 'DONE_TRANSITIONS_COUNT':
+      return `latest tasks.md commit includes ${check.doneTransitions || 0} DONE transitions`;
+    case 'NO_PROJECT_COMMIT':
+      return 'no recent project code commit was found for the just-finished task';
+    case 'PROJECT_LOG_UNAVAILABLE':
+      return 'the latest project commit subject could not be inspected';
+    case 'MISMATCH_LAST_DONE':
+    default:
+      return 'the latest project commit subject does not match the just-finished task';
+  }
+}
+
+function resolveProjectCommitTopic(
+  feature: ResolvedFeature,
+  tasks: ParsedTasks
+): string {
+  const activeTask = tasks.tasks.find(
+    (task) => task.status === 'DOING' || task.status === 'REVIEW'
+  );
+  const raw =
+    activeTask?.title ||
+    getLastDoneTask(tasks)?.title ||
+    nextTodoTask(tasks)?.title ||
+    feature.folderName;
+  const withoutTaskId = normalizeCommitTopicText(raw || '').replace(
+    /^T-[A-Za-z0-9-]+\s+/,
+    ''
+  );
+  return withoutTaskId || feature.folderName;
+}
+
+function buildTaskCommitSummary(input: {
+  feature: ResolvedFeature;
+  tasks: ParsedTasks;
+  effectiveProjectGitCwd: string;
+  docsDirty: boolean;
+  projectDirty: boolean;
+  gateFailureReason?: string | null;
+}): string {
+  const { feature, tasks, effectiveProjectGitCwd, docsDirty, projectDirty, gateFailureReason } = input;
+  const docsMessage = tasks.issueNumber
+    ? `git -C "${feature.git.docsGitCwd}" add "${feature.docs.featurePathFromDocs}" && git -C "${feature.git.docsGitCwd}" commit -m "docs(#${tasks.issueNumber}): ${feature.folderName} 문서 업데이트"`
+    : `git -C "${feature.git.docsGitCwd}" add "${feature.docs.featurePathFromDocs}" && git -C "${feature.git.docsGitCwd}" commit -m "docs: ${feature.folderName} 문서 업데이트"`;
+  const projectMessage = tasks.issueNumber
+    ? `Stage only the files touched by the just-finished task in "${effectiveProjectGitCwd}", then commit with: git -C "${effectiveProjectGitCwd}" commit -m "feat(#${tasks.issueNumber}): ${resolveProjectCommitTopic(feature, tasks)}"`
+    : `Stage only the files touched by the just-finished task in "${effectiveProjectGitCwd}", then commit with: git -C "${effectiveProjectGitCwd}" commit -m "feat(${feature.folderName}): ${resolveProjectCommitTopic(feature, tasks)}"`;
+
+  const lines = ['Finish the task-level commit checkpoint before continuing.'];
+  if (gateFailureReason) {
+    lines.push(`Current gate failure: ${gateFailureReason}`);
+  }
+  if (docsDirty) {
+    lines.push(`Docs commit: ${docsMessage}`);
+  }
+  if (projectDirty) {
+    lines.push(`Project commit: ${projectMessage}`);
+  }
+  if (!docsDirty && !projectDirty) {
+    lines.push(`Re-check the last task commits. Docs commit should contain exactly one DONE transition, and the latest project commit should match "${normalizeTaskTopic(getLastDoneTask(tasks)?.title || '')}".`);
+  }
+  return lines.join('\n');
+}
+
 function parseWorkflowDraftMetadataExtended(content: string): ParsedWorkflowDraft {
   const metadata = parseWorkflowDraftMetadata(content);
   const prStatusRaw = extractFieldValue(content, PR_STATUS_LABELS);
@@ -322,6 +727,227 @@ function resolveExpectedBranch(feature: ResolvedFeature, tasks: ParsedTasks): st
   if (tasks.branch) return tasks.branch;
   if (!tasks.issueNumber) return null;
   return `feat/${tasks.issueNumber}-${feature.slug}`;
+}
+
+function resolveProjectRootFromGitCwd(projectGitCwd: string): string {
+  return runGitCapture(['rev-parse', '--show-toplevel'], projectGitCwd) || path.resolve(projectGitCwd);
+}
+
+function resolveProjectRootGitCwd(
+  config: ProjectConfig,
+  feature: ResolvedFeature
+): string {
+  if (config.docsRepo === 'standalone') {
+    const roots = resolveStandaloneProjectRoots(
+      config,
+      feature.type === 'single' ? undefined : feature.type
+    );
+    if (roots.length > 0) {
+      return roots[0];
+    }
+  }
+
+  return resolveProjectRootFromGitCwd(feature.git.projectGitCwd);
+}
+
+function getExpectedWorktreePath(
+  config: ProjectConfig,
+  projectGitCwd: string,
+  branchName: string
+): string {
+  const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
+  return resolveManagedWorktreePath(config, projectRoot, branchName);
+}
+
+async function resolveExistingExpectedWorktreePath(
+  config: ProjectConfig,
+  projectGitCwd: string,
+  branchName: string
+): Promise<string | null> {
+  const candidate = getExpectedWorktreePath(config, projectGitCwd, branchName);
+  return (await fs.pathExists(candidate)) ? candidate : null;
+}
+
+function buildManagedWorktreeCreateCommand(
+  config: ProjectConfig,
+  projectGitCwd: string,
+  branchName: string
+): string {
+  const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
+  const worktreePath = getExpectedWorktreePath(config, projectGitCwd, branchName);
+  const worktreeParent = path.dirname(worktreePath);
+  const envLinkCommand = buildManagedWorktreeEnvLinkCommand(projectRoot, worktreePath);
+  return `mkdir -p "${worktreeParent}" && (git -C "${projectRoot}" worktree add "${worktreePath}" "${branchName}" || git -C "${projectRoot}" worktree add -b "${branchName}" "${worktreePath}") && ${envLinkCommand}`;
+}
+
+function resolveRemotePrMergeMeta(
+  prRef: string | null,
+  projectGitCwd: string
+): { headRefName: string | null; baseRefName: string | null } | null {
+  if (!prRef) return null;
+  const result = runProcess(
+    'gh',
+    ['pr', 'view', prRef, '--json', 'headRefName,baseRefName'],
+    projectGitCwd
+  );
+  if (result.code !== 0) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<string, unknown>;
+    return {
+      headRefName: sanitizeMetadataValue(String(parsed.headRefName || '')),
+      baseRefName: sanitizeMetadataValue(String(parsed.baseRefName || '')),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function localBranchExists(cwd: string, branchName: string | null): boolean {
+  if (!branchName) return false;
+  return runProcess(
+    'git',
+    ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
+    cwd
+  ).code === 0;
+}
+
+function remoteBranchExists(cwd: string, branchName: string | null): boolean {
+  if (!branchName) return false;
+  return runProcess(
+    'git',
+    ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${branchName}`],
+    cwd
+  ).code === 0;
+}
+
+function resolvePostMergeCleanupState(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  tasks: ParsedTasks
+): PostMergeCleanupState {
+  const projectRootGitCwd = resolveProjectRootGitCwd(config, feature);
+  const prMeta = resolveRemotePrMergeMeta(tasks.prLink, projectRootGitCwd);
+  const baseBranch = (prMeta?.baseRefName || 'main').trim() || 'main';
+  const headBranch = (
+    prMeta?.headRefName ||
+    resolveExpectedBranch(feature, tasks)
+  )?.trim() || null;
+  const hasOriginRemote = runProcess(
+    'git',
+    ['remote', 'get-url', 'origin'],
+    projectRootGitCwd
+  ).code === 0;
+  if (hasOriginRemote) {
+    runProcess('git', ['fetch', '--prune', 'origin'], projectRootGitCwd);
+  }
+
+  const currentBranch =
+    runGitCapture(['branch', '--show-current'], projectRootGitCwd) ||
+    runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], projectRootGitCwd) ||
+    '';
+  const localBaseSha = runGitCapture(['rev-parse', baseBranch], projectRootGitCwd) || '';
+  const remoteBaseSha =
+    hasOriginRemote
+      ? runGitCapture(['rev-parse', `origin/${baseBranch}`], projectRootGitCwd) || ''
+      : '';
+  const worktreePath =
+    config.docsRepo === 'standalone' && headBranch
+      ? resolveManagedWorktreePath(config, projectRootGitCwd, headBranch)
+      : null;
+  const managedWorktreeExists = !!worktreePath && fs.existsSync(worktreePath);
+  const localFeatureBranchExists = localBranchExists(projectRootGitCwd, headBranch);
+  const remoteFeatureBranchExists =
+    hasOriginRemote && remoteBranchExists(projectRootGitCwd, headBranch);
+  const localBaseCheckedOut = currentBranch === baseBranch;
+  const baseSyncedWithOrigin =
+    !hasOriginRemote ||
+    (localBaseSha.length > 0 &&
+      remoteBaseSha.length > 0 &&
+      localBaseSha === remoteBaseSha);
+
+  return {
+    complete:
+      localBaseCheckedOut &&
+      baseSyncedWithOrigin &&
+      !localFeatureBranchExists &&
+      !remoteFeatureBranchExists &&
+      !managedWorktreeExists,
+    projectRootGitCwd,
+    baseBranch,
+    headBranch,
+    worktreePath,
+    hasOriginRemote,
+    localBaseCheckedOut,
+    baseSyncedWithOrigin,
+    localFeatureBranchExists,
+    remoteFeatureBranchExists,
+    managedWorktreeExists,
+  };
+}
+
+function buildPostMergeCleanupCommand(state: PostMergeCleanupState): string {
+  const commandParts: string[] = [];
+  if (state.hasOriginRemote) {
+    commandParts.push(
+      `git -C "${state.projectRootGitCwd}" fetch --prune origin`
+    );
+  }
+  commandParts.push(
+    `git -C "${state.projectRootGitCwd}" checkout "${state.baseBranch}"`
+  );
+  if (state.hasOriginRemote) {
+    commandParts.push(
+      `git -C "${state.projectRootGitCwd}" pull --ff-only origin "${state.baseBranch}"`
+    );
+  }
+  if (state.worktreePath) {
+    commandParts.push(
+      `if [ -d "${state.worktreePath}" ]; then git -C "${state.projectRootGitCwd}" worktree remove "${state.worktreePath}"; fi`
+    );
+  }
+  if (state.headBranch) {
+    commandParts.push(
+      `if git -C "${state.projectRootGitCwd}" show-ref --verify --quiet "refs/heads/${state.headBranch}"; then git -C "${state.projectRootGitCwd}" branch -D "${state.headBranch}"; fi`
+    );
+    if (state.hasOriginRemote) {
+      commandParts.push(
+        `if git -C "${state.projectRootGitCwd}" show-ref --verify --quiet "refs/remotes/origin/${state.headBranch}"; then git -C "${state.projectRootGitCwd}" push origin --delete "${state.headBranch}"; fi`
+      );
+      commandParts.push(
+        `git -C "${state.projectRootGitCwd}" fetch --prune origin`
+      );
+    }
+  }
+
+  return commandParts.join(' && ');
+}
+
+function buildPostMergeCleanupSummary(state: PostMergeCleanupState): string {
+  const remaining: string[] = [];
+  if (!state.localBaseCheckedOut) {
+    remaining.push(`check out ${state.baseBranch}`);
+  }
+  if (!state.baseSyncedWithOrigin) {
+    remaining.push(`sync ${state.baseBranch} with origin/${state.baseBranch}`);
+  }
+  if (state.managedWorktreeExists) {
+    remaining.push('remove the managed feature worktree');
+  }
+  if (state.localFeatureBranchExists) {
+    remaining.push('delete the local feature branch');
+  }
+  if (state.remoteFeatureBranchExists) {
+    remaining.push('delete the remote feature branch');
+  }
+
+  if (remaining.length === 0) {
+    return 'Finish the post-merge cleanup before closing the feature.';
+  }
+
+  return `Finish the post-merge cleanup before closing the feature: ${remaining.join(', ')}.`;
 }
 
 function getCurrentProjectBranch(feature: ResolvedFeature): string | null {
@@ -388,6 +1014,352 @@ function buildAction(
   };
 }
 
+function buildStageOption(
+  label: string,
+  reply: string,
+  category: WorkflowStageOption['category'],
+  summary: string,
+  command: string | null = null
+): WorkflowStageOption {
+  return {
+    label,
+    reply,
+    category,
+    summary,
+    command,
+  };
+}
+
+function normalizeApprovalToken(value: string | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function resolveActionApprovalRequired(
+  config: ProjectConfig,
+  category: WorkflowStageAction['category'],
+  builtinRequiresUserCheck: boolean
+): boolean {
+  const approval =
+    config.approval?.mode === 'builtin'
+      ? createDefaultApprovalConfig()
+      : config.approval ?? createDefaultApprovalConfig();
+  const mode = approval.mode ?? 'category';
+
+  if (mode === 'steps') {
+    const requiredSteps = new Set(
+      (approval.requireCheckSteps ?? [])
+        .map((value) => (typeof value === 'number' ? value : Number(value)))
+        .filter((value) => Number.isFinite(value))
+    );
+    const legacyStep = LEGACY_STEP_BY_ACTION[category];
+    return typeof legacyStep === 'number'
+      ? requiredSteps.has(legacyStep)
+      : builtinRequiresUserCheck;
+  }
+
+  const requiredCategories = new Set(
+    (approval.requireCheckCategories ?? [])
+      .map((value) => normalizeApprovalToken(value))
+      .filter(Boolean)
+  );
+  const skippedCategories = new Set(
+    (approval.skipCheckCategories ?? [])
+      .map((value) => normalizeApprovalToken(value))
+      .filter(Boolean)
+  );
+  const defaultPolicy = approval.default ?? createDefaultApprovalConfig().default ?? 'skip';
+  const normalizedCategory = normalizeApprovalToken(category);
+  const explicitlyRequired =
+    requiredCategories.has('*') || requiredCategories.has(normalizedCategory);
+
+  if (explicitlyRequired) return true;
+  if (
+    skippedCategories.has('*') ||
+    skippedCategories.has(normalizedCategory)
+  ) {
+    return false;
+  }
+  if (defaultPolicy === 'require') return true;
+  if (defaultPolicy === 'skip') return false;
+  return builtinRequiresUserCheck;
+}
+
+function resolveRemotePrReviewState(
+  prRef: string | null,
+  feature: ResolvedFeature
+): WorkflowReviewState {
+  if (!prRef) return 'unknown';
+  const result = runProcess(
+    'gh',
+    [
+      'pr',
+      'view',
+      prRef,
+      '--json',
+      'reviewDecision,state,mergedAt,mergeStateStatus,isDraft,headRefOid,latestReviews,comments,statusCheckRollup',
+    ],
+    feature.git.projectGitCwd
+  );
+
+  if (result.code !== 0) {
+    return 'unknown';
+  }
+
+  try {
+    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<string, unknown>;
+    const reviewDecision = String(parsed.reviewDecision || '')
+      .trim()
+      .toUpperCase();
+    const state = String(parsed.state || '')
+      .trim()
+      .toUpperCase();
+    const mergeStateStatus = String(parsed.mergeStateStatus || '')
+      .trim()
+      .toUpperCase();
+    const isDraft = parsed.isDraft === true;
+    const headRefOid = String(parsed.headRefOid || '').trim().toLowerCase();
+    const mergedAt = typeof parsed.mergedAt === 'string'
+      ? parsed.mergedAt.trim()
+      : '';
+
+    if (state === 'MERGED' || mergedAt.length > 0) {
+      return 'merged';
+    }
+    if (isDraft) {
+      return 'draft';
+    }
+    if (reviewDecision === 'CHANGES_REQUESTED') {
+      return 'changes_requested';
+    }
+    if (reviewDecision === 'APPROVED') {
+      return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
+        ? 'approved'
+        : 'merge_blocked';
+    }
+    if (reviewDecision.length === 0 && hasSuccessfulCodeRabbitStatusCheck(parsed.statusCheckRollup)) {
+      return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
+        ? 'approved'
+        : 'merge_blocked';
+    }
+    if (reviewDecision.length === 0 && hasLatestHeadRateLimitSignal(parsed, headRefOid)) {
+      return 'review_rate_limited';
+    }
+    if (reviewDecision.length === 0 && hasStaleLatestCommitReviewSignal(parsed, headRefOid)) {
+      return 'review_pending_latest_commit';
+    }
+    if (reviewDecision === 'REVIEW_REQUIRED' || reviewDecision.length === 0) {
+      return 'waiting_review';
+    }
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+function resolveCurrentReviewState(
+  tasks: ParsedTasks,
+  prDraft: ParsedWorkflowDraft,
+  remoteReviewState: WorkflowReviewState
+): WorkflowReviewState {
+  if (remoteReviewState === 'merged') {
+    return 'merged';
+  }
+  if (remoteReviewState === 'draft') {
+    return 'draft';
+  }
+  if (remoteReviewState === 'merge_blocked') {
+    return 'merge_blocked';
+  }
+  if (remoteReviewState === 'changes_requested') {
+    return 'changes_requested';
+  }
+  if (remoteReviewState === 'review_rate_limited') {
+    return 'review_rate_limited';
+  }
+  if (remoteReviewState === 'review_pending_latest_commit') {
+    return 'review_pending_latest_commit';
+  }
+  if (remoteReviewState === 'waiting_review') {
+    return 'waiting_review';
+  }
+  if (remoteReviewState === 'approved') {
+    return 'approved';
+  }
+  if (remoteReviewState === 'unknown') {
+    return 'unknown';
+  }
+  if (tasks.prStatus === 'approved' || prDraft.prStatus === 'approved') {
+    return 'approved';
+  }
+  return 'unknown';
+}
+
+function buildCodeReviewActionOptions(
+  reviewState: WorkflowReviewState
+): WorkflowStageOption[] {
+  if (reviewState === 'merged') {
+    return [
+      buildStageOption(
+        'A',
+        'A',
+        'review_sync_approved',
+        'Sync the already-merged PR state into tasks.md and pr.md before closing the feature.'
+      ),
+      buildStageOption(
+        'B',
+        'B',
+        'hold',
+        'Stop here and leave the merged-state sync for later.'
+      ),
+    ];
+  }
+
+  if (reviewState === 'approved') {
+    return [
+      buildStageOption(
+        'A',
+        'A',
+        'review_sync_approved',
+        'Sync the approved PR review state into tasks.md and pr.md, then continue to the merge gate.'
+      ),
+      buildStageOption(
+        'B',
+        'B',
+        'hold',
+        'Hold the merge boundary for now and leave the PR open.'
+      ),
+    ];
+  }
+
+  if (reviewState === 'draft' || reviewState === 'merge_blocked') {
+    return [
+      buildStageOption(
+        'A',
+        'A',
+        'review_wait',
+        'Inspect the current PR state, resolve the draft/merge blocker, and sync the review fields before proceeding.'
+      ),
+      buildStageOption(
+        'B',
+        'B',
+        'hold',
+        'Stop here and keep the PR open until the blocker is resolved.'
+      ),
+    ];
+  }
+
+  if (reviewState === 'changes_requested') {
+    return [
+      buildStageOption(
+        'A',
+        'A',
+        'review_fix',
+        'Address the requested review changes, update review evidence/decision, and continue the feature.'
+      ),
+      buildStageOption(
+        'B',
+        'B',
+        'hold',
+        'Stop here and wait before taking another review-fix pass.'
+      ),
+    ];
+  }
+
+  if (reviewState === 'review_rate_limited') {
+    return [
+      buildStageOption(
+        'A',
+        'A',
+        'review_wait',
+        'Re-check the PR review state after the CodeRabbit rate limit window resets, then sync tasks.md when a fresh review arrives.'
+      ),
+      buildStageOption(
+        'B',
+        'B',
+        'hold',
+        'Stop here and wait for the review rate limit window to clear.'
+      ),
+    ];
+  }
+
+  if (reviewState === 'review_pending_latest_commit') {
+    return [
+      buildStageOption(
+        'A',
+        'A',
+        'review_wait',
+        'Re-check the PR review state after a reviewer processes the latest commit, then sync tasks.md when fresh review feedback arrives.'
+      ),
+      buildStageOption(
+        'B',
+        'B',
+        'hold',
+        'Stop here and wait for a fresh review on the latest commit.'
+      ),
+    ];
+  }
+
+  return [
+    buildStageOption(
+      'A',
+      'A',
+      'review_wait',
+      'Check the PR review state again and sync tasks.md when reviewer feedback or approval arrives.'
+    ),
+    buildStageOption(
+      'B',
+      'B',
+      'hold',
+      'Stop here and wait for external reviewer feedback.'
+    ),
+  ];
+}
+
+function buildMergeActionOptions(
+  command: string
+): WorkflowStageOption[] {
+  return [
+    buildStageOption(
+      'A',
+      'A OK',
+      'pr_merge',
+      'Merge the PR now and sync the merged state back into tasks.md.',
+      command
+    ),
+    buildStageOption(
+      'B',
+      'B',
+      'hold',
+      'Keep the PR open and do not merge yet.'
+    ),
+  ];
+}
+
+function buildApprovalActionOptions(params: {
+  approveSummary: string;
+  holdSummary: string;
+  remoteCommand?: string | null;
+}): WorkflowStageOption[] {
+  const remoteCommand = params.remoteCommand?.trim() || null;
+  if (remoteCommand && remoteCommand.includes('--confirm OK')) {
+    return [
+      buildStageOption(
+        'A',
+        'A OK',
+        'remote_execute',
+        params.approveSummary,
+        remoteCommand
+      ),
+      buildStageOption('B', 'B', 'hold', params.holdSummary),
+    ];
+  }
+
+  return [
+    buildStageOption('A', 'A', 'approve_continue', params.approveSummary),
+    buildStageOption('B', 'B', 'request_changes', params.holdSummary),
+  ];
+}
+
 function resolveFeatureSelectionError(
   selection: FeatureSelectionState
 ): WorkflowStagePayload {
@@ -435,6 +1407,7 @@ export async function collectWorkflowStage(
 
   const feature = selection.matchedFeature;
   const requirements = resolveWorkflowRequirements(config);
+  const taskCommitGatePolicy = resolveTaskCommitGatePolicy(config);
   const paths = getFeatureDocPaths(feature);
   const specContent = await readFileIfExists(path.join(config.docsDir, paths.specPath));
   const planContent = await readFileIfExists(path.join(config.docsDir, paths.planPath));
@@ -451,9 +1424,26 @@ export async function collectWorkflowStage(
   const tasks = parseTasksDoc(tasksContent || '');
   const issueDraft = parseWorkflowDraftMetadataExtended(issueContent || '');
   const prDraft = parseWorkflowDraftMetadataExtended(prContent || '');
+  const remoteReviewState = requirements.requireReview && tasks.prLink
+    ? resolveRemotePrReviewState(tasks.prLink, feature)
+    : 'unknown';
+  const currentReviewState = resolveCurrentReviewState(
+    tasks,
+    prDraft,
+    remoteReviewState
+  );
 
   if (specStatus !== 'approved') {
-    const approvalRequired = specStatus === 'review';
+    const isReviewStage = specStatus === 'review';
+    const approvalRequired = isReviewStage
+      ? resolveActionApprovalRequired(config, 'spec_approve', true)
+      : false;
+    const actionOptions = approvalRequired
+      ? buildApprovalActionOptions({
+          approveSummary: 'Approve spec.md and continue to the plan stage.',
+          holdSummary: 'Request spec changes before continuing.',
+        })
+      : undefined;
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -461,20 +1451,33 @@ export async function collectWorkflowStage(
       featureRef: buildFeatureRef(feature),
       stage: 'spec',
       nextAction: buildAction(
-        approvalRequired ? 'spec_approve' : 'spec_write',
-        approvalRequired
-          ? 'Get user approval and update spec.md status to Approved.'
+        isReviewStage ? 'spec_approve' : 'spec_write',
+        isReviewStage
+          ? approvalRequired
+            ? 'Get user approval and update spec.md status to Approved.'
+            : 'Promote spec.md from Review to Approved and continue automatically.'
           : 'Write or refine spec.md until it is ready for approval.',
         approvalRequired
-      ),
+        ),
       approvalRequired,
       implementationAllowed: false,
+      primaryActionLabel: actionOptions ? 'A' : undefined,
+      actionOptions,
       blockedReasonCode: 'SPEC_NOT_APPROVED',
     };
   }
 
   if (planStatus !== 'approved') {
-    const approvalRequired = planStatus === 'review';
+    const isReviewStage = planStatus === 'review';
+    const approvalRequired = isReviewStage
+      ? resolveActionApprovalRequired(config, 'plan_approve', true)
+      : false;
+    const actionOptions = approvalRequired
+      ? buildApprovalActionOptions({
+          approveSummary: 'Approve plan.md and continue to the tasks stage.',
+          holdSummary: 'Request plan changes before continuing.',
+        })
+      : undefined;
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -482,20 +1485,33 @@ export async function collectWorkflowStage(
       featureRef: buildFeatureRef(feature),
       stage: 'plan',
       nextAction: buildAction(
-        approvalRequired ? 'plan_approve' : 'plan_write',
-        approvalRequired
-          ? 'Get user approval and update plan.md status to Approved.'
+        isReviewStage ? 'plan_approve' : 'plan_write',
+        isReviewStage
+          ? approvalRequired
+            ? 'Get user approval and update plan.md status to Approved.'
+            : 'Promote plan.md from Review to Approved and continue automatically.'
           : 'Write or refine plan.md until it is ready for approval.',
         approvalRequired
-      ),
+        ),
       approvalRequired,
       implementationAllowed: false,
+      primaryActionLabel: actionOptions ? 'A' : undefined,
+      actionOptions,
       blockedReasonCode: 'PLAN_NOT_APPROVED',
     };
   }
 
   if (tasks.tasks.length === 0 || tasks.docStatus !== 'approved') {
-    const approvalRequired = tasks.docStatus === 'review';
+    const isReviewStage = tasks.docStatus === 'review';
+    const approvalRequired = isReviewStage
+      ? resolveActionApprovalRequired(config, 'tasks_approve', true)
+      : false;
+    const actionOptions = approvalRequired
+      ? buildApprovalActionOptions({
+          approveSummary: 'Approve tasks.md and continue to issue preparation.',
+          holdSummary: 'Request task-list changes before continuing.',
+        })
+      : undefined;
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -503,14 +1519,18 @@ export async function collectWorkflowStage(
       featureRef: buildFeatureRef(feature),
       stage: 'tasks',
       nextAction: buildAction(
-        approvalRequired ? 'tasks_approve' : 'tasks_write',
-        approvalRequired
-          ? 'Get user approval and update tasks.md Doc Status to Approved.'
+        isReviewStage ? 'tasks_approve' : 'tasks_write',
+        isReviewStage
+          ? approvalRequired
+            ? 'Get user approval and update tasks.md Doc Status to Approved.'
+            : 'Promote tasks.md Doc Status from Review to Approved and continue automatically.'
           : 'Add and refine tasks until tasks.md is execution-ready and Approved.',
         approvalRequired
-      ),
+        ),
       approvalRequired,
       implementationAllowed: false,
+      primaryActionLabel: actionOptions ? 'A' : undefined,
+      actionOptions,
       blockedReasonCode: 'TASKS_NOT_READY',
     };
   }
@@ -521,6 +1541,20 @@ export async function collectWorkflowStage(
       tasks.issueNumber !== null &&
       issueExistsRemotely(tasks.issueNumber, feature);
     if (!issueCreated || !issueReady) {
+      const issueCreateApprovalRequired =
+        issueReady &&
+        !issueCreated &&
+        resolveActionApprovalRequired(config, 'issue_create', true);
+      const issueCreateCommand = `npx lee-spec-kit github issue ${buildFeatureArgs(feature)} --create --confirm OK`;
+      const issueCreateOptions = issueCreateApprovalRequired
+        ? buildApprovalActionOptions({
+            approveSummary:
+              'Create the GitHub issue now and sync the issue number back into tasks.md.',
+            holdSummary:
+              'Keep the issue in Ready state but do not create it yet.',
+            remoteCommand: issueCreateCommand,
+          })
+        : undefined;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -531,25 +1565,48 @@ export async function collectWorkflowStage(
           ? buildAction(
               'issue_create',
               'Create the GitHub issue from issue.md and sync the issue number into tasks.md.',
-              true,
-              `npx lee-spec-kit github issue ${buildFeatureArgs(feature)} --create --confirm OK`
+              issueCreateApprovalRequired,
+              issueCreateCommand
             )
           : buildAction(
               'issue_prepare',
               'Prepare issue.md and set its Status to Ready before issue creation.',
               false
             ),
-        approvalRequired: issueReady && !issueCreated,
+        approvalRequired: issueCreateApprovalRequired,
         implementationAllowed: false,
+        primaryActionLabel: issueCreateOptions ? 'A' : undefined,
+        actionOptions: issueCreateOptions,
         blockedReasonCode: 'ISSUE_NOT_CREATED',
       };
     }
   }
 
+  let effectiveProjectGitCwd = feature.git.projectGitCwd;
+  if (requirements.requireWorktree) {
+    const expectedBranch = resolveExpectedBranch(feature, tasks);
+    if (expectedBranch) {
+      const existingWorktreePath = await resolveExistingExpectedWorktreePath(
+        config,
+        feature.git.projectGitCwd,
+        expectedBranch
+      );
+      if (existingWorktreePath) {
+        effectiveProjectGitCwd = existingWorktreePath;
+      }
+    }
+  }
+
   if (requirements.requireBranch && !allTasksDone(tasks)) {
     const expectedBranch = resolveExpectedBranch(feature, tasks);
-    const currentBranch = getCurrentProjectBranch(feature);
+    const currentBranch =
+      runGitCapture(['branch', '--show-current'], effectiveProjectGitCwd) ||
+      runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], effectiveProjectGitCwd) ||
+      null;
     if (expectedBranch && currentBranch !== expectedBranch) {
+      const branchCommand = requirements.requireWorktree
+        ? buildManagedWorktreeCreateCommand(config, feature.git.projectGitCwd, expectedBranch)
+        : `git checkout -b ${expectedBranch}`;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -558,9 +1615,11 @@ export async function collectWorkflowStage(
         stage: 'branch',
         nextAction: buildAction(
           'branch_create',
-          `Switch the project repo to ${expectedBranch} before implementation starts.`,
+          requirements.requireWorktree
+            ? `Create or reuse the managed worktree for ${expectedBranch} before implementation starts.`
+            : `Switch the project repo to ${expectedBranch} before implementation starts.`,
           false,
-          `git checkout -b ${expectedBranch}`
+          branchCommand
         ),
         approvalRequired: false,
         implementationAllowed: false,
@@ -569,8 +1628,81 @@ export async function collectWorkflowStage(
     }
   }
 
+  const activeTaskOpen = hasOpenTask(tasks);
+  const lastDoneTask = getLastDoneTask(tasks);
+  const docsDirty = hasUncommittedChanges(feature.git.docsGitCwd);
+  const projectDirty = hasUncommittedChanges(effectiveProjectGitCwd);
+  const pendingDoneTransitions = countPendingDoneTransitions(feature) || 0;
+  const taskCommitCheckpointRequired =
+    !activeTaskOpen &&
+    !!lastDoneTask &&
+    (projectDirty || pendingDoneTransitions > 0);
+
+  if (taskCommitCheckpointRequired) {
+    const pendingReason =
+      pendingDoneTransitions > 1
+        ? `working tree currently contains ${pendingDoneTransitions} uncommitted DONE transitions`
+        : null;
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'task_commit',
+      nextAction: buildAction(
+        'task_commit',
+        buildTaskCommitSummary({
+          feature,
+          tasks,
+          effectiveProjectGitCwd,
+          docsDirty,
+          projectDirty,
+          gateFailureReason: pendingReason,
+        }),
+        false
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+    };
+  }
+
+  const committedTaskGate =
+    taskCommitGatePolicy !== 'off' && lastDoneTask
+      ? checkTaskCommitGate(feature, effectiveProjectGitCwd, lastDoneTask)
+      : { pass: true };
+
   if (!allTasksDone(tasks)) {
     const currentTask = nextTodoTask(tasks);
+    if (taskCommitGatePolicy === 'strict' && !committedTaskGate.pass) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_commit',
+        nextAction: buildAction(
+          'task_commit',
+          buildTaskCommitSummary({
+            feature,
+            tasks,
+            effectiveProjectGitCwd,
+            docsDirty,
+            projectDirty,
+            gateFailureReason: describeTaskCommitGateFailure(committedTaskGate),
+          }),
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+      };
+    }
+
+    const commitWarning =
+      taskCommitGatePolicy === 'warn' && !committedTaskGate.pass
+        ? `\nTask commit boundary warning: ${describeTaskCommitGateFailure(committedTaskGate)}`
+        : '';
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -580,7 +1712,7 @@ export async function collectWorkflowStage(
       nextAction: buildAction(
         'task_execute',
         currentTask
-          ? `Continue the next implementation task: ${currentTask.title}`
+          ? `Continue the next implementation task: ${currentTask.title}${commitWarning}`
           : 'Continue the active implementation task.',
         false
       ),
@@ -595,6 +1727,44 @@ export async function collectWorkflowStage(
     !tasks.completion.testsChecked ||
     !tasks.completion.finalOutcomeChecked
   ) {
+    if (taskCommitGatePolicy === 'strict' && !committedTaskGate.pass) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_commit',
+        nextAction: buildAction(
+          'task_commit',
+          buildTaskCommitSummary({
+            feature,
+            tasks,
+            effectiveProjectGitCwd,
+            docsDirty,
+            projectDirty,
+            gateFailureReason: describeTaskCommitGateFailure(committedTaskGate),
+          }),
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+      };
+    }
+
+    const approvalRequired = resolveActionApprovalRequired(
+      config,
+      'implementation_approve',
+      true
+    );
+    const actionOptions = approvalRequired
+      ? buildApprovalActionOptions({
+          approveSummary:
+            'Approve the completed implementation and continue to the pre-PR or PR preparation stage.',
+          holdSummary:
+            'Request implementation changes before the workflow continues.',
+        })
+      : undefined;
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -604,10 +1774,12 @@ export async function collectWorkflowStage(
       nextAction: buildAction(
         'implementation_approve',
         'Share the completed implementation, get user approval, and record the completion checkpoint in tasks.md.',
-        true
+        approvalRequired
       ),
-      approvalRequired: true,
+      approvalRequired,
       implementationAllowed: false,
+      primaryActionLabel: actionOptions ? 'A' : undefined,
+      actionOptions,
       blockedReasonCode: 'IMPLEMENTATION_APPROVAL_REQUIRED',
     };
   }
@@ -636,6 +1808,20 @@ export async function collectWorkflowStage(
       !!tasks.prLink &&
       prExistsRemotely(tasks.prLink, feature);
     if (!prCreated || !prReady) {
+      const prCreateApprovalRequired =
+        prReady &&
+        !prCreated &&
+        resolveActionApprovalRequired(config, 'pr_create', true);
+      const prCreateCommand = `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --create --confirm OK`;
+      const prCreateOptions = prCreateApprovalRequired
+        ? buildApprovalActionOptions({
+            approveSummary:
+              'Create the GitHub PR now and sync the PR metadata back into tasks.md.',
+            holdSummary:
+              'Keep the PR in Ready state but do not create it yet.',
+            remoteCommand: prCreateCommand,
+          })
+        : undefined;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -646,22 +1832,81 @@ export async function collectWorkflowStage(
           ? buildAction(
               'pr_create',
               'Create the GitHub PR from pr.md and sync the PR metadata into tasks.md.',
-              true,
-              `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --create --confirm OK`
+              prCreateApprovalRequired,
+              prCreateCommand
             )
           : buildAction(
               'pr_prepare',
               'Prepare pr.md and set its Status to Ready before PR creation.',
               false
             ),
-        approvalRequired: prReady && !prCreated,
+        approvalRequired: prCreateApprovalRequired,
         implementationAllowed: false,
+        primaryActionLabel: prCreateOptions ? 'A' : undefined,
+        actionOptions: prCreateOptions,
         blockedReasonCode: 'PR_NOT_CREATED',
       };
     }
   }
 
-  if (requirements.requireReview && (tasks.prStatus !== 'approved' || prDraft.prStatus !== 'approved')) {
+  const reviewApprovedInDocs =
+    tasks.prStatus === 'approved' && prDraft.prStatus === 'approved';
+
+  if (requirements.requireReview && currentReviewState === 'merged' && reviewApprovedInDocs) {
+    const cleanupState = resolvePostMergeCleanupState(config, feature, tasks);
+    if (!cleanupState.complete) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'cleanup',
+        nextAction: buildAction(
+          'merge_cleanup',
+          buildPostMergeCleanupSummary(cleanupState),
+          false,
+          buildPostMergeCleanupCommand(cleanupState)
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        reviewState: 'merged',
+        blockedReasonCode: 'POST_MERGE_CLEANUP_REQUIRED',
+      };
+    }
+
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'done',
+      nextAction: null,
+      approvalRequired: false,
+      implementationAllowed: false,
+      reviewState: 'merged',
+      primaryActionLabel: null,
+      actionOptions: [],
+      blockedReasonCode: null,
+    };
+  }
+
+  if (requirements.requireReview && (!reviewApprovedInDocs || currentReviewState !== 'approved')) {
+    const reviewSummary =
+      currentReviewState === 'approved'
+        ? 'Record the approved PR review state in tasks.md and pr.md before proceeding to merge.'
+        : currentReviewState === 'merged'
+          ? 'Sync the already-merged PR state into tasks.md and pr.md before marking the workflow as complete.'
+        : currentReviewState === 'changes_requested'
+          ? 'Address the requested review changes and update the PR review evidence/decision before continuing.'
+          : currentReviewState === 'review_pending_latest_commit'
+            ? 'Wait for a fresh review on the latest PR commit before taking the next review action.'
+          : currentReviewState === 'review_rate_limited'
+            ? 'Wait for the current CodeRabbit review rate limit to clear, then re-check the latest PR review state before continuing.'
+          : currentReviewState === 'draft'
+            ? 'Resolve the draft PR state before continuing to the merge boundary.'
+            : currentReviewState === 'merge_blocked'
+              ? 'Resolve the current PR merge blocker before continuing to merge.'
+        : 'Wait for PR review or inspect the current review state before taking the next review action.';
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -670,16 +1915,21 @@ export async function collectWorkflowStage(
       stage: 'code_review',
       nextAction: buildAction(
         'code_review',
-        'Complete PR review and record the final approved review state in tasks.md.',
-        false
+        reviewSummary,
+        true
       ),
-      approvalRequired: false,
+      approvalRequired: true,
       implementationAllowed: false,
+      reviewState: currentReviewState,
+      primaryActionLabel: 'A',
+      actionOptions: buildCodeReviewActionOptions(currentReviewState),
       blockedReasonCode: 'PR_REVIEW_NOT_APPROVED',
     };
   }
 
   if (requirements.requireMerge) {
+    const mergeCommand =
+      `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --merge --confirm OK`;
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -690,10 +1940,13 @@ export async function collectWorkflowStage(
         'pr_merge',
         'Merge the PR and sync the merged state back into tasks.md.',
         true,
-        `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --merge --confirm OK`
+        mergeCommand
       ),
       approvalRequired: true,
       implementationAllowed: false,
+      reviewState: 'approved',
+      primaryActionLabel: 'A',
+      actionOptions: buildMergeActionOptions(mergeCommand),
       blockedReasonCode: null,
     };
   }
@@ -709,4 +1962,181 @@ export async function collectWorkflowStage(
     implementationAllowed: false,
     blockedReasonCode: null,
   };
+}
+
+function hasLatestHeadRateLimitSignal(
+  parsed: Record<string, unknown>,
+  headRefOid: string
+): boolean {
+  const latestRateLimitCommentAt = findLatestCodeRabbitRateLimitCommentAt(
+    parsed.comments,
+    headRefOid
+  );
+  if (!latestRateLimitCommentAt) {
+    return false;
+  }
+
+  const latestReviewAt = findLatestCodeRabbitReviewAt(parsed.latestReviews);
+  return !latestReviewAt || latestReviewAt <= latestRateLimitCommentAt;
+}
+
+function hasSuccessfulCodeRabbitStatusCheck(statusCheckRollupValue: unknown): boolean {
+  if (!Array.isArray(statusCheckRollupValue)) {
+    return false;
+  }
+
+  return statusCheckRollupValue.some((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return false;
+    }
+    const record = entry as Record<string, unknown>;
+    const typename = String(record.__typename || '').trim();
+
+    if (typename === 'StatusContext') {
+      const context = String(record.context || '').trim().toLowerCase();
+      const state = String(record.state || '').trim().toUpperCase();
+      return context === 'coderabbit' && state === 'SUCCESS';
+    }
+
+    if (typename === 'CheckRun') {
+      const name = String(record.name || '').trim().toLowerCase();
+      const status = String(record.status || '').trim().toUpperCase();
+      const conclusion = String(record.conclusion || '').trim().toUpperCase();
+      return name === 'coderabbit' && status === 'COMPLETED' && conclusion === 'SUCCESS';
+    }
+
+    return false;
+  });
+}
+
+function hasStaleLatestCommitReviewSignal(
+  parsed: Record<string, unknown>,
+  headRefOid: string
+): boolean {
+  if (!headRefOid) {
+    return false;
+  }
+
+  const latestReviewHead = findLatestCodeRabbitReviewedHead(parsed.latestReviews);
+  if (!latestReviewHead) {
+    return false;
+  }
+
+  return !matchesCommitReference(headRefOid, latestReviewHead);
+}
+
+function findLatestCodeRabbitRateLimitCommentAt(
+  commentsValue: unknown,
+  headRefOid: string
+): string | null {
+  if (!Array.isArray(commentsValue)) {
+    return null;
+  }
+
+  let latest: string | null = null;
+  for (const entry of commentsValue) {
+    if (!entry || typeof entry !== 'object') continue;
+    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    if (authorLogin !== 'coderabbitai') continue;
+    const body = String((entry as Record<string, unknown>).body || '');
+    if (!isCodeRabbitRateLimitBody(body, headRefOid)) continue;
+    const createdAt = String((entry as Record<string, unknown>).createdAt || '').trim();
+    if (!createdAt) continue;
+    if (!latest || createdAt > latest) {
+      latest = createdAt;
+    }
+  }
+
+  return latest;
+}
+
+function findLatestCodeRabbitReviewAt(reviewsValue: unknown): string | null {
+  if (!Array.isArray(reviewsValue)) {
+    return null;
+  }
+
+  let latest: string | null = null;
+  for (const entry of reviewsValue) {
+    if (!entry || typeof entry !== 'object') continue;
+    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    if (authorLogin !== 'coderabbitai') continue;
+    const submittedAt = String((entry as Record<string, unknown>).submittedAt || '').trim();
+    if (!submittedAt) continue;
+    if (!latest || submittedAt > latest) {
+      latest = submittedAt;
+    }
+  }
+
+  return latest;
+}
+
+function findLatestCodeRabbitReviewedHead(reviewsValue: unknown): string | null {
+  if (!Array.isArray(reviewsValue)) {
+    return null;
+  }
+
+  let latestReview: { submittedAt: string; reviewedHead: string | null } | null = null;
+  for (const entry of reviewsValue) {
+    if (!entry || typeof entry !== 'object') continue;
+    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    if (authorLogin !== 'coderabbitai') continue;
+    const submittedAt = String((entry as Record<string, unknown>).submittedAt || '').trim();
+    if (!submittedAt) continue;
+    const body = String((entry as Record<string, unknown>).body || '');
+    const reviewedHead = extractReviewedHeadFromReviewBody(body);
+    if (!latestReview || submittedAt > latestReview.submittedAt) {
+      latestReview = { submittedAt, reviewedHead };
+    }
+  }
+
+  return latestReview?.reviewedHead ?? null;
+}
+
+function isCodeRabbitRateLimitBody(body: string, headRefOid: string): boolean {
+  const normalized = body.toLowerCase();
+  if (
+    !normalized.includes('rate limited by coderabbit.ai') &&
+    !normalized.includes('rate limit exceeded')
+  ) {
+    return false;
+  }
+
+  if (!headRefOid) {
+    return true;
+  }
+
+  const shortHead = headRefOid.slice(0, 7);
+  return normalized.includes(headRefOid) || normalized.includes(shortHead);
+}
+
+function extractReviewedHeadFromReviewBody(body: string): string | null {
+  const match = body.match(/between\s+[0-9a-f]{7,40}\s+and\s+([0-9a-f]{7,40})/i);
+  if (!match) {
+    return null;
+  }
+  return match[1].trim().toLowerCase();
+}
+
+function matchesCommitReference(headRefOid: string, reviewedHead: string): boolean {
+  const normalizedHead = headRefOid.trim().toLowerCase();
+  const normalizedReviewedHead = reviewedHead.trim().toLowerCase();
+  return (
+    normalizedHead === normalizedReviewedHead ||
+    normalizedHead.startsWith(normalizedReviewedHead) ||
+    normalizedReviewedHead.startsWith(normalizedHead)
+  );
+}
+
+function extractNestedString(
+  value: unknown,
+  pathSegments: string[]
+): string {
+  let current: unknown = value;
+  for (const segment of pathSegments) {
+    if (!current || typeof current !== 'object') {
+      return '';
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return typeof current === 'string' ? current.trim() : '';
 }

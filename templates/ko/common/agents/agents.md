@@ -24,6 +24,7 @@
 - 최소 기준 문서는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`입니다.
 - GitHub 워크플로우가 얽히면 `issue.md`, `pr.md`도 함께 봅니다.
 - 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
+- `workflow-stage --json`가 `primaryActionLabel`과 `actionOptions`를 같이 반환하면, `primaryActionLabel`은 기본 옵션 라벨로 보고 사용자에게는 `actionOptions[*].reply` 값을 그대로 보여줍니다.
 
 ## 실행 규칙
 
@@ -46,6 +47,7 @@
 
 - 문서화된 workflow checkpoint와 원격/파괴적 작업 전에만 사용자 승인을 요청합니다.
 - `workflow-stage --json`가 `approvalRequired === true`를 반환하면 그 checkpoint에서 멈추고 사용자 승인을 받습니다.
+- `workflow-stage --json`가 승인 경계에서 라벨형 `actionOptions`를 반환하면, 사용자 프롬프트에서도 같은 옵션 라벨과 `reply` 값을 그대로 사용하고 다른 응답 형식을 임의로 만들지 않습니다.
 - GitHub 원격 작업 전에는 올릴 artifact나 계획을 먼저 공유합니다.
 
 ## 표기 규칙

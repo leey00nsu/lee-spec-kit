@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import {
   insertFieldInMetadataSection,
+  resolveIssueTitleSummary,
   syncIssueDraftMetadata,
   syncPrDraftMetadata,
 } from '../../services/GithubWorkflowService.js';
@@ -67,11 +68,34 @@ describe('GithubWorkflowService metadata sync helpers', () => {
     const result = syncPrDraftMetadata(
       prDocPath,
       'https://github.com/acme/repo/pull/77',
-      'Review'
+      'Review',
+      'feat(#77): alpha (F077-alpha 구현)'
     );
     expect(result.changed).toBe(true);
     const content = await fs.readFile(prDocPath, 'utf-8');
     expect(content).toContain('- **PR**: https://github.com/acme/repo/pull/77');
     expect(content).toContain('- **PR Status**: Review');
+    expect(content).toContain('- **Title**: feat(#77): alpha (F077-alpha 구현)');
+  });
+
+  it('resolveIssueTitleSummary rewrites long summaries into a complete shorter phrase without ellipsis', () => {
+    const summary = resolveIssueTitleSummary(
+      'Hugging Face Space를 프로젝트에서 API처럼 재사용할 수 있도록, 오디오 생성용 HF Space 연동 계층의 호환성을 공통화하고 생성 실패 회귀를 줄인다.',
+      {
+        id: 'F044',
+        slug: 'audio-qwen-tts-bugfix',
+        folderName: 'F044-audio-qwen-tts-bugfix',
+        type: 'single',
+        path: '/tmp/F044-audio-qwen-tts-bugfix',
+        docs: { featurePathFromDocs: 'features/F044-audio-qwen-tts-bugfix' },
+        git: { docsGitCwd: '/tmp/docs', projectGitCwd: '/tmp/project' },
+      },
+      'ko'
+    );
+
+    expect(summary).toContain('오디오 생성용 HF Space 연동 계층');
+    expect(summary).toContain('생성 실패 회귀');
+    expect(summary).not.toContain('...');
+    expect(summary.length).toBeLessThanOrEqual(72);
   });
 });

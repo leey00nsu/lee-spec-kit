@@ -24,6 +24,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Minimum active feature docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
 - When GitHub workflow is involved, also use `issue.md` and `pr.md`.
 - After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
+- If `workflow-stage --json` also returns `primaryActionLabel` and `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 
 ## Execution Rules
 
@@ -44,6 +45,7 @@ This document defines workflow policy, not a custom runtime loop.
 
 - Ask the user for approval at documented workflow checkpoints and before remote or destructive actions.
 - If `workflow-stage --json` says `approvalRequired === true`, stop and ask the user at that checkpoint.
+- If `workflow-stage --json` returns labeled `actionOptions` at an approval boundary, keep those option labels and exact `reply` tokens in the user prompt instead of inventing new reply formats.
 - Share the exact artifact or plan before remote GitHub actions.
 
 ## Formatting Rules

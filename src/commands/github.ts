@@ -9,7 +9,7 @@ import {
   getCliErrorSuggestions,
   printCliErrorSuggestions,
 } from '../utils/cli-error.js';
-import { runProcess, runProcessOrThrow } from './github/process.js';
+import { runProcessOrThrow } from './github/process.js';
 import * as ghService from '../services/GithubWorkflowService.js';
 
 export function githubCommand(program: Command): void {
@@ -136,7 +136,11 @@ export function githubCommand(program: Command): void {
           }
           const title =
             options.title?.trim() ||
-            (preparedBody.source === 'workflow-ready'
+            (preparedBody.source === 'workflow-ready' &&
+            !ghService.isPlaceholderWorkflowDraftTitle(
+              preparedBody.draftMetadata?.title,
+              feature
+            )
               ? preparedBody.draftMetadata?.title
               : undefined) ||
             defaultTitle;
@@ -194,7 +198,8 @@ export function githubCommand(program: Command): void {
               );
               const draftSynced = ghService.syncIssueDraftMetadata(
                 path.join(config.docsDir, paths.issuePath),
-                syncedIssueNumber
+                syncedIssueNumber,
+                title
               );
               syncChanged = synced.changed || draftSynced.changed;
             }
@@ -413,12 +418,13 @@ export function githubCommand(program: Command): void {
             await fs.writeFile(sanitizedBodyFile, body, 'utf-8');
             bodyFile = sanitizedBodyFile;
           }
-          const title =
+          const requestedTitle =
             options.title?.trim() ||
             (preparedBody.source === 'workflow-ready'
               ? preparedBody.draftMetadata?.title
               : undefined) ||
-            defaultTitle;
+            '';
+          let title = requestedTitle || defaultTitle;
           const labels = ghService.parseLabels(
             optionLabels ||
               (preparedBody.source === 'workflow-ready'
@@ -432,7 +438,6 @@ export function githubCommand(program: Command): void {
           let prUrl = options.pr?.trim() || '';
           let mergedAttempts: number | undefined;
           let mergeAlreadyMerged: boolean | undefined;
-          const postMergeWarnings: string[] = [];
           let syncChanged = false;
           const pushDocsSync = ghService.shouldPushDocsSync(config);
 
@@ -446,11 +451,25 @@ export function githubCommand(program: Command): void {
               feature.issueNumber ? String(feature.issueNumber) : undefined,
               config.lang
             );
+            title =
+              closingIssueNumber && closingIssueNumber.trim()
+                ? defaultTitle
+                : requestedTitle || defaultTitle;
             ghService.assertRemoteIssueExists(
               closingIssueNumber,
               projectGitCwd,
               config.lang
             );
+            if (
+              closingIssueNumber &&
+              options.title?.trim() &&
+              options.title.trim() !== defaultTitle
+            ) {
+              throw createCliError(
+                'PRECONDITION_FAILED',
+                `PR title must follow the existing convention: "${defaultTitle}".`
+              );
+            }
             const normalizedBody = ghService.ensureIssueClosingLine(
               body,
               closingIssueNumber
@@ -531,7 +550,8 @@ export function githubCommand(program: Command): void {
             const syncedDraft = ghService.syncPrDraftMetadata(
               path.join(config.docsDir, paths.prPath),
               prUrl,
-              'Review'
+              'Review',
+              title
             );
             syncChanged = syncedTasks.changed || syncedDraft.changed;
             const shouldCommitSync = !!options.commitSync || !!options.merge;
@@ -608,47 +628,6 @@ export function githubCommand(program: Command): void {
                 );
               }
             }
-
-            const mergeBaseBranch = (
-              merged.baseRefName ||
-              baseBranch ||
-              'main'
-            ).trim();
-            const checkoutResult = runProcess(
-              'git',
-              ['checkout', mergeBaseBranch],
-              projectGitCwd
-            );
-            if (checkoutResult.code !== 0) {
-              postMergeWarnings.push(
-                ghService.tg(config.lang, 'postMergeCheckoutWarning', {
-                  base: mergeBaseBranch,
-                  detail: (
-                    checkoutResult.stderr ||
-                    checkoutResult.stdout ||
-                    ''
-                  ).trim(),
-                })
-              );
-            } else {
-              const pullResult = runProcess(
-                'git',
-                ['pull', '--rebase', 'origin', mergeBaseBranch],
-                projectGitCwd
-              );
-              if (pullResult.code !== 0) {
-                postMergeWarnings.push(
-                  ghService.tg(config.lang, 'postMergePullWarning', {
-                    base: mergeBaseBranch,
-                    detail: (
-                      pullResult.stderr ||
-                      pullResult.stdout ||
-                      ''
-                    ).trim(),
-                  })
-                );
-              }
-            }
           }
 
           if (options.json) {
@@ -676,10 +655,6 @@ export function githubCommand(program: Command): void {
                   merged: !!options.merge,
                   mergeAttempts: mergedAttempts,
                   mergeAlreadyMerged,
-                  postMergeWarnings:
-                    postMergeWarnings.length > 0
-                      ? postMergeWarnings
-                      : undefined,
                 },
                 null,
                 2
@@ -727,9 +702,6 @@ export function githubCommand(program: Command): void {
               console.log(
                 chalk.yellow(ghService.tg(config.lang, 'prAlreadyMergedNotice'))
               );
-            }
-            for (const warning of postMergeWarnings) {
-              console.log(chalk.yellow(`⚠️  ${warning}`));
             }
           } else if (!options.create) {
             console.log(
