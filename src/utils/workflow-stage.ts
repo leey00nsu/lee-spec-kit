@@ -1127,10 +1127,8 @@ function resolveRemotePrReviewState(
         ? 'approved'
         : 'merge_blocked';
     }
-    if (reviewDecision.length === 0 && hasSuccessfulCodeRabbitStatusCheck(parsed.statusCheckRollup)) {
-      return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
-        ? 'approved'
-        : 'merge_blocked';
+    if (reviewDecision.length === 0 && hasCodeRabbitActionableReview(parsed.latestReviews)) {
+      return 'changes_requested';
     }
     if (reviewDecision.length === 0 && hasLatestHeadRateLimitSignal(parsed, headRefOid)) {
       return 'review_rate_limited';
@@ -1967,35 +1965,6 @@ function hasLatestHeadRateLimitSignal(
   return !latestReviewAt || latestReviewAt <= latestRateLimitCommentAt;
 }
 
-function hasSuccessfulCodeRabbitStatusCheck(statusCheckRollupValue: unknown): boolean {
-  if (!Array.isArray(statusCheckRollupValue)) {
-    return false;
-  }
-
-  return statusCheckRollupValue.some((entry) => {
-    if (!entry || typeof entry !== 'object') {
-      return false;
-    }
-    const record = entry as Record<string, unknown>;
-    const typename = String(record.__typename || '').trim();
-
-    if (typename === 'StatusContext') {
-      const context = String(record.context || '').trim().toLowerCase();
-      const state = String(record.state || '').trim().toUpperCase();
-      return context === 'coderabbit' && state === 'SUCCESS';
-    }
-
-    if (typename === 'CheckRun') {
-      const name = String(record.name || '').trim().toLowerCase();
-      const status = String(record.status || '').trim().toUpperCase();
-      const conclusion = String(record.conclusion || '').trim().toUpperCase();
-      return name === 'coderabbit' && status === 'COMPLETED' && conclusion === 'SUCCESS';
-    }
-
-    return false;
-  });
-}
-
 function hasStaleLatestCommitReviewSignal(
   parsed: Record<string, unknown>,
   headRefOid: string
@@ -2010,6 +1979,28 @@ function hasStaleLatestCommitReviewSignal(
   }
 
   return !matchesCommitReference(headRefOid, latestReviewHead);
+}
+
+function hasCodeRabbitActionableReview(reviewsValue: unknown): boolean {
+  if (!Array.isArray(reviewsValue)) {
+    return false;
+  }
+
+  return reviewsValue.some((entry) => {
+    if (!entry || typeof entry !== 'object') return false;
+    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    if (authorLogin !== 'coderabbitai') return false;
+
+    const state = String((entry as Record<string, unknown>).state || '')
+      .trim()
+      .toUpperCase();
+    if (state === 'CHANGES_REQUESTED') return true;
+    if (state !== 'COMMENTED') return false;
+
+    const body = String((entry as Record<string, unknown>).body || '');
+    const actionableMatch = body.match(/Actionable comments posted:\s*(\d+)/i);
+    return actionableMatch ? Number(actionableMatch[1]) > 0 : false;
+  });
 }
 
 function findLatestCodeRabbitRateLimitCommentAt(

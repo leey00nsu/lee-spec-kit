@@ -1221,10 +1221,18 @@ test('workflow-stage exposes merge-handoff labels when the remote PR is approved
   });
 });
 
-test('workflow-stage treats a successful CodeRabbit review check as approved review state even when reviewDecision is empty', async () => {
+test('workflow-stage treats CodeRabbit actionable comments as changes requested even when its status check succeeds', async () => {
   await withTempDir('lsk-workflow-stage-code-review-coderabbit-success-', async (dir) => {
     const fakeGh = await setupFakeReviewGhCli(dir, {
       reviewDecision: '',
+      latestReviews: [
+        {
+          author: { login: 'coderabbitai' },
+          state: 'COMMENTED',
+          body: '**Actionable comments posted: 2**\n\n_⚠️ Potential issue_ | _🔴 Critical_',
+          submittedAt: '2026-04-26T09:36:56Z',
+        },
+      ],
       statusCheckRollup: [
         {
           __typename: 'StatusContext',
@@ -1271,9 +1279,9 @@ test('workflow-stage treats a successful CodeRabbit review check as approved rev
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'code_review');
-    assert.equal(payload.reviewState, 'approved');
+    assert.equal(payload.reviewState, 'changes_requested');
     assert.equal(payload.approvalRequired, true);
-    assert.match(payload.nextAction.summary, /approved PR review state/i);
+    assert.match(payload.nextAction.summary, /Address the requested review changes/i);
     assert.deepEqual(
       payload.actionOptions.map((option) => [option.label, option.reply]),
       [['A', 'A'], ['B', 'B']]
