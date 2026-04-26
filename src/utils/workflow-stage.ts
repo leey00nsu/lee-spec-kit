@@ -1542,9 +1542,7 @@ export async function collectWorkflowStage(
       issueExistsRemotely(tasks.issueNumber, feature);
     if (!issueCreated || !issueReady) {
       const issueCreateApprovalRequired =
-        issueReady &&
-        !issueCreated &&
-        resolveActionApprovalRequired(config, 'issue_create', true);
+        issueReady && !issueCreated;
       const issueCreateCommand = `npx lee-spec-kit github issue ${buildFeatureArgs(feature)} --create --confirm OK`;
       const issueCreateOptions = issueCreateApprovalRequired
         ? buildApprovalActionOptions({
@@ -1809,9 +1807,7 @@ export async function collectWorkflowStage(
       prExistsRemotely(tasks.prLink, feature);
     if (!prCreated || !prReady) {
       const prCreateApprovalRequired =
-        prReady &&
-        !prCreated &&
-        resolveActionApprovalRequired(config, 'pr_create', true);
+        prReady && !prCreated;
       const prCreateCommand = `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --create --confirm OK`;
       const prCreateOptions = prCreateApprovalRequired
         ? buildApprovalActionOptions({

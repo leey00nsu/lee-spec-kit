@@ -491,15 +491,6 @@ test('workflow-stage keeps implementation blocked until the issue is actually cr
     await initRepo(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
 
-    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
-    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.approval = {
-      mode: 'category',
-      default: 'skip',
-      requireCheckCategories: ['issue_create'],
-    };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'issue');
     assert.equal(payload.nextAction.category, 'issue_create');
@@ -841,16 +832,6 @@ test('workflow-stage advances to PR creation only after pre-pr approval is recor
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
     await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
     await commitTaskProject(dir);
-
-    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
-    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.approval = {
-      mode: 'category',
-      default: 'skip',
-      requireCheckCategories: ['pr_create'],
-    };
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트', ['docs/.lee-spec-kit.json']);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'pr');
