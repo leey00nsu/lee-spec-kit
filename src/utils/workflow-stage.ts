@@ -186,6 +186,8 @@ type PostMergeCleanupState = {
   managedWorktreeExists: boolean;
 };
 
+type CodeRabbitReviewThreadsState = 'unknown' | 'none' | 'open' | 'resolved';
+
 const LEGACY_STEP_BY_ACTION: Partial<Record<WorkflowStageAction['category'], number>> = {
   spec_write: 2,
   spec_approve: 3,
@@ -1112,6 +1114,12 @@ function resolveRemotePrReviewState(
     const mergedAt = typeof parsed.mergedAt === 'string'
       ? parsed.mergedAt.trim()
       : '';
+    const codeRabbitThreadState = reviewDecision.length === 0
+      ? resolveCodeRabbitReviewThreadsState(prRef, feature)
+      : 'unknown';
+    const codeRabbitCheckSucceeded = hasSuccessfulCodeRabbitStatusCheck(
+      parsed.statusCheckRollup
+    );
 
     if (state === 'MERGED' || mergedAt.length > 0) {
       return 'merged';
@@ -1127,14 +1135,35 @@ function resolveRemotePrReviewState(
         ? 'approved'
         : 'merge_blocked';
     }
+    if (reviewDecision.length === 0 && codeRabbitThreadState === 'open') {
+      return 'changes_requested';
+    }
     if (reviewDecision.length === 0 && hasLatestHeadRateLimitSignal(parsed, headRefOid)) {
       return 'review_rate_limited';
     }
-    if (reviewDecision.length === 0 && hasStaleLatestCommitReviewSignal(parsed, headRefOid)) {
+    if (
+      reviewDecision.length === 0 &&
+      hasStaleLatestCommitReviewSignal(parsed, headRefOid) &&
+      !(codeRabbitThreadState === 'resolved' && codeRabbitCheckSucceeded)
+    ) {
       return 'review_pending_latest_commit';
     }
     if (reviewDecision.length === 0 && hasCodeRabbitActionableReview(parsed.latestReviews)) {
+      if (codeRabbitThreadState === 'resolved' && codeRabbitCheckSucceeded) {
+        return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
+          ? 'approved'
+          : 'merge_blocked';
+      }
       return 'changes_requested';
+    }
+    if (
+      reviewDecision.length === 0 &&
+      codeRabbitThreadState === 'resolved' &&
+      codeRabbitCheckSucceeded
+    ) {
+      return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
+        ? 'approved'
+        : 'merge_blocked';
     }
     if (reviewDecision === 'REVIEW_REQUIRED' || reviewDecision.length === 0) {
       return 'waiting_review';
@@ -1986,6 +2015,131 @@ function hasStaleLatestCommitReviewSignal(
   return !matchesCommitReference(headRefOid, latestReviewHead);
 }
 
+function resolveCodeRabbitReviewThreadsState(
+  prRef: string,
+  feature: ResolvedFeature
+): CodeRabbitReviewThreadsState {
+  const coordinates = parseGithubPullRequestRef(prRef);
+  if (!coordinates) {
+    return 'unknown';
+  }
+
+  const result = runProcess(
+    'gh',
+    [
+      'api',
+      'graphql',
+      '-f',
+      `owner=${coordinates.owner}`,
+      '-f',
+      `name=${coordinates.name}`,
+      '-F',
+      `number=${coordinates.number}`,
+      '-f',
+      'query=query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { pullRequest(number:$number) { headRefOid reviewThreads(first:100) { nodes { isResolved isOutdated comments(first:20) { nodes { author { login } body } } } } } } }',
+    ],
+    feature.git.projectGitCwd
+  );
+
+  if (result.code !== 0) {
+    return 'unknown';
+  }
+
+  try {
+    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<string, unknown>;
+    const nodes = extractNestedArray(parsed, [
+      'data',
+      'repository',
+      'pullRequest',
+      'reviewThreads',
+      'nodes',
+    ]);
+    if (!nodes) {
+      return 'unknown';
+    }
+
+    const codeRabbitThreads = nodes.filter(isCodeRabbitReviewThread);
+    if (codeRabbitThreads.length === 0) {
+      return 'none';
+    }
+
+    return codeRabbitThreads.some((thread) => !isReviewThreadResolved(thread))
+      ? 'open'
+      : 'resolved';
+  } catch {
+    return 'unknown';
+  }
+}
+
+function parseGithubPullRequestRef(
+  prRef: string | null
+): { owner: string; name: string; number: number } | null {
+  const value = prRef?.trim();
+  if (!value) {
+    return null;
+  }
+
+  const urlMatch = value.match(
+    /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:[/?#].*)?$/i
+  );
+  if (!urlMatch?.[1] || !urlMatch[2] || !urlMatch[3]) {
+    return null;
+  }
+
+  return {
+    owner: urlMatch[1],
+    name: urlMatch[2],
+    number: Number(urlMatch[3]),
+  };
+}
+
+function hasSuccessfulCodeRabbitStatusCheck(statusChecksValue: unknown): boolean {
+  if (!Array.isArray(statusChecksValue)) {
+    return false;
+  }
+
+  return statusChecksValue.some((entry) => {
+    if (!entry || typeof entry !== 'object') return false;
+    const record = entry as Record<string, unknown>;
+    const label = [
+      record.context,
+      record.name,
+      extractNestedString(record, ['app', 'name']),
+      extractNestedString(record, ['checkSuite', 'app', 'name']),
+    ]
+      .filter((value) => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+      .toLowerCase();
+    if (!label.includes('coderabbit')) return false;
+
+    const state = String(record.state || record.conclusion || '')
+      .trim()
+      .toUpperCase();
+    return state === 'SUCCESS';
+  });
+}
+
+function isCodeRabbitReviewThread(threadValue: unknown): boolean {
+  const comments = extractNestedArray(threadValue, ['comments', 'nodes']);
+  if (!comments) {
+    return false;
+  }
+
+  return comments.some((comment) =>
+    extractNestedString(comment, ['author', 'login'])
+      .toLowerCase()
+      .startsWith('coderabbitai')
+  );
+}
+
+function isReviewThreadResolved(threadValue: unknown): boolean {
+  if (!threadValue || typeof threadValue !== 'object') {
+    return false;
+  }
+  const record = threadValue as Record<string, unknown>;
+  return record.isResolved === true || record.isOutdated === true;
+}
+
 function hasCodeRabbitActionableReview(reviewsValue: unknown): boolean {
   if (!Array.isArray(reviewsValue)) {
     return false;
@@ -2006,6 +2160,20 @@ function hasCodeRabbitActionableReview(reviewsValue: unknown): boolean {
     const actionableMatch = body.match(/Actionable comments posted:\s*(\d+)/i);
     return actionableMatch ? Number(actionableMatch[1]) > 0 : false;
   });
+}
+
+function extractNestedArray(
+  value: unknown,
+  pathSegments: string[]
+): unknown[] | null {
+  let current: unknown = value;
+  for (const segment of pathSegments) {
+    if (!current || typeof current !== 'object') {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return Array.isArray(current) ? current : null;
 }
 
 function findLatestCodeRabbitRateLimitCommentAt(

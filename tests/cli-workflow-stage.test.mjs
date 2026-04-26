@@ -249,6 +249,19 @@ if (args[0] === 'pr' && args[1] === 'view') {
   console.log(JSON.stringify(payload));
   process.exit(0);
 }
+if (args[0] === 'api' && args[1] === 'graphql') {
+  console.log(JSON.stringify({
+    data: {
+      repository: {
+        pullRequest: {
+          headRefOid: payload.headRefOid || '',
+          reviewThreads: payload.reviewThreads || { nodes: [] },
+        },
+      },
+    },
+  }));
+  process.exit(0);
+}
 if (args[0] === 'issue' && args[1] === 'view') {
   console.log(JSON.stringify({ number: 123, state: 'OPEN' }));
   process.exit(0);
@@ -1291,6 +1304,99 @@ test('workflow-stage treats CodeRabbit actionable comments as changes requested 
     assert.equal(payload.primaryActionLabel, undefined);
     assert.equal(payload.actionOptions, undefined);
     assert.match(payload.nextAction.summary, /Address the requested review changes/i);
+  });
+});
+
+test('workflow-stage treats resolved CodeRabbit actionable threads and successful check as approved', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-coderabbit-resolved-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: '',
+      headRefOid: 'fb7b80916cd91ba05b28db6a4240eb9adfc5fd93',
+      latestReviews: [
+        {
+          author: { login: 'coderabbitai' },
+          state: 'COMMENTED',
+          body: '**Actionable comments posted: 2**\n\nReviewing files that changed from the base of the PR and between afe75e8c42c030125b1d52199b079690d56b78f8 and a150b25304fa9c50dc9f7a4e7da6c4576f844dfa.',
+          submittedAt: '2026-04-26T09:36:56Z',
+        },
+      ],
+      reviewThreads: {
+        nodes: [
+          {
+            isResolved: true,
+            isOutdated: true,
+            comments: {
+              nodes: [
+                {
+                  author: { login: 'coderabbitai' },
+                  body: '_⚠️ Potential issue_ | _🔴 Critical_\n\n✅ Addressed in commit ff5944d',
+                },
+              ],
+            },
+          },
+          {
+            isResolved: true,
+            isOutdated: false,
+            comments: {
+              nodes: [
+                {
+                  author: { login: 'coderabbitai' },
+                  body: '_⚠️ Potential issue_ | _🟠 Major_\n\n✅ Addressed in commit ff5944d',
+                },
+              ],
+            },
+          },
+        ],
+      },
+      statusCheckRollup: [
+        {
+          __typename: 'StatusContext',
+          context: 'CodeRabbit',
+          state: 'SUCCESS',
+        },
+      ],
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'approved');
+    assert.equal(payload.approvalRequired, true);
+    assert.match(payload.nextAction.summary, /approved PR review state/i);
   });
 });
 
