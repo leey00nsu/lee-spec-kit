@@ -41,6 +41,8 @@ export interface FeatureSelectionState {
   status: FeatureSelectionStatus;
 }
 
+const BRANCH_LABELS = ['Branch', '브랜치'];
+
 function normalizeComponent(value: string | undefined): string | undefined {
   const component = (value || '').trim().toLowerCase();
   return component || undefined;
@@ -96,16 +98,19 @@ function resolveProjectRootFromGitCwd(projectGitCwd: string): string {
 async function resolveExistingManagedWorktreePath(
   config: ProjectConfig,
   projectGitCwd: string,
-  issueNumber: number,
   slug: string,
-  folderName: string
+  folderName: string,
+  issueNumber?: number,
+  branchName?: string | null
 ): Promise<string | null> {
   const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
-  const candidates = [
-    `feat/${issueNumber}-${slug}`,
-    `feat/${issueNumber}-${folderName}`,
-  ].map((branchName) =>
-    resolveManagedWorktreePath(config, projectRoot, branchName)
+  const branchCandidates = [
+    branchName,
+    issueNumber ? `feat/${issueNumber}-${slug}` : null,
+    issueNumber ? `feat/${issueNumber}-${folderName}` : null,
+  ].filter((candidate): candidate is string => !!candidate);
+  const candidates = [...new Set(branchCandidates)].map((candidate) =>
+    resolveManagedWorktreePath(config, projectRoot, candidate)
   );
 
   for (const candidate of candidates) {
@@ -115,6 +120,26 @@ async function resolveExistingManagedWorktreePath(
   }
 
   return null;
+}
+
+function extractFieldValue(content: string, labels: string | string[]): string | null {
+  for (const label of Array.isArray(labels) ? labels : [labels]) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = content.match(
+      new RegExp(`^\\s*-\\s*\\*\\*${escaped}\\*\\*:\\s*(.*?)\\s*$`, 'mi')
+    );
+    if (!match) continue;
+    const value = match[1].trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+function sanitizeMetadataValue(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim().replace(/^`(.+)`$/, '$1');
+  if (!trimmed || trimmed === '-') return null;
+  return trimmed;
 }
 
 function toFeaturePathFromDocs(
@@ -135,6 +160,13 @@ async function extractIssueNumber(featureDir: string): Promise<number | undefine
   if (!match) return undefined;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function extractBranchName(featureDir: string): Promise<string | null> {
+  const tasksPath = path.join(featureDir, 'tasks.md');
+  if (!(await fs.pathExists(tasksPath))) return null;
+  const content = await fs.readFile(tasksPath, 'utf-8');
+  return sanitizeMetadataValue(extractFieldValue(content, BRANCH_LABELS));
 }
 
 async function listResolvedFeatures(
@@ -158,15 +190,17 @@ async function listResolvedFeatures(
       );
       const featureDir = path.join(config.docsDir, featurePathFromDocs);
       const issueNumber = await extractIssueNumber(featureDir);
+      const branchName = await extractBranchName(featureDir);
       const projectGitCwdBase = resolveProjectGitCwd(cwd, config, type);
       const worktreeProjectGitCwd =
-        config.docsRepo === 'standalone' && issueNumber
+        config.docsRepo === 'standalone' && (issueNumber || branchName)
           ? await resolveExistingManagedWorktreePath(
               config,
               projectGitCwdBase,
-              issueNumber,
               ref.slug,
-              ref.folderName
+              ref.folderName,
+              issueNumber,
+              branchName
             )
           : null;
       return {

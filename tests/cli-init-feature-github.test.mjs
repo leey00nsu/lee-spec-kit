@@ -2190,6 +2190,102 @@ test('github pr --create runs gh from standalone project root', async () => {
   });
 });
 
+test('github pr --create runs gh from standalone managed worktree when tasks branch exists', async () => {
+  await withTempDir('lsk-github-pr-standalone-worktree-cwd-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs-repo');
+    await fs.mkdir(projectRoot, { recursive: true });
+    await fs.mkdir(docsRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    const projectMain = await runCommand(projectRoot, 'git', ['branch', '-M', 'main']);
+    assert.equal(projectMain.code, 0, projectMain.stderr || projectMain.stdout);
+    const gitUserName = await runCommand(projectRoot, 'git', ['config', 'user.name', 'Test User']);
+    assert.equal(gitUserName.code, 0, gitUserName.stderr || gitUserName.stdout);
+    const gitUserEmail = await runCommand(projectRoot, 'git', ['config', 'user.email', 'test@example.com']);
+    assert.equal(gitUserEmail.code, 0, gitUserEmail.stderr || gitUserEmail.stdout);
+    await fs.writeFile(path.join(projectRoot, 'README.md'), '# project\n', 'utf-8');
+    const projectAdd = await runCommand(projectRoot, 'git', ['add', 'README.md']);
+    assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
+    const projectCommit = await runCommand(projectRoot, 'git', ['commit', '-m', 'baseline']);
+    assert.equal(projectCommit.code, 0, projectCommit.stderr || projectCommit.stdout);
+
+    const initResult = await runCli(docsRoot, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      projectRoot,
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(docsRoot, ['feature', 'alpha', '--id', 'F001']);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const tasksPath = path.join(docsRoot, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const worktreePath = path.join(docsRoot, '.worktrees', path.basename(projectRoot), 'feat--alpha');
+    const addWorktree = await runCommand(projectRoot, 'git', [
+      'worktree',
+      'add',
+      '-b',
+      'feat/-alpha',
+      worktreePath,
+    ]);
+    assert.equal(addWorktree.code, 0, addWorktree.stderr || addWorktree.stdout);
+
+    const bodyFile = path.join(docsRoot, 'tmp-pr-body.md');
+    await writePrBodyWithoutTodo(bodyFile);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const result = await runCli(
+      docsRoot,
+      [
+        'github',
+        'pr',
+        'F001-alpha',
+        '--create',
+        '--body-file',
+        bodyFile,
+        '--confirm',
+        'OK',
+        '--json',
+      ],
+      fakeGh.env
+    );
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'PR_CREATED_SYNCED');
+
+    const cwdLog = await fs.readFile(fakeGh.cwdLogPath, 'utf-8');
+    const invocations = cwdLog
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const normalizedInvocations = await Promise.all(
+      invocations.map((invocation) => normalizePathForCompare(invocation))
+    );
+    const expectedCwd = await normalizePathForCompare(worktreePath);
+    assert.deepEqual([...new Set(normalizedInvocations)], [expectedCwd]);
+  });
+});
+
 test('github pr --create uses Ready pr.md when --body-file is omitted', async () => {
   await withTempDir('lsk-github-pr-create-from-ready-doc-', async (dir) => {
     const initResult = await runCli(dir, [
