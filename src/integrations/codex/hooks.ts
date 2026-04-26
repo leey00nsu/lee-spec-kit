@@ -676,7 +676,7 @@ function getGitCommitMessage(value) {
 }
 
 function normalizeCommandText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
+  return String(value || '').replace(/[ \t\r\n]+/g, ' ').trim();
 }
 
 function hasUnsupportedGitTargetOptions(value) {

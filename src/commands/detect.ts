@@ -16,7 +16,6 @@ interface DetectOptions {
 }
 
 type DetectionReasonCode = 'PROJECT_DETECTED' | 'PROJECT_NOT_DETECTED';
-type DetectionSource = 'config' | 'heuristic';
 
 export function detectCommand(program: Command): void {
   program

@@ -2,7 +2,6 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import type { ProjectConfig } from '../config/types.js';
 import { createDefaultApprovalConfig, getConfig } from './config.js';
-import { createCliError } from './cli-error.js';
 import {
   getFeatureDocPaths,
   resolveFeatureSelection,
@@ -948,14 +947,6 @@ function buildPostMergeCleanupSummary(state: PostMergeCleanupState): string {
   }
 
   return `Finish the post-merge cleanup before closing the feature: ${remaining.join(', ')}.`;
-}
-
-function getCurrentProjectBranch(feature: ResolvedFeature): string | null {
-  return (
-    runGitCapture(['branch', '--show-current'], feature.git.projectGitCwd) ||
-    runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], feature.git.projectGitCwd) ||
-    null
-  );
 }
 
 function nextTodoTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] | null {

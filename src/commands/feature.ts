@@ -11,7 +11,6 @@ import {
 import { replaceInFiles } from '../utils/template.js';
 import { DefaultFileSystemAdapter } from '../adapters/DefaultFileSystemAdapter.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
-import type { Lang } from '../utils/i18n.js';
 import {
   getDocsLockPath,
   getInitLockPath,
