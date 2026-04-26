@@ -981,7 +981,7 @@ test('workflow-stage advances to code review after PR creation but before final 
   });
 });
 
-test('workflow-stage exposes review-fix label guidance when the remote PR has changes requested', async () => {
+test('workflow-stage allows automatic review-fix work when the remote PR has changes requested', async () => {
   await withTempDir('lsk-workflow-stage-code-review-changes-requested-', async (dir) => {
     const fakeGh = await setupFakeReviewGhCli(dir, {
       reviewDecision: 'CHANGES_REQUESTED',
@@ -1025,12 +1025,11 @@ test('workflow-stage exposes review-fix label guidance when the remote PR has ch
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'code_review');
     assert.equal(payload.reviewState, 'changes_requested');
-    assert.equal(payload.approvalRequired, true);
-    assert.equal(payload.primaryActionLabel, 'A');
+    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.implementationAllowed, true);
+    assert.equal(payload.primaryActionLabel, undefined);
+    assert.equal(payload.actionOptions, undefined);
     assert.match(payload.nextAction.summary, /requested review changes/i);
-    assert.equal(payload.actionOptions[0].label, 'A');
-    assert.equal(payload.actionOptions[0].reply, 'A');
-    assert.match(payload.actionOptions[0].summary, /address/i);
   });
 });
 
@@ -1280,12 +1279,11 @@ test('workflow-stage treats CodeRabbit actionable comments as changes requested 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'code_review');
     assert.equal(payload.reviewState, 'changes_requested');
-    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.implementationAllowed, true);
+    assert.equal(payload.primaryActionLabel, undefined);
+    assert.equal(payload.actionOptions, undefined);
     assert.match(payload.nextAction.summary, /Address the requested review changes/i);
-    assert.deepEqual(
-      payload.actionOptions.map((option) => [option.label, option.reply]),
-      [['A', 'A'], ['B', 'B']]
-    );
   });
 });
 
@@ -1334,7 +1332,8 @@ test('workflow-stage does not skip to merge when stale docs say Approved but rem
     assert.equal(payload.stage, 'code_review');
     assert.equal(payload.reviewState, 'changes_requested');
     assert.equal(payload.nextAction.category, 'code_review');
-    assert.equal(payload.approvalRequired, true);
+    assert.equal(payload.approvalRequired, false);
+    assert.equal(payload.implementationAllowed, true);
   });
 });
 

@@ -1876,6 +1876,11 @@ export async function collectWorkflowStage(
   }
 
   if (requirements.requireReview && (!reviewApprovedInDocs || currentReviewState !== 'approved')) {
+    const reviewFixAllowed = currentReviewState === 'changes_requested';
+    const reviewApprovalRequired = !reviewFixAllowed;
+    const reviewActionOptions = reviewApprovalRequired
+      ? buildCodeReviewActionOptions(currentReviewState)
+      : undefined;
     const reviewSummary =
       currentReviewState === 'approved'
         ? 'Record the approved PR review state in tasks.md and pr.md before proceeding to merge.'
@@ -1901,13 +1906,13 @@ export async function collectWorkflowStage(
       nextAction: buildAction(
         'code_review',
         reviewSummary,
-        true
+        reviewApprovalRequired
       ),
-      approvalRequired: true,
-      implementationAllowed: false,
+      approvalRequired: reviewApprovalRequired,
+      implementationAllowed: reviewFixAllowed,
       reviewState: currentReviewState,
-      primaryActionLabel: 'A',
-      actionOptions: buildCodeReviewActionOptions(currentReviewState),
+      primaryActionLabel: reviewActionOptions ? 'A' : undefined,
+      actionOptions: reviewActionOptions,
       blockedReasonCode: 'PR_REVIEW_NOT_APPROVED',
     };
   }
