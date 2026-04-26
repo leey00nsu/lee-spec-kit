@@ -1114,10 +1114,17 @@ test('workflow-stage distinguishes stale older CodeRabbit reviews from a fresh r
           author: { login: 'coderabbitai' },
           state: 'COMMENTED',
           submittedAt: '2026-04-17T09:11:15Z',
-          body: 'Reviewing files that changed from the base of the PR and between afe75e8c42c030125b1d52199b079690d56b78f8 and a150b25304fa9c50dc9f7a4e7da6c4576f844dfa.',
+          body: '**Actionable comments posted: 2**\n\nReviewing files that changed from the base of the PR and between afe75e8c42c030125b1d52199b079690d56b78f8 and a150b25304fa9c50dc9f7a4e7da6c4576f844dfa.',
         },
       ],
       comments: [],
+      statusCheckRollup: [
+        {
+          __typename: 'StatusContext',
+          context: 'CodeRabbit',
+          state: 'SUCCESS',
+        },
+      ],
     });
     await initRepo(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });

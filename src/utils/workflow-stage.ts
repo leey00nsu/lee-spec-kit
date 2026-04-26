@@ -1127,14 +1127,14 @@ function resolveRemotePrReviewState(
         ? 'approved'
         : 'merge_blocked';
     }
-    if (reviewDecision.length === 0 && hasCodeRabbitActionableReview(parsed.latestReviews)) {
-      return 'changes_requested';
-    }
     if (reviewDecision.length === 0 && hasLatestHeadRateLimitSignal(parsed, headRefOid)) {
       return 'review_rate_limited';
     }
     if (reviewDecision.length === 0 && hasStaleLatestCommitReviewSignal(parsed, headRefOid)) {
       return 'review_pending_latest_commit';
+    }
+    if (reviewDecision.length === 0 && hasCodeRabbitActionableReview(parsed.latestReviews)) {
+      return 'changes_requested';
     }
     if (reviewDecision === 'REVIEW_REQUIRED' || reviewDecision.length === 0) {
       return 'waiting_review';
