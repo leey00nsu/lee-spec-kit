@@ -697,11 +697,12 @@ test('workflow-stage uses managed worktree creation for standalone projects', as
   });
 });
 
-test('workflow-stage links the project .env into a new managed worktree by default', async () => {
+test('workflow-stage copies project env files into a new managed worktree by default', async () => {
   await withTempDir('lsk-workflow-stage-standalone-worktree-env-', async (dir) => {
     const { projectRoot } = await initStandaloneRepo(dir);
     const fakeGh = await setupFakeGhCli(dir);
     await fs.writeFile(path.join(projectRoot, '.env'), 'DATABASE_URL=postgres://demo\n', 'utf-8');
+    await fs.writeFile(path.join(projectRoot, '.env.local'), 'LOCAL_ONLY=1\n', 'utf-8');
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
     await syncIssueDraftMarker(dir, 123);
 
@@ -720,10 +721,36 @@ test('workflow-stage links the project .env into a new managed worktree by defau
       path.basename(normalizedProjectRoot),
       'feat-123-alpha'
     );
+    assert.match(payload.nextAction.command || '', /cp -p "\$source_env" "\$target_env"/);
+    assert.match(payload.nextAction.command || '', /"\$source_dir"\/\.env "\$source_dir"\/\.env\.\*/);
+    assert.match(payload.nextAction.command || '', new RegExp(`"${expectedWorktreePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  });
+});
+
+test('workflow-stage removes stale managed worktree directories before adding the worktree', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-worktree-stale-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeGhCli(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const stalePath = path.join(dir, '.worktrees', path.basename(projectRoot), 'feat-123-alpha');
+    await fs.mkdir(path.join(stalePath, '.next'), { recursive: true });
+
+    const payload = await readStage(dir, fakeGh.env);
+    const normalizedStalePath = await normalizePathForCompare(stalePath);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
     assert.match(
       payload.nextAction.command || '',
       new RegExp(
-        `ln -s "${path.join(normalizedProjectRoot, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}" "${path.join(expectedWorktreePath, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}"`
+        `rm -rf "${normalizedStalePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`
       )
     );
   });

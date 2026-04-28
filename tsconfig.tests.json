@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "checkJs": true,
     "strict": false,
     "noEmit": true

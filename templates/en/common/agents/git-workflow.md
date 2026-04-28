@@ -81,8 +81,20 @@ main
 
 ### Branch Creation
 
+The canonical branch/worktree command comes from `workflow-stage`:
+
 ```bash
-# Default (recommended): create dedicated worktree + branch
+npx lee-spec-kit workflow-stage <featureRef> --json
+```
+
+Run the returned `nextAction.command` instead of hand-writing the worktree path. In
+`standalone` mode that command creates the worktree under the shared
+`workspaceRoot/.worktrees/{project-name}/` root, removes stale managed directories
+that are no longer registered Git worktrees, and copies existing `.env`/`.env.*` files
+from the project root into the new worktree when the target file is absent.
+
+```bash
+# Embedded fallback only: create dedicated worktree + branch
 mkdir -p .worktrees
 git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-number}-{feature-name}
 
@@ -90,7 +102,7 @@ git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-nu
 git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-number}-{feature-name}
 ```
 
-> Continue implementation from the created worktree path (`.worktrees/feat-{issue-number}-{feature-name}`).
+> Continue implementation from the worktree path returned by `workflow-stage`.
 
 ### Document Commit Rules (Continuous Sync)
 

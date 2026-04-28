@@ -6,6 +6,7 @@ import { getConfig } from './config.js';
 import { createCliError } from './cli-error.js';
 import { runGitCapture } from './git-run.js';
 import {
+  isRegisteredGitWorktree,
   resolveManagedWorktreePath,
   resolveConfiguredStandaloneWorkspaceRoot,
   resolveGitTopLevelOrNull,
@@ -114,7 +115,10 @@ async function resolveExistingManagedWorktreePath(
   );
 
   for (const candidate of candidates) {
-    if (await fs.pathExists(candidate)) {
+    if (
+      (await fs.pathExists(candidate)) &&
+      isRegisteredGitWorktree(projectRoot, candidate)
+    ) {
       return candidate;
     }
   }

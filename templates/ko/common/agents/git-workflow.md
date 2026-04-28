@@ -81,8 +81,19 @@ main
 
 ### 브랜치 생성
 
+브랜치/worktree 생성 명령의 기준은 `workflow-stage`입니다.
+
 ```bash
-# 기본(권장): 전용 worktree + 브랜치 생성
+npx lee-spec-kit workflow-stage <featureRef> --json
+```
+
+worktree 경로를 직접 만들지 말고 반환된 `nextAction.command`를 실행하세요.
+`standalone` 모드에서는 이 명령이 공유 `workspaceRoot/.worktrees/{project-name}/`
+아래에 worktree를 만들고, Git에 등록되지 않은 이전 managed 디렉터리를 정리하며,
+새 worktree에 대상 파일이 없을 때 프로젝트 루트의 기존 `.env`/`.env.*` 파일을 복사합니다.
+
+```bash
+# embedded fallback 전용: 전용 worktree + 브랜치 생성
 mkdir -p .worktrees
 git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-number}-{feature-name}
 
@@ -90,7 +101,7 @@ git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-nu
 git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-number}-{feature-name}
 ```
 
-> 이후 작업은 생성된 worktree 경로(`.worktrees/feat-{issue-number}-{feature-name}`)에서 진행하세요.
+> 이후 작업은 `workflow-stage`가 반환한 worktree 경로에서 진행하세요.
 
 ### 문서 커밋 규칙 (Continuous Sync)
 

@@ -32,6 +32,7 @@
 - Codex는 실행 루프, 도구 사용, hook lifecycle을 담당합니다.
 - `workflow-stage --json`가 `stage === "implementation"`이고 `implementationAllowed === true`를 반환하기 전에는 구현을 시작하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
+- standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
 - 동작이나 범위가 바뀌는 코드 변경이 있으면 같은 턴 안에서 feature 문서를 같이 동기화합니다.
 - staged된 docs 경로 검사가 필요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
 - 기본 docs sync 검사는 `npx lee-spec-kit workflow-audit --json`를 사용합니다.

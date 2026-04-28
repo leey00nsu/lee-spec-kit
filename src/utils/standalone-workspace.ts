@@ -187,11 +187,37 @@ export function resolveManagedWorktreePath(
   );
 }
 
-export function buildManagedWorktreeEnvLinkCommand(
+export function isRegisteredGitWorktree(
+  projectRoot: string,
+  worktreePath: string
+): boolean {
+  const output = runGitCapture(
+    ['worktree', 'list', '--porcelain'],
+    projectRoot
+  ) || '';
+  const resolvedTarget = path.resolve(worktreePath);
+
+  for (const line of output.split(/\r?\n/u)) {
+    if (!line.startsWith('worktree ')) continue;
+    const listedPath = line.slice('worktree '.length).trim();
+    if (path.resolve(listedPath) === resolvedTarget) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function buildManagedWorktreeStaleCleanupCommand(
   projectRoot: string,
   worktreePath: string
 ): string {
-  const sourceEnvPath = path.resolve(projectRoot, '.env');
-  const targetEnvPath = path.resolve(worktreePath, '.env');
-  return `if [ -f "${sourceEnvPath}" ] && [ ! -e "${targetEnvPath}" ] && [ ! -L "${targetEnvPath}" ]; then ln -s "${sourceEnvPath}" "${targetEnvPath}"; fi`;
+  return `if [ -d "${worktreePath}" ] && ! git -C "${projectRoot}" worktree list --porcelain | grep -Fxq "worktree ${worktreePath}"; then rm -rf "${worktreePath}"; fi`;
+}
+
+export function buildManagedWorktreeEnvCopyCommand(
+  projectRoot: string,
+  worktreePath: string
+): string {
+  return `sh -c 'source_dir=$1; target_dir=$2; for source_env in "$source_dir"/.env "$source_dir"/.env.*; do [ -e "$source_env" ] || [ -L "$source_env" ] || continue; target_env="$target_dir/$(basename "$source_env")"; if [ ! -e "$target_env" ] && [ ! -L "$target_env" ]; then cp -p "$source_env" "$target_env"; fi; done' sh "${path.resolve(projectRoot)}" "${path.resolve(worktreePath)}"`;
 }

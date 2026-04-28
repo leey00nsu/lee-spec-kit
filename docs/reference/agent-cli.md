@@ -73,6 +73,7 @@ npx lee-spec-kit commit-audit --json
 - Standalone workspace mode: when `docsRepo === "standalone"`, both `workspaceRoot` and `projectRoot` are required; `workspaceRoot` is the shared root above `docs/` and the code repo(s), and `.codex/` plus managed `AGENTS.md` stay on the workspace/docs side instead of the project repo
 - Standalone branch policy: keep the docs repo on its docs branch and never create feature branches or worktrees there
 - Standalone execution policy: use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project root
+- Standalone branch command policy: run the exact `workflow-stage --json` `nextAction.command`; it creates/reuses the managed worktree path, clears stale managed directories that are no longer registered Git worktrees, and copies existing project-root `.env`/`.env.*` files into a new worktree when absent
 - Docs sync proof: after syncing code back into the active feature docs, refresh a marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in `tasks.md`, `decisions.md`, or another active-feature canonical doc so `workflow-audit` can verify the sync happened after the latest code change
 
 ## Important Rule

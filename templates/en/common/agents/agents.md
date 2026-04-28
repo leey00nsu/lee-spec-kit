@@ -32,6 +32,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Codex owns the execution loop, tool usage, and hook lifecycle.
 - Do not start implementation unless `workflow-stage --json` reports `stage === "implementation"` and `implementationAllowed === true`.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
+- In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
 - Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.

@@ -53,7 +53,7 @@ If you run `integrations codex-hooks` from an unrelated project repo where `lee-
 - Uses `commit-audit --json` before allowing `git commit`
 - Uses `workflow-audit --json` before allowing risky remote or destructive commands
 - In `standalone`, commit-time docs validation follows the actual `git -C <repo>` target while workflow sync checks `projectRoot` against the active feature docs and only writes/install files through the configured `workspaceRoot`
-- In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so docs stay on the docs branch, while project-repo `git worktree add` is allowed at the branch stage and points at the shared workspace `.worktrees/` root instead of the main project checkout
+- In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so docs stay on the docs branch, while the exact branch-stage `nextAction.command` is allowed and points at the shared workspace `.worktrees/` root instead of the main project checkout
 
 ### `Stop`
 

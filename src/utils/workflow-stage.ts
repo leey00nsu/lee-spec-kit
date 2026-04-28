@@ -10,7 +10,9 @@ import {
 } from './feature-resolver.js';
 import { runGitCapture } from './git-run.js';
 import {
-  buildManagedWorktreeEnvLinkCommand,
+  buildManagedWorktreeEnvCopyCommand,
+  buildManagedWorktreeStaleCleanupCommand,
+  isRegisteredGitWorktree,
   resolveManagedWorktreePath,
   resolveStandaloneProjectRoots,
 } from './standalone-workspace.js';
@@ -765,8 +767,12 @@ async function resolveExistingExpectedWorktreePath(
   projectGitCwd: string,
   branchName: string
 ): Promise<string | null> {
+  const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
   const candidate = getExpectedWorktreePath(config, projectGitCwd, branchName);
-  return (await fs.pathExists(candidate)) ? candidate : null;
+  return (await fs.pathExists(candidate)) &&
+    isRegisteredGitWorktree(projectRoot, candidate)
+    ? candidate
+    : null;
 }
 
 function buildManagedWorktreeCreateCommand(
@@ -777,8 +783,12 @@ function buildManagedWorktreeCreateCommand(
   const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
   const worktreePath = getExpectedWorktreePath(config, projectGitCwd, branchName);
   const worktreeParent = path.dirname(worktreePath);
-  const envLinkCommand = buildManagedWorktreeEnvLinkCommand(projectRoot, worktreePath);
-  return `mkdir -p "${worktreeParent}" && (git -C "${projectRoot}" worktree add "${worktreePath}" "${branchName}" || git -C "${projectRoot}" worktree add -b "${branchName}" "${worktreePath}") && ${envLinkCommand}`;
+  const staleCleanupCommand = buildManagedWorktreeStaleCleanupCommand(
+    projectRoot,
+    worktreePath
+  );
+  const envCopyCommand = buildManagedWorktreeEnvCopyCommand(projectRoot, worktreePath);
+  return `${staleCleanupCommand} && mkdir -p "${worktreeParent}" && (git -C "${projectRoot}" worktree add "${worktreePath}" "${branchName}" || git -C "${projectRoot}" worktree add -b "${branchName}" "${worktreePath}") && ${envCopyCommand}`;
 }
 
 function resolveRemotePrMergeMeta(
