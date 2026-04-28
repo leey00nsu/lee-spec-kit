@@ -49,17 +49,13 @@ Feature는 PRD → idea → feature 흐름에서 실제 구현을 진행하는 �
 
 ---
 
-## 상태 확인
+## Workflow 단계 확인
 
 ```bash
-npx lee-spec-kit status
+npx lee-spec-kit workflow-stage <feature-ref> --json
 ```
 
-파일로 저장:
-
-```bash
-npx lee-spec-kit status --write
-```
+반환되는 `stage`, `nextAction`, `implementationAllowed` 값을 현재 워크플로우 상태로 사용하세요.
 
 ---
 
@@ -70,7 +66,7 @@ npx lee-spec-kit status --write
 - `[NON-PRD]`는 refactor, 테스트 전용 작업, tooling, rename, cleanup 같은 내부 구현 작업에만 사용하세요.
 - 변경이 사용자 동작, acceptance criteria, 범위를 바꾸면 PRD를 먼저 갱신하고 태스크도 `[PRD-...]`로 다시 연결하세요.
 - 단, 태스크 문서에서 PRD ID를 임의 생성하지 않습니다. 먼저 PRD 원문에 정의하고, 레거시 문서는 원문 ID backfill 후 연결하세요.
-- 커버리지 리포트: `npx lee-spec-kit requirements`
+- 추적성은 `spec.md`의 `PRD Refs`와 각 태스크 라인의 PRD 태그를 유지해 검토 가능하게 만드세요.
 
 ---
 

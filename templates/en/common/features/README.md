@@ -49,17 +49,13 @@ By the time work reaches this folder, the requirement should already be defined 
 
 ---
 
-## Status Check
+## Workflow Stage Check
 
 ```bash
-npx lee-spec-kit status
+npx lee-spec-kit workflow-stage <feature-ref> --json
 ```
 
-Save to file:
-
-```bash
-npx lee-spec-kit status --write
-```
+Use the returned `stage`, `nextAction`, and `implementationAllowed` values as the current workflow state.
 
 ---
 
@@ -70,7 +66,7 @@ npx lee-spec-kit status --write
 - Use `[NON-PRD]` only for internal implementation work such as refactors, test-only work, tooling, renames, and cleanup.
 - If a change affects user-facing behavior, acceptance criteria, or scope, update PRD first and retag the task as `[PRD-...]`.
 - Do not invent PRD IDs inside feature docs. Define them in the PRD source first, and backfill legacy docs before linking tasks.
-- Coverage report: `npx lee-spec-kit requirements`
+- Keep traceability reviewable by maintaining `PRD Refs` in `spec.md` and PRD tags on each task line.
 
 ---
 

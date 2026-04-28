@@ -689,7 +689,7 @@ test('workflow-stage uses managed worktree creation for standalone projects', as
     assert.match(
       payload.nextAction.command || '',
       new RegExp(
-        `git -C \"${normalizedProjectRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\" worktree add \"${path.join(normalizedWorkspaceRoot, '.worktrees', path.basename(normalizedProjectRoot)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+        `git -C "${normalizedProjectRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" worktree add "${path.join(normalizedWorkspaceRoot, '.worktrees', path.basename(normalizedProjectRoot)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
       )
     );
     assert.equal(payload.approvalRequired, false);
@@ -723,7 +723,7 @@ test('workflow-stage links the project .env into a new managed worktree by defau
     assert.match(
       payload.nextAction.command || '',
       new RegExp(
-        `ln -s \"${path.join(normalizedProjectRoot, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\" \"${path.join(expectedWorktreePath, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\"`
+        `ln -s "${path.join(normalizedProjectRoot, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}" "${path.join(expectedWorktreePath, '.env').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}"`
       )
     );
   });

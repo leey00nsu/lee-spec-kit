@@ -20,7 +20,7 @@
   - 실제 완료/검증 없이 `[DONE]`로 바꾸지 않습니다
   - 태스크를 닫을 때는 같은 수정에서 `Acceptance`와 `Checklist`도 함께 갱신합니다
   - 완료된 태스크에 후속 작업이 생기면 히스토리를 고치지 말고 새 태스크를 추가합니다
-- 새 태스크를 추가해야 한다면 우선 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`를 사용하세요.
+- 새 태스크를 추가해야 한다면 `tasks.md`에 구체적인 제목, `Acceptance`, `Checklist`, 그리고 `NON-PRD` 또는 기존 `PRD-*` 태그가 있는 완전한 태스크 블록을 추가하세요.
 - 새 태스크에 placeholder `Acceptance` 또는 `Checklist`를 남기지 않습니다.
 
 ## 3. 문서 동기화

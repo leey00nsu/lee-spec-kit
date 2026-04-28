@@ -5,9 +5,6 @@ This documentation is organized by feature to help agents quickly understand the
 ## Agent Session Start Checklist
 
 ```bash
-# (recommended once at start) run onboarding checks
-npx lee-spec-kit onboard --strict
-
 # 1) Detect project
 npx lee-spec-kit detect --json
 
@@ -105,7 +102,7 @@ When requirements/scope change, the “what to update” must be explicit in doc
 
 When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs root (default: `docs/`).
 
-- Used by `lee-spec-kit feature`, `status`, and `update` to detect docs location / project type / language.
+- Used by `lee-spec-kit feature`, `config`, `update`, `detect`, and workflow validators to resolve docs location / project type / language.
 - `docsRepo`, `pushDocs`, `docsRemote` are metadata for the CLI-managed **Docs Push policy** (the CLI does not auto-push).
 
 ### Fields

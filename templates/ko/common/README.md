@@ -5,9 +5,6 @@
 ## 에이전트 세션 시작 체크리스트
 
 ```bash
-# (최초 1회 권장) 초기 온보딩 점검
-npx lee-spec-kit onboard --strict
-
 # 1) 프로젝트 감지
 npx lee-spec-kit detect --json
 
@@ -105,7 +102,7 @@ npx lee-spec-kit docs get agents --json
 
 `lee-spec-kit init`을 실행하면 문서 루트(기본: `docs/`)에 `.lee-spec-kit.json`이 생성됩니다.
 
-- `lee-spec-kit feature`, `status`, `update`에서 문서 위치/프로젝트 타입/언어를 감지하는 용도로 사용됩니다.
+- `lee-spec-kit feature`, `config`, `update`, `detect`, workflow validator에서 문서 위치/프로젝트 타입/언어를 해석하는 용도로 사용됩니다.
 - `docsRepo`, `pushDocs`, `docsRemote`는 CLI 관리 **Docs Push 정책**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)
 
 ### 필드

@@ -1208,7 +1208,7 @@ test('generated pre-tool hook blocks destructive gh repo delete commands', async
       'gh repo delete acme/demo --yes',
       `node -e "require('child_process').spawnSync('gh',['repo','delete','acme/demo','--yes'])"`,
       'gh api repos/acme/demo -X DELETE',
-      `gh api graphql -f query='mutation { closeIssue(input:{issueId:\"X\"}) { clientMutationId } }'`,
+      `gh api graphql -f query='mutation { closeIssue(input:{issueId:"X"}) { clientMutationId } }'`,
       'gh api graphql -f query=@query.gql',
     ]) {
       const hookResult = await runCommand(

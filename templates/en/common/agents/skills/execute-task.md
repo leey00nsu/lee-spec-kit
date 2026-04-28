@@ -20,7 +20,7 @@ Use the active feature folder as the execution SSOT.
   - do not mark `[DONE]` without real completion and verification
   - update `Acceptance` and `Checklist` in the same edit when closing a task
   - if a completed task needs follow-up, add a new task instead of rewriting history
-- If you need to add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`.
+- If you need to add a new task, append a complete task block in `tasks.md` with a concrete title, `Acceptance`, `Checklist`, and `NON-PRD` or existing `PRD-*` tag.
 - Do not leave placeholder `Acceptance` or `Checklist` items in newly added tasks.
 
 ## 3. Keep docs in sync

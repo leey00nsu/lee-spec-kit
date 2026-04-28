@@ -8,7 +8,7 @@
   - `[DOING] → [DONE]`: share the result and verification first, then update `Acceptance` and `Checklist` in the same edit
   - Ask for approval before changing task state only when the task crosses a documented review checkpoint or before remote/destructive actions.
   - Do not invent a standalone `OK` approval step when the workflow does not require one.
-  - `task-complete` rejects `[DONE]` while any item in that task's `Checklist` remains unchecked.
+  - Do not mark `[DONE]` while any item in that task's `Checklist` remains unchecked.
 - **PRD mapping (recommended)**: add an existing PRD requirement ID tag like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
@@ -69,8 +69,8 @@
 
 > Add tasks below. **At least 1 task is required.**
 > Keep tasks as one ordered list. The list order itself is the execution priority.
-> To add a new task, prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD|PRD-*`. Use an existing PRD key such as `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`. Add `--acceptance` and `--check` inline when you already know the concrete items.
-> Do not leave placeholder `Acceptance` / `Checklist` content in place. `task-run` will block execution until those items are concrete.
+> To add a new task, append a complete task block below the last existing task. Use an existing PRD key such as `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`, or `[NON-PRD]` for internal work.
+> Do not leave placeholder `Acceptance` / `Checklist` content in place; implementation should not start until those items are concrete.
 > If you must edit manually, append it below the last existing task block in `Task List` instead of inserting it near the current task or right before `Completion Criteria`.
 
 ---
