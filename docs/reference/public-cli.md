@@ -30,6 +30,22 @@ npx lee-spec-kit feature user-auth
 npx lee-spec-kit feature payment --id F123
 ```
 
+### `task add`
+
+Append a complete docs-only task block to the selected feature's `tasks.md`.
+
+```bash
+npx lee-spec-kit task add F001-alpha --title "implement alpha shell" --ref NON-PRD --acceptance "command renders output" --check "add command handler"
+```
+
+### `decision add`
+
+Append a docs-only ADR block to the selected feature's `decisions.md`.
+
+```bash
+npx lee-spec-kit decision add F001-alpha --title "Use docs-only mutation commands" --context "Agents need stable helpers" --decision "Patch markdown docs only" --rationale "Keeps formatting consistent" --evidence "Test: pnpm vitest"
+```
+
 ### `docs`
 
 Read built-in policy docs that the agent uses at session start.

@@ -4,7 +4,7 @@
 
 ## 1) 공통 CLI 오류 코드 (`CliReasonCode`)
 
-아래 코드는 현재 유지되는 주요 명령(`init`, `idea`, `feature`, `config`, `update`, `docs`, `detect`, `github`, `workflow-stage`, `workflow-audit`, `commit-audit`, `integrations`)에서 공통으로 사용됩니다.
+아래 코드는 현재 유지되는 주요 명령(`init`, `idea`, `feature`, `task`, `decision`, `config`, `update`, `docs`, `detect`, `github`, `workflow-stage`, `workflow-audit`, `commit-audit`, `integrations`)에서 공통으로 사용됩니다.
 
 | 코드 | 의미 | 대표 발생 상황 |
 | --- | --- | --- |

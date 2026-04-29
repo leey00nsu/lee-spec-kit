@@ -50,6 +50,22 @@ Machine-readable high-level stage resolver.
 npx lee-spec-kit workflow-stage <featureRef> --json
 ```
 
+### `task add`
+
+Machine-readable docs-only task appender.
+
+```bash
+npx lee-spec-kit task add <featureRef> --title "..." --ref NON-PRD --acceptance "..." --check "..." --json
+```
+
+### `decision add`
+
+Machine-readable docs-only ADR appender.
+
+```bash
+npx lee-spec-kit decision add <featureRef> --title "..." --context "..." --decision "..." --rationale "..." --evidence "..." --json
+```
+
 Approval note:
 - When `workflow-stage --json` returns `primaryActionLabel` together with `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 - Local approval checkpoints typically use reply tokens like `A` and `B`.

@@ -9,6 +9,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const supportedRootCommands = new Set([
   'commit-audit',
   'config',
+  'decision',
   'detect',
   'docs',
   'feature',
@@ -17,6 +18,7 @@ const supportedRootCommands = new Set([
   'idea',
   'init',
   'integrations',
+  'task',
   'update',
   'workflow-audit',
   'workflow-stage',

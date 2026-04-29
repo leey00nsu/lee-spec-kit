@@ -1717,6 +1717,8 @@ test('root help exposes the supported Codex-native command surface', async () =>
     assert.match(help.stdout, /\binit\b/);
     assert.match(help.stdout, /\bidea\b/);
     assert.match(help.stdout, /\bfeature\b/);
+    assert.match(help.stdout, /\btask\b/);
+    assert.match(help.stdout, /\bdecision\b/);
     assert.match(help.stdout, /\bdocs\b/);
     assert.match(help.stdout, /\bdetect\b/);
     assert.match(help.stdout, /\bworkflow-stage\b/);

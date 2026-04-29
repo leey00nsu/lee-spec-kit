@@ -8,6 +8,8 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `config`
 - `detect`
 - `docs`
+- `task add`
+- `decision add`
 - `workflow-stage`
 - `workflow-audit`
 - `commit-audit`

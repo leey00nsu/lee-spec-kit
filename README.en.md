@@ -70,6 +70,8 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 - `init`
 - `idea`
 - `feature`
+- `task add`
+- `decision add`
 - `docs`
 - `detect`
 - `github`

@@ -8,6 +8,8 @@ import { updateCommand } from './commands/update.js';
 import { configCommand } from './commands/config.js';
 import { githubCommand } from './commands/github.js';
 import { docsCommand } from './commands/docs.js';
+import { taskCommand } from './commands/task.js';
+import { decisionCommand } from './commands/decision.js';
 import { detectCommand } from './commands/detect.js';
 import { integrationsCommand } from './commands/integrations.js';
 import { workflowStageCommand } from './commands/workflow-stage.js';
@@ -70,6 +72,8 @@ function configureRootCommandSurface(): void {
     ['init', 'Docs Schema Commands:'],
     ['idea', 'Docs Schema Commands:'],
     ['feature', 'Docs Schema Commands:'],
+    ['task', 'Docs Schema Commands:'],
+    ['decision', 'Docs Schema Commands:'],
     ['docs', 'Workflow Policy Commands:'],
     ['detect', 'Workflow Policy Commands:'],
     ['github', 'Workflow Policy Commands:'],
@@ -108,6 +112,8 @@ updateCommand(program);
 configCommand(program);
 githubCommand(program);
 docsCommand(program);
+taskCommand(program);
+decisionCommand(program);
 detectCommand(program);
 workflowStageCommand(program);
 integrationsCommand(program);

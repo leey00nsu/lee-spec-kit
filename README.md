@@ -70,6 +70,8 @@ npx lee-spec-kit feature user-auth
 - `init`: docs/workflow 구조 초기화
 - `idea`: 구현 전 idea 문서 생성
 - `feature`: 실제 작업 단위 생성
+- `task add`: `tasks.md`에 문서 전용 task block 추가
+- `decision add`: `decisions.md`에 문서 전용 ADR block 추가
 - `docs`: 내장 agent policy 문서 조회
 - `detect`: 현재 워크스페이스가 lee-spec-kit 프로젝트인지 감지
 - `github`: issue/pr 본문 생성 및 검증
