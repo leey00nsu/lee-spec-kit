@@ -187,25 +187,35 @@ export function resolveManagedWorktreePath(
   );
 }
 
-export function isRegisteredGitWorktree(
-  projectRoot: string,
-  worktreePath: string
-): boolean {
+const registeredWorktreeCache = new Map<string, Set<string>>();
+
+function listRegisteredGitWorktrees(projectRoot: string): Set<string> {
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  const cached = registeredWorktreeCache.get(resolvedProjectRoot);
+  if (cached) return cached;
+
   const output = runGitCapture(
     ['worktree', 'list', '--porcelain'],
-    projectRoot
+    resolvedProjectRoot
   ) || '';
-  const resolvedTarget = path.resolve(worktreePath);
+  const worktrees = new Set<string>();
 
   for (const line of output.split(/\r?\n/u)) {
     if (!line.startsWith('worktree ')) continue;
     const listedPath = line.slice('worktree '.length).trim();
-    if (path.resolve(listedPath) === resolvedTarget) {
-      return true;
-    }
+    if (listedPath) worktrees.add(path.resolve(listedPath));
   }
 
-  return false;
+  registeredWorktreeCache.set(resolvedProjectRoot, worktrees);
+  return worktrees;
+}
+
+export function isRegisteredGitWorktree(
+  projectRoot: string,
+  worktreePath: string
+): boolean {
+  const resolvedTarget = path.resolve(worktreePath);
+  return listRegisteredGitWorktrees(projectRoot).has(resolvedTarget);
 }
 
 export function buildManagedWorktreeStaleCleanupCommand(
