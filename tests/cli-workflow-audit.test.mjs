@@ -425,6 +425,116 @@ test('workflow-audit requires an explicit workflow-sync marker even when active 
   });
 });
 
+test('workflow-audit rejects duplicate workflow-sync markers in one feature doc', async () => {
+  await withTempDir('lsk-workflow-audit-duplicate-sync-marker-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'demo.ts'), 'export const demo = 1;\n');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await fs.appendFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      [
+        '',
+        '<!-- lee-spec-kit:workflow-sync 2026-04-16T00:00:00.000Z -->',
+        `<!-- lee-spec-kit:workflow-sync ${new Date().toISOString()} -->`,
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    const auditResult = await runCli(dir, ['workflow-audit', '--json']);
+    assert.equal(auditResult.code, 0, auditResult.stderr || auditResult.stdout);
+
+    const payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'needs_sync');
+    assert.equal(payload.reasonCode, 'DUPLICATE_WORKFLOW_SYNC_MARKERS');
+  });
+});
+
+test('workflow-audit rejects workflow-sync markers spread across multiple feature docs', async () => {
+  await withTempDir('lsk-workflow-audit-multi-doc-sync-marker-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'demo.ts'), 'export const demo = 1;\n');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await fs.appendFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      `\n<!-- lee-spec-kit:workflow-sync ${new Date().toISOString()} -->\n`,
+      'utf-8'
+    );
+    await fs.appendFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'decisions.md'),
+      `\n<!-- lee-spec-kit:workflow-sync ${new Date().toISOString()} -->\n`,
+      'utf-8'
+    );
+
+    const auditResult = await runCli(dir, ['workflow-audit', '--json']);
+    assert.equal(auditResult.code, 0, auditResult.stderr || auditResult.stdout);
+
+    const payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'needs_sync');
+    assert.equal(payload.reasonCode, 'DUPLICATE_WORKFLOW_SYNC_MARKERS');
+    assert.deepEqual(payload.changedFeatureDocPaths.sort(), [
+      'decisions.md',
+      'tasks.md',
+    ]);
+  });
+});
+
 test('workflow-audit ignores future workflow-sync markers', async () => {
   await withTempDir('lsk-workflow-audit-future-sync-marker-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

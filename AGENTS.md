@@ -33,7 +33,7 @@ Before taking the next workflow step:
    - issue preparation / issue creation
    - branch creation
 7. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
-8. When docs are synced to code, refresh an explicit marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in the active feature docs (prefer `tasks.md` or `decisions.md`) so `workflow-audit` can prove the sync happened after the latest code change
+8. When docs are synced to code, keep exactly one explicit marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in a single active feature doc (prefer `tasks.md` or `decisions.md`): replace an existing marker timestamp or remove duplicates instead of appending another marker, so `workflow-audit` can prove the sync happened after the latest code change
 
 Approval and remote actions:
 
@@ -46,7 +46,6 @@ Approval and remote actions:
 Validation:
 
 - Prefer `npx lee-spec-kit commit-audit --json` for commit-time staged docs path validation
-- Prefer `npx lee-spec-kit workflow-audit --json` as the default docs-sync validator for Codex hooks and end-of-turn checks; it expects the active feature docs to carry a fresh `lee-spec-kit:workflow-sync` marker after meaningful code/doc sync
+- Prefer `npx lee-spec-kit workflow-audit --json` as the default docs-sync validator for Codex hooks and end-of-turn checks; it expects the active feature docs to carry one fresh `lee-spec-kit:workflow-sync` marker after meaningful code/doc sync
 
 <!-- lee-spec-kit:end -->
-

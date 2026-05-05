@@ -55,6 +55,7 @@
 | --- | --- |
 | `WORKFLOW_IN_SYNC` | 코드 변경과 Feature 문서 sync marker가 최신 상태 |
 | `CODE_WITHOUT_DOCS_SYNC` | 코드 변경 이후 Feature 문서 sync marker가 갱신되지 않음 |
+| `DUPLICATE_WORKFLOW_SYNC_MARKERS` | 같은 활성 Feature 문서에 sync marker가 둘 이상 있음 |
 | `ACTIVE_FEATURE_SCOPE_UNCLEAR` | 변경을 연결할 활성 Feature를 판단할 수 없음 |
 | `NO_GIT_REPOSITORY` | Git 저장소가 아님 |
 | `CONFIG_NOT_FOUND` | 설정 파일을 찾지 못함 |

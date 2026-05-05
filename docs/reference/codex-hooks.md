@@ -58,7 +58,7 @@ If you run `integrations codex-hooks` from an unrelated project repo where `lee-
 ### `Stop`
 
 - Runs `workflow-audit --json`
-- `workflow-audit` now expects an explicit marker such as `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in the active feature docs after code/doc sync
+- `workflow-audit` now expects exactly one explicit marker such as `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in the active feature docs after code/doc sync; replace the marker timestamp or remove duplicates instead of appending another marker
 - If docs are not synced with code changes, it continues Codex for one more pass instead of letting the turn stop early
 
 ## Optional Global Bootstrap

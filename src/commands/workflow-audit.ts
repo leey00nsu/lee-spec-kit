@@ -41,6 +41,7 @@ interface WorkflowAuditPayload {
   reasonCode:
     | 'WORKFLOW_IN_SYNC'
     | 'CODE_WITHOUT_DOCS_SYNC'
+    | 'DUPLICATE_WORKFLOW_SYNC_MARKERS'
     | 'ACTIVE_FEATURE_SCOPE_UNCLEAR'
     | 'STANDALONE_WORKSPACE_ROOT_REQUIRED'
     | 'STANDALONE_PROJECT_ROOT_UNRESOLVED'
@@ -173,8 +174,23 @@ async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> 
 
   const latestCodeChangeAt = await getLatestMtimeIso(combinedChangedCodePaths);
   const latestFeatureDocSyncAt = await getLatestWorkflowSyncMarkerAt(activeFeature);
+  const duplicateWorkflowSyncMarkerPaths =
+    await collectDuplicateWorkflowSyncMarkerPaths(activeFeature);
 
   if (combinedChangedCodePaths.length === 0) {
+    if (duplicateWorkflowSyncMarkerPaths.length > 0) {
+      return {
+        status: 'needs_sync',
+        reasonCode: 'DUPLICATE_WORKFLOW_SYNC_MARKERS',
+        docsDir: config.docsDir,
+        activeFeatureRef,
+        changedCodePaths: [],
+        changedFeatureDocPaths: duplicateWorkflowSyncMarkerPaths,
+        latestCodeChangeAt: null,
+        latestFeatureDocSyncAt,
+      };
+    }
+
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_IN_SYNC',
@@ -183,6 +199,19 @@ async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> 
       changedCodePaths: [],
       changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map((item) => item.relativeToRepo),
       latestCodeChangeAt: null,
+      latestFeatureDocSyncAt,
+    };
+  }
+
+  if (duplicateWorkflowSyncMarkerPaths.length > 0) {
+    return {
+      status: 'needs_sync',
+      reasonCode: 'DUPLICATE_WORKFLOW_SYNC_MARKERS',
+      docsDir: config.docsDir,
+      activeFeatureRef,
+      changedCodePaths: combinedChangedCodePaths.map((item) => item.relativeToRepo),
+      changedFeatureDocPaths: duplicateWorkflowSyncMarkerPaths,
+      latestCodeChangeAt,
       latestFeatureDocSyncAt,
     };
   }
@@ -355,6 +384,28 @@ async function getLatestWorkflowSyncMarkerAt(
   }
 
   return latest > 0 ? new Date(latest).toISOString() : null;
+}
+
+async function collectDuplicateWorkflowSyncMarkerPaths(
+  activeFeature: ResolvedFeature | null
+): Promise<string[]> {
+  if (!activeFeature) return [];
+  const canonicalFiles = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md', 'issue.md', 'pr.md'];
+  const markerPaths: string[] = [];
+  let markerCount = 0;
+
+  for (const fileName of canonicalFiles) {
+    const absolutePath = path.join(activeFeature.path, fileName);
+    if (!(await fs.pathExists(absolutePath))) continue;
+    const content = await fs.readFile(absolutePath, 'utf-8');
+    const matches = [...content.matchAll(WORKFLOW_SYNC_MARKER_PATTERN)];
+    if (matches.length > 0) {
+      markerCount += matches.length;
+      markerPaths.push(normalizeSlashes(path.relative(activeFeature.path, absolutePath)));
+    }
+  }
+
+  return markerCount > 1 ? markerPaths : [];
 }
 
 function extractWorkflowSyncMarkerTimes(
