@@ -108,6 +108,16 @@ async function initStandaloneRepo(dir, options = {}) {
   return { projectRoot };
 }
 
+async function setupLocalOriginRemote(repoDir) {
+  const remotePath = path.join(repoDir, 'origin.git');
+  const initBare = await runCommand(repoDir, 'git', ['init', '--bare', remotePath]);
+  assert.equal(initBare.code, 0, initBare.stderr || initBare.stdout);
+  const addRemote = await runCommand(repoDir, 'git', ['remote', 'add', 'origin', remotePath]);
+  assert.equal(addRemote.code, 0, addRemote.stderr || addRemote.stdout);
+  const pushMain = await runCommand(repoDir, 'git', ['push', '-u', 'origin', 'HEAD']);
+  assert.equal(pushMain.code, 0, pushMain.stderr || pushMain.stdout);
+}
+
 function featureDir(dir) {
   return path.join(dir, 'docs', 'features', 'F001-alpha');
 }
@@ -1575,6 +1585,15 @@ test('workflow-stage keeps already-merged remote PRs in code_review until docs a
     assert.equal(payload.reviewState, 'merged');
     assert.equal(payload.approvalRequired, true);
     assert.match(payload.nextAction.summary, /already-merged PR state/i);
+    assert.match(
+      payload.nextAction.command || '',
+      /npx lee-spec-kit github pr F001-alpha --merge --confirm OK/
+    );
+    assert.equal(payload.actionOptions[0].category, 'review_sync_approved');
+    assert.match(
+      payload.actionOptions[0].command || '',
+      /npx lee-spec-kit github pr F001-alpha --merge --confirm OK/
+    );
   });
 });
 
@@ -1587,6 +1606,7 @@ test('workflow-stage requires post-merge cleanup when the remote PR is already m
       reviewDecision: 'APPROVED',
     });
     await initRepo(dir);
+    await setupLocalOriginRemote(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
 
     const prPath = path.join(featureDir(dir), 'pr.md');
@@ -1621,6 +1641,8 @@ test('workflow-stage requires post-merge cleanup when the remote PR is already m
     assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
     await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
     await commitTaskProject(dir);
+    const pushFeature = await runCommand(dir, 'git', ['push', '-u', 'origin', 'feat/123-alpha']);
+    assert.equal(pushFeature.code, 0, pushFeature.stderr || pushFeature.stdout);
 
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'cleanup');
@@ -1629,7 +1651,97 @@ test('workflow-stage requires post-merge cleanup when the remote PR is already m
     assert.match(payload.nextAction.summary, /post-merge cleanup/i);
     assert.match(payload.nextAction.command, /branch -D "feat\/123-alpha"/);
     assert.match(payload.nextAction.command, /checkout "main"/);
+    assert.match(payload.nextAction.command, /HUSKY=0 git -C ".+" push origin --delete "feat\/123-alpha"/);
     assert.equal(payload.approvalRequired, false);
+  });
+});
+
+test('workflow-stage cleanup command force-removes managed worktrees only after meaningful file guard', async () => {
+  await withTempDir('lsk-workflow-stage-cleanup-managed-worktree-safe-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      headRefName: 'feat/123-alpha',
+      state: 'MERGED',
+      mergedAt: '2026-04-17T03:12:00Z',
+      reviewDecision: 'APPROVED',
+    });
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Approved\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Approved');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const docsAdd = await runCommand(path.join(dir, 'docs'), 'git', [
+      'add',
+      'features/F001-alpha',
+    ]);
+    assert.equal(docsAdd.code, 0, docsAdd.stderr || docsAdd.stdout);
+    const docsCommit = await runCommand(path.join(dir, 'docs'), 'git', [
+      'commit',
+      '-m',
+      'docs(#123): F001-alpha 문서 업데이트',
+    ]);
+    assert.equal(docsCommit.code, 0, docsCommit.stderr || docsCommit.stdout);
+
+    await fs.writeFile(path.join(projectRoot, '.gitignore'), '.next/\n', 'utf-8');
+    const ignoreAdd = await runCommand(projectRoot, 'git', ['add', '.gitignore']);
+    assert.equal(ignoreAdd.code, 0, ignoreAdd.stderr || ignoreAdd.stdout);
+    const ignoreCommit = await runCommand(projectRoot, 'git', [
+      'commit',
+      '-m',
+      'chore: ignore build artifacts',
+    ]);
+    assert.equal(ignoreCommit.code, 0, ignoreCommit.stderr || ignoreCommit.stdout);
+
+    const worktreePath = path.join(dir, '.worktrees', path.basename(projectRoot), 'feat-123-alpha');
+    const addResult = await runCommand(
+      dir,
+      'git',
+      ['-C', projectRoot, 'worktree', 'add', '-b', 'feat/123-alpha', worktreePath],
+      fakeGh.env
+    );
+    assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'cleanup');
+    assert.equal(payload.nextAction.category, 'merge_cleanup');
+    assert.match(payload.nextAction.command, /rev-parse --is-inside-work-tree/);
+    assert.match(payload.nextAction.command, /status --porcelain --untracked-files=normal/);
+    assert.match(payload.nextAction.command, /worktree remove --force/);
+    assert.match(payload.nextAction.command, /leftover_meaningful=\$\(find/);
+    assert.match(payload.nextAction.command, /worktree prune/);
+    assert.match(payload.nextAction.command, /rm -rf/);
+
+    await fs.mkdir(path.join(worktreePath, '.next', 'cache'), { recursive: true });
+    await fs.writeFile(path.join(worktreePath, '.next', 'cache', 'build.txt'), 'artifact\n', 'utf-8');
+
+    const cleanup = await runCommand(dir, 'sh', ['-c', payload.nextAction.command]);
+    assert.equal(cleanup.code, 0, cleanup.stderr || cleanup.stdout);
+    await assert.rejects(() => fs.access(worktreePath));
   });
 });
 

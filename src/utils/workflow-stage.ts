@@ -916,7 +916,7 @@ function buildPostMergeCleanupCommand(state: PostMergeCleanupState): string {
   }
   if (state.worktreePath) {
     commandParts.push(
-      `if [ -d "${state.worktreePath}" ]; then git -C "${state.projectRootGitCwd}" worktree remove "${state.worktreePath}"; fi`
+      `if [ -d "${state.worktreePath}" ]; then if git -C "${state.worktreePath}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then meaningful_changes=$(git -C "${state.worktreePath}" status --porcelain --untracked-files=normal 2>/dev/null || true); if [ -n "$meaningful_changes" ]; then printf '%s\\n' "Managed worktree has tracked or meaningful untracked changes; refusing cleanup: ${state.worktreePath}" >&2; exit 1; fi; git -C "${state.projectRootGitCwd}" worktree remove --force "${state.worktreePath}" || { git -C "${state.projectRootGitCwd}" worktree prune; rm -rf "${state.worktreePath}"; }; else leftover_meaningful=$(find "${state.worktreePath}" -mindepth 1 \\( -name ".next" -o -name "node_modules" -o -name "storybook-static" -o -name "dist" -o -name "build" -o -name "coverage" -o -name ".turbo" -o -name ".cache" \\) -prune -o -print -quit); if [ -n "$leftover_meaningful" ]; then printf '%s\\n' "Managed worktree leftover has files outside generated artifact directories; refusing cleanup: ${state.worktreePath}" >&2; exit 1; fi; git -C "${state.projectRootGitCwd}" worktree prune; rm -rf "${state.worktreePath}"; fi; fi`
     );
   }
   if (state.headBranch) {
@@ -925,7 +925,7 @@ function buildPostMergeCleanupCommand(state: PostMergeCleanupState): string {
     );
     if (state.hasOriginRemote) {
       commandParts.push(
-        `if git -C "${state.projectRootGitCwd}" show-ref --verify --quiet "refs/remotes/origin/${state.headBranch}"; then git -C "${state.projectRootGitCwd}" push origin --delete "${state.headBranch}"; fi`
+        `if git -C "${state.projectRootGitCwd}" show-ref --verify --quiet "refs/remotes/origin/${state.headBranch}"; then HUSKY=0 git -C "${state.projectRootGitCwd}" push origin --delete "${state.headBranch}"; fi`
       );
       commandParts.push(
         `git -C "${state.projectRootGitCwd}" fetch --prune origin`
@@ -1223,7 +1223,8 @@ function resolveCurrentReviewState(
 }
 
 function buildCodeReviewActionOptions(
-  reviewState: WorkflowReviewState
+  reviewState: WorkflowReviewState,
+  reviewSyncCommand: string | null = null
 ): WorkflowStageOption[] {
   if (reviewState === 'merged') {
     return [
@@ -1231,7 +1232,8 @@ function buildCodeReviewActionOptions(
         'A',
         'A',
         'review_sync_approved',
-        'Sync the already-merged PR state into tasks.md and pr.md before closing the feature.'
+        'Sync the already-merged PR state into tasks.md and pr.md before closing the feature.',
+        reviewSyncCommand
       ),
       buildStageOption(
         'B',
@@ -1248,7 +1250,8 @@ function buildCodeReviewActionOptions(
         'A',
         'A',
         'review_sync_approved',
-        'Sync the approved PR review state into tasks.md and pr.md, then continue to the merge gate.'
+        'Sync the approved PR review state into tasks.md and pr.md, then continue to the merge gate.',
+        reviewSyncCommand
       ),
       buildStageOption(
         'B',
@@ -1917,8 +1920,12 @@ export async function collectWorkflowStage(
   if (requirements.requireReview && (!reviewApprovedInDocs || currentReviewState !== 'approved')) {
     const reviewFixAllowed = currentReviewState === 'changes_requested';
     const reviewApprovalRequired = !reviewFixAllowed;
+    const reviewSyncCommand =
+      currentReviewState === 'merged'
+        ? `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --merge --confirm OK`
+        : null;
     const reviewActionOptions = reviewApprovalRequired
-      ? buildCodeReviewActionOptions(currentReviewState)
+      ? buildCodeReviewActionOptions(currentReviewState, reviewSyncCommand)
       : undefined;
     const reviewSummary =
       currentReviewState === 'approved'
@@ -1945,7 +1952,8 @@ export async function collectWorkflowStage(
       nextAction: buildAction(
         'code_review',
         reviewSummary,
-        reviewApprovalRequired
+        reviewApprovalRequired,
+        reviewSyncCommand
       ),
       approvalRequired: reviewApprovalRequired,
       implementationAllowed: reviewFixAllowed,
