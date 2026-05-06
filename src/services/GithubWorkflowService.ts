@@ -74,6 +74,7 @@ export interface PrMergeStateMeta {
 export interface IssueViewMeta {
   number: number;
   state?: string;
+  title?: string;
 }
 
 export { getFeatureDocPaths };
@@ -1717,11 +1718,11 @@ export function assertRemoteIssueExists(
   issueNumber: string | undefined,
   cwd: string,
   lang: Lang
-): void {
-  if (!issueNumber) return;
+): IssueViewMeta | null {
+  if (!issueNumber) return null;
   const result = runProcess(
     'gh',
-    ['issue', 'view', issueNumber, '--json', 'number,state'],
+    ['issue', 'view', issueNumber, '--json', 'number,state,title'],
     cwd
   );
   if (result.code !== 0) {
@@ -1759,6 +1760,7 @@ export function assertRemoteIssueExists(
       })
     );
   }
+  return payload;
 }
 
 export function getRequiredIssueSections(lang: Lang): string[] {

@@ -451,23 +451,25 @@ export function githubCommand(program: Command): void {
               feature.issueNumber ? String(feature.issueNumber) : undefined,
               config.lang
             );
-            title =
-              closingIssueNumber && closingIssueNumber.trim()
-                ? defaultTitle
-                : requestedTitle || defaultTitle;
-            ghService.assertRemoteIssueExists(
+            const remoteIssue = ghService.assertRemoteIssueExists(
               closingIssueNumber,
               projectGitCwd,
               config.lang
             );
+            const linkedIssueTitle = remoteIssue?.title?.trim() || '';
+            const issueLinkedDefaultTitle = linkedIssueTitle || defaultTitle;
+            title =
+              closingIssueNumber && closingIssueNumber.trim()
+                ? issueLinkedDefaultTitle
+                : requestedTitle || defaultTitle;
             if (
               closingIssueNumber &&
               options.title?.trim() &&
-              options.title.trim() !== defaultTitle
+              options.title.trim() !== issueLinkedDefaultTitle
             ) {
               throw createCliError(
                 'PRECONDITION_FAILED',
-                `PR title must follow the existing convention: "${defaultTitle}".`
+                `PR title must match the linked issue title: "${issueLinkedDefaultTitle}".`
               );
             }
             const normalizedBody = ghService.ensureIssueClosingLine(

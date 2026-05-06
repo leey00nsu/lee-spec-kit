@@ -139,7 +139,7 @@ async function normalizePathForCompare(filePath) {
   }
 }
 
-async function setupFakeGhCli(dir) {
+async function setupFakeGhCli(dir, options = {}) {
   const binDir = path.join(dir, 'fake-bin');
   const logPath = path.join(dir, 'gh-invocations.log');
   const cwdLogPath = path.join(dir, 'gh-cwd.log');
@@ -148,6 +148,9 @@ async function setupFakeGhCli(dir) {
   await fs.mkdir(binDir, { recursive: true });
   const logPathLiteral = JSON.stringify(logPath);
   const cwdLogPathLiteral = JSON.stringify(cwdLogPath);
+  const issueTitleLiteral = JSON.stringify(
+    options.issueTitle || 'alpha (Improve alpha workflow)'
+  );
   await fs.writeFile(
     scriptPath,
     `#!/usr/bin/env node
@@ -165,7 +168,7 @@ if (args[0] === 'issue' && args[1] === 'create') {
 if (args[0] === 'issue' && args[1] === 'view') {
   const issueRef = args[2];
   if (issueRef === '123') {
-    console.log('{"number":123,"state":"OPEN"}');
+    console.log(JSON.stringify({ number: 123, state: 'OPEN', title: ${issueTitleLiteral} }));
     process.exit(0);
   }
   console.error('issue not found: ' + issueRef);
