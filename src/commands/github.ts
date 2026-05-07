@@ -458,7 +458,9 @@ export function githubCommand(program: Command): void {
               config.lang
             );
             const linkedIssueTitle = remoteIssue?.title?.trim() || '';
-            const issueLinkedDefaultTitle = linkedIssueTitle || defaultTitle;
+            const issueLinkedDefaultTitle = linkedIssueTitle
+              ? `feat(#${closingIssueNumber}): ${linkedIssueTitle}`
+              : defaultTitle;
             title =
               closingIssueNumber && closingIssueNumber.trim()
                 ? issueLinkedDefaultTitle
@@ -470,7 +472,7 @@ export function githubCommand(program: Command): void {
             ) {
               throw createCliError(
                 'PRECONDITION_FAILED',
-                `PR title must match the linked issue title: "${issueLinkedDefaultTitle}".`
+                `PR title must match the linked issue conventional title: "${issueLinkedDefaultTitle}".`
               );
             }
             const normalizedBody = ghService.ensureIssueClosingLine(

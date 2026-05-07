@@ -1523,7 +1523,7 @@ flowchart TD
   });
 });
 
-test('github pr --create uses the linked GitHub issue title even when ready pr.md sets a custom title', async () => {
+test('github pr --create uses the linked GitHub issue title as the conventional PR subject', async () => {
   await withTempDir('lsk-github-pr-linked-issue-title-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -1605,15 +1605,15 @@ flowchart TD
 
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'ok');
-    assert.equal(payload.title, 'alpha (Improve alpha workflow)');
+    assert.equal(payload.title, 'feat(#123): alpha (Improve alpha workflow)');
 
     const log = await fs.readFile(fakeGh.logPath, 'utf-8');
     assert.match(log, /issue view 123 --json number,state,title/);
-    assert.match(log, /--title alpha \(Improve alpha workflow\)/);
+    assert.match(log, /--title feat\(#123\): alpha \(Improve alpha workflow\)/);
     assert.doesNotMatch(log, /descriptive custom title that should be ignored/);
 
     const afterPrDoc = await fs.readFile(prDocPath, 'utf-8');
-    assert.match(afterPrDoc, /- \*\*Title\*\*: alpha \(Improve alpha workflow\)/);
+    assert.match(afterPrDoc, /- \*\*Title\*\*: feat\(#123\): alpha \(Improve alpha workflow\)/);
   });
 });
 
@@ -1671,7 +1671,7 @@ test('github pr --create blocks explicit non-conventional title when issue is li
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'PRECONDITION_FAILED');
-    assert.match(payload.error, /PR title must match the linked issue title/);
+    assert.match(payload.error, /PR title must match the linked issue conventional title/);
     const log = await fs.readFile(fakeGh.logPath, 'utf-8');
     assert.match(log, /issue view 123 --json number,state,title/);
     assert.doesNotMatch(log, /pr create/);
@@ -2463,7 +2463,7 @@ flowchart TD
     const prPayload = JSON.parse(prCreateResult.stdout.trim());
     assert.equal(prPayload.status, 'ok');
     assert.equal(prPayload.reasonCode, 'PR_CREATED_SYNCED');
-    assert.equal(prPayload.title, 'alpha (Improve alpha workflow)');
+    assert.equal(prPayload.title, 'feat(#123): alpha (Improve alpha workflow)');
     assert.match(prPayload.body, /\nCloses #123\n$/);
 
     const normalizedBody = await fs.readFile(prPayload.bodyFile, 'utf-8');
