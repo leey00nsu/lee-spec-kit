@@ -1487,6 +1487,75 @@ test('workflow-stage treats resolved CodeRabbit actionable threads and successfu
   });
 });
 
+test('workflow-stage treats CodeRabbit no-actionable issue comment and successful check as approved', async () => {
+  await withTempDir('lsk-workflow-stage-code-review-coderabbit-no-actionable-', async (dir) => {
+    const fakeGh = await setupFakeReviewGhCli(dir, {
+      reviewDecision: '',
+      latestReviews: [],
+      comments: [
+        {
+          author: { login: 'coderabbitai' },
+          body: 'No actionable comments were generated.',
+          createdAt: '2026-04-26T09:36:56Z',
+        },
+      ],
+      statusCheckRollup: [
+        {
+          __typename: 'StatusContext',
+          context: 'CodeRabbit',
+          state: 'SUCCESS',
+        },
+        {
+          __typename: 'CheckRun',
+          name: 'CodeRabbit files changed path filter',
+          conclusion: 'WARNING',
+        },
+      ],
+    });
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+
+    const prPath = path.join(featureDir(dir), 'pr.md');
+    await setStatus(prPath, 'Status', 'Ready');
+    let prDoc = await fs.readFile(prPath, 'utf-8');
+    prDoc += '\n- **PR**: https://github.com/acme/repo/pull/77\n- **PR Status**: Review\n';
+    await fs.writeFile(prPath, prDoc, 'utf-8');
+
+    const issueDocPath = path.join(featureDir(dir), 'issue.md');
+    let issueDoc = await fs.readFile(issueDocPath, 'utf-8');
+    issueDoc += '\n- **Issue**: #123\n';
+    await fs.writeFile(issueDocPath, issueDoc, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace('- **PR**: -', '- **PR**: https://github.com/acme/repo/pull/77');
+    tasks = tasks.replace('- **PR Status**: -', '- **PR Status**: Review');
+    tasks = tasks.replace('- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell', '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell');
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+    tasks = tasks.replace('- **Pre-PR Evidence**: -', '- **Pre-PR Evidence**: docs/features/F001-alpha/decisions.md');
+    tasks = tasks.replace('- **Pre-PR Decision**: -', '- **Pre-PR Decision**: decision: approve - baseline checklist completed');
+    tasks = tasks.replace('| `pnpm vitest` | `-` | `-` |', '| `pnpm vitest` | `2026-04-16` | `PASS` |');
+    tasks = tasks.replace('- [ ] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked', '- [x] All tasks are `[DONE]`, and each task\'s `Acceptance` is verified and `Checklist` is checked');
+    tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
+    tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'code_review');
+    assert.equal(payload.reviewState, 'approved');
+    assert.equal(payload.approvalRequired, true);
+    assert.match(payload.nextAction.summary, /approved PR review state/i);
+  });
+});
+
 test('workflow-stage does not skip to merge when stale docs say Approved but remote review requests changes', async () => {
   await withTempDir('lsk-workflow-stage-code-review-stale-approved-', async (dir) => {
     const fakeGh = await setupFakeReviewGhCli(dir, {

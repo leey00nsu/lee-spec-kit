@@ -1168,6 +1168,16 @@ function resolveRemotePrReviewState(
     }
     if (
       reviewDecision.length === 0 &&
+      codeRabbitCheckSucceeded &&
+      codeRabbitThreadState !== 'open' &&
+      hasCodeRabbitNoActionableComment(parsed.comments)
+    ) {
+      return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
+        ? 'approved'
+        : 'merge_blocked';
+    }
+    if (
+      reviewDecision.length === 0 &&
       codeRabbitThreadState === 'resolved' &&
       codeRabbitCheckSucceeded
     ) {
@@ -2180,6 +2190,22 @@ function hasCodeRabbitActionableReview(reviewsValue: unknown): boolean {
     const body = String((entry as Record<string, unknown>).body || '');
     const actionableMatch = body.match(/Actionable comments posted:\s*(\d+)/i);
     return actionableMatch ? Number(actionableMatch[1]) > 0 : false;
+  });
+}
+
+function hasCodeRabbitNoActionableComment(commentsValue: unknown): boolean {
+  if (!Array.isArray(commentsValue)) {
+    return false;
+  }
+
+  return commentsValue.some((entry) => {
+    if (!entry || typeof entry !== 'object') return false;
+    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    if (!authorLogin.startsWith('coderabbitai')) return false;
+
+    const body = String((entry as Record<string, unknown>).body || '');
+    if (/Actionable comments posted:\s*0\b/i.test(body)) return true;
+    return /no actionable comments (?:were )?(?:generated|found|posted)/i.test(body);
   });
 }
 
