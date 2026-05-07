@@ -71,6 +71,48 @@ test('task add appends a complete task block to tasks.md', async () => {
   });
 });
 
+test('task add serializes concurrent appends with unique task ids', async () => {
+  await withTempDir('lsk-task-add-concurrent-', async (dir) => {
+    const featureDir = await setupFeature(dir);
+
+    const results = await Promise.all(
+      ['alpha shell', 'beta shell', 'gamma shell'].map((title) =>
+        runCli(dir, [
+          'task',
+          'add',
+          'F001-alpha',
+          '--title',
+          title,
+          '--ref',
+          'NON-PRD',
+          '--acceptance',
+          `${title} acceptance`,
+          '--check',
+          `${title} check`,
+          '--json',
+        ])
+      )
+    );
+
+    for (const result of results) {
+      assert.equal(result.code, 0, result.stderr || result.stdout);
+    }
+
+    const tasks = await fs.readFile(path.join(featureDir, 'tasks.md'), 'utf-8');
+    const taskIds = [...tasks.matchAll(/\bT-F001-alpha-(\d{2})\b/g)].map(
+      (match) => match[0]
+    );
+    assert.deepEqual(taskIds.sort(), [
+      'T-F001-alpha-01',
+      'T-F001-alpha-02',
+      'T-F001-alpha-03',
+    ]);
+    assert.match(tasks, /alpha shell/);
+    assert.match(tasks, /beta shell/);
+    assert.match(tasks, /gamma shell/);
+  });
+});
+
 test('decision add appends the next ADR block to decisions.md', async () => {
   await withTempDir('lsk-decision-add-', async (dir) => {
     const featureDir = await setupFeature(dir);

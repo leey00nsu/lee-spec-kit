@@ -8,6 +8,7 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
+import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import {
   collectRepeatableOption,
   findNextSecondLevelHeadingIndex,
@@ -74,63 +75,75 @@ async function runTaskAdd(
   const ref = normalizeTaskRef(options.ref);
   const acceptanceItems = normalizeRequiredItems(options.acceptance, '--acceptance');
   const checklistItems = normalizeRequiredItems(options.check, '--check');
-  const content = await fs.readFile(target.path, 'utf-8');
-  const lines = content.split('\n');
-  const taskListIndex = findSecondLevelHeadingIndex(lines, ['Task List', '태스크 목록']);
-  if (taskListIndex < 0) {
-    throw createCliError(
-      'PRECONDITION_FAILED',
-      'tasks.md is missing a `Task List` section.'
-    );
-  }
 
-  const sectionEnd = findNextSecondLevelHeadingIndex(lines, taskListIndex);
-  const insertIndex = findTaskInsertIndex(lines, taskListIndex + 1, sectionEnd);
-  const taskId = `T-${target.feature.folderName}-${String(
-    nextTaskSequence(content, target.feature.folderName)
-  ).padStart(2, '0')}`;
-  const recordedAt = localDate();
-  const block = formatTaskBlock({
-    ref,
-    taskId,
-    title,
-    date: recordedAt,
-    acceptanceItems,
-    checklistItems,
-  });
+  const docsDir = target.feature.git.docsGitCwd;
+  return withFileLock(
+    getDocsLockPath(docsDir),
+    async () => {
+      const content = await fs.readFile(target.path, 'utf-8');
+      const lines = content.split('\n');
+      const taskListIndex = findSecondLevelHeadingIndex(lines, [
+        'Task List',
+        '태스크 목록',
+      ]);
+      if (taskListIndex < 0) {
+        throw createCliError(
+          'PRECONDITION_FAILED',
+          'tasks.md is missing a `Task List` section.'
+        );
+      }
 
-  const shouldPrefixBlank =
-    insertIndex > taskListIndex + 1 && (lines[insertIndex - 1] || '').trim() !== '';
-  const shouldSuffixBlank =
-    insertIndex < lines.length && (lines[insertIndex] || '').trim() !== '';
-  lines.splice(
-    insertIndex,
-    0,
-    ...(shouldPrefixBlank ? [''] : []),
-    ...block,
-    ...(shouldSuffixBlank ? [''] : [])
+      const sectionEnd = findNextSecondLevelHeadingIndex(lines, taskListIndex);
+      const insertIndex = findTaskInsertIndex(lines, taskListIndex + 1, sectionEnd);
+      const taskId = `T-${target.feature.folderName}-${String(
+        nextTaskSequence(content, target.feature.folderName)
+      ).padStart(2, '0')}`;
+      const recordedAt = localDate();
+      const block = formatTaskBlock({
+        ref,
+        taskId,
+        title,
+        date: recordedAt,
+        acceptanceItems,
+        checklistItems,
+      });
+
+      const shouldPrefixBlank =
+        insertIndex > taskListIndex + 1 &&
+        (lines[insertIndex - 1] || '').trim() !== '';
+      const shouldSuffixBlank =
+        insertIndex < lines.length && (lines[insertIndex] || '').trim() !== '';
+      lines.splice(
+        insertIndex,
+        0,
+        ...(shouldPrefixBlank ? [''] : []),
+        ...block,
+        ...(shouldSuffixBlank ? [''] : [])
+      );
+      await fs.writeFile(target.path, normalizeMarkdownEnd(lines.join('\n')), 'utf-8');
+
+      const payload = {
+        status: 'ok',
+        reasonCode: 'TASK_ADDED',
+        feature: target.feature.folderName,
+        taskId,
+        title,
+        ref,
+        tasksUpdated: true,
+        tasksPath: target.path,
+        recordedAt,
+      };
+
+      if (options.json) {
+        console.log(JSON.stringify(payload, null, 2));
+        return;
+      }
+
+      console.log(chalk.green(`Added task ${taskId} to ${target.feature.folderName}.`));
+      console.log(chalk.gray(`- tasks.md updated: ${target.path}`));
+    },
+    { owner: 'task add' }
   );
-  await fs.writeFile(target.path, normalizeMarkdownEnd(lines.join('\n')), 'utf-8');
-
-  const payload = {
-    status: 'ok',
-    reasonCode: 'TASK_ADDED',
-    feature: target.feature.folderName,
-    taskId,
-    title,
-    ref,
-    tasksUpdated: true,
-    tasksPath: target.path,
-    recordedAt,
-  };
-
-  if (options.json) {
-    console.log(JSON.stringify(payload, null, 2));
-    return;
-  }
-
-  console.log(chalk.green(`Added task ${taskId} to ${target.feature.folderName}.`));
-  console.log(chalk.gray(`- tasks.md updated: ${target.path}`));
 }
 
 export function taskCommand(program: Command): void {

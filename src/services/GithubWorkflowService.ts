@@ -1846,7 +1846,8 @@ export function extractIssueNumberFromUrl(
 export function syncTasksIssueMetadata(
   tasksPath: string,
   issueNumber: string,
-  lang: Lang
+  lang: Lang,
+  featureSlug?: string
 ): { changed: boolean; path: string } {
   if (!fs.existsSync(tasksPath)) {
     throw createCliError(
@@ -1871,6 +1872,23 @@ export function syncTasksIssueMetadata(
     const inserted = insertFieldInGithubIssueSection(next, 'Issue', issueValue);
     next = inserted.content;
     changed = changed || inserted.changed;
+  }
+
+  const normalizedSlug = (featureSlug || '').trim();
+  if (normalizedSlug) {
+    const branchValue = `feat/${issueNumber}-${normalizedSlug}`;
+    const branchReplaced = replaceListField(
+      next,
+      ['Branch', '브랜치'],
+      branchValue
+    );
+    next = branchReplaced.content;
+    changed = changed || branchReplaced.changed;
+    if (!branchReplaced.found) {
+      const inserted = insertFieldInGithubIssueSection(next, 'Branch', branchValue);
+      next = inserted.content;
+      changed = changed || inserted.changed;
+    }
   }
 
   if (changed) {

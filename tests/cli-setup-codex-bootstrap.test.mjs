@@ -6,6 +6,7 @@ import {
   pathExists,
   runCli,
   runCommand,
+  setupFakeGhCli,
   setupFakeNpxCli,
   withTempDir,
 } from './helpers/cli-contract-helpers.mjs';
@@ -962,6 +963,133 @@ test('generated pre-tool hook blocks docs-repo branch or worktree commands in st
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
     assert.match(payload.reason, /docs repos stay on their docs branch/i);
+  });
+});
+
+test('generated pre-tool hook allows exact standalone branch_create nextAction command', async () => {
+  await withTempDir('lsk-codex-hook-pre-tool-standalone-branch-next-action-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    await fs.writeFile(path.join(projectRoot, 'README.md'), '# demo\n', 'utf-8');
+    const projectAdd = await runCommand(projectRoot, 'git', ['add', '.']);
+    assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
+    const projectCommit = await runCommand(projectRoot, 'git', ['commit', '-m', 'baseline']);
+    assert.equal(projectCommit.code, 0, projectCommit.stderr || projectCommit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+    for (const fileName of ['spec.md', 'plan.md']) {
+      const filePath = path.join(featureDir, fileName);
+      const content = await fs.readFile(filePath, 'utf-8');
+      await fs.writeFile(
+        filePath,
+        content.replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved'),
+        'utf-8'
+      );
+    }
+    await fs.writeFile(
+      path.join(featureDir, 'issue.md'),
+      `# Issue Draft: alpha
+
+- **Status**: Ready
+- **Title**: alpha
+- **Labels**: enhancement
+- **Issue**: #123
+
+## Overview
+
+Alpha issue draft.
+`,
+      'utf-8'
+    );
+    await fs.writeFile(
+      path.join(featureDir, 'tasks.md'),
+      `# Tasks: alpha
+
+## GitHub Issue
+
+- **Doc Status**: Approved
+- **Repo**: demo
+- **Issue**: #123
+- **Branch**: feat/123-alpha
+- **PR**: -
+
+## Task List
+
+- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-04-16
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [ ] add UI
+
+## Completion Criteria
+
+- [ ] All tasks are \`[DONE]\`
+`,
+      'utf-8'
+    );
+
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+
+    const fakeGh = await setupFakeGhCli(dir);
+    const stageResult = await runCli(
+      dir,
+      ['workflow-stage', 'F001-alpha', '--json'],
+      fakeGh.env
+    );
+    assert.equal(stageResult.code, 0, stageResult.stderr || stageResult.stdout);
+    const stage = JSON.parse(stageResult.stdout.trim());
+    assert.equal(stage.nextAction.category, 'branch_create');
+
+    const hookResult = await runCommand(
+      dir,
+      process.execPath,
+      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+      {
+        env: fakeGh.env,
+        input: JSON.stringify({
+          cwd: dir,
+          tool_input: {
+            command: stage.nextAction.command,
+          },
+        }),
+      }
+    );
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    assert.equal(hookResult.stdout.trim(), '');
   });
 });
 

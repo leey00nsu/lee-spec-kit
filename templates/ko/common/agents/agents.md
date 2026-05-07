@@ -15,6 +15,7 @@
 
 - 기본 실행은 workspace-scoped `AGENTS.md`와 Codex 공식 hooks를 우선 사용합니다.
 - 사용자가 "규칙에 따라 다음 feature를 진행해라"처럼 일반적으로 말해도 이 워크플로우로 자동 해석합니다.
+- fresh 환경에서 최초 `npx lee-spec-kit ...` 호출은 병렬 실행하지 말고, npx cache 설치 경합을 피하도록 첫 명령 하나가 끝난 뒤 이어서 실행합니다.
 
 ## 문서가 SSOT
 

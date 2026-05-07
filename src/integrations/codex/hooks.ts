@@ -679,6 +679,88 @@ function normalizeCommandText(value) {
   return String(value || '').replace(/[ \\t\\r\\n]+/g, ' ').trim();
 }
 
+function extractLeeSpecKitFeatureRef(value) {
+  const tokens = tokenizeShellCommand(value);
+  const cliIndex = tokens.findIndex((token) => /(?:^|[\\\\/])lee-spec-kit(?:\\.cmd|\\.exe)?$/i.test(token));
+  if (cliIndex === -1) return null;
+  for (let index = cliIndex + 1; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (!token || token === 'npx' || token === '--yes' || token === '-y') continue;
+    if (token === 'github' && tokens[index + 1] === 'issue') return tokens[index + 2] || null;
+    if (token === 'github' && tokens[index + 1] === 'pr') return tokens[index + 2] || null;
+    if (token === 'workflow-stage') {
+      const candidate = tokens[index + 1] || null;
+      return candidate && !candidate.startsWith('-') ? candidate : null;
+    }
+  }
+  return null;
+}
+
+function extractBranchCreateTarget(value) {
+  const tokens = tokenizeShellCommand(unwrapShellCommand(value));
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index] || '';
+    if (token === '-b' || token === '-c' || token === '--create') {
+      const candidate = tokens[index + 1] || '';
+      if (candidate && !candidate.startsWith('-')) return candidate;
+    }
+    if (token.startsWith('-b') && token.length > 2) return token.slice(2);
+    if (token.startsWith('-c') && token.length > 2) return token.slice(2);
+  }
+
+  const worktreeAddIndex = tokens.findIndex((token, index) => {
+    return token === 'add' && index > 0 && tokens.slice(0, index).some((item) => normalizeExecutableToken(item) === 'git' || item === 'worktree');
+  });
+  if (worktreeAddIndex !== -1) {
+    const nonOptionArgs = [];
+    for (let index = worktreeAddIndex + 1; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (!token || token.startsWith('-')) continue;
+      nonOptionArgs.push(token);
+    }
+    return nonOptionArgs.length >= 2 ? nonOptionArgs[1] : null;
+  }
+
+  const branchNameMatch = String(value).match(/\\bfeat\\/[A-Za-z0-9][A-Za-z0-9._/-]*/);
+  return branchNameMatch?.[0] || null;
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[\\^$.*+?()[\\]{}|]/g, '\\\\$&');
+}
+
+function readFeatureRefFromTasksBranch(docsDir, branchName) {
+  if (!docsDir || !branchName) return null;
+  const featuresRoot = path.join(docsDir, 'features');
+  const stack = [featuresRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const entryPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(entryPath);
+        continue;
+      }
+      if (entry.name !== 'tasks.md') continue;
+      try {
+        const content = fs.readFileSync(entryPath, 'utf8');
+        if (new RegExp('^-\\\\s+\\\\*\\\\*(?:Branch|브랜치)\\\\*\\\\*:\\\\s+\`?' + escapeRegExp(branchName) + '\`?\\\\s*$', 'm').test(content)) {
+          return path.basename(path.dirname(entryPath));
+        }
+      } catch {
+        // Ignore unreadable feature docs and keep scanning.
+      }
+    }
+  }
+  return null;
+}
+
 function hasUnsupportedGitTargetOptions(value) {
   const unwrappedValue = unwrapShellCommand(value);
   const tokens = tokenizeShellCommand(unwrappedValue);
@@ -805,11 +887,6 @@ if (isAlwaysBlockedGhOperation) {
   process.exit(0);
 }
 
-if (hasUnsupportedShellWrappedDangerousCommand) {
-  printBlock('lee-spec-kit hooks do not support this shell wrapper for git or gh commands. Re-run the command from a supported shell or the target repo root instead.');
-  process.exit(0);
-}
-
 if (hasUnsupportedGitTarget || hasGitTargetEnvOverride) {
   printBlock('Git commands using --git-dir, --work-tree, GIT_DIR, or GIT_WORK_TREE are not supported by lee-spec-kit hooks. Re-run the command from the target repo root instead.');
   process.exit(0);
@@ -852,8 +929,18 @@ const isPotentialMergeCleanupCommand =
     command.includes('branch -D') ||
     command.includes('push origin --delete')
   );
-if (stageBoundAction || isPotentialMergeCleanupCommand) {
-  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
+const commandFeatureRef =
+  extractLeeSpecKitFeatureRef(command) ||
+  readFeatureRefFromTasksBranch(docsDir, extractBranchCreateTarget(command));
+if (hasUnsupportedShellWrappedDangerousCommand && !commandFeatureRef) {
+  printBlock('lee-spec-kit hooks do not support this shell wrapper for git or gh commands. Re-run the command from a supported shell or the target repo root instead.');
+  process.exit(0);
+}
+if (stageBoundAction || isPotentialMergeCleanupCommand || hasUnsupportedShellWrappedDangerousCommand) {
+  const stageArgs = commandFeatureRef
+    ? ['workflow-stage', commandFeatureRef, '--json']
+    : ['workflow-stage', '--json'];
+  const stageResult = runLeeSpecKitJson(stageArgs, cwd);
   if (!stageResult.ok) {
     printBlock('lee-spec-kit workflow-stage failed inside the Codex hook. Resolve the workflow stage before running this stage-bound command.');
     process.exit(0);
@@ -863,7 +950,17 @@ if (stageBoundAction || isPotentialMergeCleanupCommand) {
     printBlock('Resolve feature selection and workflow stage before running this stage-bound command.');
     process.exit(0);
   }
-  if (stageBoundAction && stage?.nextAction?.category !== stageBoundAction) {
+  const isExactNextActionCommand =
+    normalizeCommandText(stage?.nextAction?.command) === normalizeCommandText(command);
+  if (hasUnsupportedShellWrappedDangerousCommand && !isExactNextActionCommand) {
+    printBlock('lee-spec-kit hooks do not support this shell wrapper for git or gh commands. Re-run the command from a supported shell or the target repo root instead.');
+    process.exit(0);
+  }
+  if (
+    stageBoundAction &&
+    stage?.nextAction?.category !== stageBoundAction &&
+    !isExactNextActionCommand
+  ) {
     printBlock(
       \`Current workflow stage is \${stage?.stage || 'unknown'} and only \${stage?.nextAction?.category || 'the current nextAction'} is allowed next. Do not jump ahead to \${stageBoundAction}.\`
     );
@@ -874,10 +971,13 @@ if (stageBoundAction || isPotentialMergeCleanupCommand) {
 const isExactMergeCleanupCommand =
   stage?.nextAction?.category === 'merge_cleanup' &&
   normalizeCommandText(stage?.nextAction?.command) === normalizeCommandText(command);
+const isExactNextActionCommand =
+  normalizeCommandText(stage?.nextAction?.command) === normalizeCommandText(command);
 
 if (
   path.resolve(gitCommandCwd) !== path.resolve(cwd) &&
   !isGitCommit &&
+  !isExactNextActionCommand &&
   !isExactMergeCleanupCommand &&
   !(stageBoundAction === 'branch_create' && (isGitCreateBranch || isGitWorktreeAdd))
 ) {

@@ -1700,10 +1700,13 @@ export async function collectWorkflowStage(
     taskCommitGatePolicy !== 'off' && lastDoneTask
       ? checkTaskCommitGate(feature, effectiveProjectGitCwd, lastDoneTask)
       : { pass: true };
+  const committedTaskGateRequiresCheckpoint =
+    taskCommitGatePolicy === 'strict' ||
+    committedTaskGate.reason === 'DONE_TRANSITIONS_COUNT';
 
   if (!allTasksDone(tasks)) {
     const currentTask = nextTodoTask(tasks);
-    if (taskCommitGatePolicy === 'strict' && !committedTaskGate.pass) {
+    if (committedTaskGateRequiresCheckpoint && !committedTaskGate.pass) {
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -1756,7 +1759,7 @@ export async function collectWorkflowStage(
     !tasks.completion.testsChecked ||
     !tasks.completion.finalOutcomeChecked
   ) {
-    if (taskCommitGatePolicy === 'strict' && !committedTaskGate.pass) {
+    if (committedTaskGateRequiresCheckpoint && !committedTaskGate.pass) {
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',

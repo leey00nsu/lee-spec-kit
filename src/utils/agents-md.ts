@@ -20,6 +20,7 @@ Default runtime path:
 - Treat lee-spec-kit as the docs schema, workflow policy, and validation toolkit.
 - If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.
 - Infer the workflow automatically even for generic rule-following requests.
+- Avoid launching the first \`npx lee-spec-kit ...\` calls in parallel in a fresh environment; let one initial command finish so the npx cache install does not race.
 
 On session start or after context compression/reset:
 

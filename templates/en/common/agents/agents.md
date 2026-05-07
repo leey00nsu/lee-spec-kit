@@ -15,6 +15,7 @@ This document defines workflow policy, not a custom runtime loop.
 
 - Prefer Codex native execution with workspace-scoped `AGENTS.md` plus official Codex hooks.
 - If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.
+- Avoid launching the first `npx lee-spec-kit ...` calls in parallel in a fresh environment; let one initial command finish so the npx cache install does not race.
 
 ## Docs Are SSOT
 

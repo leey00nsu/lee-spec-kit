@@ -1054,6 +1054,7 @@ test('github issue/pr create sync workflow draft docs so later PR body gets clos
     const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
     const tasksContent = await fs.readFile(tasksPath, 'utf-8');
     assert.match(tasksContent, /^- \*\*Issue\*\*: #123$/m);
+    assert.match(tasksContent, /^- \*\*Branch\*\*: feat\/123-alpha$/m);
     const issueDocPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'issue.md');
     const issueDocContent = await fs.readFile(issueDocPath, 'utf-8');
     assert.match(issueDocContent, /^- \*\*Issue\*\*: #123$/m);

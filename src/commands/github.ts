@@ -194,7 +194,8 @@ export function githubCommand(program: Command): void {
               const synced = ghService.syncTasksIssueMetadata(
                 path.join(config.docsDir, paths.tasksPath),
                 syncedIssueNumber,
-                config.lang
+                config.lang,
+                feature.slug
               );
               const draftSynced = ghService.syncIssueDraftMetadata(
                 path.join(config.docsDir, paths.issuePath),

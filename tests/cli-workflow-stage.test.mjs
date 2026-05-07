@@ -655,6 +655,56 @@ test('workflow-stage blocks the next task when the latest task commit boundary i
   });
 });
 
+test('workflow-stage blocks multiple DONE transitions in one docs commit even in warn mode', async () => {
+  await withTempDir('lsk-workflow-stage-task-commit-multi-done-', async (dir) => {
+    const fakeGh = await setupFakeGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      `- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-04-16
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [x] add UI
+
+- [DONE][NON-PRD] T-F001-alpha-02 implement beta shell
+  - Date: 2026-04-16
+  - Acceptance:
+    - beta shell renders
+  - Checklist:
+    - [x] add beta UI
+
+- [TODO][NON-PRD] T-F001-alpha-03 implement gamma shell
+  - Date: 2026-04-16
+  - Acceptance:
+    - gamma shell renders
+  - Checklist:
+    - [ ] add gamma UI`
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+    await commitFeatureDocs(dir, 'docs(#123): F001-alpha 문서 업데이트');
+    await commitTaskProject(dir, 'feat(#123): implement beta shell', 'beta.ts');
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'task_commit');
+    assert.equal(payload.nextAction.category, 'task_commit');
+    assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
+    assert.match(payload.nextAction.summary, /latest tasks\.md commit includes 2 DONE transitions/i);
+  });
+});
+
 test('workflow-stage restores the GitHub branch gate before implementation', async () => {
   await withTempDir('lsk-workflow-stage-branch-gate-', async (dir) => {
     const fakeGh = await setupFakeGhCli(dir);
