@@ -7,7 +7,7 @@ export const LEE_SPEC_KIT_CODEX_BOOTSTRAP_BEGIN =
 export const LEE_SPEC_KIT_CODEX_BOOTSTRAP_END =
   '# lee-spec-kit:codex-bootstrap:end';
 
-const REQUIRED_HOOKS_FLAG_LINE = 'codex_hooks = true';
+const REQUIRED_HOOKS_FLAG_LINE = 'hooks = true';
 
 function renderManagedSegment(): string {
   return [
@@ -17,14 +17,11 @@ function renderManagedSegment(): string {
   ].join('\n');
 }
 
-function renderManagedBlock(): string {
-  return `${renderManagedSegment()}\n\n`;
-}
-
 function sanitizeTomlScanContent(content: string): string {
   let result = '';
   let index = 0;
-  let state: 'normal' | 'basic' | 'literal' | 'multibasic' | 'multiliteral' = 'normal';
+  let state: 'normal' | 'basic' | 'literal' | 'multibasic' | 'multiliteral' =
+    'normal';
 
   while (index < content.length) {
     const nextThree = content.slice(index, index + 3);
@@ -114,34 +111,21 @@ function stripManagedBlock(content: string): string {
   return `${content.slice(0, beginIndex)}${content.slice(replaceEnd)}`;
 }
 
-function findFirstTableHeaderIndex(content: string): number {
+function findFeaturesTableHeaderEnd(content: string): number {
   const sanitized = sanitizeTomlScanContent(content);
-  const match = sanitized.match(/^\s*\[[^\]]+\](?:\s*#.*)?$/m);
-  return match?.index ?? -1;
+  const match = /^\s*\[features\](?:\s*#.*)?(?:\r?\n|$)/m.exec(sanitized);
+  return match?.index === undefined ? -1 : match.index + match[0].length;
 }
 
-function insertManagedBlockAtTopLevel(content: string, block: string): string {
-  const normalizedBlock = block.trimEnd();
-  const firstTableIndex = findFirstTableHeaderIndex(content);
-
-  if (firstTableIndex === -1) {
-    let next = content;
-    if (next.length > 0 && !next.endsWith('\n')) next += '\n';
-    if (next.trim().length > 0 && !next.endsWith('\n\n')) next += '\n';
-    next += `${normalizedBlock}\n`;
-    return next;
+function insertManagedFeaturesBlock(content: string): string {
+  const segment = renderManagedSegment();
+  const featuresHeaderEnd = findFeaturesTableHeaderEnd(content);
+  if (featuresHeaderEnd !== -1) {
+    return `${content.slice(0, featuresHeaderEnd)}${segment}\n${content.slice(featuresHeaderEnd)}`;
   }
 
-  const before = content.slice(0, firstTableIndex).trimEnd();
-  const after = content.slice(firstTableIndex).replace(/^\n+/, '');
-
-  let next = '';
-  if (before.length > 0) {
-    next += before;
-    if (!next.endsWith('\n\n')) next += next.endsWith('\n') ? '\n' : '\n\n';
-  }
-  next += `${normalizedBlock}\n\n${after}`;
-  return next;
+  const prefix = content.trimEnd();
+  return `${prefix}${prefix ? '\n\n' : ''}[features]\n${segment}\n`;
 }
 
 export function getCodexHome(): string {
@@ -156,6 +140,9 @@ export function getCodexConfigPath(): string {
 
 function contentIncludesRequiredBootstrap(content: string): boolean {
   return (
+    hasEnabledTopLevelFeaturesHooksKey(content) ||
+    hasEnabledFeaturesTableHooksKey(content) ||
+    hasEnabledFeaturesInlineTableHooksKey(content) ||
     hasEnabledTopLevelCodexHooksKey(content) ||
     hasEnabledFeaturesTableCodexHooksKey(content) ||
     hasEnabledFeaturesInlineTableCodexHooksKey(content)
@@ -170,7 +157,11 @@ function hasConflictingTopLevelKey(content: string, key: string): boolean {
 }
 
 function hasEnabledTopLevelCodexHooksKey(content: string): boolean {
-  return /^\s*codex_hooks\s*=\s*true\b/m.test(
+  return /^\s*codex_hooks\s*=\s*true\b/m.test(sanitizeTomlScanContent(content));
+}
+
+function hasEnabledTopLevelFeaturesHooksKey(content: string): boolean {
+  return /^\s*features\.hooks\s*=\s*true\b/m.test(
     sanitizeTomlScanContent(content)
   );
 }
@@ -190,7 +181,11 @@ function hasConflictingFeaturesTableKey(content: string, key: string): boolean {
     }
 
     if (!inFeaturesTable) continue;
-    if (new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`).test(line)) {
+    if (
+      new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`).test(
+        line
+      )
+    ) {
       return true;
     }
   }
@@ -221,7 +216,32 @@ function hasEnabledFeaturesTableCodexHooksKey(content: string): boolean {
   return false;
 }
 
-function hasConflictingFeaturesInlineTableKey(content: string, key: string): boolean {
+function hasEnabledFeaturesTableHooksKey(content: string): boolean {
+  const lines = sanitizeTomlScanContent(content).split('\n');
+  let inFeaturesTable = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const tableMatch = line.match(/^\[([^\]]+)\](?:\s*#.*)?$/);
+    if (tableMatch) {
+      inFeaturesTable = tableMatch[1]?.trim() === 'features';
+      continue;
+    }
+
+    if (inFeaturesTable && /^hooks\s*=\s*true\b/.test(line)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasConflictingFeaturesInlineTableKey(
+  content: string,
+  key: string
+): boolean {
   const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const lines = sanitizeTomlScanContent(content).split('\n');
 
@@ -252,6 +272,19 @@ function hasEnabledFeaturesInlineTableCodexHooksKey(content: string): boolean {
   return false;
 }
 
+function hasEnabledFeaturesInlineTableHooksKey(content: string): boolean {
+  const lines = sanitizeTomlScanContent(content).split('\n');
+  return lines.some((rawLine) => {
+    const line = rawLine.trim();
+    return (
+      !!line &&
+      !line.startsWith('#') &&
+      /^features\s*=\s*\{/.test(line) &&
+      /\bhooks\s*=\s*true\b/.test(line)
+    );
+  });
+}
+
 export async function hasLeeSpecKitCodexBootstrap(
   filePath = getCodexConfigPath()
 ): Promise<boolean> {
@@ -271,50 +304,47 @@ export async function upsertLeeSpecKitCodexBootstrap(
   action: 'created' | 'appended' | 'updated' | 'noop';
   filePath: string;
 }> {
-  const block = renderManagedBlock();
-  const segment = renderManagedSegment();
   await fs.ensureDir(path.dirname(filePath));
 
   const exists = await fs.pathExists(filePath);
   if (!exists) {
-    await fs.writeFile(filePath, block, 'utf-8');
+    await fs.writeFile(filePath, insertManagedFeaturesBlock(''), 'utf-8');
     return { changed: true, action: 'created', filePath };
   }
 
   const current = await fs.readFile(filePath, 'utf-8');
   const externalContent = stripManagedBlock(current);
-  const beginIndex = current.indexOf(LEE_SPEC_KIT_CODEX_BOOTSTRAP_BEGIN);
-  const endIndex = current.indexOf(LEE_SPEC_KIT_CODEX_BOOTSTRAP_END);
+
+  if (contentIncludesRequiredBootstrap(externalContent)) {
+    if (externalContent === current) {
+      return { changed: false, action: 'noop', filePath };
+    }
+    await fs.writeFile(filePath, externalContent.trimEnd() + '\n', 'utf-8');
+    return { changed: true, action: 'updated', filePath };
+  }
 
   if (
+    hasConflictingTopLevelKey(externalContent, 'features.hooks') ||
+    hasConflictingFeaturesTableKey(externalContent, 'hooks') ||
+    hasConflictingFeaturesInlineTableKey(externalContent, 'hooks') ||
     hasConflictingTopLevelKey(externalContent, 'codex_hooks') ||
     hasConflictingTopLevelKey(externalContent, 'features.codex_hooks') ||
     hasConflictingFeaturesTableKey(externalContent, 'codex_hooks') ||
     hasConflictingFeaturesInlineTableKey(externalContent, 'codex_hooks')
   ) {
     throw new Error(
-      `Codex config already defines codex_hooks outside lee-spec-kit managed block: ${filePath}`
+      `Codex config already defines hooks outside lee-spec-kit managed block: ${filePath}`
     );
   }
 
-  if (beginIndex !== -1 && endIndex !== -1 && beginIndex <= endIndex) {
-    const replaceEnd = endIndex + LEE_SPEC_KIT_CODEX_BOOTSTRAP_END.length;
-    const next = `${current.slice(0, beginIndex)}${segment}${current.slice(replaceEnd)}`;
-    if (next === current) {
-      return { changed: false, action: 'noop', filePath };
-    }
-    await fs.writeFile(filePath, next, 'utf-8');
-    return { changed: true, action: 'updated', filePath };
-  }
-
-  if (contentIncludesRequiredBootstrap(current)) {
-    return { changed: false, action: 'noop', filePath };
-  }
-
-  const next = insertManagedBlockAtTopLevel(current, block);
+  const next = insertManagedFeaturesBlock(externalContent);
 
   await fs.writeFile(filePath, next, 'utf-8');
-  return { changed: true, action: 'appended', filePath };
+  return {
+    changed: true,
+    action: externalContent === current ? 'appended' : 'updated',
+    filePath,
+  };
 }
 
 export async function removeLeeSpecKitCodexBootstrap(

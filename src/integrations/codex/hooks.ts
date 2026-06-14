@@ -12,7 +12,11 @@ const MANAGED_HOOK_FILENAMES = [
 ] as const;
 
 type ManagedHookFileName = (typeof MANAGED_HOOK_FILENAMES)[number];
-type HookEventName = 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'Stop';
+type HookEventName =
+  | 'SessionStart'
+  | 'UserPromptSubmit'
+  | 'PreToolUse'
+  | 'Stop';
 
 interface HookHandler {
   type: 'command';
@@ -27,16 +31,23 @@ interface HookMatcherGroup {
 }
 
 interface HooksConfigFile {
-  hooks?: Partial<Record<HookEventName, HookMatcherGroup[]>> & Record<string, unknown>;
+  hooks?: Partial<Record<HookEventName, HookMatcherGroup[]>> &
+    Record<string, unknown>;
   [key: string]: unknown;
 }
 
-function getHookScriptContent(fileName: ManagedHookFileName): string {
+function getHookScriptContent(
+  fileName: ManagedHookFileName,
+  repoRoot: string,
+  workflowRoot: string
+): string {
   switch (fileName) {
     case '_lee_spec_kit_hook_utils.mjs':
       return `#!/usr/bin/env node
 import fs from 'node:fs';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 export function readHookInput() {
   try {
@@ -57,6 +68,18 @@ export function readHookInput() {
 }
 
 const CLI_ENTRYPOINT = ${JSON.stringify(getInstalledCliEntrypoint())};
+const HOOK_REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..'
+);
+const WORKFLOW_ROOT_RELATIVE = ${JSON.stringify(
+        path.relative(path.resolve(repoRoot), path.resolve(workflowRoot))
+      )};
+
+export function getWorkflowCwd() {
+  return path.resolve(HOOK_REPO_ROOT, WORKFLOW_ROOT_RELATIVE);
+}
 
 export function runLeeSpecKit(args, cwd = process.cwd()) {
   return spawnSync(process.execPath, [CLI_ENTRYPOINT, ...args], {
@@ -134,7 +157,7 @@ export function printBlock(reason) {
 `;
     case 'session_start_lee_spec_kit.mjs':
       return `#!/usr/bin/env node
-import { printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { getWorkflowCwd, printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 
 // Equivalent CLI probe: npx lee-spec-kit detect --json
 const inputResult = readHookInput();
@@ -142,7 +165,7 @@ if (!inputResult.ok) {
   process.exit(0);
 }
 const input = inputResult.value;
-const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
+const cwd = getWorkflowCwd();
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 const detected = detectedResult.ok ? detectedResult.data : null;
 
@@ -186,14 +209,14 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
 `;
     case 'user_prompt_submit_lee_spec_kit.mjs':
       return `#!/usr/bin/env node
-import { printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { getWorkflowCwd, printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 
 const inputResult = readHookInput();
 if (!inputResult.ok) {
   process.exit(0);
 }
 const input = inputResult.value;
-const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
+const cwd = getWorkflowCwd();
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 const detected = detectedResult.ok ? detectedResult.data : null;
 
@@ -232,7 +255,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
 `;
     case 'pre_tool_use_policy.mjs':
       return `#!/usr/bin/env node
-import { printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { getWorkflowCwd, printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -251,6 +274,7 @@ if (!inputResult.ok) {
 }
 const input = inputResult.value;
 const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
+const workflowCwd = getWorkflowCwd();
 const command = String(input?.tool_input?.command || '').trim();
 
 function tokenizeShellCommand(value) {
@@ -892,7 +916,7 @@ if (hasUnsupportedGitTarget || hasGitTargetEnvOverride) {
   process.exit(0);
 }
 
-const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
+const detectedResult = runLeeSpecKitJson(['detect', '--json'], workflowCwd);
 if (!detectedResult.ok) {
   printBlock('lee-spec-kit detection failed inside the Codex hook. Fix the local CLI or hook setup before continuing.');
   process.exit(0);
@@ -940,7 +964,7 @@ if (stageBoundAction || isPotentialMergeCleanupCommand || hasUnsupportedShellWra
   const stageArgs = commandFeatureRef
     ? ['workflow-stage', commandFeatureRef, '--json']
     : ['workflow-stage', '--json'];
-  const stageResult = runLeeSpecKitJson(stageArgs, cwd);
+  const stageResult = runLeeSpecKitJson(stageArgs, workflowCwd);
   if (!stageResult.ok) {
     printBlock('lee-spec-kit workflow-stage failed inside the Codex hook. Resolve the workflow stage before running this stage-bound command.');
     process.exit(0);
@@ -991,7 +1015,7 @@ if (isGitCommit) {
   if (commitMessage) {
     commitAuditArgs.push('--message', commitMessage);
   }
-  const commitAuditResult = runLeeSpecKitJson(commitAuditArgs, cwd);
+  const commitAuditResult = runLeeSpecKitJson(commitAuditArgs, workflowCwd);
   if (!commitAuditResult.ok) {
     printBlock('lee-spec-kit commit-audit failed inside the Codex hook. Resolve the docs guardrail failure before committing.');
     process.exit(0);
@@ -1011,7 +1035,7 @@ if (isGitCommit) {
   }
 }
 
-const auditResult = runLeeSpecKitJson(['workflow-audit', '--json'], cwd);
+const auditResult = runLeeSpecKitJson(['workflow-audit', '--json'], workflowCwd);
 if (!auditResult.ok) {
   printBlock('lee-spec-kit workflow-audit failed inside the Codex hook. Resolve the docs sync guardrail failure before continuing.');
   process.exit(0);
@@ -1027,7 +1051,7 @@ if (!(audit?.status === 'ok' || audit?.status === 'skipped')) {
 `;
     case 'stop_workflow_audit.mjs':
       return `#!/usr/bin/env node
-import { printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { getWorkflowCwd, printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 
 // Equivalent CLI probe: npx lee-spec-kit workflow-audit --json
 const inputResult = readHookInput();
@@ -1041,7 +1065,7 @@ if (input?.stop_hook_active === true) {
   process.exit(0);
 }
 
-const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
+const cwd = getWorkflowCwd();
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 if (!detectedResult.ok) {
   printBlock('lee-spec-kit detection failed inside the stop hook. Resolve the local CLI or hook setup before stopping.');
@@ -1088,7 +1112,9 @@ function escapeRegExp(value: string): string {
 }
 
 function getPortableHookCommandSuffix(fileName: ManagedHookFileName): string {
-  const relativeHookPath = normalizePathSlashes(getManagedHookRelativePath(fileName));
+  const relativeHookPath = normalizePathSlashes(
+    getManagedHookRelativePath(fileName)
+  );
   const loaderSource = [
     '(async () => {',
     "  const fs = require('node:fs');",
@@ -1109,7 +1135,7 @@ function getPortableHookCommandSuffix(fileName: ManagedHookFileName): string {
     '    dir = parent;',
     '  }',
     '})().catch((error) => {',
-    "  console.error(error && error.stack ? error.stack : String(error));",
+    '  console.error(error && error.stack ? error.stack : String(error));',
     '  process.exit(1);',
     '});',
   ].join(' ');
@@ -1119,7 +1145,9 @@ function getPortableHookCommandSuffix(fileName: ManagedHookFileName): string {
 function isManagedCommand(command: string): boolean {
   const normalized = normalizePathSlashes(command).trim();
   return MANAGED_HOOK_FILENAMES.some((fileName) => {
-    const currentCommand = normalizePathSlashes(toPortableHookCommand(fileName)).trim();
+    const currentCommand = normalizePathSlashes(
+      toPortableHookCommand(fileName)
+    ).trim();
     const portableSuffix = normalizePathSlashes(
       getPortableHookCommandSuffix(fileName)
     ).trim();
@@ -1147,7 +1175,7 @@ function getManagedHooksConfig(): Record<HookEventName, HookMatcherGroup[]> {
   return {
     SessionStart: [
       {
-        matcher: 'startup|resume',
+        matcher: 'startup|resume|clear|compact',
         hooks: [
           {
             type: 'command',
@@ -1197,7 +1225,9 @@ function getInstalledCliEntrypoint(): string {
   return path.join(path.dirname(fileURLToPath(import.meta.url)), 'index.js');
 }
 
-function pruneManagedGroups(groups: HookMatcherGroup[] | undefined): HookMatcherGroup[] {
+function pruneManagedGroups(
+  groups: HookMatcherGroup[] | undefined
+): HookMatcherGroup[] {
   if (!Array.isArray(groups)) return [];
   return groups
     .map((group) => {
@@ -1232,7 +1262,9 @@ function mergeManagedGroups(
   managedHooks: Record<HookEventName, HookMatcherGroup[]>
 ): HooksConfigFile {
   const nextHooks: Record<string, unknown> = {
-    ...(current.hooks && typeof current.hooks === 'object' ? current.hooks : {}),
+    ...(current.hooks && typeof current.hooks === 'object'
+      ? current.hooks
+      : {}),
   };
 
   for (const eventName of Object.keys(managedHooks) as HookEventName[]) {
@@ -1252,10 +1284,17 @@ function mergeManagedGroups(
 
 function removeManagedGroups(current: HooksConfigFile): HooksConfigFile {
   const nextHooks: Record<string, unknown> = {
-    ...(current.hooks && typeof current.hooks === 'object' ? current.hooks : {}),
+    ...(current.hooks && typeof current.hooks === 'object'
+      ? current.hooks
+      : {}),
   };
 
-  for (const eventName of ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'Stop']) {
+  for (const eventName of [
+    'SessionStart',
+    'UserPromptSubmit',
+    'PreToolUse',
+    'Stop',
+  ]) {
     const pruned = pruneManagedGroups(
       Array.isArray(nextHooks[eventName])
         ? (nextHooks[eventName] as HookMatcherGroup[])
@@ -1291,7 +1330,8 @@ export function getRepoHooksConfigPath(repoRoot = process.cwd()): string {
 }
 
 export async function upsertLeeSpecKitCodexHooks(
-  repoRoot = process.cwd()
+  repoRoot = process.cwd(),
+  workflowRoot = repoRoot
 ): Promise<{
   changed: boolean;
   action: 'created' | 'updated' | 'noop';
@@ -1303,10 +1343,14 @@ export async function upsertLeeSpecKitCodexHooks(
 
   for (const fileName of MANAGED_HOOK_FILENAMES) {
     const targetPath = path.join(hooksDir, fileName);
-    await fs.writeFile(targetPath, getHookScriptContent(fileName), {
-      encoding: 'utf-8',
-      mode: 0o755,
-    });
+    await fs.writeFile(
+      targetPath,
+      getHookScriptContent(fileName, repoRoot, workflowRoot),
+      {
+        encoding: 'utf-8',
+        mode: 0o755,
+      }
+    );
   }
 
   const managedHooks = getManagedHooksConfig();

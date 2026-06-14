@@ -132,6 +132,8 @@ export const koCli = {
   'setup.codexHooksRemoved': '✅ Repo-local Codex hooks 제거 완료: {path}',
   'setup.codexHooksAlreadyAbsent':
     '✅ Repo-local Codex hooks 가 이미 없습니다: {path}',
+  'setup.codexHooksTrustRequired':
+    'Codex에서 /hooks를 실행해 설치된 프로젝트 훅을 검토하고 신뢰하세요. 훅 정의가 변경되면 다시 검토해야 합니다.',
 
   'github.cmdGithubDescription':
     'GitHub 워크플로우 도우미 (issue/pr 본문 템플릿 생성, 검증, merge 재시도)',

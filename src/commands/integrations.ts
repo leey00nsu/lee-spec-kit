@@ -8,7 +8,10 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
-import { resolveConfiguredStandaloneWorkspaceRoot } from '../utils/standalone-workspace.js';
+import {
+  resolveConfiguredStandaloneWorkspaceRoot,
+  resolveStandaloneProjectRoots,
+} from '../utils/standalone-workspace.js';
 
 interface CodexOptions {
   remove?: boolean;
@@ -25,10 +28,7 @@ function registerCodexIntegration(parent: Command): void {
     .description(
       'Install or remove the optional Codex bootstrap that re-reads the current workspace ./AGENTS.md'
     )
-    .option(
-      '--remove',
-      'Remove the lee-spec-kit managed Codex bootstrap block'
-    )
+    .option('--remove', 'Remove the lee-spec-kit managed Codex bootstrap block')
     .action(async (options: CodexOptions) => {
       const lang = DEFAULT_LANG;
       try {
@@ -76,7 +76,10 @@ function registerCodexHooksIntegration(parent: Command): void {
     .description(
       'Install or remove workspace-local Codex official hooks for the lee-spec-kit docs workflow'
     )
-    .option('--remove', 'Remove lee-spec-kit managed workspace-local Codex hooks')
+    .option(
+      '--remove',
+      'Remove lee-spec-kit managed workspace-local Codex hooks'
+    )
     .action(async (options: CodexHooksOptions) => {
       const lang = DEFAULT_LANG;
       try {
@@ -93,32 +96,50 @@ function registerCodexHooksIntegration(parent: Command): void {
           resolveCodexHooksRepoRoot,
           upsertLeeSpecKitCodexHooks,
         } = await import('../integrations/codex/hooks.js');
-        const repoRoot =
+        const workflowRoot =
           config.docsRepo === 'standalone'
             ? resolveConfiguredStandaloneWorkspaceRoot(config)
             : resolveCodexHooksRepoRoot(process.cwd());
-        if (!repoRoot) {
+        if (!workflowRoot) {
           throw createCliError(
             'PRECONDITION_FAILED',
             'Standalone workspaceRoot is missing or invalid. Run `npx lee-spec-kit update --agents-md` from the shared workspace root to migrate this project.'
           );
         }
-        const filePath = getRepoHooksConfigPath(repoRoot);
+        const repoRoots =
+          config.docsRepo === 'standalone'
+            ? [workflowRoot, ...resolveStandaloneProjectRoots(config)]
+            : [workflowRoot];
+        const uniqueRepoRoots = [...new Set(repoRoots)];
+        const filePaths = uniqueRepoRoots.map((repoRoot) =>
+          getRepoHooksConfigPath(repoRoot)
+        );
+        const displayPath = filePaths.join(', ');
         if (options.remove) {
-          const result = await removeLeeSpecKitCodexHooks(repoRoot);
-          const key = result.changed
+          const results = await Promise.all(
+            uniqueRepoRoots.map((repoRoot) =>
+              removeLeeSpecKitCodexHooks(repoRoot)
+            )
+          );
+          const key = results.some((result) => result.changed)
             ? 'setup.codexHooksRemoved'
             : 'setup.codexHooksAlreadyAbsent';
-          console.log(chalk.green(tr(lang, 'cli', key, { path: filePath })));
+          console.log(chalk.green(tr(lang, 'cli', key, { path: displayPath })));
           return;
         }
 
-        const result = await upsertLeeSpecKitCodexHooks(repoRoot);
-        const key =
-          result.action === 'noop'
-            ? 'setup.codexHooksAlreadyInstalled'
-            : 'setup.codexHooksInstalled';
-        console.log(chalk.green(tr(lang, 'cli', key, { path: filePath })));
+        const results = await Promise.all(
+          uniqueRepoRoots.map((repoRoot) =>
+            upsertLeeSpecKitCodexHooks(repoRoot, workflowRoot)
+          )
+        );
+        const key = results.every((result) => result.action === 'noop')
+          ? 'setup.codexHooksAlreadyInstalled'
+          : 'setup.codexHooksInstalled';
+        console.log(chalk.green(tr(lang, 'cli', key, { path: displayPath })));
+        console.log(
+          chalk.yellow(tr(lang, 'cli', 'setup.codexHooksTrustRequired'))
+        );
       } catch (error) {
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);

@@ -13,7 +13,7 @@
 npx lee-spec-kit integrations codex-hooks
 ```
 
-This scaffolds workspace-local files under `.codex/`:
+This scaffolds project-local files under `.codex/`:
 
 - `.codex/hooks.json`
 - `.codex/hooks/_lee_spec_kit_hook_utils.mjs`
@@ -25,15 +25,17 @@ This scaffolds workspace-local files under `.codex/`:
 Install location depends on your repo mode:
 
 - `embedded`: run from the project repo root
-- `standalone`: run from the shared `workspaceRoot` above `docs/` and `project/`
+- `standalone`: run from the shared `workspaceRoot` above `docs/` and `project/`; the command installs the hooks in the workspace root and every configured `projectRoot`
 
-For `standalone`, both `workspaceRoot` and `projectRoot` are required topology pointers in `.lee-spec-kit.json`. `projectRoot` alone is not enough, and `workspaceRoot` is rejected if it cannot be validated against the configured project root. The command installs hooks at the configured shared workspace root even when you invoke it from the docs repo, and `AGENTS.md` is managed at that workspace root instead of the docs repo. If either value is missing or invalid, migrate first:
+For `standalone`, both `workspaceRoot` and `projectRoot` are required topology pointers in `.lee-spec-kit.json`. `projectRoot` alone is not enough, and `workspaceRoot` is rejected if it cannot be validated against the configured project root. Codex discovers project hooks from trusted `.codex/` layers below each Git project root, so the command mirrors the managed hook files into every configured project repository while keeping workflow evaluation anchored at `workspaceRoot`. `AGENTS.md` remains managed at the workspace root. If either topology value is missing or invalid, migrate first:
 
 ```bash
 npx lee-spec-kit update --agents-md
 ```
 
 If you run `integrations codex-hooks` from an unrelated project repo where `lee-spec-kit` docs are not detected, the command fails instead of writing `.codex/` there.
+
+After installation, run `/hooks` in Codex and review and trust each generated project hook. Codex records trust against the hook definition, so rerun `/hooks` after lee-spec-kit updates regenerate or change the hooks. Project-local hooks are skipped when the project or hook definition is not trusted.
 
 ## What Each Hook Does
 
@@ -42,6 +44,7 @@ If you run `integrations codex-hooks` from an unrelated project repo where `lee-
 - Detects whether the workspace is a lee-spec-kit project
 - Injects workflow context into Codex developer instructions
 - Tells Codex to resolve the next allowed stage through `workflow-stage --json`
+- Re-runs on `startup`, `resume`, `clear`, and post-compaction session starts
 
 ### `UserPromptSubmit`
 
@@ -55,6 +58,8 @@ If you run `integrations codex-hooks` from an unrelated project repo where `lee-
 - In `standalone`, commit-time docs validation follows the actual `git -C <repo>` target while workflow sync checks `projectRoot` against the active feature docs and only writes/install files through the configured `workspaceRoot`
 - In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so docs stay on the docs branch, while the exact branch-stage `nextAction.command` is allowed and points at the shared workspace `.worktrees/` root instead of the main project checkout
 
+`PreToolUse` is a workflow guardrail, not a complete security boundary. Current Codex releases do not intercept every `unified_exec` shell path, web tool, or equivalent side-effect path. Keep irreversible policy enforcement in Git hooks, CI, repository permissions, or managed Codex policy.
+
 ### `Stop`
 
 - Runs `workflow-audit --json`
@@ -67,7 +72,7 @@ If you run `integrations codex-hooks` from an unrelated project repo where `lee-
 npx lee-spec-kit integrations codex
 ```
 
-This updates `~/.codex/config.toml` so Codex keeps reloading repo instructions after compaction and enables the official hooks feature flag.
+Hooks are enabled by default in current Codex releases. This optional command writes the canonical `[features].hooks = true` setting to `~/.codex/config.toml` and migrates the old lee-spec-kit-managed `codex_hooks` alias. Existing explicit `hooks = false` settings are treated as conflicts instead of being overwritten.
 
 ## Removal
 

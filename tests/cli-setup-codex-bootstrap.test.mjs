@@ -24,7 +24,9 @@ test('integrations codex-bootstrap creates managed Codex hooks flag in CODEX_HOM
     const config = await fs.readFile(configPath, 'utf-8');
 
     assert.match(config, /# lee-spec-kit:codex-bootstrap:begin/);
-    assert.match(config, /codex_hooks = true/);
+    assert.match(config, /\[features\]/);
+    assert.match(config, /hooks = true/);
+    assert.doesNotMatch(config, /codex_hooks/);
     assert.doesNotMatch(config, /project_doc_fallback_filenames/);
     assert.doesNotMatch(config, /compact_prompt/);
   });
@@ -43,7 +45,9 @@ test('integrations codex creates managed block in CODEX_HOME config.toml', async
     const config = await fs.readFile(configPath, 'utf-8');
 
     assert.match(config, /# lee-spec-kit:codex-bootstrap:begin/);
-    assert.match(config, /codex_hooks = true/);
+    assert.match(config, /\[features\]/);
+    assert.match(config, /hooks = true/);
+    assert.doesNotMatch(config, /codex_hooks/);
     assert.doesNotMatch(config, /project_doc_fallback_filenames/);
   });
 });
@@ -74,6 +78,10 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
     assert.equal(Array.isArray(hooksJson.hooks?.SessionStart), true);
     assert.equal(Array.isArray(hooksJson.hooks?.PreToolUse), true);
     assert.equal(Array.isArray(hooksJson.hooks?.Stop), true);
+    assert.equal(
+      hooksJson.hooks.SessionStart[0].matcher,
+      'startup|resume|clear|compact'
+    );
 
     const hooksDir = path.join(dir, '.codex', 'hooks');
     const sessionStartScriptPath = path.join(hooksDir, 'session_start_lee_spec_kit.mjs');
@@ -184,6 +192,24 @@ test('integrations codex rejects conflicting table-style codex_hooks settings', 
   });
 });
 
+test('integrations codex rejects canonical hooks=false in the features table', async () => {
+  await withTempDir('lsk-integrations-codex-hooks-conflict-', async (dir) => {
+    const homeDir = path.join(dir, 'home');
+    const codexDir = path.join(homeDir, '.codex');
+    const configPath = path.join(codexDir, 'config.toml');
+    await fs.mkdir(codexDir, { recursive: true });
+    await fs.writeFile(
+      configPath,
+      ['[features]', 'hooks = false', ''].join('\n'),
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Codex config already defines hooks/i);
+  });
+});
+
 test('integrations codex rejects conflicting table-style codex_hooks settings with commented table header', async () => {
   await withTempDir('lsk-integrations-codex-commented-table-conflict-', async (dir) => {
     const homeDir = path.join(dir, 'home');
@@ -198,7 +224,7 @@ test('integrations codex rejects conflicting table-style codex_hooks settings wi
 
     const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines codex_hooks outside lee-spec-kit managed block/);
+    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
   });
 });
 
@@ -216,7 +242,7 @@ test('integrations codex rejects conflicting table-style codex_hooks settings wi
 
     const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines codex_hooks outside lee-spec-kit managed block/);
+    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
   });
 });
 
@@ -234,7 +260,7 @@ test('integrations codex rejects conflicting inline-table codex_hooks settings',
 
     const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines codex_hooks outside lee-spec-kit managed block/);
+    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
   });
 });
 
@@ -261,7 +287,9 @@ test('integrations codex preserves existing compact prompt and fallback settings
     assert.match(config, /compact_prompt = """keep my compaction rules"""/);
     assert.match(config, /project_doc_fallback_filenames = \["AGENTS\.md"\]/);
     assert.match(config, /# lee-spec-kit:codex-bootstrap:begin/);
-    assert.match(config, /^codex_hooks = true$/m);
+    assert.match(config, /\[features\]/);
+    assert.match(config, /^hooks = true$/m);
+    assert.doesNotMatch(config, /^codex_hooks\s*=/m);
   });
 });
 
@@ -285,7 +313,7 @@ test('integrations codex does not treat commented codex_hooks text as an install
       config.match(/# lee-spec-kit:codex-bootstrap:begin/g)?.length,
       1
     );
-    assert.match(config, /^codex_hooks = true$/m);
+    assert.match(config, /^hooks = true$/m);
   });
 });
 
@@ -314,7 +342,7 @@ test('integrations codex ignores codex_hooks text that only appears inside multi
       config.match(/# lee-spec-kit:codex-bootstrap:begin/g)?.length,
       1
     );
-    assert.match(config, /^codex_hooks = true$/m);
+    assert.match(config, /^hooks = true$/m);
   });
 });
 
@@ -340,7 +368,34 @@ test('integrations codex rejects conflicting codex_hooks settings outside an exi
 
     const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines codex_hooks outside lee-spec-kit managed block/);
+    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
+  });
+});
+
+test('integrations codex migrates a legacy managed codex_hooks block to canonical hooks', async () => {
+  await withTempDir('lsk-integrations-codex-migrate-managed-', async (dir) => {
+    const homeDir = path.join(dir, 'home');
+    const codexDir = path.join(homeDir, '.codex');
+    const configPath = path.join(codexDir, 'config.toml');
+    await fs.mkdir(codexDir, { recursive: true });
+    await fs.writeFile(
+      configPath,
+      [
+        '# lee-spec-kit:codex-bootstrap:begin',
+        'codex_hooks = true',
+        '# lee-spec-kit:codex-bootstrap:end',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const config = await fs.readFile(configPath, 'utf-8');
+    assert.match(config, /\[features\]/);
+    assert.match(config, /^hooks = true$/m);
+    assert.doesNotMatch(config, /codex_hooks/);
   });
 });
 
@@ -697,7 +752,7 @@ test('generated pre-tool hook blocks git commit commands that target another wor
   });
 });
 
-test('integrations codex-hooks in standalone installs hooks at the configured workspace root even from docs root', async () => {
+test('integrations codex-hooks in standalone installs hooks at the workspace and configured project roots', async () => {
   await withTempDir('lsk-codex-hooks-standalone-docs-root-install-', async (dir) => {
     const projectRoot = path.join(dir, 'project');
     await fs.mkdir(projectRoot, { recursive: true });
@@ -730,7 +785,71 @@ test('integrations codex-hooks in standalone installs hooks at the configured wo
 
     assert.equal(await pathExists(path.join(dir, '.codex', 'hooks.json')), true);
     assert.equal(await pathExists(path.join(dir, 'docs', '.codex', 'hooks.json')), false);
-    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), false);
+    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), true);
+    assert.match(installResult.stdout, /\/hooks/);
+
+    const projectSessionHook = await runCommand(
+      projectRoot,
+      process.execPath,
+      [path.join(projectRoot, '.codex', 'hooks', 'session_start_lee_spec_kit.mjs')],
+      { input: JSON.stringify({ cwd: projectRoot }) }
+    );
+    assert.equal(
+      projectSessionHook.code,
+      0,
+      projectSessionHook.stderr || projectSessionHook.stdout
+    );
+    const projectSessionPayload = JSON.parse(projectSessionHook.stdout.trim());
+    assert.equal(
+      projectSessionPayload.hookSpecificOutput.hookEventName,
+      'SessionStart'
+    );
+  });
+});
+
+test('integrations codex-hooks --remove removes standalone hooks from workspace and project roots', async () => {
+  await withTempDir('lsk-codex-hooks-standalone-remove-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot, { recursive: true });
+    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+
+    const removeResult = await runCli(dir, ['integrations', 'codex-hooks', '--remove']);
+    assert.equal(removeResult.code, 0, removeResult.stderr || removeResult.stdout);
+    assert.equal(await pathExists(path.join(dir, '.codex', 'hooks.json')), true);
+    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), true);
+
+    const workspaceHooks = JSON.parse(
+      await fs.readFile(path.join(dir, '.codex', 'hooks.json'), 'utf-8')
+    );
+    const projectHooks = JSON.parse(
+      await fs.readFile(path.join(projectRoot, '.codex', 'hooks.json'), 'utf-8')
+    );
+    assert.equal(workspaceHooks.hooks?.SessionStart, undefined);
+    assert.equal(projectHooks.hooks?.SessionStart, undefined);
   });
 });
 

@@ -75,8 +75,8 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 - `docs`
 - `detect`
 - `github`
-- `integrations codex-hooks`
-- `integrations codex`
+- `integrations codex-hooks`: install/remove hooks in the workspace and configured project roots
+- `integrations codex`: install/remove the optional global `[features].hooks` setting
 - `commit-audit --json`
 - `workflow-audit --json`
 

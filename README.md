@@ -75,8 +75,8 @@ npx lee-spec-kit feature user-auth
 - `docs`: 내장 agent policy 문서 조회
 - `detect`: 현재 워크스페이스가 lee-spec-kit 프로젝트인지 감지
 - `github`: issue/pr 본문 생성 및 검증
-- `integrations codex-hooks`: 현재 workspace용 Codex hooks 스캐폴드 생성/제거
-- `integrations codex`: 전역 Codex hooks flag 설치/제거
+- `integrations codex-hooks`: 현재 workspace와 configured project root용 Codex hooks 생성/제거
+- `integrations codex`: 선택적 전역 `[features].hooks` 설정 설치/제거
 - `commit-audit --json`: hooks용 commit-time docs path validator
 - `workflow-audit --json`: hooks용 docs sync validator
 

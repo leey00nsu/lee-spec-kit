@@ -83,12 +83,13 @@ npx lee-spec-kit integrations codex-hooks
 npx lee-spec-kit integrations codex-hooks --remove
 ```
 
-For `embedded`, install from the project repo root. For `standalone`, install from the shared workspace root so the project repo stays untouched.
+For `embedded`, install from the project repo root. For `standalone`, run from the shared workspace root; managed hooks are installed in both the workspace root and every configured project root so Codex can discover them from each Git repository.
 If a standalone project predates `workspaceRoot`, run `npx lee-spec-kit update --agents-md` from the shared workspace root first.
+After installation or hook updates, run `/hooks` in Codex and review and trust the generated definitions.
 
 ### `integrations codex`
 
-Install the optional global Codex hooks bootstrap flag in `~/.codex/config.toml`.
+Install the optional canonical `[features].hooks = true` setting in `~/.codex/config.toml`. Hooks are enabled by default in current Codex releases.
 
 ```bash
 npx lee-spec-kit integrations codex

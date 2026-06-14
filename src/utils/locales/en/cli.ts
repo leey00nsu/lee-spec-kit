@@ -132,6 +132,8 @@ export const enCli = {
     '✅ Repo-local Codex hooks removed: {path}',
   'setup.codexHooksAlreadyAbsent':
     '✅ Repo-local Codex hooks are already absent: {path}',
+  'setup.codexHooksTrustRequired':
+    'Review and trust the installed project hooks with /hooks in Codex. Changed hook definitions require review again.',
 
   'github.cmdGithubDescription':
     'GitHub workflow helpers (issue/pr templates, validation, merge retry)',
