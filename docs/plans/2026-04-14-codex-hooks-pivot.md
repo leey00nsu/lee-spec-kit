@@ -13,7 +13,7 @@
 ### Task 1: Lock the new public contract
 
 **Files:**
-- Modify: `tests/cli-setup-codex-bootstrap.test.mjs`
+- Modify: `tests/cli-integrations-codex.test.mjs`
 - Modify: `tests/cli-context-execute-gates.test.mjs`
 - Modify: `tests/cli-init-feature-github.test.mjs`
 

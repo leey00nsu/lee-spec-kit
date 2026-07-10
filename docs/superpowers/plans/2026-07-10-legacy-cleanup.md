@@ -263,7 +263,8 @@ Move plans whose primary implementation targets were deleted `context`, `flow`, 
 Run:
 
 ```bash
-rg "setup\.codex|cli-setup-codex-bootstrap" src tests docs
+rg "setup\.codex" src tests
+rg "cli-setup-codex-bootstrap" src tests docs/reference docs/superpowers/plans/2026-04-16-stage-gate-restoration-plan.md
 pnpm vitest run tests/cli-integrations-codex.test.mjs
 pnpm lint
 pnpm lint:test

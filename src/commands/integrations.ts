@@ -41,10 +41,10 @@ function registerCodexIntegration(parent: Command): void {
         if (options.remove) {
           const result = await removeLeeSpecKitCodexBootstrap(filePath);
           const message = result.changed
-            ? tr(lang, 'cli', 'setup.codexBootstrapRemoved', {
+            ? tr(lang, 'cli', 'integrations.codexBootstrapRemoved', {
                 path: filePath,
               })
-            : tr(lang, 'cli', 'setup.codexBootstrapAlreadyAbsent', {
+            : tr(lang, 'cli', 'integrations.codexBootstrapAlreadyAbsent', {
                 path: filePath,
               });
           console.log(chalk.green(message));
@@ -54,8 +54,8 @@ function registerCodexIntegration(parent: Command): void {
         const result = await upsertLeeSpecKitCodexBootstrap(filePath);
         const key =
           result.action === 'noop'
-            ? 'setup.codexBootstrapAlreadyInstalled'
-            : 'setup.codexBootstrapInstalled';
+            ? 'integrations.codexBootstrapAlreadyInstalled'
+            : 'integrations.codexBootstrapInstalled';
         console.log(chalk.green(tr(lang, 'cli', key, { path: filePath })));
       } catch (error) {
         const cliError = toCliError(error);
@@ -122,8 +122,8 @@ function registerCodexHooksIntegration(parent: Command): void {
             )
           );
           const key = results.some((result) => result.changed)
-            ? 'setup.codexHooksRemoved'
-            : 'setup.codexHooksAlreadyAbsent';
+            ? 'integrations.codexHooksRemoved'
+            : 'integrations.codexHooksAlreadyAbsent';
           console.log(chalk.green(tr(lang, 'cli', key, { path: displayPath })));
           return;
         }
@@ -134,11 +134,13 @@ function registerCodexHooksIntegration(parent: Command): void {
           )
         );
         const key = results.every((result) => result.action === 'noop')
-          ? 'setup.codexHooksAlreadyInstalled'
-          : 'setup.codexHooksInstalled';
+          ? 'integrations.codexHooksAlreadyInstalled'
+          : 'integrations.codexHooksInstalled';
         console.log(chalk.green(tr(lang, 'cli', key, { path: displayPath })));
         console.log(
-          chalk.yellow(tr(lang, 'cli', 'setup.codexHooksTrustRequired'))
+          chalk.yellow(
+            tr(lang, 'cli', 'integrations.codexHooksTrustRequired')
+          )
         );
       } catch (error) {
         const cliError = toCliError(error);

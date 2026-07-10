@@ -65,7 +65,7 @@ Expected: PASS
 
 - [ ] **Step 4: Run targeted hook/bootstrap tests**
 
-Run: `pnpm vitest run tests/cli-setup-codex-bootstrap.test.mjs tests/cli-detect-docs-contract.test.mjs`
+Run: `pnpm vitest run tests/cli-integrations-codex.test.mjs tests/cli-detect-docs-contract.test.mjs`
 Expected: PASS
 
 ### Task 4: Align skill docs with restored stage order
@@ -86,7 +86,7 @@ Expected: PASS
 
 - [ ] **Step 3: Run focused tests covering generated AGENTS/bootstrap text**
 
-Run: `pnpm vitest run tests/cli-init-feature-github.test.mjs tests/cli-setup-codex-bootstrap.test.mjs`
+Run: `pnpm vitest run tests/cli-init-feature-github.test.mjs tests/cli-integrations-codex.test.mjs`
 Expected: PASS
 
 ### Task 5: Run full verification

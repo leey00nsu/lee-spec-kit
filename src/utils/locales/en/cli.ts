@@ -116,23 +116,23 @@ export const enCli = {
   'idea.nextSteps2': '  2. Promote it with: npx lee-spec-kit feature <name> --idea {ideaId}',
   'idea.nextSteps3': '  3. Mark it dropped if it should not become a feature',
 
-  'setup.codexBootstrapInstalled':
+  'integrations.codexBootstrapInstalled':
     '✅ Optional Codex bootstrap installed: {path}',
-  'setup.codexBootstrapAlreadyInstalled':
+  'integrations.codexBootstrapAlreadyInstalled':
     '✅ Optional Codex bootstrap already installed: {path}',
-  'setup.codexBootstrapRemoved':
+  'integrations.codexBootstrapRemoved':
     '✅ Optional Codex bootstrap removed: {path}',
-  'setup.codexBootstrapAlreadyAbsent':
+  'integrations.codexBootstrapAlreadyAbsent':
     '✅ Optional Codex bootstrap is already absent: {path}',
-  'setup.codexHooksInstalled':
+  'integrations.codexHooksInstalled':
     '✅ Repo-local Codex hooks installed: {path}',
-  'setup.codexHooksAlreadyInstalled':
+  'integrations.codexHooksAlreadyInstalled':
     '✅ Repo-local Codex hooks already installed: {path}',
-  'setup.codexHooksRemoved':
+  'integrations.codexHooksRemoved':
     '✅ Repo-local Codex hooks removed: {path}',
-  'setup.codexHooksAlreadyAbsent':
+  'integrations.codexHooksAlreadyAbsent':
     '✅ Repo-local Codex hooks are already absent: {path}',
-  'setup.codexHooksTrustRequired':
+  'integrations.codexHooksTrustRequired':
     'Review and trust the installed project hooks with /hooks in Codex. Changed hook definitions require review again.',
 
   'github.cmdGithubDescription':
