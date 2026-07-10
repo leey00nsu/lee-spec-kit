@@ -366,6 +366,84 @@ async function commitTaskProject(
   assert.equal(commit.code, 0, commit.stderr || commit.stdout);
 }
 
+async function preparePrePrEvidenceCase(
+  dir,
+  { evidence, evidenceMode = undefined, outsideFile = false }
+) {
+  const fakeGh = await setupFakeGhCli(dir);
+  await initRepo(dir);
+  await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+  await syncIssueDraftMarker(dir, 123);
+  await setStatus(path.join(featureDir(dir), 'pr.md'), 'Status', 'Ready');
+
+  const extraCommitPaths = [];
+  if (evidenceMode) {
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.prePrReview.evidenceMode = evidenceMode;
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
+    extraCommitPaths.push('docs/.lee-spec-kit.json');
+  }
+  if (outsideFile) {
+    await fs.writeFile(path.join(dir, 'outside.md'), '# outside\n', 'utf-8');
+    extraCommitPaths.push('outside.md');
+  }
+
+  const tasksPath = path.join(featureDir(dir), 'tasks.md');
+  let tasks = await fs.readFile(tasksPath, 'utf-8');
+  tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+  tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+  tasks = tasks.replace(
+    '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+    '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell'
+  );
+  tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+  tasks = tasks.replace('- **Pre-PR Review**: Pending', '- **Pre-PR Review**: Done');
+  tasks = tasks.replace(
+    '- **Pre-PR Evidence**: -',
+    `- **Pre-PR Evidence**: ${evidence}`
+  );
+  tasks = tasks.replace(
+    '- **Pre-PR Decision**: -',
+    '- **Pre-PR Decision**: decision: approve - baseline checklist completed'
+  );
+  tasks = tasks.replace(
+    '| `pnpm vitest` | `-` | `-` |',
+    '| `pnpm vitest` | `2026-04-16` | `PASS` |'
+  );
+  tasks = tasks.replace(
+    "- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked",
+    "- [x] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked"
+  );
+  tasks = tasks.replace(
+    '- [ ] Tests executed and passing (record command/result below)',
+    '- [x] Tests executed and passing (record command/result below)'
+  );
+  tasks = tasks.replace(
+    '- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint',
+    '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint'
+  );
+  await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+  const checkout = await runCommand(dir, 'git', [
+    'checkout',
+    '-b',
+    'feat/123-alpha',
+  ]);
+  assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+  await commitFeatureDocs(
+    dir,
+    'docs(#123): F001-alpha 문서 업데이트',
+    extraCommitPaths
+  );
+  await commitTaskProject(dir);
+  return fakeGh.env;
+}
+
 test('workflow-stage blocks implementation at the issue preparation stage after tasks are ready', async () => {
   await withTempDir('lsk-workflow-stage-issue-prepare-', async (dir) => {
     await initRepo(dir);
@@ -947,6 +1025,66 @@ test('workflow-stage advances to PR creation only after pre-pr approval is recor
     assert.equal(payload.blockedReasonCode, 'PR_NOT_CREATED');
   });
 });
+
+test('workflow-stage Pre-PR evidence path_required rejects a missing file', async () => {
+  await withTempDir('lsk-workflow-stage-pre-pr-missing-evidence-', async (dir) => {
+    const env = await preparePrePrEvidenceCase(dir, {
+      evidence: 'docs/features/F001-alpha/missing-review.md',
+    });
+
+    const payload = await readStage(dir, env);
+
+    assert.equal(payload.stage, 'pre_pr_review');
+    assert.equal(payload.blockedReasonCode, 'PRE_PR_REVIEW_NOT_APPROVED');
+  });
+});
+
+test('workflow-stage Pre-PR evidence path_required accepts an existing docs file', async () => {
+  await withTempDir('lsk-workflow-stage-pre-pr-existing-evidence-', async (dir) => {
+    const env = await preparePrePrEvidenceCase(dir, {
+      evidence: 'docs/features/F001-alpha/decisions.md',
+    });
+
+    const payload = await readStage(dir, env);
+
+    assert.equal(payload.stage, 'pr');
+    assert.equal(payload.nextAction.category, 'pr_create');
+  });
+});
+
+test('workflow-stage Pre-PR evidence any accepts a non-path review note', async () => {
+  await withTempDir('lsk-workflow-stage-pre-pr-any-evidence-', async (dir) => {
+    const env = await preparePrePrEvidenceCase(dir, {
+      evidence: 'review completed in this session',
+      evidenceMode: 'any',
+    });
+
+    const payload = await readStage(dir, env);
+
+    assert.equal(payload.stage, 'pr');
+    assert.equal(payload.nextAction.category, 'pr_create');
+  });
+});
+
+for (const outsideEvidence of ['../outside.md', 'ABSOLUTE_OUTSIDE_PATH']) {
+  test(`workflow-stage Pre-PR evidence path_required rejects ${outsideEvidence}`, async () => {
+    await withTempDir('lsk-workflow-stage-pre-pr-outside-evidence-', async (dir) => {
+      const evidence =
+        outsideEvidence === 'ABSOLUTE_OUTSIDE_PATH'
+          ? path.join(dir, 'outside.md')
+          : outsideEvidence;
+      const env = await preparePrePrEvidenceCase(dir, {
+        evidence,
+        outsideFile: true,
+      });
+
+      const payload = await readStage(dir, env);
+
+      assert.equal(payload.stage, 'pre_pr_review');
+      assert.equal(payload.blockedReasonCode, 'PRE_PR_REVIEW_NOT_APPROVED');
+    });
+  });
+}
 
 test('workflow-stage does not bypass the PR gate when tasks.md has a PR link but pr.md is not Ready', async () => {
   await withTempDir('lsk-workflow-stage-pr-stale-doc-', async (dir) => {

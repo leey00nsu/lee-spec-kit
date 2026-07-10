@@ -21,6 +21,7 @@ import {
   type WorkflowDraftMetadata,
 } from '../services/GithubWorkflowService.js';
 import { runProcess } from '../commands/github/process.js';
+import { isPrePrEvidenceSatisfied } from './pre-pr-evidence.js';
 
 export type WorkflowStageId =
   | 'spec'
@@ -971,10 +972,19 @@ function allTasksDone(tasks: ParsedTasks): boolean {
   return tasks.tasks.length > 0 && tasks.tasks.every((task) => task.status === 'DONE');
 }
 
-function prePrSatisfied(tasks: ParsedTasks): boolean {
+function prePrSatisfied(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  tasks: ParsedTasks
+): boolean {
   return (
     tasks.prePrReviewStatus === 'done' &&
-    !!tasks.prePrEvidence &&
+    isPrePrEvidenceSatisfied({
+      docsDir: config.docsDir,
+      featureDir: feature.path,
+      evidence: tasks.prePrEvidence,
+      evidenceMode: config.workflow?.prePrReview?.evidenceMode,
+    }) &&
     !!tasks.prePrDecision &&
     tasks.prePrDecisionOutcome === 'approve'
   );
@@ -1826,7 +1836,10 @@ export async function collectWorkflowStage(
     };
   }
 
-  if (requirements.prePrReviewEnabled && !prePrSatisfied(tasks)) {
+  if (
+    requirements.prePrReviewEnabled &&
+    !prePrSatisfied(config, feature, tasks)
+  ) {
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
