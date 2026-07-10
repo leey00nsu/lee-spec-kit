@@ -26,6 +26,10 @@ import {
   resolveStandaloneWorkspaceRoot,
   serializeStandaloneWorkspaceRoot,
 } from '../utils/standalone-workspace.js';
+import {
+  migrateLegacyApprovalSettings,
+  migrateLegacyWorkflowSettings,
+} from '../config/migrate.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -55,7 +59,6 @@ function isLegacyGeneratedApprovalConfig(
     'requireCheckSteps',
     'requireCheckCategories',
     'skipCheckCategories',
-    'taskExecuteCheck',
   ];
   return !overrideKeys.some((key) => hasOwnKey(approval, key));
 }
@@ -290,45 +293,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeSkillList(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const deduped = new Set<string>();
-  for (const item of raw) {
-    const value = String(item || '').trim();
-    if (!value) continue;
-    deduped.add(value);
-  }
-  return [...deduped];
-}
-
-function normalizeStringList(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const deduped = new Set<string>();
-  for (const item of raw) {
-    const value = String(item || '').trim();
-    if (!value) continue;
-    deduped.add(value);
-  }
-  return [...deduped];
-}
-
-function normalizeDecisionEnumList(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const deduped = new Set<string>();
-  for (const item of raw) {
-    const value = String(item || '').trim().toLowerCase();
-    if (!value) continue;
-    if (
-      value === 'approve' ||
-      value === 'changes_requested' ||
-      value === 'blocked'
-    ) {
-      deduped.add(value);
-    }
-  }
-  return [...deduped];
-}
-
 async function backfillMissingConfigDefaults(
   cwd: string,
   docsDir: string
@@ -373,9 +337,7 @@ async function backfillMissingConfigDefaults(
     changedPaths.push('workflow');
   }
   const workflow = raw.workflow as Record<string, unknown>;
-  const inferredPreset = workflow.mode === 'local' ? 'local' : 'github';
-  setIfMissing(workflow, 'preset', inferredPreset, 'workflow.preset');
-  setIfMissing(workflow, 'mode', 'github', 'workflow.mode');
+  changedPaths.push(...migrateLegacyWorkflowSettings(workflow));
   setIfMissing(
     workflow,
     'requireWorktree',
@@ -388,34 +350,12 @@ async function backfillMissingConfigDefaults(
   }
   setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');
   setIfMissing(workflow, 'taskCommitGate', 'warn', 'workflow.taskCommitGate');
-  if (!isPlainObject(workflow.auto)) {
-    workflow.auto = {};
-    changedPaths.push('workflow.auto');
-  }
-  const workflowAuto = workflow.auto as Record<string, unknown>;
-  setIfMissing(workflowAuto, 'defaultPreset', 'pr-handoff', 'workflow.auto.defaultPreset');
 
   if (!isPlainObject(workflow.prePrReview)) {
     workflow.prePrReview = {};
     changedPaths.push('workflow.prePrReview');
   }
   const prePrReview = workflow.prePrReview as Record<string, unknown>;
-  if (prePrReview.skills === undefined) {
-    prePrReview.skills = ['code-review-excellence'];
-    changedPaths.push('workflow.prePrReview.skills');
-  } else {
-    const normalizedSkills = normalizeSkillList(prePrReview.skills);
-    if (normalizedSkills.length === 0) {
-      prePrReview.skills = ['code-review-excellence'];
-      changedPaths.push('workflow.prePrReview.skills');
-    } else if (
-      JSON.stringify(normalizedSkills) !== JSON.stringify(prePrReview.skills)
-    ) {
-      prePrReview.skills = normalizedSkills;
-      changedPaths.push('workflow.prePrReview.skills');
-    }
-  }
-  setIfMissing(prePrReview, 'fallback', 'builtin-checklist', 'workflow.prePrReview.fallback');
   setIfMissing(
     prePrReview,
     'evidenceMode',
@@ -434,44 +374,6 @@ async function backfillMissingConfigDefaults(
     delete prePrReview.findings;
     changedPaths.push('workflow.prePrReview.findings');
   }
-  if (prePrReview.decisionEnum === undefined) {
-    prePrReview.decisionEnum = ['approve', 'changes_requested', 'blocked'];
-    changedPaths.push('workflow.prePrReview.decisionEnum');
-  } else {
-    const normalizedDecisionEnum = normalizeDecisionEnumList(prePrReview.decisionEnum);
-    if (normalizedDecisionEnum.length === 0) {
-      prePrReview.decisionEnum = ['approve', 'changes_requested', 'blocked'];
-      changedPaths.push('workflow.prePrReview.decisionEnum');
-    } else if (
-      JSON.stringify(normalizedDecisionEnum) !==
-      JSON.stringify(prePrReview.decisionEnum)
-    ) {
-      prePrReview.decisionEnum = normalizedDecisionEnum;
-      changedPaths.push('workflow.prePrReview.decisionEnum');
-    }
-  }
-  setIfMissing(
-    prePrReview,
-    'enforceExecutionEvidence',
-    false,
-    'workflow.prePrReview.enforceExecutionEvidence'
-  );
-  if (prePrReview.executionCommandPrefixes === undefined) {
-    prePrReview.executionCommandPrefixes = [];
-    changedPaths.push('workflow.prePrReview.executionCommandPrefixes');
-  } else {
-    const normalizedExecutionCommandPrefixes = normalizeStringList(
-      prePrReview.executionCommandPrefixes
-    );
-    if (
-      JSON.stringify(normalizedExecutionCommandPrefixes) !==
-      JSON.stringify(prePrReview.executionCommandPrefixes)
-    ) {
-      prePrReview.executionCommandPrefixes = normalizedExecutionCommandPrefixes;
-      changedPaths.push('workflow.prePrReview.executionCommandPrefixes');
-    }
-  }
-
   if (!isPlainObject(raw.pr)) {
     raw.pr = {};
     changedPaths.push('pr');
@@ -489,7 +391,13 @@ async function backfillMissingConfigDefaults(
     changedPaths.push('approval');
   } else {
     const approval = raw.approval as Record<string, unknown>;
-    if (isLegacyGeneratedApprovalConfig(approval)) {
+    const migration = migrateLegacyApprovalSettings(approval);
+    raw.approval = migration.approval;
+    changedPaths.push(...migration.changedPaths);
+    if (
+      isPlainObject(raw.approval) &&
+      isLegacyGeneratedApprovalConfig(raw.approval)
+    ) {
       raw.approval = createDefaultApprovalConfig();
       changedPaths.push('approval');
     }

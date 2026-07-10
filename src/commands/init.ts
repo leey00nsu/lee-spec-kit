@@ -789,21 +789,12 @@ async function runInit(options: InitOptions): Promise<void> {
         createdAt: getLocalDateString(),
         docsRepo,
         workflow: {
-          preset: workflowMode,
           mode: workflowMode,
           requireWorktree: docsRepo === 'standalone',
           codeDirtyScope: 'auto',
           taskCommitGate: 'warn',
-          auto: {
-            defaultPreset: 'pr-handoff',
-          },
           prePrReview: {
-            skills: ['code-review-excellence'],
-            fallback: 'builtin-checklist',
             evidenceMode: 'path_required',
-            decisionEnum: ['approve', 'changes_requested', 'blocked'],
-            enforceExecutionEvidence: false,
-            executionCommandPrefixes: [],
           },
         },
         pr: {

@@ -25,6 +25,7 @@ export interface ProjectConfig {
     };
   };
   workflow?: {
+    /** @deprecated Read compatibility for projects created before workflow.mode. */
     preset?: 'github' | 'local' | 'strict';
     mode?: 'github' | 'local';
     requireIssue?: boolean;
@@ -38,26 +39,16 @@ export interface ProjectConfig {
     taskCommitGate?: 'off' | 'warn' | 'strict';
     prePrReview?: {
       enabled?: boolean;
-      skills?: string[];
-      fallback?: 'builtin-checklist';
       evidenceMode?: 'any' | 'path_required';
-      decisionEnum?: Array<'approve' | 'changes_requested' | 'blocked'>;
-      enforceExecutionEvidence?: boolean;
-      executionCommandPrefixes?: string[];
-    };
-    auto?: {
-      defaultPreset?: string;
-      defaultUntilCategories?: string[];
-      presets?: Record<string, string[]>;
     };
   };
   approval?: {
     mode?: 'steps' | 'category' | 'builtin';
+    /** @deprecated Migrated to requireCheckCategories by update. */
     requireCheckSteps?: number[];
     default?: 'keep' | 'require' | 'skip';
     requireCheckCategories?: string[];
     skipCheckCategories?: string[];
-    taskExecuteCheck?: 'both' | 'start_only';
   };
 }
 
