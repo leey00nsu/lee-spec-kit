@@ -109,11 +109,3 @@ export async function applyLocalWorkflowTemplateToFeatureDir(
   await fs.remove(path.join(featureDir, 'issue.md'));
   await fs.remove(path.join(featureDir, 'pr.md'));
 }
-
-export async function applyLocalWorkflowTemplateToFeatureBase(
-  docsDir: string,
-  lang: Lang
-): Promise<void> {
-  const baseDir = path.join(docsDir, 'features', 'feature-base');
-  await applyLocalWorkflowTemplateToFeatureDir(baseDir, lang);
-}

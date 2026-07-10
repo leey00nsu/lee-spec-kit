@@ -130,6 +130,26 @@ test('init --non-interactive works with explicit flags without --yes', async () 
       /If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically\./
     );
     assert.match(agentsMd, /workflow-stage <feature-ref> --json/);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
+
+    const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+    const tasks = await fs.readFile(path.join(featureDir, 'tasks.md'), 'utf-8');
+    assert.equal(await pathExists(path.join(featureDir, 'issue.md')), false);
+    assert.equal(await pathExists(path.join(featureDir, 'pr.md')), false);
+    assert.doesNotMatch(tasks, /Pre-PR Review|PR 전 리뷰/);
+    assert.match(tasks, /Local Tracking|로컬 추적 정보/);
   });
 });
 
