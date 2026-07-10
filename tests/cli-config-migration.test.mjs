@@ -97,6 +97,7 @@ test('update migrates legacy step approval policy to categories', async () => {
         mode: 'steps',
         requireCheckSteps: [3, 10],
         taskExecuteCheck: 'start_only',
+        owner: 'platform',
       },
     });
 
@@ -125,7 +126,11 @@ test('update migrates legacy step approval policy to categories', async () => {
         'code_review',
         'pr_merge',
       ],
+      owner: 'platform',
     });
+
+    const updatedAgain = await runConfigUpdate(dir);
+    assert.deepEqual(updatedAgain, updated);
   });
 });
 

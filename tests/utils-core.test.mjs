@@ -8,6 +8,7 @@ import {
 import { withFileLock } from '../src/utils/lock.ts';
 import { sleep } from '../src/utils/async.ts';
 import { getConfig } from '../src/utils/config.ts';
+import { isPrePrEvidenceSatisfied } from '../src/utils/pre-pr-evidence.ts';
 
 test('validateSafeNameWithLang blocks traversal patterns', () => {
   const result = validateSafeNameWithLang('../escape', 'en');
@@ -75,5 +76,83 @@ test('getConfig resolves docs config via explicit docs env path', async () => {
         process.env.LEE_SPEC_KIT_DOCS_DIR = prev;
       }
     }
+  });
+});
+
+test('pre-pr path evidence accepts portable docs and feature-relative paths', async () => {
+  await withTempDir('lsk-unit-pre-pr-paths-', async (dir) => {
+    const docsDir = path.join(dir, 'docs');
+    const featureDir = path.join(docsDir, 'features', 'F001-alpha');
+    const decisionsPath = path.join(featureDir, 'decisions.md');
+    await fs.mkdir(featureDir, { recursive: true });
+    await fs.writeFile(decisionsPath, '# Decisions\n', 'utf-8');
+
+    for (const evidence of [
+      'docs\\features\\F001-alpha\\decisions.md',
+      'Docs/features/F001-alpha/decisions.md',
+      'decisions.md',
+      decisionsPath,
+    ]) {
+      assert.equal(
+        isPrePrEvidenceSatisfied({
+          docsDir,
+          featureDir,
+          evidence,
+          evidenceMode: undefined,
+        }),
+        true,
+        evidence
+      );
+    }
+  });
+});
+
+test('pre-pr path evidence fails closed for missing paths and symlink escapes', async () => {
+  await withTempDir('lsk-unit-pre-pr-containment-', async (dir) => {
+    const docsDir = path.join(dir, 'docs');
+    const featureDir = path.join(docsDir, 'features', 'F001-alpha');
+    const outsidePath = path.join(dir, 'outside.md');
+    const symlinkPath = path.join(featureDir, 'outside-link.md');
+    await fs.mkdir(featureDir, { recursive: true });
+    await fs.writeFile(outsidePath, '# Outside\n', 'utf-8');
+    await fs.symlink(outsidePath, symlinkPath);
+
+    assert.equal(
+      isPrePrEvidenceSatisfied({
+        docsDir,
+        featureDir,
+        evidence: symlinkPath,
+        evidenceMode: 'path_required',
+      }),
+      false
+    );
+    assert.equal(
+      isPrePrEvidenceSatisfied({
+        docsDir: path.join(dir, 'missing-docs'),
+        featureDir,
+        evidence: 'decisions.md',
+        evidenceMode: 'path_required',
+      }),
+      false
+    );
+  });
+});
+
+test('pre-pr path evidence supports standalone docs directories', async () => {
+  await withTempDir('lsk-unit-pre-pr-standalone-', async (dir) => {
+    const docsDir = path.join(dir, 'spec-repository');
+    const featureDir = path.join(docsDir, 'features', 'F001-alpha');
+    await fs.mkdir(featureDir, { recursive: true });
+    await fs.writeFile(path.join(featureDir, 'decisions.md'), '# Decisions\n', 'utf-8');
+
+    assert.equal(
+      isPrePrEvidenceSatisfied({
+        docsDir,
+        featureDir,
+        evidence: 'decisions.md',
+        evidenceMode: 'path_required',
+      }),
+      true
+    );
   });
 });

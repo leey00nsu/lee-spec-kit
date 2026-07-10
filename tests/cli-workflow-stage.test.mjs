@@ -806,6 +806,60 @@ test('workflow-stage restores the GitHub branch gate before implementation', asy
   });
 });
 
+test('workflow-stage preserves the legacy strict preset worktree gate before config update', async () => {
+  await withTempDir('lsk-workflow-stage-legacy-strict-', async (dir) => {
+    const fakeGh = await setupFakeGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    delete config.workflow.mode;
+    delete config.workflow.requireWorktree;
+    config.workflow.preset = 'strict';
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
+    assert.match(payload.nextAction.command || '', /worktree add/);
+  });
+});
+
+test('workflow-stage lets an explicit worktree setting override the legacy strict preset', async () => {
+  await withTempDir('lsk-workflow-stage-legacy-strict-explicit-', async (dir) => {
+    const fakeGh = await setupFakeGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    delete config.workflow.mode;
+    config.workflow.preset = 'strict';
+    config.workflow.requireWorktree = false;
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
+    assert.equal(payload.nextAction.command, 'git checkout -b feat/123-alpha');
+  });
+});
+
 test('workflow-stage uses managed worktree creation for standalone projects', async () => {
   await withTempDir('lsk-workflow-stage-standalone-worktree-', async (dir) => {
     const { projectRoot } = await initStandaloneRepo(dir);
@@ -2234,6 +2288,12 @@ test('workflow-stage defaults category approval configs without a default field 
 test('workflow-stage skips GitHub gates for the local workflow', async () => {
   await withTempDir('lsk-workflow-stage-local-', async (dir) => {
     await initRepo(dir, { workflow: 'local' });
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    delete config.workflow.mode;
+    config.workflow.preset = 'local';
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
     const base = featureDir(dir);
     await setStatus(path.join(base, 'spec.md'), 'Status', 'Approved');

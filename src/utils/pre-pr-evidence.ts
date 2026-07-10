@@ -25,24 +25,39 @@ export function isPrePrEvidenceSatisfied(
   if (!evidence) return false;
   if (check.evidenceMode === 'any') return true;
 
+  const normalizedEvidence = evidence.replaceAll('\\', '/');
   const docsDir = path.resolve(check.docsDir);
   const candidates = new Set<string>();
-  if (path.isAbsolute(evidence)) {
-    candidates.add(path.resolve(evidence));
+  if (path.isAbsolute(normalizedEvidence)) {
+    candidates.add(path.resolve(normalizedEvidence));
   } else {
-    candidates.add(path.resolve(docsDir, evidence));
-    candidates.add(path.resolve(check.featureDir, evidence));
-    if (path.basename(docsDir) === 'docs' && evidence.startsWith('docs/')) {
-      candidates.add(path.resolve(path.dirname(docsDir), evidence));
+    candidates.add(path.resolve(docsDir, normalizedEvidence));
+    candidates.add(path.resolve(check.featureDir, normalizedEvidence));
+
+    const [evidenceRoot, ...evidenceParts] = normalizedEvidence.split('/');
+    if (
+      evidenceRoot?.toLowerCase() === path.basename(docsDir).toLowerCase() &&
+      evidenceParts.length > 0
+    ) {
+      candidates.add(path.resolve(docsDir, ...evidenceParts));
     }
   }
 
-  const realDocsDir = fs.realpathSync(docsDir);
+  let realDocsDir: string;
+  try {
+    realDocsDir = fs.realpathSync(docsDir);
+  } catch {
+    return false;
+  }
+
   for (const candidate of candidates) {
-    if (!fs.existsSync(candidate)) continue;
-    const realCandidate = fs.realpathSync(candidate);
-    if (!isSameOrWithin(realDocsDir, realCandidate)) continue;
-    if (fs.statSync(realCandidate).isFile()) return true;
+    try {
+      const realCandidate = fs.realpathSync(candidate);
+      if (!isSameOrWithin(realDocsDir, realCandidate)) continue;
+      if (fs.statSync(realCandidate).isFile()) return true;
+    } catch {
+      continue;
+    }
   }
   return false;
 }

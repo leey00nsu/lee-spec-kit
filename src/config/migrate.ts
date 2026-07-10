@@ -1,21 +1,4 @@
-const LEGACY_APPROVAL_CATEGORY_STEPS = [
-  ['spec_write', 2],
-  ['spec_approve', 3],
-  ['plan_write', 4],
-  ['plan_approve', 5],
-  ['tasks_write', 6],
-  ['tasks_approve', 6],
-  ['issue_prepare', 8],
-  ['issue_create', 8],
-  ['branch_create', 9],
-  ['task_execute', 10],
-  ['implementation_approve', 10],
-  ['pre_pr_review', 12],
-  ['pr_prepare', 13],
-  ['pr_create', 13],
-  ['code_review', 14],
-  ['pr_merge', 14],
-] as const;
+import { LEGACY_APPROVAL_CATEGORY_STEPS } from './legacy-approval.js';
 
 const OBSOLETE_PRE_PR_REVIEW_KEYS = [
   'skills',
@@ -109,8 +92,13 @@ export function migrateLegacyApprovalSettings(
       }
     }
 
+    const migratedApproval = { ...approval };
+    delete migratedApproval.requireCheckSteps;
+    delete migratedApproval.taskExecuteCheck;
+
     return {
       approval: {
+        ...migratedApproval,
         mode: 'category',
         default: 'keep',
         requireCheckCategories,

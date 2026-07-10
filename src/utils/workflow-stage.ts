@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import type { ProjectConfig } from '../config/types.js';
+import { LEGACY_APPROVAL_CATEGORY_STEPS } from '../config/legacy-approval.js';
 import { createDefaultApprovalConfig, getConfig } from './config.js';
 import {
   getFeatureDocPaths,
@@ -191,25 +192,6 @@ type PostMergeCleanupState = {
 
 type CodeRabbitReviewThreadsState = 'unknown' | 'none' | 'open' | 'resolved';
 
-const LEGACY_STEP_BY_ACTION: Partial<Record<WorkflowStageAction['category'], number>> = {
-  spec_write: 2,
-  spec_approve: 3,
-  plan_write: 4,
-  plan_approve: 5,
-  tasks_write: 6,
-  tasks_approve: 6,
-  issue_prepare: 8,
-  issue_create: 8,
-  branch_create: 9,
-  task_execute: 10,
-  implementation_approve: 10,
-  pre_pr_review: 12,
-  pr_prepare: 13,
-  pr_create: 13,
-  code_review: 14,
-  pr_merge: 14,
-};
-
 const DOC_STATUS_LABELS = ['Doc Status', '문서 상태'];
 const ISSUE_LABELS = ['Issue', 'Issue Number', '이슈', '이슈 번호'];
 const BRANCH_LABELS = ['Branch', '브랜치'];
@@ -221,14 +203,22 @@ const PRE_PR_DECISION_LABELS = ['Pre-PR Decision', 'PR 전 리뷰 Decision'];
 
 function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirements {
   const workflow = config.workflow || {};
-  const workflowMode = workflow.mode || workflow.preset || 'github';
+  const hasCanonicalMode =
+    workflow.mode === 'github' || workflow.mode === 'local';
+  const workflowMode = hasCanonicalMode
+    ? workflow.mode
+    : workflow.preset === 'local'
+      ? 'local'
+      : 'github';
   const isLocalWorkflow = workflowMode === 'local';
+  const legacyStrictRequiresWorktree =
+    !hasCanonicalMode && workflow.preset === 'strict';
   return {
     requireIssue: workflow.requireIssue ?? !isLocalWorkflow,
     requireBranch: workflow.requireBranch ?? true,
     requireWorktree: config.docsRepo === 'standalone'
       ? true
-      : workflow.requireWorktree ?? false,
+      : workflow.requireWorktree ?? legacyStrictRequiresWorktree,
     requirePr: workflow.requirePr ?? !isLocalWorkflow,
     requireReview: workflow.requireReview ?? !isLocalWorkflow,
     requireMerge: workflow.requireMerge ?? !isLocalWorkflow,
@@ -1064,7 +1054,9 @@ function resolveActionApprovalRequired(
         .map((value) => (typeof value === 'number' ? value : Number(value)))
         .filter((value) => Number.isFinite(value))
     );
-    const legacyStep = LEGACY_STEP_BY_ACTION[category];
+    const legacyStep = LEGACY_APPROVAL_CATEGORY_STEPS.find(
+      ([legacyCategory]) => legacyCategory === category
+    )?.[1];
     return typeof legacyStep === 'number'
       ? requiredSteps.has(legacyStep)
       : builtinRequiresUserCheck;
