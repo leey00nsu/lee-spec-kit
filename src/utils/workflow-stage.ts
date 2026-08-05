@@ -1,6 +1,11 @@
 import fs from 'fs-extra';
 import path from 'node:path';
-import type { ProjectConfig } from '../config/types.js';
+import {
+  createDefaultPrePrReviewerConfig,
+  PRE_PR_REVIEW_REASONING_EFFORTS,
+  type PrePrReviewerConfig,
+  type ProjectConfig,
+} from '../config/types.js';
 import { LEGACY_APPROVAL_CATEGORY_STEPS } from '../config/legacy-approval.js';
 import { createDefaultApprovalConfig, getConfig } from './config.js';
 import {
@@ -63,6 +68,10 @@ export interface WorkflowStageAction {
   summary: string;
   approvalRequired: boolean;
   command: string | null;
+  executor?: 'subagent';
+  model?: string;
+  reasoningEffort?: PrePrReviewerConfig['reasoningEffort'];
+  onUnavailable?: PrePrReviewerConfig['onUnavailable'];
 }
 
 export type WorkflowReviewState =
@@ -1007,13 +1016,44 @@ function buildAction(
   category: WorkflowStageAction['category'],
   summary: string,
   approvalRequired: boolean,
-  command: string | null = null
+  command: string | null = null,
+  reviewer?: PrePrReviewerConfig
 ): WorkflowStageAction {
   return {
     category,
     summary,
     approvalRequired,
     command,
+    ...(reviewer
+      ? {
+          executor: reviewer.type,
+          model: reviewer.model,
+          reasoningEffort: reviewer.reasoningEffort,
+          onUnavailable: reviewer.onUnavailable,
+        }
+      : {}),
+  };
+}
+
+function resolvePrePrReviewer(config: ProjectConfig): PrePrReviewerConfig {
+  const defaults = createDefaultPrePrReviewerConfig();
+  const configured = config.workflow?.prePrReview?.reviewer;
+  const model =
+    typeof configured?.model === 'string' && configured.model.trim()
+      ? configured.model.trim()
+      : defaults.model;
+  const reasoningEffort = PRE_PR_REVIEW_REASONING_EFFORTS.includes(
+    configured?.reasoningEffort as PrePrReviewerConfig['reasoningEffort']
+  )
+    ? (configured?.reasoningEffort as PrePrReviewerConfig['reasoningEffort'])
+    : defaults.reasoningEffort;
+
+  return {
+    type: 'subagent',
+    model,
+    reasoningEffort,
+    onUnavailable:
+      configured?.onUnavailable === 'error' ? 'error' : defaults.onUnavailable,
   };
 }
 
@@ -1840,8 +1880,10 @@ export async function collectWorkflowStage(
       stage: 'pre_pr_review',
       nextAction: buildAction(
         'pre_pr_review',
-        'Run and record the Pre-PR review until tasks.md shows an approve decision with evidence.',
-        false
+        'Delegate an independent read-only Pre-PR review to a fresh subagent and record its findings, decision, and reviewer metadata as evidence.',
+        false,
+        null,
+        resolvePrePrReviewer(config)
       ),
       approvalRequired: false,
       implementationAllowed: false,

@@ -43,7 +43,10 @@ import {
   printCliErrorSuggestions,
   toCliError,
 } from '../utils/cli-error.js';
-import { createDefaultApprovalConfig } from '../utils/config.js';
+import {
+  createDefaultApprovalConfig,
+  createDefaultPrePrReviewerConfig,
+} from '../utils/config.js';
 
 // Git 레포지토리 내부인지 확인
 function checkGitRepo(cwd: string): boolean {
@@ -795,6 +798,7 @@ async function runInit(options: InitOptions): Promise<void> {
           taskCommitGate: 'warn',
           prePrReview: {
             evidenceMode: 'path_required',
+            reviewer: createDefaultPrePrReviewerConfig(),
           },
         },
         pr: {

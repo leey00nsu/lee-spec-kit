@@ -6,6 +6,25 @@ export const DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES = [
   'implementation_approve',
 ] as const;
 
+export const PRE_PR_REVIEW_REASONING_EFFORTS = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const;
+
+export type PrePrReviewReasoningEffort =
+  (typeof PRE_PR_REVIEW_REASONING_EFFORTS)[number];
+
+export interface PrePrReviewerConfig {
+  type: 'subagent';
+  model: string;
+  reasoningEffort: PrePrReviewReasoningEffort;
+  onUnavailable: 'inherit' | 'error';
+}
+
 export interface ProjectConfig {
   schemaId?: string;
   docsDir: string;
@@ -40,6 +59,7 @@ export interface ProjectConfig {
     prePrReview?: {
       enabled?: boolean;
       evidenceMode?: 'any' | 'path_required';
+      reviewer?: Partial<PrePrReviewerConfig>;
     };
   };
   approval?: {
@@ -57,5 +77,14 @@ export function createDefaultApprovalConfig(): NonNullable<ProjectConfig['approv
     mode: 'category',
     default: 'skip',
     requireCheckCategories: [...DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES],
+  };
+}
+
+export function createDefaultPrePrReviewerConfig(): PrePrReviewerConfig {
+  return {
+    type: 'subagent',
+    model: 'inherit',
+    reasoningEffort: 'high',
+    onUnavailable: 'inherit',
   };
 }

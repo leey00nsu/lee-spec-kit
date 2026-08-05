@@ -47,6 +47,8 @@ Before taking the next workflow step:
 10. In standalone mode, do not hand-write \`git worktree add\`; run the exact \`nextAction.command\` from \`workflow-stage\` so the managed workspace path, stale directory cleanup, and \`.env\` / \`.env.*\` copy step stay consistent
 11. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
 12. When docs are synced to code, keep exactly one explicit marker like \`<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->\` in a single active feature doc (prefer \`tasks.md\` or \`decisions.md\`): replace an existing marker timestamp or remove duplicates instead of appending another marker, so \`workflow-audit\` can prove the sync happened after the latest code change
+13. When \`workflow-stage --json\` returns \`nextAction.category === "pre_pr_review"\` and \`nextAction.executor === "subagent"\`, delegate a fresh read-only review using the returned \`model\`, \`reasoningEffort\`, and \`onUnavailable\` policy; do not select or require a named review skill
+14. The Pre-PR review subagent returns findings without modifying code; the main agent remediates findings and records the actual reviewer metadata, reviewed diff scope, evidence, and final decision
 
 Approval and remote actions:
 

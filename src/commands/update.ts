@@ -3,7 +3,12 @@ import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
 import { execFileSync } from 'child_process';
-import { createDefaultApprovalConfig, getConfig } from '../utils/config.js';
+import {
+  createDefaultApprovalConfig,
+  createDefaultPrePrReviewerConfig,
+  getConfig,
+  PRE_PR_REVIEW_REASONING_EFFORTS,
+} from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
 import { applyReplacements } from '../utils/template.js';
@@ -373,6 +378,40 @@ async function backfillMissingConfigDefaults(
   if ('findings' in prePrReview) {
     delete prePrReview.findings;
     changedPaths.push('workflow.prePrReview.findings');
+  }
+  const defaultReviewer = createDefaultPrePrReviewerConfig();
+  if (!isPlainObject(prePrReview.reviewer)) {
+    prePrReview.reviewer = defaultReviewer;
+    changedPaths.push('workflow.prePrReview.reviewer');
+  } else {
+    const reviewer = prePrReview.reviewer as Record<string, unknown>;
+    if (reviewer.type !== 'subagent') {
+      reviewer.type = defaultReviewer.type;
+      changedPaths.push('workflow.prePrReview.reviewer.type');
+    }
+    if (typeof reviewer.model !== 'string' || !reviewer.model.trim()) {
+      reviewer.model = defaultReviewer.model;
+      changedPaths.push('workflow.prePrReview.reviewer.model');
+    } else if (reviewer.model !== reviewer.model.trim()) {
+      reviewer.model = reviewer.model.trim();
+      changedPaths.push('workflow.prePrReview.reviewer.model');
+    }
+    if (
+      typeof reviewer.reasoningEffort !== 'string' ||
+      !PRE_PR_REVIEW_REASONING_EFFORTS.includes(
+        reviewer.reasoningEffort as (typeof PRE_PR_REVIEW_REASONING_EFFORTS)[number]
+      )
+    ) {
+      reviewer.reasoningEffort = defaultReviewer.reasoningEffort;
+      changedPaths.push('workflow.prePrReview.reviewer.reasoningEffort');
+    }
+    if (
+      reviewer.onUnavailable !== 'inherit' &&
+      reviewer.onUnavailable !== 'error'
+    ) {
+      reviewer.onUnavailable = defaultReviewer.onUnavailable;
+      changedPaths.push('workflow.prePrReview.reviewer.onUnavailable');
+    }
   }
   if (!isPlainObject(raw.pr)) {
     raw.pr = {};

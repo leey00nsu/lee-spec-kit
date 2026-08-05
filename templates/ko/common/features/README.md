@@ -129,9 +129,9 @@ Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 S
 
 ---
 
-## Pre-PR 폴백 체크리스트
+## Pre-PR 서브에이전트 체크리스트
 
-모든 Pre-PR 리뷰에서 `agents/skills/create-pr.md`의 `Pre-PR 기본 체크리스트`를 기본 베이스라인으로 사용하고, 리뷰 스킬은 심화 검토용으로 추가 사용하세요.
+모든 Pre-PR 리뷰는 `workflow-stage --json`이 반환한 모델·추론도 설정으로 fresh context의 읽기 전용 서브에이전트에게 맡깁니다. 서브에이전트는 `agents/skills/create-pr.md`의 `Pre-PR 기본 체크리스트`를 기준으로 리뷰하고, 메인 에이전트가 finding 반영과 evidence 기록을 담당합니다.
 
 ---
 

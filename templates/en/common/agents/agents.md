@@ -47,6 +47,8 @@ This document defines workflow policy, not a custom runtime loop.
 - lee-spec-kit owns docs structure, workflow stages, and validators.
 - Codex owns the execution loop, tool usage, and hook lifecycle.
 - Do not start implementation unless `workflow-stage --json` reports `stage === "implementation"` and `implementationAllowed === true`.
+- When `workflow-stage --json` returns `nextAction.category: pre_pr_review` with `executor: subagent`, run a fresh, read-only subagent review using the returned `model`, `reasoningEffort`, and `onUnavailable` policy. Do not select or require a named review skill.
+- The Pre-PR review subagent returns findings without modifying code. The main agent remediates findings and records reviewer metadata and the final decision as evidence.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.

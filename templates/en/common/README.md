@@ -130,6 +130,11 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
+- `workflow.prePrReview.reviewer` (object): Pre-PR subagent execution settings
+  - `type`: currently only `"subagent"` is supported
+  - `model`: `"inherit"` or a model name supported by the runtime
+  - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
+  - `onUnavailable`: `inherit | error` when the requested model is unavailable
 - `approval` (object, optional): optional approval-checkpoint metadata for repo policy and custom validators
   - The Codex-native default path still asks at documented checkpoints and before remote/destructive actions first.
   - Legacy runtime consumed this field directly; keep it only when you intentionally want category-based checkpoint metadata.
@@ -152,6 +157,17 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "lang": "en",
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
+  "workflow": {
+    "prePrReview": {
+      "evidenceMode": "path_required",
+      "reviewer": {
+        "type": "subagent",
+        "model": "inherit",
+        "reasoningEffort": "high",
+        "onUnavailable": "inherit"
+      }
+    }
+  },
   "allowedDocsEntries": {
     "dirs": ["plans"]
   },

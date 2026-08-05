@@ -17,7 +17,9 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 ## Pre-PR 기본 체크리스트(`builtin-checklist`)
 
-Pre-PR 리뷰에서 항상 수행하는 최소 기준입니다. 가능한 경우 리뷰 스킬을 추가로 사용해 심화 검토를 진행하세요.
+Pre-PR 리뷰에서 서브에이전트가 항상 수행하는 최소 기준입니다. 리뷰 스킬 이름에 의존하지 않습니다.
+
+`workflow-stage --json`의 `nextAction.executor`가 `subagent`이면 fresh context의 읽기 전용 서브에이전트에게 리뷰를 위임합니다. `model: inherit`은 현재 모델을 상속한다는 뜻이며, 그 외 값은 서브에이전트 생성 시 모델 override로 사용합니다. 지정 모델을 사용할 수 없으면 `onUnavailable` 정책(`inherit` 또는 `error`)을 따릅니다.
 
 1. `spec.md` / `plan.md` / `tasks.md` 기준으로 변경 범위 정합성을 확인하고, 구현이 원래 목적에 맞는지 점검합니다.
 2. 회귀/예외 처리, 크리티컬·보안 리스크, 사이드 이펙트, 사용자 흐름 영향, 배포 준비도를 점검합니다.
@@ -30,6 +32,8 @@ Pre-PR 리뷰에서 항상 수행하는 최소 기준입니다. 가능한 경우
 9. 코드리뷰 단계에서도 `PR 리뷰 Evidence/Decision`과 `decisions.md`를 동기화하고 `PR Review Log`(또는 `PR 리뷰 로그`)의 `Summary`/`Decision`을 기록합니다.
 10. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.
 11. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.
+
+리뷰 산출물에는 실제 사용한 `executor`, `model`, `reasoningEffort`, 검토한 commit/diff 범위, finding과 최종 decision을 기록합니다. 리뷰 서브에이전트는 코드를 수정하지 않으며, finding 반영과 문서 갱신은 메인 에이전트가 담당합니다.
 
 ---
 

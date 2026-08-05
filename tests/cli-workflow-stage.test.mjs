@@ -368,7 +368,12 @@ async function commitTaskProject(
 
 async function preparePrePrEvidenceCase(
   dir,
-  { evidence, evidenceMode = undefined, outsideFile = false }
+  {
+    evidence,
+    evidenceMode = undefined,
+    outsideFile = false,
+    reviewer = undefined,
+  }
 ) {
   const fakeGh = await setupFakeGhCli(dir);
   await initRepo(dir);
@@ -377,10 +382,15 @@ async function preparePrePrEvidenceCase(
   await setStatus(path.join(featureDir(dir), 'pr.md'), 'Status', 'Ready');
 
   const extraCommitPaths = [];
-  if (evidenceMode) {
+  if (evidenceMode || reviewer) {
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.workflow.prePrReview.evidenceMode = evidenceMode;
+    if (evidenceMode) {
+      config.workflow.prePrReview.evidenceMode = evidenceMode;
+    }
+    if (reviewer) {
+      config.workflow.prePrReview.reviewer = reviewer;
+    }
     await fs.writeFile(
       configPath,
       `${JSON.stringify(config, null, 2)}\n`,
@@ -1090,6 +1100,32 @@ test('workflow-stage Pre-PR evidence path_required rejects a missing file', asyn
 
     assert.equal(payload.stage, 'pre_pr_review');
     assert.equal(payload.blockedReasonCode, 'PRE_PR_REVIEW_NOT_APPROVED');
+    assert.equal(payload.nextAction.executor, 'subagent');
+    assert.equal(payload.nextAction.model, 'inherit');
+    assert.equal(payload.nextAction.reasoningEffort, 'high');
+    assert.equal(payload.nextAction.onUnavailable, 'inherit');
+  });
+});
+
+test('workflow-stage exposes configured Pre-PR subagent model and reasoning effort', async () => {
+  await withTempDir('lsk-workflow-stage-pre-pr-reviewer-', async (dir) => {
+    const env = await preparePrePrEvidenceCase(dir, {
+      evidence: 'docs/features/F001-alpha/missing-review.md',
+      reviewer: {
+        type: 'subagent',
+        model: 'gpt-5.6-sol',
+        reasoningEffort: 'xhigh',
+        onUnavailable: 'error',
+      },
+    });
+
+    const payload = await readStage(dir, env);
+
+    assert.equal(payload.stage, 'pre_pr_review');
+    assert.equal(payload.nextAction.executor, 'subagent');
+    assert.equal(payload.nextAction.model, 'gpt-5.6-sol');
+    assert.equal(payload.nextAction.reasoningEffort, 'xhigh');
+    assert.equal(payload.nextAction.onUnavailable, 'error');
   });
 });
 

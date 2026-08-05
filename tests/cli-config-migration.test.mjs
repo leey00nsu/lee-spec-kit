@@ -160,6 +160,12 @@ test('update removes runtime settings that no current command consumes', async (
     assert.deepEqual(updated.workflow.prePrReview, {
       enabled: true,
       evidenceMode: 'any',
+      reviewer: {
+        type: 'subagent',
+        model: 'inherit',
+        reasoningEffort: 'high',
+        onUnavailable: 'inherit',
+      },
     });
     assert.equal('auto' in updated.workflow, false);
   });
@@ -197,7 +203,40 @@ test('init writes only canonical workflow runtime settings', async () => {
       taskCommitGate: 'warn',
       prePrReview: {
         evidenceMode: 'path_required',
+        reviewer: {
+          type: 'subagent',
+          model: 'inherit',
+          reasoningEffort: 'high',
+          onUnavailable: 'inherit',
+        },
       },
+    });
+  });
+});
+
+test('update preserves valid Pre-PR subagent overrides and normalizes invalid values', async () => {
+  await withTempDir('lsk-config-pre-pr-reviewer-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'github',
+        prePrReview: {
+          reviewer: {
+            type: 'main',
+            model: '  gpt-reviewer  ',
+            reasoningEffort: 'extreme',
+            onUnavailable: 'skip',
+          },
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.deepEqual(updated.workflow.prePrReview.reviewer, {
+      type: 'subagent',
+      model: 'gpt-reviewer',
+      reasoningEffort: 'high',
+      onUnavailable: 'inherit',
     });
   });
 });

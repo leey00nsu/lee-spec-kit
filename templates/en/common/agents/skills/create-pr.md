@@ -17,7 +17,9 @@ Execution-state SSOT is the feature-local `pr.md`.
 
 ## Pre-PR Baseline Checklist (`builtin-checklist`)
 
-Always run this checklist in Pre-PR review. Treat it as the minimum baseline, then use review skills for deeper inspection when available.
+The Pre-PR subagent must always run this minimum baseline. Do not depend on a named review skill.
+
+When `workflow-stage --json` returns `nextAction.executor: subagent`, delegate the review to a fresh, read-only subagent. `model: inherit` means inheriting the current model; any other value is used as the subagent model override. If that model is unavailable, follow `onUnavailable` (`inherit` or `error`).
 
 1. Review alignment with `spec.md` / `plan.md` / `tasks.md` and confirm implementation still matches the original goal.
 2. Inspect regression, exception handling, critical/security risks, side effects, user flow impact, and release readiness.
@@ -30,6 +32,8 @@ Always run this checklist in Pre-PR review. Treat it as the minimum baseline, th
 9. In code-review stage, keep `PR Review Evidence/Decision` aligned with `decisions.md` by adding a `PR Review Log` section with `Summary` and `Decision`.
 10. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
 11. Ensure the final decision is `approve` before moving to PR creation.
+
+The review artifact must record the actual `executor`, `model`, `reasoningEffort`, reviewed commit/diff scope, findings, and final decision. The review subagent must not modify code; the main agent owns finding remediation and documentation updates.
 
 ---
 

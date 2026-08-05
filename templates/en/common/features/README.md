@@ -129,9 +129,9 @@ Keeping the shared artifact for history is fine, but when it conflicts with feat
 
 ---
 
-## Pre-PR Fallback Checklist
+## Pre-PR Subagent Checklist
 
-Use `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline for every Pre-PR review. Use review skills additionally for deeper inspection.
+Delegate every Pre-PR review to a fresh, read-only subagent using the model and reasoning effort returned by `workflow-stage --json`. The subagent follows `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`); the main agent owns finding remediation and evidence recording.
 
 ---
 

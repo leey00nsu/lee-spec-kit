@@ -130,6 +130,11 @@ npx lee-spec-kit docs get agents --json
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
+- `workflow.prePrReview.reviewer` (object): Pre-PR 서브에이전트 실행 설정
+  - `type`: 현재 `"subagent"`만 지원
+  - `model`: `"inherit"` 또는 런타임이 지원하는 모델명
+  - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
+  - `onUnavailable`: 지정 모델을 사용할 수 없을 때 `inherit | error`
 - `approval` (object, optional): repo 정책/커스텀 validator용 승인 checkpoint 메타데이터
   - 기본 Codex-native 경로는 여전히 문서화된 checkpoint와 원격/파괴적 작업을 우선 기준으로 승인 요청합니다.
   - legacy runtime은 이 필드를 직접 소비했지만, 이제는 category 기반 checkpoint 메타데이터가 정말 필요할 때만 유지하세요.
@@ -152,6 +157,17 @@ npx lee-spec-kit docs get agents --json
   "lang": "ko",
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
+  "workflow": {
+    "prePrReview": {
+      "evidenceMode": "path_required",
+      "reviewer": {
+        "type": "subagent",
+        "model": "inherit",
+        "reasoningEffort": "high",
+        "onUnavailable": "inherit"
+      }
+    }
+  },
   "allowedDocsEntries": {
     "dirs": ["plans"]
   },
