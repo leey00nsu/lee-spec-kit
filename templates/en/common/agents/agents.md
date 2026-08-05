@@ -27,6 +27,21 @@ This document defines workflow policy, not a custom runtime loop.
 - After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
 - If `workflow-stage --json` also returns `primaryActionLabel` and `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 
+## Document Routing
+
+| Content                                                   | SSOT location                       |
+| --------------------------------------------------------- | ----------------------------------- |
+| Product requirements, user stories, and product roadmaps  | `docs/prd/`                         |
+| System architecture overviews shared by multiple Features | `docs/prd/*-overview.md`            |
+| Durable architecture principles                           | `docs/agents/constitution.md`       |
+| Pre-Feature technical research and candidate comparison   | The relevant `docs/ideas/I###-*.md` |
+| Active Feature implementation design                      | That Feature's `plan.md`            |
+| Technical choices, alternatives, and trade-offs           | That Feature's `decisions.md`       |
+| Screens, Figma, design systems, and UI flows              | `docs/designs/`                     |
+
+- Do not use `docs/designs/` for system architecture, data/API design, technical research, or implementation plans.
+- Follow the detailed routing rules in `docs/README.md`.
+
 ## Execution Rules
 
 - lee-spec-kit owns docs structure, workflow stages, and validators.
@@ -40,10 +55,10 @@ This document defines workflow policy, not a custom runtime loop.
 
 ## Approval Rules
 
-| Current action (examples) | What to share |
-| --- | --- |
-| Issue creation | Before `npx lee-spec-kit github issue <featureRef> --create` |
-| PR creation | Before `npx lee-spec-kit github pr <featureRef> --create` |
+| Current action (examples) | What to share                                                |
+| ------------------------- | ------------------------------------------------------------ |
+| Issue creation            | Before `npx lee-spec-kit github issue <featureRef> --create` |
+| PR creation               | Before `npx lee-spec-kit github pr <featureRef> --create`    |
 
 - Ask the user for approval at documented workflow checkpoints and before remote or destructive actions.
 - If `workflow-stage --json` says `approvalRequired === true`, stop and ask the user at that checkpoint.

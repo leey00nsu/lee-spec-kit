@@ -27,6 +27,21 @@
 - 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
 - `workflow-stage --json`가 `primaryActionLabel`과 `actionOptions`를 같이 반환하면, `primaryActionLabel`은 기본 옵션 라벨로 보고 사용자에게는 `actionOptions[*].reply` 값을 그대로 보여줍니다.
 
+## 문서 라우팅
+
+| 내용                                         | SSOT 위치                     |
+| -------------------------------------------- | ----------------------------- |
+| 제품 요구사항·사용자 스토리·제품 로드맵      | `docs/prd/`                   |
+| 여러 Feature가 공유하는 시스템 아키텍처 개요 | `docs/prd/*-overview.md`      |
+| 변경하기 어려운 아키텍처 원칙                | `docs/agents/constitution.md` |
+| Feature 전 기술 조사·후보 비교               | 해당 `docs/ideas/I###-*.md`   |
+| 활성 Feature 구현 설계                       | 해당 Feature의 `plan.md`      |
+| 기술 선택·대안·트레이드오프                  | 해당 Feature의 `decisions.md` |
+| 화면·Figma·디자인 시스템·UI 플로우           | `docs/designs/`               |
+
+- `docs/designs/`를 시스템 아키텍처, 데이터/API 설계, 기술 조사, 구현 계획의 목적지로 사용하지 않습니다.
+- 세부 설명은 `docs/README.md`의 문서 라우팅 규칙을 따릅니다.
+
 ## 실행 규칙
 
 - lee-spec-kit은 문서 구조, workflow 단계, validator를 담당합니다.
@@ -42,10 +57,10 @@
 
 사용자 확인 필수 규칙을 항상 먼저 적용합니다.
 
-| 현재 액션 예시 | 공유 내용 |
-| --- | --- |
-| 이슈 생성 | `npx lee-spec-kit github issue <featureRef> --create` 전 |
-| PR 생성 | `npx lee-spec-kit github pr <featureRef> --create` 전 |
+| 현재 액션 예시 | 공유 내용                                                |
+| -------------- | -------------------------------------------------------- |
+| 이슈 생성      | `npx lee-spec-kit github issue <featureRef> --create` 전 |
+| PR 생성        | `npx lee-spec-kit github pr <featureRef> --create` 전    |
 
 - 문서화된 workflow checkpoint와 원격/파괴적 작업 전에만 사용자 승인을 요청합니다.
 - `workflow-stage --json`가 `approvalRequired === true`를 반환하면 그 checkpoint에서 멈추고 사용자 승인을 받습니다.

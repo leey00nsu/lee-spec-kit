@@ -30,13 +30,29 @@ npx lee-spec-kit docs get agents --json
 
 ## 상위 구조 요약
 
-| 경로             | 목적               | 핵심 문서/역할 |
-| ---------------- | ------------------ | -------------- |
-| `docs/agents/`   | 에이전트 운영 규칙 | `custom.md`, `constitution.md` (엔진 종속 가이드는 `npx lee-spec-kit docs get <doc-id> --json`으로 조회) |
-| `docs/prd/`      | 제품 요구사항      | 프로젝트별 작성 |
-| `docs/designs/`  | 디자인 참고 자료   | `README.md` (링크/가이드/레퍼런스) |
-| `docs/ideas/`    | 아이디어/To-do     | `README.md` (Idea → Feature 승격 규칙) |
-| `{{featurePath}}` | 기능별 문서        | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
+| 경로              | 목적               | 핵심 문서/역할                                                                                           |
+| ----------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
+| `docs/agents/`    | 에이전트 운영 규칙 | `custom.md`, `constitution.md` (엔진 종속 가이드는 `npx lee-spec-kit docs get <doc-id> --json`으로 조회) |
+| `docs/prd/`       | 제품 요구사항      | 프로젝트별 작성                                                                                          |
+| `docs/designs/`   | 디자인 참고 자료   | `README.md` (링크/가이드/레퍼런스)                                                                       |
+| `docs/ideas/`     | 아이디어/To-do     | `README.md` (Idea → Feature 승격 규칙)                                                                   |
+| `{{featurePath}}` | 기능별 문서        | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md`                                            |
+
+---
+
+## 문서 라우팅
+
+| 문서 내용                                    | 위치                          |
+| -------------------------------------------- | ----------------------------- |
+| 제품 요구사항·사용자 스토리·제품 로드맵      | `docs/prd/`                   |
+| 여러 Feature가 공유하는 시스템 아키텍처 개요 | `docs/prd/*-overview.md`      |
+| 변경하기 어려운 아키텍처 원칙                | `docs/agents/constitution.md` |
+| Feature 승격 전 기술 조사·후보 비교          | 해당 `docs/ideas/I###-*.md`   |
+| 활성 Feature의 구현 설계                     | 해당 Feature의 `plan.md`      |
+| 기술 선택·대안·트레이드오프                  | 해당 Feature의 `decisions.md` |
+| 화면, Figma, 디자인 시스템, UI 플로우        | `docs/designs/`               |
+
+제품 로드맵은 `prd/`에 두지만 구현 순서와 작업 계획은 활성 Feature의 `plan.md`와 `tasks.md`에서 관리합니다. `designs/`는 UX와 시각 디자인 전용이며 기술 설계 문서를 두지 않습니다.
 
 ---
 

@@ -4,7 +4,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..'
+);
 
 const supportedRootCommands = new Set([
   'commit-audit',
@@ -12,6 +15,7 @@ const supportedRootCommands = new Set([
   'decision',
   'detect',
   'docs',
+  'docs-audit',
   'feature',
   'github',
   'help',
@@ -25,7 +29,8 @@ const supportedRootCommands = new Set([
 ]);
 
 const cliInvocationPattern = /\bnpx\s+lee-spec-kit\s+([a-z][a-z-]*)\b/g;
-const retiredCommandPattern = /`(onboard|status|context|doctor|view)\s+--[a-z-]+/g;
+const retiredCommandPattern =
+  /`(onboard|status|context|doctor|view)\s+--[a-z-]+/g;
 
 const docRoots = [
   'README.md',
@@ -48,7 +53,9 @@ async function collectMarkdownFiles(relativePath) {
   for (const entry of entries) {
     const child = path.join(absolutePath, entry.name);
     if (entry.isDirectory()) {
-      files.push(...(await collectMarkdownFiles(path.relative(repoRoot, child))));
+      files.push(
+        ...(await collectMarkdownFiles(path.relative(repoRoot, child)))
+      );
       continue;
     }
     if (entry.isFile() && entry.name.endsWith('.md')) {

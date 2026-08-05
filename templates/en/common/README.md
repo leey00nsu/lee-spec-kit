@@ -30,13 +30,29 @@ npx lee-spec-kit docs get agents --json
 
 ## Directory Structure
 
-| Path              | Purpose               | Key Documents |
-| ----------------- | --------------------- | ------------- |
+| Path              | Purpose               | Key Documents                                                                                                      |
+| ----------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `docs/agents/`    | Agent operating rules | `custom.md`, `constitution.md` (engine-managed guides are fetched via `npx lee-spec-kit docs get <doc-id> --json`) |
-| `docs/prd/`       | Product requirements  | Project-specific |
-| `docs/designs/`   | Design references     | `README.md` (links/guidelines/references) |
-| `docs/ideas/`     | Ideas / to-dos        | `README.md` (Idea → Feature promotion rules) |
-| `{{featurePath}}` | Feature documentation | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md` |
+| `docs/prd/`       | Product requirements  | Project-specific                                                                                                   |
+| `docs/designs/`   | Design references     | `README.md` (links/guidelines/references)                                                                          |
+| `docs/ideas/`     | Ideas / to-dos        | `README.md` (Idea → Feature promotion rules)                                                                       |
+| `{{featurePath}}` | Feature documentation | `{feature-id}/spec.md`, `plan.md`, `tasks.md`, `decisions.md`                                                      |
+
+---
+
+## Document Routing
+
+| Document content                                                      | Location                            |
+| --------------------------------------------------------------------- | ----------------------------------- |
+| Product requirements, user stories, and product roadmaps              | `docs/prd/`                         |
+| System architecture overviews shared by multiple Features             | `docs/prd/*-overview.md`            |
+| Durable architecture principles                                       | `docs/agents/constitution.md`       |
+| Technical research and candidate comparisons before Feature promotion | The relevant `docs/ideas/I###-*.md` |
+| Implementation design for an active Feature                           | That Feature's `plan.md`            |
+| Technical choices, alternatives, and trade-offs                       | That Feature's `decisions.md`       |
+| Screens, Figma, design systems, and UI flows                          | `docs/designs/`                     |
+
+Keep product roadmaps in `prd/`, but manage implementation sequencing and work plans in the active Feature's `plan.md` and `tasks.md`. The `designs/` directory is reserved for UX and visual design, not technical design.
 
 ---
 

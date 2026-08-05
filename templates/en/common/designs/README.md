@@ -1,4 +1,4 @@
-# Designs
+# UX / Visual Designs
 
 Store design references used by the project.
 
@@ -11,6 +11,18 @@ Store design references used by the project.
 - Screen/flow references (Figma, images, links)
 - Component/pattern guidelines (buttons, forms, navigation, etc.)
 - UI rules (brand, typography, colors/tokens)
+
+---
+
+## What does not belong here
+
+- System/backend architecture (`docs/prd/*-overview.md` or the active Feature's `plan.md`)
+- Data models and API design (an Idea before promotion, then the active Feature's `plan.md`)
+- Open-source candidate research (an Idea or the active Feature's `decisions.md`)
+- Technical decisions and alternative comparisons (an Idea before promotion, then the active Feature's `decisions.md`)
+- Implementation roadmaps and work plans (the active Feature's `plan.md` and `tasks.md`)
+
+In `designs/`, design means UX, screen, and visual design—not technical design.
 
 ---
 

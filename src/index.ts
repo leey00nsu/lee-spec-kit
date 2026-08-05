@@ -15,12 +15,14 @@ import { integrationsCommand } from './commands/integrations.js';
 import { workflowStageCommand } from './commands/workflow-stage.js';
 import { workflowAuditCommand } from './commands/workflow-audit.js';
 import { commitAuditCommand } from './commands/commit-audit.js';
+import { docsAuditCommand } from './commands/docs-audit.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
 function shouldShowBanner(): boolean {
   const argv = process.argv.slice(2);
-  const disabledByEnv = (process.env.LEE_SPEC_KIT_NO_BANNER || '').trim() === '1';
+  const disabledByEnv =
+    (process.env.LEE_SPEC_KIT_NO_BANNER || '').trim() === '1';
   const disabledByFlag = argv.includes('--no-banner');
   const hasJsonFlag = argv.includes('--json');
   const isNonTtyOutput = !process.stdout.isTTY;
@@ -80,6 +82,7 @@ function configureRootCommandSurface(): void {
     ['workflow-stage', 'Workflow Policy Commands:'],
     ['integrations', 'Codex Integration Commands:'],
     ['commit-audit', 'Codex Integration Commands:'],
+    ['docs-audit', 'Codex Integration Commands:'],
     ['workflow-audit', 'Codex Integration Commands:'],
   ]);
 
@@ -97,7 +100,9 @@ const cliVersion = getCliVersion();
 
 program
   .name('lee-spec-kit')
-  .description('Document-centered harness engineering toolkit for AI agent development')
+  .description(
+    'Document-centered harness engineering toolkit for AI agent development'
+  )
   .version(cliVersion)
   .option('--no-banner', 'Hide banner in help output');
 
@@ -119,6 +124,7 @@ workflowStageCommand(program);
 integrationsCommand(program);
 workflowAuditCommand(program);
 commitAuditCommand(program);
+docsAuditCommand(program);
 
 configureRootCommandSurface();
 
