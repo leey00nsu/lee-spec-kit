@@ -50,6 +50,19 @@ Machine-readable high-level stage resolver.
 npx lee-spec-kit workflow-stage <featureRef> --json
 ```
 
+For `workflow.mode: "local"` with `completionStrategy: "local-ff"`, a completed Feature advances through `local_merge`, `local_verify`, and `local_cleanup`. Run only the exact command returned in `nextAction.command`; `done` is returned after the base branch contains the Feature tip, post-merge checks pass, the base branch is checked out, and cleanup is complete.
+
+Under the default approval policy, `implementation_approve` is the user checkpoint that authorizes this remaining local completion flow, including configured local Feature-branch deletion. `local_merge` does not ask again unless it is explicitly added to `approval.requireCheckCategories`.
+
+### `local merge` / `local cleanup`
+
+```bash
+npx lee-spec-kit local merge <featureRef> --json
+npx lee-spec-kit local cleanup <featureRef> --json
+```
+
+The helpers are intentionally separate: a failed post-merge check leaves durable integration evidence and keeps the workflow at `local_verify`, where `local merge` reruns verification without creating a merge commit. Cleanup never deletes remote branches.
+
 ### `task add`
 
 Machine-readable docs-only task appender.
@@ -67,6 +80,7 @@ npx lee-spec-kit decision add <featureRef> --title "..." --context "..." --decis
 ```
 
 Approval note:
+
 - When `workflow-stage --json` returns `primaryActionLabel` together with `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 - Local approval checkpoints typically use reply tokens like `A` and `B`.
 - Remote execution checkpoints typically use reply tokens like `A OK` and `B`.
@@ -90,6 +104,7 @@ npx lee-spec-kit commit-audit --json
 - Standalone branch policy: keep the docs repo on its docs branch and never create feature branches or worktrees there
 - Standalone execution policy: use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project root
 - Standalone branch command policy: run the exact `workflow-stage --json` `nextAction.command`; it creates/reuses the managed worktree path, clears stale managed directories that are no longer registered Git worktrees, and copies existing project-root `.env`/`.env.*` files into a new worktree when absent
+- Local completion policy: the default for newly initialized local workflows is `local-ff`; existing local projects updated without an explicit strategy receive `none` for compatibility. Under `local-ff`, `done` requires verified integration and cleanup. `none` is the explicit exception that may finish on the Feature branch.
 - Docs sync proof: after syncing code back into the active feature docs, keep exactly one marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in `tasks.md`, `decisions.md`, or another active-feature canonical doc; replace its timestamp or remove duplicates instead of appending another marker so `workflow-audit` can verify the sync happened after the latest code change
 
 ## Important Rule

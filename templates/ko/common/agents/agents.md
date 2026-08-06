@@ -51,6 +51,8 @@
 - Pre-PR 리뷰 서브에이전트는 finding만 반환하며 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata와 최종 decision을 evidence에 기록합니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
 - standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
+- local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local merge`, `local cleanup` 명령을 따라 통합·검증·정리가 확인되어 `done`이 될 때까지 진행합니다.
+- `local-ff` workflow에서는 반환된 구현 승인 설명을 축소하지 않고 그대로 제시합니다. 이 checkpoint는 fast-forward 통합, post-merge 검사, 설정된 local cleanup까지 승인하며, `local_merge` category가 명시적으로 승인 대상으로 설정된 경우에만 통합 직전 다시 요청합니다.
 - 동작이나 범위가 바뀌는 코드 변경이 있으면 같은 턴 안에서 feature 문서를 같이 동기화합니다.
 - staged된 docs 경로 검사가 필요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
 - 기본 docs sync 검사는 `npx lee-spec-kit workflow-audit --json`를 사용합니다.

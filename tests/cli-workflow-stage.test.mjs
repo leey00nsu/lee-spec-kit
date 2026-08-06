@@ -233,6 +233,74 @@ async function readStage(dir, env = {}) {
   return JSON.parse(result.stdout.trim());
 }
 
+async function prepareCompletedLocalFeature(dir, options = {}) {
+  await initRepo(dir, { workflow: 'local' });
+  const branch = await runCommand(dir, 'git', ['checkout', '-b', 'feat/alpha']);
+  assert.equal(branch.code, 0, branch.stderr || branch.stdout);
+
+  const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+  const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  if (options.postMergeChecks) {
+    config.workflow.postMergeChecks = options.postMergeChecks;
+  }
+  if (options.approvalCategories) {
+    config.approval = {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: options.approvalCategories,
+    };
+  }
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+  const base = featureDir(dir);
+  await setStatus(path.join(base, 'spec.md'), 'Status', 'Approved');
+  await setStatus(path.join(base, 'plan.md'), 'Status', 'Approved');
+  const tasksPath = path.join(base, 'tasks.md');
+  let tasks = await fs.readFile(tasksPath, 'utf-8');
+  tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+  tasks = tasks.replace(
+    '## Completion Criteria',
+    `- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-08-06
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [x] add UI
+
+## Completion Criteria`
+  );
+  tasks = tasks.replace(
+    '| `{test command you ran}` | `-` | `{PASS/FAIL summary}` |',
+    '| `pnpm vitest` | `2026-08-06` | `PASS` |'
+  );
+  tasks = tasks.replace(
+    "- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked",
+    "- [x] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked"
+  );
+  tasks = tasks.replace(
+    '- [ ] Tests executed and passing (record command/result below)',
+    '- [x] Tests executed and passing (record command/result below)'
+  );
+  if (options.finalOutcomeChecked !== false) {
+    tasks = tasks.replace(
+      '- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint',
+      '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint'
+    );
+  }
+  await fs.writeFile(tasksPath, tasks, 'utf-8');
+  await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+  await fs.writeFile(path.join(dir, 'src', 'alpha.ts'), 'export const alpha = true;\n');
+
+  const add = await runCommand(dir, 'git', ['add', '.']);
+  assert.equal(add.code, 0, add.stderr || add.stdout);
+  const commit = await runCommand(dir, 'git', [
+    'commit',
+    '-m',
+    'feat(F001-alpha): implement alpha shell',
+  ]);
+  assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+}
+
 async function setupFakeReviewGhCli(dir, prViewPayload = {}) {
   const binDir = path.join(dir, 'fake-review-bin');
   const scriptPath = path.join(binDir, 'gh');
@@ -2401,6 +2469,320 @@ test('workflow-stage normalizes local branch commands for Korean workflows', asy
   });
 });
 
+test('local workflow fast-forwards, verifies, cleans up, and only then reaches done', async () => {
+  await withTempDir('lsk-workflow-stage-local-merge-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      postMergeChecks: [
+        {
+          command: process.execPath,
+          args: ['-e', 'process.exit(0)'],
+        },
+      ],
+    });
+
+    const mergeStage = await readStage(dir);
+    assert.equal(mergeStage.stage, 'local_merge');
+    assert.equal(mergeStage.nextAction.category, 'local_merge');
+    assert.match(mergeStage.nextAction.command, /local merge F001-alpha/);
+    assert.equal(mergeStage.approvalRequired, false);
+
+    const mergeResult = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
+    const mergePayload = JSON.parse(mergeResult.stdout.trim());
+    assert.equal(mergePayload.status, 'ok');
+    assert.equal(mergePayload.reasonCode, 'LOCAL_MERGE_VERIFIED');
+    assert.equal(mergePayload.verification[0].exitCode, 0);
+
+    const cleanupStage = await readStage(dir);
+    assert.equal(cleanupStage.stage, 'local_cleanup');
+    assert.equal(cleanupStage.nextAction.category, 'local_cleanup');
+
+    const cleanupResult = await runCli(dir, [
+      'local',
+      'cleanup',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(cleanupResult.code, 0, cleanupResult.stderr || cleanupResult.stdout);
+    const cleanupPayload = JSON.parse(cleanupResult.stdout.trim());
+    assert.equal(cleanupPayload.reasonCode, 'LOCAL_CLEANUP_COMPLETE');
+
+    const branchExists = await runCommand(dir, 'git', [
+      'show-ref',
+      '--verify',
+      '--quiet',
+      'refs/heads/feat/alpha',
+    ]);
+    assert.notEqual(branchExists.code, 0);
+    const currentBranch = await runCommand(dir, 'git', ['branch', '--show-current']);
+    assert.equal(currentBranch.stdout.trim(), 'main');
+
+    const done = await readStage(dir);
+    assert.equal(done.stage, 'done');
+    assert.equal(done.nextAction, null);
+  });
+});
+
+test('local implementation approval explicitly authorizes integration and cleanup', async () => {
+  await withTempDir('lsk-workflow-stage-local-implementation-approval-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, { finalOutcomeChecked: false });
+
+    const stage = await readStage(dir);
+    assert.equal(stage.stage, 'implementation_approve');
+    assert.equal(stage.approvalRequired, true);
+    assert.match(stage.nextAction.summary, /fast-forward into main/i);
+    assert.match(stage.nextAction.summary, /post-merge checks/i);
+    assert.match(stage.nextAction.summary, /delete the integrated local Feature branch/i);
+    assert.match(stage.actionOptions[0].summary, /authorize fast-forward integration/i);
+    assert.match(stage.actionOptions[0].summary, /post-merge verification/i);
+    assert.match(stage.actionOptions[0].summary, /local Feature branch/i);
+  });
+});
+
+test('standalone local workflow merges the managed worktree branch in the main project repo', async () => {
+  await withTempDir('lsk-workflow-stage-local-standalone-merge-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir, { workflow: 'local' });
+    const base = featureDir(dir);
+    await setStatus(path.join(base, 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(base, 'plan.md'), 'Status', 'Approved');
+    const tasksPath = path.join(base, 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(
+      '## Completion Criteria',
+      `- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-08-06
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [ ] add UI
+
+## Completion Criteria`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    const addPlanning = await runCommand(path.join(dir, 'docs'), 'git', ['add', '.']);
+    assert.equal(addPlanning.code, 0, addPlanning.stderr || addPlanning.stdout);
+    const commitPlanning = await runCommand(path.join(dir, 'docs'), 'git', [
+      'commit',
+      '-m',
+      'docs: prepare local feature',
+    ]);
+    assert.equal(commitPlanning.code, 0, commitPlanning.stderr || commitPlanning.stdout);
+
+    const branchStage = await readStage(dir);
+    assert.equal(branchStage.stage, 'branch');
+    const createWorktree = await runCommand(dir, 'sh', [
+      '-c',
+      branchStage.nextAction.command,
+    ]);
+    assert.equal(createWorktree.code, 0, createWorktree.stderr || createWorktree.stdout);
+    const worktreeMatch = branchStage.nextAction.command.match(
+      /worktree add "([^"]+)"/
+    );
+    assert.ok(worktreeMatch);
+    const worktreePath = worktreeMatch[1];
+
+    tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace(
+      '| `{test command you ran}` | `-` | `{PASS/FAIL summary}` |',
+      '| `pnpm vitest` | `2026-08-06` | `PASS` |'
+    );
+    tasks = tasks.replace(
+      "- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked",
+      "- [x] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked"
+    );
+    tasks = tasks.replace(
+      '- [ ] Tests executed and passing (record command/result below)',
+      '- [x] Tests executed and passing (record command/result below)'
+    );
+    tasks = tasks.replace(
+      '- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint',
+      '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    const addDocs = await runCommand(path.join(dir, 'docs'), 'git', ['add', '.']);
+    assert.equal(addDocs.code, 0, addDocs.stderr || addDocs.stdout);
+    const commitDocs = await runCommand(path.join(dir, 'docs'), 'git', [
+      'commit',
+      '-m',
+      'docs: complete local feature',
+    ]);
+    assert.equal(commitDocs.code, 0, commitDocs.stderr || commitDocs.stdout);
+
+    await fs.writeFile(path.join(worktreePath, 'alpha.ts'), 'export const alpha = true;\n');
+    const addProject = await runCommand(worktreePath, 'git', ['add', 'alpha.ts']);
+    assert.equal(addProject.code, 0, addProject.stderr || addProject.stdout);
+    const commitProject = await runCommand(worktreePath, 'git', [
+      'commit',
+      '-m',
+      'feat(F001-alpha): implement alpha shell',
+    ]);
+    assert.equal(commitProject.code, 0, commitProject.stderr || commitProject.stdout);
+
+    const mergeStage = await readStage(dir);
+    assert.equal(mergeStage.stage, 'local_merge');
+    const mergeResult = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
+    const mainTip = await runCommand(projectRoot, 'git', ['rev-parse', 'main']);
+    const featureTip = await runCommand(projectRoot, 'git', ['rev-parse', 'feat/alpha']);
+    assert.equal(mainTip.stdout.trim(), featureTip.stdout.trim());
+
+    const cleanupResult = await runCli(dir, [
+      'local',
+      'cleanup',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(cleanupResult.code, 0, cleanupResult.stderr || cleanupResult.stdout);
+    await assert.rejects(() => fs.access(worktreePath));
+    assert.equal((await readStage(dir)).stage, 'done');
+  });
+});
+
+test('local merge can be configured as an additional approval checkpoint', async () => {
+  await withTempDir('lsk-workflow-stage-local-merge-approval-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      approvalCategories: ['local_merge'],
+    });
+
+    const stage = await readStage(dir);
+    assert.equal(stage.stage, 'local_merge');
+    assert.equal(stage.approvalRequired, true);
+    assert.equal(stage.primaryActionLabel, 'A');
+    assert.deepEqual(
+      stage.actionOptions.map((option) => option.reply),
+      ['A', 'B']
+    );
+    assert.match(stage.nextAction.command, /--confirm OK$/);
+
+    const blockedResult = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(blockedResult.code, 1);
+    assert.equal(
+      JSON.parse(blockedResult.stdout.trim()).reasonCode,
+      'APPROVAL_REQUIRED'
+    );
+
+    const approvedResult = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+      '--confirm',
+      'OK',
+    ]);
+    assert.equal(
+      approvedResult.code,
+      0,
+      approvedResult.stderr || approvedResult.stdout
+    );
+  });
+});
+
+test('local workflow re-verifies when the base branch advances after verification', async () => {
+  await withTempDir('lsk-workflow-stage-local-base-advanced-', async (dir) => {
+    await prepareCompletedLocalFeature(dir);
+    const mergeResult = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
+
+    await fs.writeFile(path.join(dir, 'base-followup.txt'), 'follow-up\n', 'utf-8');
+    await runCommand(dir, 'git', ['add', 'base-followup.txt']);
+    const commit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: advance verified base',
+    ]);
+    assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+
+    const stage = await readStage(dir);
+    assert.equal(stage.stage, 'local_verify');
+    assert.equal(stage.nextAction.category, 'local_verify');
+  });
+});
+
+test('local workflow stops when the base and Feature branches have diverged', async () => {
+  await withTempDir('lsk-workflow-stage-local-diverged-', async (dir) => {
+    await prepareCompletedLocalFeature(dir);
+    const featureTip = (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+    const checkoutMain = await runCommand(dir, 'git', ['checkout', 'main']);
+    assert.equal(checkoutMain.code, 0, checkoutMain.stderr || checkoutMain.stdout);
+    await fs.writeFile(path.join(dir, 'main-only.txt'), 'main\n', 'utf-8');
+    await runCommand(dir, 'git', ['add', 'main-only.txt']);
+    const mainCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: advance main',
+    ]);
+    assert.equal(mainCommit.code, 0, mainCommit.stderr || mainCommit.stdout);
+    const checkoutFeature = await runCommand(dir, 'git', ['checkout', 'feat/alpha']);
+    assert.equal(checkoutFeature.code, 0, checkoutFeature.stderr || checkoutFeature.stdout);
+    assert.equal((await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim(), featureTip);
+
+    const result = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'blocked');
+    assert.equal(payload.reasonCode, 'LOCAL_MERGE_NOT_FAST_FORWARD');
+  });
+});
+
+test('failed post-merge checks keep local workflow at local_verify', async () => {
+  await withTempDir('lsk-workflow-stage-local-verify-failed-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      postMergeChecks: [
+        {
+          command: process.execPath,
+          args: ['-e', 'process.exit(7)'],
+        },
+      ],
+    });
+
+    const result = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'LOCAL_POST_MERGE_CHECK_FAILED');
+    assert.equal(payload.verification[0].exitCode, 7);
+
+    const stage = await readStage(dir);
+    assert.equal(stage.stage, 'local_verify');
+    assert.equal(stage.nextAction.category, 'local_verify');
+  });
+});
+
 test('workflow-stage reaches done when merge is not required and the feature is fully completed', async () => {
   await withTempDir('lsk-workflow-stage-done-', async (dir) => {
     await initRepo(dir, { workflow: 'local' });
@@ -2411,6 +2793,7 @@ test('workflow-stage reaches done when merge is not required and the feature is 
       ...(config.workflow || {}),
       requireBranch: false,
       requireMerge: false,
+      completionStrategy: 'none',
     };
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
 

@@ -22,6 +22,7 @@ const supportedRootCommands = new Set([
   'idea',
   'init',
   'integrations',
+  'local',
   'task',
   'update',
   'workflow-audit',

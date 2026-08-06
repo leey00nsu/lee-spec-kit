@@ -49,6 +49,8 @@ Before taking the next workflow step:
 12. When docs are synced to code, keep exactly one explicit marker like \`<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->\` in a single active feature doc (prefer \`tasks.md\` or \`decisions.md\`): replace an existing marker timestamp or remove duplicates instead of appending another marker, so \`workflow-audit\` can prove the sync happened after the latest code change
 13. When \`workflow-stage --json\` returns \`nextAction.category === "pre_pr_review"\` and \`nextAction.executor === "subagent"\`, delegate a fresh read-only review using the returned \`model\`, \`reasoningEffort\`, and \`onUnavailable\` policy; do not select or require a named review skill
 14. The Pre-PR review subagent returns findings without modifying code; the main agent remediates findings and records the actual reviewer metadata, reviewed diff scope, evidence, and final decision
+15. For a local workflow, do not report completion directly after implementation approval; follow the exact returned \`local merge\` / \`local cleanup\` commands until \`workflow-stage\` proves integration, verification, and cleanup and returns \`done\`
+16. In a \`local-ff\` workflow, present the implementation approval summary exactly as returned because that checkpoint authorizes the remaining fast-forward integration, post-merge checks, and configured local cleanup; ask again at \`local_merge\` only when that category is explicitly configured as required
 
 Approval and remote actions:
 

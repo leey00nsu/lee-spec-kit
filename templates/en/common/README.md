@@ -135,6 +135,10 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   - `model`: `"inherit"` or a model name supported by the runtime
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
   - `onUnavailable`: `inherit | error` when the requested model is unavailable
+- `workflow.baseBranch` (string): branch that receives a completed local Feature
+- `workflow.completionStrategy` (`"local-ff" | "none"`): fast-forward and verify local Features before `done`, or explicitly finish without integration
+- `workflow.deleteFeatureBranchAfterMerge` (boolean): delete the integrated local Feature branch after cleanup; remote branches are never deleted
+- `workflow.postMergeChecks` (array): structured commands run from the base branch after local integration, for example `{ "command": "pnpm", "args": ["test"] }`
 - `approval` (object, optional): optional approval-checkpoint metadata for repo policy and custom validators
   - The Codex-native default path still asks at documented checkpoints and before remote/destructive actions first.
   - Legacy runtime consumed this field directly; keep it only when you intentionally want category-based checkpoint metadata.
@@ -142,6 +146,8 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
     - `mode: "category"`
     - `default: "skip"`
     - `requireCheckCategories: ["spec_approve", "implementation_approve"]`
+  - In a `local-ff` workflow, `implementation_approve` explicitly authorizes the remaining fast-forward integration, post-merge checks, managed-worktree removal, and configured local Feature-branch deletion.
+  - Add `local_merge` to `requireCheckCategories` when a separate approval immediately before integration is required.
   - Approval token: `A`
   - Accepted replies: `A`, `A OK`
 - `allowedDocsEntries` (object, optional): Allowlist non-standard top-level docs entries so they are not treated as unmanaged docs
@@ -158,6 +164,11 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
   "workflow": {
+    "mode": "local",
+    "baseBranch": "main",
+    "completionStrategy": "local-ff",
+    "deleteFeatureBranchAfterMerge": true,
+    "postMergeChecks": [],
     "prePrReview": {
       "evidenceMode": "path_required",
       "reviewer": {
@@ -178,6 +189,8 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   }
 }
 ```
+
+New local projects use `local-ff`. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` deliberately when ready.
 
 ```json
 {

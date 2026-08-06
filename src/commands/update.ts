@@ -356,6 +356,66 @@ async function backfillMissingConfigDefaults(
   setIfMissing(workflow, 'codeDirtyScope', 'auto', 'workflow.codeDirtyScope');
   setIfMissing(workflow, 'taskCommitGate', 'warn', 'workflow.taskCommitGate');
 
+  if (workflow.mode === 'local') {
+    setIfMissing(workflow, 'baseBranch', 'main', 'workflow.baseBranch');
+    if (typeof workflow.baseBranch !== 'string' || !workflow.baseBranch.trim()) {
+      workflow.baseBranch = 'main';
+      changedPaths.push('workflow.baseBranch');
+    } else if (workflow.baseBranch !== workflow.baseBranch.trim()) {
+      workflow.baseBranch = workflow.baseBranch.trim();
+      changedPaths.push('workflow.baseBranch');
+    }
+    setIfMissing(
+      workflow,
+      'completionStrategy',
+      'none',
+      'workflow.completionStrategy'
+    );
+    if (
+      workflow.completionStrategy !== 'local-ff' &&
+      workflow.completionStrategy !== 'none'
+    ) {
+      workflow.completionStrategy = 'none';
+      changedPaths.push('workflow.completionStrategy');
+    }
+    setIfMissing(
+      workflow,
+      'deleteFeatureBranchAfterMerge',
+      true,
+      'workflow.deleteFeatureBranchAfterMerge'
+    );
+    if (typeof workflow.deleteFeatureBranchAfterMerge !== 'boolean') {
+      workflow.deleteFeatureBranchAfterMerge = true;
+      changedPaths.push('workflow.deleteFeatureBranchAfterMerge');
+    }
+    setIfMissing(workflow, 'postMergeChecks', [], 'workflow.postMergeChecks');
+    if (!Array.isArray(workflow.postMergeChecks)) {
+      workflow.postMergeChecks = [];
+      changedPaths.push('workflow.postMergeChecks');
+    } else {
+      const normalizedPostMergeChecks = workflow.postMergeChecks.flatMap(
+        (value) => {
+          if (!isPlainObject(value) || typeof value.command !== 'string') {
+            return [];
+          }
+          const command = value.command.trim();
+          if (!command) return [];
+          const args = Array.isArray(value.args)
+            ? value.args.filter((arg): arg is string => typeof arg === 'string')
+            : [];
+          return [{ command, ...(args.length > 0 ? { args } : {}) }];
+        }
+      );
+      if (
+        JSON.stringify(normalizedPostMergeChecks) !==
+        JSON.stringify(workflow.postMergeChecks)
+      ) {
+        workflow.postMergeChecks = normalizedPostMergeChecks;
+        changedPaths.push('workflow.postMergeChecks');
+      }
+    }
+  }
+
   if (!isPlainObject(workflow.prePrReview)) {
     workflow.prePrReview = {};
     changedPaths.push('workflow.prePrReview');

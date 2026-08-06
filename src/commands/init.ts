@@ -75,6 +75,31 @@ function getGitTopLevelOrNull(cwd: string): string | null {
   }
 }
 
+function getCurrentBranchOrMain(cwd: string): string {
+  try {
+    const branch = execFileSync('git', ['branch', '--show-current'], {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return branch || 'main';
+  } catch {
+    return 'main';
+  }
+}
+
+function resolveInitialBaseBranch(
+  cwd: string,
+  docsRepo: 'embedded' | 'standalone',
+  projectRoot: string | Record<string, string> | undefined
+): string {
+  if (docsRepo === 'standalone') {
+    const firstProjectRoot = resolveStandaloneInitProjectRoots(projectRoot, cwd)[0];
+    if (firstProjectRoot) return getCurrentBranchOrMain(firstProjectRoot);
+  }
+  return getCurrentBranchOrMain(getGitTopLevelOrNull(cwd) || cwd);
+}
+
 function isSameOrWithinDir(parentDir: string, candidateDir: string): boolean {
   const resolvedParent = path.resolve(parentDir);
   const resolvedCandidate = path.resolve(candidateDir);
@@ -796,6 +821,14 @@ async function runInit(options: InitOptions): Promise<void> {
           requireWorktree: docsRepo === 'standalone',
           codeDirtyScope: 'auto',
           taskCommitGate: 'warn',
+          ...(workflowMode === 'local'
+            ? {
+                baseBranch: resolveInitialBaseBranch(cwd, docsRepo, projectRoot),
+                completionStrategy: 'local-ff',
+                deleteFeatureBranchAfterMerge: true,
+                postMergeChecks: [],
+              }
+            : {}),
           prePrReview: {
             evidenceMode: 'path_required',
             reviewer: createDefaultPrePrReviewerConfig(),

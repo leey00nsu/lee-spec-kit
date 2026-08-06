@@ -51,6 +51,8 @@ This document defines workflow policy, not a custom runtime loop.
 - The Pre-PR review subagent returns findings without modifying code. The main agent remediates findings and records reviewer metadata and the final decision as evidence.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
+- In local mode, do not stop after implementation approval. Follow the exact `local merge` and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`.
+- In a `local-ff` workflow, present the returned implementation-approval summary without weakening it: that checkpoint authorizes fast-forward integration, post-merge checks, and configured local cleanup. Ask again at `local_merge` only when that category is explicitly required.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
 - Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.

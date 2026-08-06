@@ -135,6 +135,10 @@ npx lee-spec-kit docs get agents --json
   - `model`: `"inherit"` 또는 런타임이 지원하는 모델명
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
   - `onUnavailable`: 지정 모델을 사용할 수 없을 때 `inherit | error`
+- `workflow.baseBranch` (string): 완료된 local Feature를 통합할 기준 브랜치
+- `workflow.completionStrategy` (`"local-ff" | "none"`): `done` 전에 local Feature를 fast-forward 병합·검증하거나, 명시적으로 통합 없이 종료
+- `workflow.deleteFeatureBranchAfterMerge` (boolean): cleanup 후 통합된 local Feature 브랜치 삭제 여부. 원격 브랜치는 삭제하지 않음
+- `workflow.postMergeChecks` (array): local 통합 뒤 기준 브랜치에서 실행할 구조화 명령. 예: `{ "command": "pnpm", "args": ["test"] }`
 - `approval` (object, optional): repo 정책/커스텀 validator용 승인 checkpoint 메타데이터
   - 기본 Codex-native 경로는 여전히 문서화된 checkpoint와 원격/파괴적 작업을 우선 기준으로 승인 요청합니다.
   - legacy runtime은 이 필드를 직접 소비했지만, 이제는 category 기반 checkpoint 메타데이터가 정말 필요할 때만 유지하세요.
@@ -142,6 +146,8 @@ npx lee-spec-kit docs get agents --json
     - `mode: "category"`
     - `default: "skip"`
     - `requireCheckCategories: ["spec_approve", "implementation_approve"]`
+  - `local-ff` workflow에서 `implementation_approve`는 이후의 fast-forward 통합, post-merge 검사, managed worktree 제거, 설정된 local Feature 브랜치 삭제까지 명시적으로 승인합니다.
+  - 통합 직전 별도 승인이 필요하면 `requireCheckCategories`에 `local_merge`를 추가하세요.
   - 승인 토큰: `A`
   - 허용 응답: `A`, `A OK`
 - `allowedDocsEntries` (object, optional): 비표준 `docs/` top-level 엔트리를 unmanaged docs로 보지 않도록 허용 목록에 추가
@@ -158,6 +164,11 @@ npx lee-spec-kit docs get agents --json
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
   "workflow": {
+    "mode": "local",
+    "baseBranch": "main",
+    "completionStrategy": "local-ff",
+    "deleteFeatureBranchAfterMerge": true,
+    "postMergeChecks": [],
     "prePrReview": {
       "evidenceMode": "path_required",
       "reviewer": {
@@ -178,6 +189,8 @@ npx lee-spec-kit docs get agents --json
   }
 }
 ```
+
+새 local 프로젝트는 `local-ff`를 사용합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff`로 명시적으로 전환하세요.
 
 ```json
 {

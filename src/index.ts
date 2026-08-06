@@ -16,6 +16,7 @@ import { workflowStageCommand } from './commands/workflow-stage.js';
 import { workflowAuditCommand } from './commands/workflow-audit.js';
 import { commitAuditCommand } from './commands/commit-audit.js';
 import { docsAuditCommand } from './commands/docs-audit.js';
+import { localCommand } from './commands/local.js';
 import { getBanner } from './utils/banner.js';
 import { checkForUpdates } from './utils/version-check.js';
 
@@ -80,6 +81,7 @@ function configureRootCommandSurface(): void {
     ['detect', 'Workflow Policy Commands:'],
     ['github', 'Workflow Policy Commands:'],
     ['workflow-stage', 'Workflow Policy Commands:'],
+    ['local', 'Workflow Policy Commands:'],
     ['integrations', 'Codex Integration Commands:'],
     ['commit-audit', 'Codex Integration Commands:'],
     ['docs-audit', 'Codex Integration Commands:'],
@@ -125,6 +127,7 @@ integrationsCommand(program);
 workflowAuditCommand(program);
 commitAuditCommand(program);
 docsAuditCommand(program);
+localCommand(program);
 
 configureRootCommandSurface();
 

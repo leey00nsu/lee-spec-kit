@@ -72,6 +72,17 @@ npx lee-spec-kit github issue F001-alpha
 npx lee-spec-kit github pr F001-alpha
 ```
 
+### `local`
+
+Complete a local workflow by integrating the Feature before it can return `done`.
+
+```bash
+npx lee-spec-kit local merge F001-alpha --json
+npx lee-spec-kit local cleanup F001-alpha --json
+```
+
+`local merge` only performs a fast-forward into `workflow.baseBranch`; divergent branches stop with `LOCAL_MERGE_NOT_FAST_FORWARD`. It then runs configured `workflow.postMergeChecks`. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when `workflow.deleteFeatureBranchAfterMerge` is enabled.
+
 ## Integration Commands
 
 ### `integrations codex-hooks`

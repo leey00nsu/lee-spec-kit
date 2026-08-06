@@ -43,7 +43,11 @@ const workflowMigrationCases = [
   {
     name: 'preset-only local remains local',
     workflow: { preset: 'local' },
-    expected: { mode: 'local', requireWorktree: false },
+    expected: {
+      mode: 'local',
+      requireWorktree: false,
+      completionStrategy: 'none',
+    },
   },
   {
     name: 'preset-only github remains github',
@@ -68,7 +72,11 @@ const workflowMigrationCases = [
   {
     name: 'mode-only local remains local',
     workflow: { mode: 'local' },
-    expected: { mode: 'local', requireWorktree: false },
+    expected: {
+      mode: 'local',
+      requireWorktree: false,
+      completionStrategy: 'none',
+    },
   },
 ];
 
@@ -84,6 +92,12 @@ for (const migrationCase of workflowMigrationCases) {
         updated.workflow.requireWorktree,
         migrationCase.expected.requireWorktree
       );
+      if (migrationCase.expected.completionStrategy) {
+        assert.equal(
+          updated.workflow.completionStrategy,
+          migrationCase.expected.completionStrategy
+        );
+      }
       assert.equal('preset' in updated.workflow, false);
     });
   });
@@ -201,6 +215,10 @@ test('init writes only canonical workflow runtime settings', async () => {
       requireWorktree: false,
       codeDirtyScope: 'auto',
       taskCommitGate: 'warn',
+      baseBranch: 'main',
+      completionStrategy: 'local-ff',
+      deleteFeatureBranchAfterMerge: true,
+      postMergeChecks: [],
       prePrReview: {
         evidenceMode: 'path_required',
         reviewer: {
@@ -238,5 +256,27 @@ test('update preserves valid Pre-PR subagent overrides and normalizes invalid va
       reasoningEffort: 'high',
       onUnavailable: 'inherit',
     });
+  });
+});
+
+test('update normalizes local post-merge checks without enabling integration for legacy projects', async () => {
+  await withTempDir('lsk-config-local-completion-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'local',
+        postMergeChecks: [
+          { command: '  pnpm  ', args: ['test', 42] },
+          { command: '   ' },
+          'pnpm lint',
+        ],
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.completionStrategy, 'none');
+    assert.deepEqual(updated.workflow.postMergeChecks, [
+      { command: 'pnpm', args: ['test'] },
+    ]);
   });
 });

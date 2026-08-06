@@ -28,6 +28,11 @@ import {
 } from '../services/GithubWorkflowService.js';
 import { runProcess } from '../commands/github/process.js';
 import { isPrePrEvidenceSatisfied } from './pre-pr-evidence.js';
+import {
+  localCleanupComplete,
+  resolveLocalCompletionStrategy,
+  resolveLocalIntegrationContext,
+} from './local-integration.js';
 
 export type WorkflowStageId =
   | 'spec'
@@ -38,6 +43,9 @@ export type WorkflowStageId =
   | 'implementation'
   | 'task_commit'
   | 'implementation_approve'
+  | 'local_merge'
+  | 'local_verify'
+  | 'local_cleanup'
   | 'pre_pr_review'
   | 'pr'
   | 'code_review'
@@ -59,6 +67,9 @@ export interface WorkflowStageAction {
     | 'task_execute'
     | 'task_commit'
     | 'implementation_approve'
+    | 'local_merge'
+    | 'local_verify'
+    | 'local_cleanup'
     | 'pre_pr_review'
     | 'pr_prepare'
     | 'pr_create'
@@ -125,6 +136,9 @@ export interface WorkflowStagePayload {
     | 'BRANCH_NOT_READY'
     | 'TASK_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
+    | 'LOCAL_MERGE_REQUIRED'
+    | 'LOCAL_VERIFICATION_REQUIRED'
+    | 'LOCAL_CLEANUP_REQUIRED'
     | 'PRE_PR_REVIEW_NOT_APPROVED'
     | 'PR_NOT_CREATED'
     | 'PR_REVIEW_NOT_APPROVED'
@@ -1841,10 +1855,19 @@ export async function collectWorkflowStage(
       'implementation_approve',
       true
     );
+    const localIntegrationApproval =
+      config.workflow?.mode === 'local' &&
+      resolveLocalCompletionStrategy(config) === 'local-ff';
+    const localBaseBranch = config.workflow?.baseBranch?.trim() || 'main';
+    const localCleanupSummary =
+      config.workflow?.deleteFeatureBranchAfterMerge === false
+        ? 'remove any managed Feature worktree'
+        : 'remove any managed Feature worktree and delete the integrated local Feature branch';
     const actionOptions = approvalRequired
       ? buildApprovalActionOptions({
-          approveSummary:
-            'Approve the completed implementation and continue to the pre-PR or PR preparation stage.',
+          approveSummary: localIntegrationApproval
+            ? `Approve the completed implementation and authorize fast-forward integration into ${localBaseBranch}, post-merge verification, and cleanup that will ${localCleanupSummary}.`
+            : 'Approve the completed implementation and continue to the pre-PR or PR preparation stage.',
           holdSummary:
             'Request implementation changes before the workflow continues.',
         })
@@ -1857,7 +1880,9 @@ export async function collectWorkflowStage(
       stage: 'implementation_approve',
       nextAction: buildAction(
         'implementation_approve',
-        'Share the completed implementation, get user approval, and record the completion checkpoint in tasks.md.',
+        localIntegrationApproval
+          ? `Share the completed implementation and get user approval for the remaining local completion flow: fast-forward into ${localBaseBranch}, run post-merge checks, then ${localCleanupSummary}. Record that approval in tasks.md.`
+          : 'Share the completed implementation, get user approval, and record the completion checkpoint in tasks.md.',
         approvalRequired
       ),
       approvalRequired,
@@ -1888,6 +1913,106 @@ export async function collectWorkflowStage(
       approvalRequired: false,
       implementationAllowed: false,
       blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
+    };
+  }
+
+  if (
+    config.workflow?.mode === 'local' &&
+    resolveLocalCompletionStrategy(config) === 'local-ff'
+  ) {
+    const localState = await resolveLocalIntegrationContext(config, feature);
+    const localMergeBaseCommand =
+      `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
+
+    if (!localState.baseContainsFeature) {
+      const approvalRequired = resolveActionApprovalRequired(
+        config,
+        'local_merge',
+        false
+      );
+      const command = approvalRequired
+        ? `${localMergeBaseCommand} --confirm OK`
+        : localMergeBaseCommand;
+      const actionOptions = approvalRequired
+        ? buildApprovalActionOptions({
+            approveSummary:
+              `Fast-forward ${localState.featureBranch} into ${localState.baseBranch} and run the configured post-merge checks.`,
+            holdSummary: 'Keep the completed Feature branch unmerged for now.',
+          })
+        : undefined;
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'local_merge',
+        nextAction: buildAction(
+          'local_merge',
+          `Fast-forward ${localState.featureBranch} into ${localState.baseBranch}; do not create a merge commit.`,
+          approvalRequired,
+          command
+        ),
+        approvalRequired,
+        implementationAllowed: false,
+        primaryActionLabel: actionOptions ? 'A' : undefined,
+        actionOptions,
+        blockedReasonCode: 'LOCAL_MERGE_REQUIRED',
+      };
+    }
+
+    if (
+      !localState.state ||
+      !['verified', 'cleaned'].includes(localState.state.status) ||
+      localState.state.featureTip !== localState.featureTip ||
+      localState.state.mergedBaseTip !== localState.baseTip
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'local_verify',
+        nextAction: buildAction(
+          'local_verify',
+          'Run the configured post-merge checks and record verification against the integrated Feature tip.',
+          false,
+          localMergeBaseCommand
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'LOCAL_VERIFICATION_REQUIRED',
+      };
+    }
+
+    if (!localCleanupComplete(localState)) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'local_cleanup',
+        nextAction: buildAction(
+          'local_cleanup',
+          'Remove the clean managed worktree and delete the local Feature branch according to workflow policy.',
+          false,
+          `npx lee-spec-kit local cleanup ${buildFeatureArgs(feature)} --json`
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'LOCAL_CLEANUP_REQUIRED',
+      };
+    }
+
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'done',
+      nextAction: null,
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: null,
     };
   }
 

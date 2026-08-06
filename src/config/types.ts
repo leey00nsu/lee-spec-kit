@@ -25,6 +25,11 @@ export interface PrePrReviewerConfig {
   onUnavailable: 'inherit' | 'error';
 }
 
+export interface LocalPostMergeCheck {
+  command: string;
+  args?: string[];
+}
+
 export interface ProjectConfig {
   schemaId?: string;
   docsDir: string;
@@ -53,6 +58,10 @@ export interface ProjectConfig {
     requirePr?: boolean;
     requireReview?: boolean;
     requireMerge?: boolean;
+    baseBranch?: string;
+    completionStrategy?: 'local-ff' | 'none';
+    deleteFeatureBranchAfterMerge?: boolean;
+    postMergeChecks?: LocalPostMergeCheck[];
     codeDirtyScope?: 'repo' | 'component' | 'auto';
     componentPaths?: Record<string, string[]>;
     taskCommitGate?: 'off' | 'warn' | 'strict';
