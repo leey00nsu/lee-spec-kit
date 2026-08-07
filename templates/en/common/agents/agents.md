@@ -52,7 +52,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
 - In local mode, do not stop after implementation approval. Follow the exact `local merge` and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`.
-- In a `local-ff` workflow, present the returned implementation-approval summary without weakening it: that checkpoint authorizes fast-forward integration, post-merge checks, and configured local cleanup. Ask again at `local_merge` only when that category is explicitly required.
+- In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
 - Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.

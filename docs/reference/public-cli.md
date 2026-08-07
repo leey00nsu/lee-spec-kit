@@ -81,7 +81,7 @@ npx lee-spec-kit local merge F001-alpha --json
 npx lee-spec-kit local cleanup F001-alpha --json
 ```
 
-`local merge` only performs a fast-forward into `workflow.baseBranch`; divergent branches stop with `LOCAL_MERGE_NOT_FAST_FORWARD`. It then runs configured `workflow.postMergeChecks`. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when `workflow.deleteFeatureBranchAfterMerge` is enabled.
+`local merge` uses `workflow.completionStrategy`. `local-ff` only performs a fast-forward into `workflow.baseBranch`; `local-squash` creates one squash commit whose tree must match the source Feature tip and preserves that source tip under an internal `refs/lee-spec-kit/integrations/*` ref. Both strategies reject a Feature whose base has diverged, then run configured `workflow.postMergeChecks`. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when `workflow.deleteFeatureBranchAfterMerge` is enabled.
 
 ## Integration Commands
 

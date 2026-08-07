@@ -4,6 +4,7 @@ import { AllowedDocsEntriesConfig } from '../utils/unmanaged-docs.js';
 export const DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES = [
   'spec_approve',
   'implementation_approve',
+  'local_merge',
 ] as const;
 
 export const PRE_PR_REVIEW_REASONING_EFFORTS = [
@@ -59,7 +60,7 @@ export interface ProjectConfig {
     requireReview?: boolean;
     requireMerge?: boolean;
     baseBranch?: string;
-    completionStrategy?: 'local-ff' | 'none';
+    completionStrategy?: 'local-ff' | 'local-squash' | 'none';
     deleteFeatureBranchAfterMerge?: boolean;
     postMergeChecks?: LocalPostMergeCheck[];
     codeDirtyScope?: 'repo' | 'component' | 'auto';

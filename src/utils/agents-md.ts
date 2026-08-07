@@ -50,7 +50,7 @@ Before taking the next workflow step:
 13. When \`workflow-stage --json\` returns \`nextAction.category === "pre_pr_review"\` and \`nextAction.executor === "subagent"\`, delegate a fresh read-only review using the returned \`model\`, \`reasoningEffort\`, and \`onUnavailable\` policy; do not select or require a named review skill
 14. The Pre-PR review subagent returns findings without modifying code; the main agent remediates findings and records the actual reviewer metadata, reviewed diff scope, evidence, and final decision
 15. For a local workflow, do not report completion directly after implementation approval; follow the exact returned \`local merge\` / \`local cleanup\` commands until \`workflow-stage\` proves integration, verification, and cleanup and returns \`done\`
-16. In a \`local-ff\` workflow, present the implementation approval summary exactly as returned because that checkpoint authorizes the remaining fast-forward integration, post-merge checks, and configured local cleanup; ask again at \`local_merge\` only when that category is explicitly configured as required
+16. In a \`local-ff\` or \`local-squash\` workflow, keep implementation approval and local merge approval distinct when \`local_merge\` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup
 
 Approval and remote actions:
 

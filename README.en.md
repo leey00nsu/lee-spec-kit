@@ -79,7 +79,7 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 - `integrations codex`: install/remove the optional global `[features].hooks` setting
 - `commit-audit --json`
 - `workflow-audit --json`
-- `local merge <feature-ref> --json`: fast-forward a completed local Feature into its base branch and run post-merge checks
+- `local merge <feature-ref> --json`: integrate a completed local Feature using its configured fast-forward or squash strategy and run post-merge checks
 - `local cleanup <feature-ref> --json`: remove the managed worktree and optionally delete the integrated Feature branch
 
 Supported modes:

@@ -229,6 +229,40 @@ test('init writes only canonical workflow runtime settings', async () => {
         },
       },
     });
+    assert.deepEqual(config.approval, {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: [
+        'spec_approve',
+        'implementation_approve',
+        'local_merge',
+      ],
+    });
+  });
+});
+
+test('update adds local merge to the previous generated default approval policy', async () => {
+  await withTempDir('lsk-config-local-merge-default-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: { mode: 'local' },
+      approval: {
+        mode: 'category',
+        default: 'skip',
+        requireCheckCategories: ['spec_approve', 'implementation_approve'],
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.deepEqual(updated.approval, {
+      mode: 'category',
+      default: 'skip',
+      requireCheckCategories: [
+        'spec_approve',
+        'implementation_approve',
+        'local_merge',
+      ],
+    });
   });
 });
 
@@ -278,5 +312,20 @@ test('update normalizes local post-merge checks without enabling integration for
     assert.deepEqual(updated.workflow.postMergeChecks, [
       { command: 'pnpm', args: ['test'] },
     ]);
+  });
+});
+
+test('update preserves the local squash completion strategy', async () => {
+  await withTempDir('lsk-config-local-squash-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'local',
+        completionStrategy: 'local-squash',
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.completionStrategy, 'local-squash');
   });
 });

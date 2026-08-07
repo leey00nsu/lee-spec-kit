@@ -8,6 +8,7 @@ import { runProcess } from '../commands/github/process.js';
 import { resolveStandaloneProjectRoots } from './standalone-workspace.js';
 
 export type LocalIntegrationStateStatus = 'merged' | 'verified' | 'cleaned';
+export type LocalCompletionStrategy = 'local-ff' | 'local-squash' | 'none';
 
 export interface LocalIntegrationState {
   version: 1;
@@ -17,6 +18,10 @@ export interface LocalIntegrationState {
   featureBranch: string;
   featureTip: string;
   mergedBaseTip: string;
+  strategy?: Exclude<LocalCompletionStrategy, 'none'>;
+  integratedCommit?: string;
+  integratedTree?: string;
+  evidenceRef?: string;
   status: LocalIntegrationStateStatus;
   mergedAt: string;
   verifiedAt: string | null;
@@ -38,7 +43,12 @@ export interface LocalIntegrationContext {
   baseTip: string | null;
   currentBranch: string | null;
   state: LocalIntegrationState | null;
+  completionStrategy: Exclude<LocalCompletionStrategy, 'none'>;
   baseContainsFeature: boolean;
+  integrationComplete: boolean;
+  evidenceRef: string;
+  squashCommitMatchesSource: boolean;
+  squashEvidencePresent: boolean;
   projectRootClean: boolean;
   featureWorktreeClean: boolean;
   docsClean: boolean;
@@ -52,9 +62,10 @@ const BRANCH_LABELS = ['Branch', '브랜치'];
 
 export function resolveLocalCompletionStrategy(
   config: ProjectConfig
-): 'local-ff' | 'none' {
-  return config.workflow?.completionStrategy === 'local-ff'
-    ? 'local-ff'
+): LocalCompletionStrategy {
+  const strategy = config.workflow?.completionStrategy;
+  return strategy === 'local-ff' || strategy === 'local-squash'
+    ? strategy
     : 'none';
 }
 
@@ -82,6 +93,10 @@ export async function resolveLocalIntegrationContext(
   }
 
   const state = await readLocalIntegrationState(projectRoot, feature);
+  const configuredStrategy = resolveLocalCompletionStrategy(config);
+  const completionStrategy =
+    configuredStrategy === 'local-squash' ? 'local-squash' : 'local-ff';
+  const evidenceRef = resolveEvidenceRef(feature);
   const featureBranchTip = resolveRef(
     projectRoot,
     `refs/heads/${featureBranch}`
@@ -100,6 +115,31 @@ export async function resolveLocalIntegrationContext(
     registeredWorktree ||
     (fs.existsSync(featureWorktree) ? featureWorktree : projectRoot);
 
+  const baseContainsFeature =
+    !!featureTip &&
+    !!baseTip &&
+    isAncestor(projectRoot, featureTip, `refs/heads/${baseBranch}`);
+  const integratedCommit = state?.integratedCommit || state?.mergedBaseTip;
+  const evidenceTip = resolveRef(projectRoot, evidenceRef);
+  const featureTree = featureTip ? resolveTree(projectRoot, featureTip) : null;
+  const integratedTree = integratedCommit
+    ? resolveTree(projectRoot, integratedCommit)
+    : null;
+  const squashCommitMatchesSource =
+    completionStrategy === 'local-squash' &&
+    state?.strategy === 'local-squash' &&
+    !!featureTip &&
+    state.featureTip === featureTip &&
+    !!integratedCommit &&
+    !!baseTip &&
+    isAncestor(projectRoot, integratedCommit, `refs/heads/${baseBranch}`) &&
+    !!featureTree &&
+    integratedTree === featureTree &&
+    state.integratedTree === featureTree;
+  const squashEvidencePresent = !!featureTip && evidenceTip === featureTip;
+  const squashIntegrationComplete =
+    squashCommitMatchesSource && squashEvidencePresent;
+
   return {
     projectRoot,
     featureWorktree: effectiveFeatureWorktree,
@@ -110,10 +150,15 @@ export async function resolveLocalIntegrationContext(
     baseTip,
     currentBranch,
     state,
-    baseContainsFeature:
-      !!featureTip &&
-      !!baseTip &&
-      isAncestor(projectRoot, featureTip, `refs/heads/${baseBranch}`),
+    completionStrategy,
+    baseContainsFeature,
+    integrationComplete:
+      completionStrategy === 'local-squash'
+        ? squashIntegrationComplete
+        : baseContainsFeature,
+    evidenceRef,
+    squashCommitMatchesSource,
+    squashEvidencePresent,
     projectRootClean: isClean(projectRoot),
     featureWorktreeClean: isClean(effectiveFeatureWorktree),
     docsClean: isClean(feature.git.docsGitCwd),
@@ -160,7 +205,7 @@ export function localCleanupComplete(
   context: LocalIntegrationContext
 ): boolean {
   return (
-    context.baseContainsFeature &&
+    context.integrationComplete &&
     context.currentBranch === context.baseBranch &&
     !context.managedFeatureWorktree &&
     (!context.deleteFeatureBranchAfterMerge || !context.featureBranchExists) &&
@@ -209,6 +254,18 @@ export function resolveRef(cwd: string, ref: string): string | null {
   return runGitCapture(['rev-parse', '--verify', ref], cwd) || null;
 }
 
+export function resolveTree(cwd: string, commit: string): string | null {
+  return resolveRef(cwd, `${commit}^{tree}`);
+}
+
+export function preserveLocalIntegrationEvidence(
+  projectRoot: string,
+  evidenceRef: string,
+  featureTip: string
+): { code: number; stdout: string; stderr: string } {
+  return gitRun(projectRoot, ['update-ref', evidenceRef, featureTip]);
+}
+
 export function isAncestor(
   cwd: string,
   ancestor: string,
@@ -251,17 +308,25 @@ function resolveStatePath(
   const commonDir = path.isAbsolute(commonDirRaw)
     ? commonDirRaw
     : path.resolve(projectRoot, commonDirRaw);
-  const key = crypto
-    .createHash('sha256')
-    .update(`${feature.type}:${feature.folderName}`)
-    .digest('hex')
-    .slice(0, 24);
+  const key = resolveFeatureStateKey(feature);
   return path.join(
     commonDir,
     'lee-spec-kit',
     'local-integrations',
     `${key}.json`
   );
+}
+
+function resolveEvidenceRef(feature: ResolvedFeature): string {
+  return `refs/lee-spec-kit/integrations/${resolveFeatureStateKey(feature)}`;
+}
+
+function resolveFeatureStateKey(feature: ResolvedFeature): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${feature.type}:${feature.folderName}`)
+    .digest('hex')
+    .slice(0, 24);
 }
 
 async function readTasks(featureDir: string): Promise<string> {

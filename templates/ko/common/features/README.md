@@ -57,7 +57,7 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 반환되는 `stage`, `nextAction`, `implementationAllowed` 값을 현재 워크플로우 상태로 사용하세요.
 
-`completionStrategy: "local-ff"`인 local workflow의 완료 흐름은 `implementation_approve → local_merge → local_verify → local_cleanup → done`입니다. 각 단계에서 반환된 helper 명령을 그대로 사용하며, `done`은 기준 브랜치가 Feature tip을 포함하고 cleanup까지 완료됐다는 뜻입니다.
+`completionStrategy`가 `"local-ff"` 또는 `"local-squash"`인 local workflow의 완료 흐름은 `implementation_approve → local_merge → local_verify → local_cleanup → done`입니다. 각 단계에서 반환된 helper 명령을 그대로 사용합니다. `local-ff`는 조상 관계로, `local-squash`는 squash commit tree와 내부 보존된 원본 Feature tip의 tree 일치로 통합을 증명하며, 둘 다 cleanup 후에만 `done`입니다.
 
 ---
 

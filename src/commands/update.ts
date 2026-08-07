@@ -68,6 +68,24 @@ function isLegacyGeneratedApprovalConfig(
   return !overrideKeys.some((key) => hasOwnKey(approval, key));
 }
 
+function isPreviousDefaultApprovalConfig(
+  approval: Record<string, unknown>
+): boolean {
+  const keys = Object.keys(approval).sort();
+  const categories = Array.isArray(approval.requireCheckCategories)
+    ? approval.requireCheckCategories
+    : [];
+  return (
+    JSON.stringify(keys) ===
+      JSON.stringify(['default', 'mode', 'requireCheckCategories']) &&
+    approval.mode === 'category' &&
+    approval.default === 'skip' &&
+    categories.length === 2 &&
+    categories[0] === 'spec_approve' &&
+    categories[1] === 'implementation_approve'
+  );
+}
+
 export function updateCommand(program: Command): void {
   program
     .command('update')
@@ -373,6 +391,7 @@ async function backfillMissingConfigDefaults(
     );
     if (
       workflow.completionStrategy !== 'local-ff' &&
+      workflow.completionStrategy !== 'local-squash' &&
       workflow.completionStrategy !== 'none'
     ) {
       workflow.completionStrategy = 'none';
@@ -495,7 +514,8 @@ async function backfillMissingConfigDefaults(
     changedPaths.push(...migration.changedPaths);
     if (
       isPlainObject(raw.approval) &&
-      isLegacyGeneratedApprovalConfig(raw.approval)
+      (isLegacyGeneratedApprovalConfig(raw.approval) ||
+        isPreviousDefaultApprovalConfig(raw.approval))
     ) {
       raw.approval = createDefaultApprovalConfig();
       changedPaths.push('approval');

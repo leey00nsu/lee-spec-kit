@@ -7,8 +7,10 @@ import {
   currentGitBranch,
   gitRun,
   isAncestor,
+  preserveLocalIntegrationEvidence,
   resolveLocalIntegrationContext,
   resolveRef,
+  resolveTree,
   runPostMergeChecks,
   writeLocalIntegrationState,
   type LocalIntegrationState,
@@ -28,6 +30,7 @@ interface LocalActionPayload {
   featureBranch?: string;
   featureTip?: string | null;
   baseTip?: string | null;
+  completionStrategy?: 'local-ff' | 'local-squash';
   verification?: LocalIntegrationState['verification'];
   error?: string;
 }
@@ -39,7 +42,7 @@ export function localCommand(program: Command): void {
 
   local
     .command('merge [feature-name]')
-    .description('Fast-forward a completed local feature and verify the result')
+    .description('Integrate a completed local feature and verify the result')
     .option('--component <component>', 'Component name for multi projects')
     .option(
       '--confirm <token>',
@@ -164,22 +167,53 @@ async function runLocalMerge(
   }
 
   const now = new Date().toISOString();
-  let state: LocalIntegrationState = context.state || {
-    version: 1,
-    featureRef: feature.folderName,
-    component: feature.type,
-    baseBranch: context.baseBranch,
-    featureBranch: context.featureBranch,
-    featureTip: context.featureTip,
-    mergedBaseTip: context.baseTip,
-    status: 'merged',
-    mergedAt: now,
-    verifiedAt: null,
-    cleanedAt: null,
-    verification: [],
-  };
+  const previousStateStrategy = context.state?.strategy || 'local-ff';
+  let state: LocalIntegrationState =
+    context.state &&
+    context.state.featureTip === context.featureTip &&
+    previousStateStrategy === context.completionStrategy
+      ? context.state
+      : {
+          version: 1,
+          featureRef: feature.folderName,
+          component: feature.type,
+          baseBranch: context.baseBranch,
+          featureBranch: context.featureBranch,
+          featureTip: context.featureTip,
+          mergedBaseTip: context.baseTip,
+          strategy: context.completionStrategy,
+          status: 'merged',
+          mergedAt: now,
+          verifiedAt: null,
+          cleanedAt: null,
+          verification: [],
+        };
 
-  if (!context.baseContainsFeature) {
+  if (
+    context.completionStrategy === 'local-squash' &&
+    context.squashCommitMatchesSource &&
+    !context.squashEvidencePresent
+  ) {
+    const evidence = preserveLocalIntegrationEvidence(
+      context.projectRoot,
+      context.evidenceRef,
+      context.featureTip
+    );
+    if (evidence.code !== 0) {
+      return blocked(
+        'LOCAL_SQUASH_EVIDENCE_FAILED',
+        feature.folderName,
+        evidence.stderr
+      );
+    }
+    context = await resolveLocalIntegrationContext(config, feature);
+  }
+
+  if (!context.featureTip || !context.baseTip) {
+    return blocked('LOCAL_MERGE_REF_NOT_FOUND', feature.folderName);
+  }
+
+  if (!context.integrationComplete) {
     if (
       !isAncestor(
         context.projectRoot,
@@ -188,7 +222,9 @@ async function runLocalMerge(
       )
     ) {
       return blocked(
-        'LOCAL_MERGE_NOT_FAST_FORWARD',
+        context.completionStrategy === 'local-squash'
+          ? 'LOCAL_SQUASH_BASE_NOT_ANCESTOR'
+          : 'LOCAL_MERGE_NOT_FAST_FORWARD',
         feature.folderName,
         `${context.baseBranch} is not an ancestor of ${context.featureBranch}.`
       );
@@ -206,26 +242,29 @@ async function runLocalMerge(
         );
       }
     }
-    const merge = gitRun(context.projectRoot, [
-      'merge',
-      '--ff-only',
-      context.featureBranch,
-    ]);
-    if (merge.code !== 0) {
-      return blocked(
-        'LOCAL_MERGE_NOT_FAST_FORWARD',
-        feature.folderName,
-        merge.stderr
-      );
-    }
+    const integration =
+      context.completionStrategy === 'local-squash'
+        ? integrateLocalSquash(context, feature.folderName, feature.slug)
+        : integrateLocalFastForward(context, feature.folderName);
+    if (integration.status !== 'ok') return integration.payload;
+
     const mergedBaseTip = resolveRef(
       context.projectRoot,
       `refs/heads/${context.baseBranch}`
     );
+    const integratedTree = mergedBaseTip
+      ? resolveTree(context.projectRoot, mergedBaseTip)
+      : null;
     state = {
       ...state,
       featureTip: context.featureTip,
       mergedBaseTip: mergedBaseTip || context.featureTip,
+      strategy: context.completionStrategy,
+      integratedCommit: mergedBaseTip || context.featureTip,
+      ...(integratedTree ? { integratedTree } : {}),
+      ...(context.completionStrategy === 'local-squash'
+        ? { evidenceRef: context.evidenceRef }
+        : {}),
       status: 'merged',
       mergedAt: now,
       verifiedAt: null,
@@ -236,7 +275,7 @@ async function runLocalMerge(
     context = await resolveLocalIntegrationContext(config, feature);
   }
 
-  if (!context.baseContainsFeature) {
+  if (!context.integrationComplete) {
     return blocked('LOCAL_MERGE_VERIFICATION_FAILED', feature.folderName);
   }
 
@@ -288,6 +327,7 @@ async function runLocalMerge(
     featureBranch: context.featureBranch,
     featureTip: context.featureTip,
     baseTip,
+    completionStrategy: context.completionStrategy,
     verification,
   };
 }
@@ -324,7 +364,7 @@ async function runLocalCleanup(
   const feature = selection.matchedFeature;
   let context = await resolveLocalIntegrationContext(config, feature);
   if (
-    !context.baseContainsFeature ||
+    !context.integrationComplete ||
     !context.state ||
     !['verified', 'cleaned'].includes(context.state.status) ||
     context.state.featureTip !== context.featureTip ||
@@ -360,7 +400,7 @@ async function runLocalCleanup(
   if (context.deleteFeatureBranchAfterMerge && context.featureBranchExists) {
     const removeBranch = gitRun(context.projectRoot, [
       'branch',
-      '-d',
+      context.completionStrategy === 'local-squash' ? '-D' : '-d',
       context.featureBranch,
     ]);
     if (removeBranch.code !== 0) {
@@ -387,7 +427,106 @@ async function runLocalCleanup(
     featureBranch: context.featureBranch,
     featureTip: context.featureTip,
     baseTip: context.baseTip,
+    completionStrategy: context.completionStrategy,
   };
+}
+
+function integrateLocalFastForward(
+  context: Awaited<ReturnType<typeof resolveLocalIntegrationContext>>,
+  featureRef: string
+): { status: 'ok' } | { status: 'blocked'; payload: LocalActionPayload } {
+  const merge = gitRun(context.projectRoot, [
+    'merge',
+    '--ff-only',
+    context.featureBranch,
+  ]);
+  if (merge.code !== 0) {
+    return {
+      status: 'blocked',
+      payload: blocked(
+        'LOCAL_MERGE_NOT_FAST_FORWARD',
+        featureRef,
+        merge.stderr
+      ),
+    };
+  }
+  return { status: 'ok' };
+}
+
+function integrateLocalSquash(
+  context: Awaited<ReturnType<typeof resolveLocalIntegrationContext>>,
+  featureRef: string,
+  featureSlug: string
+): { status: 'ok' } | { status: 'blocked'; payload: LocalActionPayload } {
+  const originalBaseTip = context.baseTip;
+  if (!originalBaseTip || !context.featureTip) {
+    return {
+      status: 'blocked',
+      payload: blocked('LOCAL_MERGE_REF_NOT_FOUND', featureRef),
+    };
+  }
+
+  const squash = gitRun(context.projectRoot, [
+    'merge',
+    '--squash',
+    context.featureBranch,
+  ]);
+  if (squash.code !== 0) {
+    rollbackSquash(context.projectRoot, originalBaseTip);
+    return {
+      status: 'blocked',
+      payload: blocked('LOCAL_SQUASH_FAILED', featureRef, squash.stderr),
+    };
+  }
+
+  const commit = gitRun(context.projectRoot, [
+    'commit',
+    '-m',
+    `feat(${featureRef}): integrate ${featureSlug}`,
+  ]);
+  if (commit.code !== 0) {
+    rollbackSquash(context.projectRoot, originalBaseTip);
+    return {
+      status: 'blocked',
+      payload: blocked('LOCAL_SQUASH_COMMIT_FAILED', featureRef, commit.stderr),
+    };
+  }
+
+  const integratedCommit = resolveRef(context.projectRoot, 'HEAD');
+  const sourceTree = resolveTree(context.projectRoot, context.featureTip);
+  const integratedTree = integratedCommit
+    ? resolveTree(context.projectRoot, integratedCommit)
+    : null;
+  if (!integratedCommit || !sourceTree || integratedTree !== sourceTree) {
+    rollbackSquash(context.projectRoot, originalBaseTip);
+    return {
+      status: 'blocked',
+      payload: blocked('LOCAL_SQUASH_TREE_MISMATCH', featureRef),
+    };
+  }
+
+  const evidence = preserveLocalIntegrationEvidence(
+    context.projectRoot,
+    context.evidenceRef,
+    context.featureTip
+  );
+  if (evidence.code !== 0) {
+    rollbackSquash(context.projectRoot, originalBaseTip);
+    return {
+      status: 'blocked',
+      payload: blocked(
+        'LOCAL_SQUASH_EVIDENCE_FAILED',
+        featureRef,
+        evidence.stderr
+      ),
+    };
+  }
+
+  return { status: 'ok' };
+}
+
+function rollbackSquash(projectRoot: string, originalBaseTip: string): void {
+  gitRun(projectRoot, ['reset', '--hard', originalBaseTip]);
 }
 
 function blocked(

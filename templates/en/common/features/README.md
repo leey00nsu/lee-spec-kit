@@ -57,7 +57,7 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 Use the returned `stage`, `nextAction`, and `implementationAllowed` values as the current workflow state.
 
-In a local workflow with `completionStrategy: "local-ff"`, completion is `implementation_approve → local_merge → local_verify → local_cleanup → done`. Use the exact helper command returned for each stage; `done` means the base branch contains the Feature tip and cleanup is complete.
+In a local workflow with `completionStrategy: "local-ff"` or `"local-squash"`, completion is `implementation_approve → local_merge → local_verify → local_cleanup → done`. Use the exact helper command returned for each stage. `local-ff` proves ancestry; `local-squash` proves the squash commit tree matches the internally preserved source Feature tip. Both require cleanup before `done`.
 
 ---
 

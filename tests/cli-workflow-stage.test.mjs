@@ -243,6 +243,9 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
   if (options.postMergeChecks) {
     config.workflow.postMergeChecks = options.postMergeChecks;
   }
+  if (options.completionStrategy) {
+    config.workflow.completionStrategy = options.completionStrategy;
+  }
   if (options.approvalCategories) {
     config.approval = {
       mode: 'category',
@@ -2484,13 +2487,16 @@ test('local workflow fast-forwards, verifies, cleans up, and only then reaches d
     assert.equal(mergeStage.stage, 'local_merge');
     assert.equal(mergeStage.nextAction.category, 'local_merge');
     assert.match(mergeStage.nextAction.command, /local merge F001-alpha/);
-    assert.equal(mergeStage.approvalRequired, false);
+    assert.match(mergeStage.nextAction.command, /--confirm OK$/);
+    assert.equal(mergeStage.approvalRequired, true);
 
     const mergeResult = await runCli(dir, [
       'local',
       'merge',
       'F001-alpha',
       '--json',
+      '--confirm',
+      'OK',
     ]);
     assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
     const mergePayload = JSON.parse(mergeResult.stdout.trim());
@@ -2528,19 +2534,124 @@ test('local workflow fast-forwards, verifies, cleans up, and only then reaches d
   });
 });
 
-test('local implementation approval explicitly authorizes integration and cleanup', async () => {
+test('local squash creates one integration commit and preserves the source Feature tip', async () => {
+  await withTempDir('lsk-workflow-stage-local-squash-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      completionStrategy: 'local-squash',
+    });
+    const sourceFeatureTip = (
+      await runCommand(dir, 'git', ['rev-parse', 'feat/alpha'])
+    ).stdout.trim();
+    const originalBaseTip = (
+      await runCommand(dir, 'git', ['rev-parse', 'main'])
+    ).stdout.trim();
+
+    const mergeStage = await readStage(dir);
+    assert.equal(mergeStage.stage, 'local_merge');
+    assert.equal(mergeStage.approvalRequired, true);
+    assert.match(mergeStage.nextAction.summary, /squash commit/i);
+    assert.match(mergeStage.nextAction.summary, /integration evidence/i);
+
+    const mergeResult = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+      '--confirm',
+      'OK',
+    ]);
+    assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
+    const mergePayload = JSON.parse(mergeResult.stdout.trim());
+    assert.equal(mergePayload.completionStrategy, 'local-squash');
+
+    const integratedCommit = (
+      await runCommand(dir, 'git', ['rev-parse', 'main'])
+    ).stdout.trim();
+    assert.notEqual(integratedCommit, sourceFeatureTip);
+    const parents = (
+      await runCommand(dir, 'git', ['rev-list', '--parents', '-n', '1', 'main'])
+    ).stdout.trim().split(/\s+/u);
+    assert.deepEqual(parents, [integratedCommit, originalBaseTip]);
+    const treeDiff = await runCommand(dir, 'git', [
+      'diff',
+      '--quiet',
+      'main',
+      'feat/alpha',
+    ]);
+    assert.equal(treeDiff.code, 0, treeDiff.stderr || treeDiff.stdout);
+
+    const evidence = await runCommand(dir, 'git', [
+      'for-each-ref',
+      '--format=%(refname) %(objectname)',
+      'refs/lee-spec-kit/integrations',
+    ]);
+    const [evidenceRef, evidenceTip] = evidence.stdout.trim().split(/\s+/u);
+    assert.match(evidenceRef, /^refs\/lee-spec-kit\/integrations\//u);
+    assert.equal(evidenceTip, sourceFeatureTip);
+
+    const removeEvidence = await runCommand(dir, 'git', [
+      'update-ref',
+      '-d',
+      evidenceRef,
+    ]);
+    assert.equal(removeEvidence.code, 0, removeEvidence.stderr || removeEvidence.stdout);
+    assert.equal((await readStage(dir)).stage, 'local_merge');
+    const repairEvidence = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+      '--confirm',
+      'OK',
+    ]);
+    assert.equal(
+      repairEvidence.code,
+      0,
+      repairEvidence.stderr || repairEvidence.stdout
+    );
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', evidenceRef])).stdout.trim(),
+      sourceFeatureTip
+    );
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout.trim(),
+      integratedCommit
+    );
+
+    const cleanupResult = await runCli(dir, [
+      'local',
+      'cleanup',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(cleanupResult.code, 0, cleanupResult.stderr || cleanupResult.stdout);
+    assert.notEqual(
+      (await runCommand(dir, 'git', [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        'refs/heads/feat/alpha',
+      ])).code,
+      0
+    );
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', evidenceRef])).stdout.trim(),
+      sourceFeatureTip
+    );
+    assert.equal((await readStage(dir)).stage, 'done');
+  });
+});
+
+test('local implementation approval stays separate from the default merge approval', async () => {
   await withTempDir('lsk-workflow-stage-local-implementation-approval-', async (dir) => {
     await prepareCompletedLocalFeature(dir, { finalOutcomeChecked: false });
 
     const stage = await readStage(dir);
     assert.equal(stage.stage, 'implementation_approve');
     assert.equal(stage.approvalRequired, true);
-    assert.match(stage.nextAction.summary, /fast-forward into main/i);
-    assert.match(stage.nextAction.summary, /post-merge checks/i);
-    assert.match(stage.nextAction.summary, /delete the integrated local Feature branch/i);
-    assert.match(stage.actionOptions[0].summary, /authorize fast-forward integration/i);
-    assert.match(stage.actionOptions[0].summary, /post-merge verification/i);
-    assert.match(stage.actionOptions[0].summary, /local Feature branch/i);
+    assert.match(stage.nextAction.summary, /implementation itself/i);
+    assert.match(stage.nextAction.summary, /separate local_merge approval/i);
+    assert.match(stage.actionOptions[0].summary, /separate local merge approval/i);
   });
 });
 
@@ -2636,6 +2747,8 @@ test('standalone local workflow merges the managed worktree branch in the main p
       'merge',
       'F001-alpha',
       '--json',
+      '--confirm',
+      'OK',
     ]);
     assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
     const mainTip = await runCommand(projectRoot, 'git', ['rev-parse', 'main']);
@@ -2654,7 +2767,7 @@ test('standalone local workflow merges the managed worktree branch in the main p
   });
 });
 
-test('local merge can be configured as an additional approval checkpoint', async () => {
+test('local merge enforces a required approval category with the confirm token', async () => {
   await withTempDir('lsk-workflow-stage-local-merge-approval-', async (dir) => {
     await prepareCompletedLocalFeature(dir, {
       approvalCategories: ['local_merge'],
@@ -2706,6 +2819,8 @@ test('local workflow re-verifies when the base branch advances after verificatio
       'merge',
       'F001-alpha',
       '--json',
+      '--confirm',
+      'OK',
     ]);
     assert.equal(mergeResult.code, 0, mergeResult.stderr || mergeResult.stdout);
 
@@ -2747,11 +2862,81 @@ test('local workflow stops when the base and Feature branches have diverged', as
       'merge',
       'F001-alpha',
       '--json',
+      '--confirm',
+      'OK',
     ]);
     assert.equal(result.code, 1);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'blocked');
     assert.equal(payload.reasonCode, 'LOCAL_MERGE_NOT_FAST_FORWARD');
+  });
+});
+
+test('local squash refuses a Feature whose base has diverged', async () => {
+  await withTempDir('lsk-workflow-stage-local-squash-diverged-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      completionStrategy: 'local-squash',
+    });
+    await runCommand(dir, 'git', ['checkout', 'main']);
+    await fs.writeFile(path.join(dir, 'main-only.txt'), 'main\n', 'utf-8');
+    await runCommand(dir, 'git', ['add', 'main-only.txt']);
+    const mainCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: advance squash base',
+    ]);
+    assert.equal(mainCommit.code, 0, mainCommit.stderr || mainCommit.stdout);
+    await runCommand(dir, 'git', ['checkout', 'feat/alpha']);
+
+    const result = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+      '--confirm',
+      'OK',
+    ]);
+    assert.equal(result.code, 1);
+    assert.equal(
+      JSON.parse(result.stdout.trim()).reasonCode,
+      'LOCAL_SQUASH_BASE_NOT_ANCESTOR'
+    );
+  });
+});
+
+test('local squash rolls the base branch back when its integration commit fails', async () => {
+  await withTempDir('lsk-workflow-stage-local-squash-commit-failed-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      completionStrategy: 'local-squash',
+    });
+    const originalBaseTip = (
+      await runCommand(dir, 'git', ['rev-parse', 'main'])
+    ).stdout.trim();
+    const hookPath = path.join(dir, '.git', 'hooks', 'pre-commit');
+    await fs.writeFile(hookPath, '#!/bin/sh\nexit 1\n', 'utf-8');
+    await fs.chmod(hookPath, 0o755);
+
+    const result = await runCli(dir, [
+      'local',
+      'merge',
+      'F001-alpha',
+      '--json',
+      '--confirm',
+      'OK',
+    ]);
+    assert.equal(result.code, 1);
+    assert.equal(
+      JSON.parse(result.stdout.trim()).reasonCode,
+      'LOCAL_SQUASH_COMMIT_FAILED'
+    );
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout.trim(),
+      originalBaseTip
+    );
+    assert.equal(
+      (await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(),
+      ''
+    );
   });
 });
 
@@ -2771,6 +2956,8 @@ test('failed post-merge checks keep local workflow at local_verify', async () =>
       'merge',
       'F001-alpha',
       '--json',
+      '--confirm',
+      'OK',
     ]);
     assert.equal(result.code, 1);
     const payload = JSON.parse(result.stdout.trim());

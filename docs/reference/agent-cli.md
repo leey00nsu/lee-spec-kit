@@ -50,9 +50,9 @@ Machine-readable high-level stage resolver.
 npx lee-spec-kit workflow-stage <featureRef> --json
 ```
 
-For `workflow.mode: "local"` with `completionStrategy: "local-ff"`, a completed Feature advances through `local_merge`, `local_verify`, and `local_cleanup`. Run only the exact command returned in `nextAction.command`; `done` is returned after the base branch contains the Feature tip, post-merge checks pass, the base branch is checked out, and cleanup is complete.
+For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `local_merge`, `local_verify`, and `local_cleanup`. Run only the exact command returned in `nextAction.command`. Under `local-ff`, `done` requires the base branch to contain the Feature tip. Under `local-squash`, it requires a verified squash commit with the same tree as the preserved source Feature tip. Both strategies also require passing post-merge checks, the base branch checked out, and cleanup complete.
 
-Under the default approval policy, `implementation_approve` is the user checkpoint that authorizes this remaining local completion flow, including configured local Feature-branch deletion. `local_merge` does not ask again unless it is explicitly added to `approval.requireCheckCategories`.
+Under the default approval policy, `implementation_approve` approves the completed implementation and `local_merge` is a separate user checkpoint immediately before the configured fast-forward or squash integration. That second approval covers post-merge checks and configured local cleanup, including local Feature-branch deletion. Remove `local_merge` from `approval.requireCheckCategories` only when the implementation approval should authorize the remaining local completion flow without another checkpoint.
 
 ### `local merge` / `local cleanup`
 
@@ -104,7 +104,7 @@ npx lee-spec-kit commit-audit --json
 - Standalone branch policy: keep the docs repo on its docs branch and never create feature branches or worktrees there
 - Standalone execution policy: use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project root
 - Standalone branch command policy: run the exact `workflow-stage --json` `nextAction.command`; it creates/reuses the managed worktree path, clears stale managed directories that are no longer registered Git worktrees, and copies existing project-root `.env`/`.env.*` files into a new worktree when absent
-- Local completion policy: the default for newly initialized local workflows is `local-ff`; existing local projects updated without an explicit strategy receive `none` for compatibility. Under `local-ff`, `done` requires verified integration and cleanup. `none` is the explicit exception that may finish on the Feature branch.
+- Local completion policy: the default for newly initialized local workflows is `local-ff`; `local-squash` is an explicit opt-in that creates one integration commit while retaining the source Feature tip as an internal Git ref. Existing local projects updated without an explicit strategy receive `none` for compatibility. `none` is the explicit exception that may finish on the Feature branch.
 - Docs sync proof: after syncing code back into the active feature docs, keep exactly one marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in `tasks.md`, `decisions.md`, or another active-feature canonical doc; replace its timestamp or remove duplicates instead of appending another marker so `workflow-audit` can verify the sync happened after the latest code change
 
 ## Important Rule

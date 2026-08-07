@@ -136,7 +136,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
   - `onUnavailable`: `inherit | error` when the requested model is unavailable
 - `workflow.baseBranch` (string): branch that receives a completed local Feature
-- `workflow.completionStrategy` (`"local-ff" | "none"`): fast-forward and verify local Features before `done`, or explicitly finish without integration
+- `workflow.completionStrategy` (`"local-ff" | "local-squash" | "none"`): fast-forward, create one verified squash commit, or explicitly finish without integration
 - `workflow.deleteFeatureBranchAfterMerge` (boolean): delete the integrated local Feature branch after cleanup; remote branches are never deleted
 - `workflow.postMergeChecks` (array): structured commands run from the base branch after local integration, for example `{ "command": "pnpm", "args": ["test"] }`
 - `approval` (object, optional): optional approval-checkpoint metadata for repo policy and custom validators
@@ -145,9 +145,9 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   - Current default:
     - `mode: "category"`
     - `default: "skip"`
-    - `requireCheckCategories: ["spec_approve", "implementation_approve"]`
-  - In a `local-ff` workflow, `implementation_approve` explicitly authorizes the remaining fast-forward integration, post-merge checks, managed-worktree removal, and configured local Feature-branch deletion.
-  - Add `local_merge` to `requireCheckCategories` when a separate approval immediately before integration is required.
+    - `requireCheckCategories: ["spec_approve", "implementation_approve", "local_merge"]`
+  - In a `local-ff` or `local-squash` workflow, `implementation_approve` approves the completed implementation and `local_merge` separately authorizes the configured integration, post-merge checks, managed-worktree removal, and configured local Feature-branch deletion.
+  - Remove `local_merge` from `requireCheckCategories` only when the implementation approval should authorize the remaining local completion flow without another checkpoint.
   - Approval token: `A`
   - Accepted replies: `A`, `A OK`
 - `allowedDocsEntries` (object, optional): Allowlist non-standard top-level docs entries so they are not treated as unmanaged docs
@@ -185,12 +185,12 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   "approval": {
     "mode": "category",
     "default": "skip",
-    "requireCheckCategories": ["spec_approve", "implementation_approve"]
+    "requireCheckCategories": ["spec_approve", "implementation_approve", "local_merge"]
   }
 }
 ```
 
-New local projects use `local-ff`. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` deliberately when ready.
+New local projects use `local-ff`. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
 
 ```json
 {
@@ -204,7 +204,7 @@ New local projects use `local-ff`. During `update`, an existing local project wi
   "approval": {
     "mode": "category",
     "default": "skip",
-    "requireCheckCategories": ["spec_approve", "implementation_approve"]
+    "requireCheckCategories": ["spec_approve", "implementation_approve", "local_merge"]
   }
 }
 ```

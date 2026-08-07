@@ -1857,16 +1857,25 @@ export async function collectWorkflowStage(
     );
     const localIntegrationApproval =
       config.workflow?.mode === 'local' &&
-      resolveLocalCompletionStrategy(config) === 'local-ff';
+      resolveLocalCompletionStrategy(config) !== 'none';
+    const separateLocalMergeApproval =
+      localIntegrationApproval &&
+      resolveActionApprovalRequired(config, 'local_merge', false);
     const localBaseBranch = config.workflow?.baseBranch?.trim() || 'main';
+    const localIntegrationLabel =
+      resolveLocalCompletionStrategy(config) === 'local-squash'
+        ? `squash integration into ${localBaseBranch}`
+        : `fast-forward integration into ${localBaseBranch}`;
     const localCleanupSummary =
       config.workflow?.deleteFeatureBranchAfterMerge === false
         ? 'remove any managed Feature worktree'
         : 'remove any managed Feature worktree and delete the integrated local Feature branch';
     const actionOptions = approvalRequired
       ? buildApprovalActionOptions({
-          approveSummary: localIntegrationApproval
-            ? `Approve the completed implementation and authorize fast-forward integration into ${localBaseBranch}, post-merge verification, and cleanup that will ${localCleanupSummary}.`
+          approveSummary: separateLocalMergeApproval
+            ? `Approve the completed implementation and continue to the separate local merge approval before ${localIntegrationLabel}.`
+            : localIntegrationApproval
+              ? `Approve the completed implementation and authorize ${localIntegrationLabel}, post-merge verification, and cleanup that will ${localCleanupSummary}.`
             : 'Approve the completed implementation and continue to the pre-PR or PR preparation stage.',
           holdSummary:
             'Request implementation changes before the workflow continues.',
@@ -1880,8 +1889,10 @@ export async function collectWorkflowStage(
       stage: 'implementation_approve',
       nextAction: buildAction(
         'implementation_approve',
-        localIntegrationApproval
-          ? `Share the completed implementation and get user approval for the remaining local completion flow: fast-forward into ${localBaseBranch}, run post-merge checks, then ${localCleanupSummary}. Record that approval in tasks.md.`
+        separateLocalMergeApproval
+          ? `Share the completed implementation and get user approval for the implementation itself. Record it in tasks.md; ${localIntegrationLabel} will require a separate local_merge approval.`
+          : localIntegrationApproval
+            ? `Share the completed implementation and get user approval for the remaining local completion flow: ${localIntegrationLabel}, run post-merge checks, then ${localCleanupSummary}. Record that approval in tasks.md.`
           : 'Share the completed implementation, get user approval, and record the completion checkpoint in tasks.md.',
         approvalRequired
       ),
@@ -1918,13 +1929,13 @@ export async function collectWorkflowStage(
 
   if (
     config.workflow?.mode === 'local' &&
-    resolveLocalCompletionStrategy(config) === 'local-ff'
+    resolveLocalCompletionStrategy(config) !== 'none'
   ) {
     const localState = await resolveLocalIntegrationContext(config, feature);
     const localMergeBaseCommand =
       `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
 
-    if (!localState.baseContainsFeature) {
+    if (!localState.integrationComplete) {
       const approvalRequired = resolveActionApprovalRequired(
         config,
         'local_merge',
@@ -1935,8 +1946,10 @@ export async function collectWorkflowStage(
         : localMergeBaseCommand;
       const actionOptions = approvalRequired
         ? buildApprovalActionOptions({
-            approveSummary:
-              `Fast-forward ${localState.featureBranch} into ${localState.baseBranch} and run the configured post-merge checks.`,
+          approveSummary:
+              localState.completionStrategy === 'local-squash'
+                ? `Squash ${localState.featureBranch} into ${localState.baseBranch}, preserve the source Feature tip, and run the configured post-merge checks.`
+                : `Fast-forward ${localState.featureBranch} into ${localState.baseBranch} and run the configured post-merge checks.`,
             holdSummary: 'Keep the completed Feature branch unmerged for now.',
           })
         : undefined;
@@ -1948,7 +1961,9 @@ export async function collectWorkflowStage(
         stage: 'local_merge',
         nextAction: buildAction(
           'local_merge',
-          `Fast-forward ${localState.featureBranch} into ${localState.baseBranch}; do not create a merge commit.`,
+          localState.completionStrategy === 'local-squash'
+            ? `Create one squash commit from ${localState.featureBranch} on ${localState.baseBranch} and preserve the source Feature tip as internal integration evidence.`
+            : `Fast-forward ${localState.featureBranch} into ${localState.baseBranch}; do not create a merge commit.`,
           approvalRequired,
           command
         ),
