@@ -6,7 +6,8 @@ canonical docs surface 밖의 unmanaged docs 산출물(예: `docs/plans/*`, `doc
 > ADR(Architecture Decision Record)은 구현 중 내린 중요한 기술/구조 결정을 남기는 기록입니다.
 > 나중에 "왜 이렇게 만들었는지"를 추적하고, 팀 합의를 재확인하기 위해 작성합니다.
 
-> 형식: `D{번호}: {결정 제목} ({YYYY-MM-DD})`
+> 형식: `DNNN: {결정 제목} ({YYYY-MM-DD})`
+> 결정 ID는 Feature별로 독립된 번호를 사용하며 Feature ID와 관계없이 `D001`부터 시작합니다.
 
 기록 원칙:
 

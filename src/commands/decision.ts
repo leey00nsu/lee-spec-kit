@@ -42,7 +42,6 @@ function getNextDecisionSequence(content: string): number {
 function findPlaceholderDecisionRange(content: string): {
   start: number;
   end: number;
-  sequence: number;
 } | null {
   const match = /^##\s+D(\d+):\s+.*$/m.exec(content);
   if (!match || match.index === undefined) return null;
@@ -58,11 +57,9 @@ function findPlaceholderDecisionRange(content: string): {
     /-\s+\*\*Decision\*\*:\s*(Final choice|최종 선택)/.test(block);
   if (!isPlaceholder) return null;
 
-  const sequence = Number(match[1] || '1');
   return {
     start: match.index,
     end,
-    sequence: Number.isFinite(sequence) ? sequence : 1,
   };
 }
 
@@ -123,7 +120,10 @@ async function runDecisionAdd(
 
   const content = await fs.readFile(target.path, 'utf-8');
   const placeholderRange = findPlaceholderDecisionRange(content);
-  const decisionSequence = placeholderRange?.sequence ?? getNextDecisionSequence(content);
+  // A template placeholder is not an accepted ADR. Always replace it with the
+  // first Feature-local decision, even when an older template accidentally
+  // rendered the Feature number into the placeholder heading.
+  const decisionSequence = placeholderRange ? 1 : getNextDecisionSequence(content);
   const decisionId = `D${String(decisionSequence).padStart(3, '0')}`;
   const recordedAt = localDate();
   const block = formatDecisionBlock({
