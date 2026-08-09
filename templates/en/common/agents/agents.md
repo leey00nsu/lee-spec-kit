@@ -42,6 +42,12 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not use `docs/designs/` for system architecture, data/API design, technical research, or implementation plans.
 - Follow the detailed routing rules in `docs/README.md`.
 
+## Optional UI/UX Design Policy
+
+- Only when the user request explicitly mentions a design system, UI/visual redesign, design consistency, shared UI/component-library consolidation, branding/theme/token redesign, or implementation from Figma/design images, read and apply `npx lee-spec-kit docs get ui-ux-design --json`.
+- Do not apply this policy merely because the target is web/frontend, to a non-UI/backend Feature, or to a simple bug fix unrelated to durable design rules.
+- This is optional guidance, not a `requiredDocs` entry or workflow approval gate.
+
 ## Execution Rules
 
 - lee-spec-kit owns docs structure, workflow stages, and validators.

@@ -17,6 +17,7 @@ Recording principles:
   - Right before task done (`[DOING] -> [DONE]`): finalize `Options/Decision/Rationale` and enrich `Trace`
   - After PR merge: append 1-2 lines in `Trace (post-merge check)` with actual outcome/impact
 - Every ADR must include at least one **Evidence link** (commit, PR, or test/log evidence).
+- For a design-system change or exception, also record the affected rule and scope, rationale, removal condition, and synchronization impact on executable authorities.
 
 ---
 

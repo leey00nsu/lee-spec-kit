@@ -13,6 +13,7 @@
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
   - `[NON-PRD]` is for internal implementation work only. If the task changes user-facing behavior, acceptance criteria, or scope, backfill PRD first and tag it as `[PRD-...]`.
+- **Design-system synchronization (conditional)**: when a task changes `docs/designs/design-system.md`, track the affected design docs, token/theme files, shared UI, Storybook/workbench examples, and verification in that same task's `Checklist`. Do not edit an unaffected surface; confirm its impact instead.
 
 ---
 

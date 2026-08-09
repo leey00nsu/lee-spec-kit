@@ -32,7 +32,10 @@ Machine-readable built-in policy docs.
 ```bash
 npx lee-spec-kit docs get agents --json
 npx lee-spec-kit docs get create-pr --json
+npx lee-spec-kit docs get ui-ux-design --json
 ```
+
+`ui-ux-design` is optional. Read it only when the request explicitly concerns a design system, UI/visual redesign, design consistency, shared UI/component-library consolidation, branding/theme/token redesign, or implementation from Figma/design images. It is deliberately absent from the startup `requiredDocs` list and does not add a workflow gate.
 
 ### `workflow-audit`
 

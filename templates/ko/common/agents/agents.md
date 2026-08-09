@@ -42,6 +42,12 @@
 - `docs/designs/`를 시스템 아키텍처, 데이터/API 설계, 기술 조사, 구현 계획의 목적지로 사용하지 않습니다.
 - 세부 설명은 `docs/README.md`의 문서 라우팅 규칙을 따릅니다.
 
+## 선택적 UI/UX 디자인 정책
+
+- 사용자 요청에 design system, UI/visual redesign, 디자인 일관성, 공통 UI/component library 정리, branding/theme/token 재설계, Figma/디자인 이미지 기반 구현이 명시된 경우에만 `npx lee-spec-kit docs get ui-ux-design --json`을 읽고 적용합니다.
+- 단순히 대상이 web/frontend인 경우, 비 UI/backend Feature, 장기 디자인 규칙과 무관한 단순 버그 수정에는 이 정책을 적용하지 않습니다.
+- 이 문서는 선택적 권장 정책이며 `requiredDocs`나 workflow 승인 gate가 아닙니다.
+
 ## 실행 규칙
 
 - lee-spec-kit은 문서 구조, workflow 단계, validator를 담당합니다.

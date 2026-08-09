@@ -14,7 +14,8 @@ export type BuiltinDocId =
   | 'execute-task'
   | 'create-issue'
   | 'create-pr'
-  | 'split-feature';
+  | 'split-feature'
+  | 'ui-ux-design';
 
 interface BuiltinDocDefinition {
   id: BuiltinDocId;
@@ -82,6 +83,15 @@ const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
     relativePath: (_, lang) =>
       path.join(lang, 'common', 'agents', 'skills', 'split-feature.md'),
   },
+  {
+    id: 'ui-ux-design',
+    title: {
+      ko: '선택적 UI/UX 디자인 문서 정책',
+      en: 'Optional UI/UX Design Documentation Policy',
+    },
+    relativePath: (_, lang) =>
+      path.join(lang, 'common', 'agents', 'ui-ux-design.md'),
+  },
 ];
 
 const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
@@ -103,6 +113,7 @@ const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
   'create-issue': ['issue-doc'],
   'create-pr': ['pr-doc'],
   'split-feature': [],
+  'ui-ux-design': [],
 };
 
 const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
@@ -148,6 +159,7 @@ export function normalizeBuiltinDocId(input: string): BuiltinDocId | null {
   if (normalized === 'split-feature') {
     return 'split-feature';
   }
+  if (normalized === 'ui-ux-design') return 'ui-ux-design';
   if (normalized === 'agents') return 'agents';
   return null;
 }

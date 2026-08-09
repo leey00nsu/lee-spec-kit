@@ -60,3 +60,6 @@
   - If this is a legacy requirements doc without PRD IDs yet, backfill IDs in the source first, then update this field and the `tasks.md` task tags together.
   - When requirements/scope change, update PRD docs + this field + `tasks.md` task tags together.
   - If implementation discovers a better user-facing behavior and the shipped requirement changes, treat that as a PRD update, not a permanent `[NON-PRD]` exception.
+- Design Refs: - (optional; use project-root paths only for explicit UI/UX design work)
+  - Design System: - (e.g. `docs/designs/design-system.md`)
+  - Visual Brief: - (e.g. `docs/designs/<feature-visual-brief>.md`)

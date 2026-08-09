@@ -60,3 +60,6 @@
   - 레거시 요구사항 문서에 아직 PRD ID가 없다면, 먼저 원문에 ID를 backfill한 뒤 이 필드와 `tasks.md` 태스크 태그를 함께 갱신하세요.
   - 요구사항/스코프 변경 시 PRD 문서 + 이 필드 + `tasks.md` 태스크 태그를 함께 갱신하세요.
   - 구현 중 더 나은 사용자 동작이 발견되어 최종 요구사항이 바뀌었다면, 이를 영구적인 `[NON-PRD]` 예외로 두지 말고 PRD 업데이트로 취급하세요.
+- Design Refs: - (선택 사항, 명시적인 UI/UX 디자인 작업에만 프로젝트 루트 기준 경로 사용)
+  - Design System: - (예: `docs/designs/design-system.md`)
+  - Visual Brief: - (예: `docs/designs/<feature-visual-brief>.md`)

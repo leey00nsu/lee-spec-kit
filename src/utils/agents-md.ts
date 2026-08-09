@@ -66,6 +66,12 @@ Validation:
 
 - Prefer \`npx lee-spec-kit commit-audit --json\` for commit-time staged docs path validation
 - Prefer \`npx lee-spec-kit workflow-audit --json\` as the default docs-sync validator for Codex hooks and end-of-turn checks; it expects the active feature docs to carry one fresh \`lee-spec-kit:workflow-sync\` marker after meaningful code/doc sync
+
+Optional UI/UX design policy:
+
+- Only when the user request explicitly mentions a design system, UI/visual redesign, design consistency, shared UI/component-library consolidation, branding/theme/token redesign, or implementation from Figma/design images, read and apply \`npx lee-spec-kit docs get ui-ux-design --json\`
+- Do not apply that policy merely because the target is web/frontend, to a non-UI/backend Feature, or to a simple bug fix unrelated to durable design rules
+- Treat it as optional guidance, not a \`requiredDocs\` entry or workflow approval gate
 `;
 
 function renderManagedSegment(

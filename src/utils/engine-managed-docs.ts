@@ -6,6 +6,7 @@ export const ENGINE_MANAGED_AGENT_FILES = [
   'git-workflow.md',
   'issue-template.md',
   'pr-template.md',
+  'ui-ux-design.md',
 ] as const;
 
 export const ENGINE_MANAGED_AGENT_DIRS = ['skills'] as const;

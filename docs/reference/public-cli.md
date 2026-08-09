@@ -53,7 +53,10 @@ Read built-in policy docs that the agent uses at session start.
 ```bash
 npx lee-spec-kit docs list
 npx lee-spec-kit docs get agents --json
+npx lee-spec-kit docs get ui-ux-design --json
 ```
+
+`ui-ux-design` is optional and should be read only for explicit UI/UX design-system or visual-redesign work; it is not part of startup `requiredDocs` and adds no workflow gate.
 
 ### `detect`
 
