@@ -45,7 +45,7 @@ Feature는 PRD → idea → feature 흐름에서 실제 구현을 진행하는 �
 - 번호는 **최소 3자리 패딩** (001, 002, ...)
 - 999를 초과하면 **4자리 이상으로 확장** (F1000, F1001, ...)
 - 기능명은 kebab-case
-- **Feature = Issue**: 각 Feature는 하나의 GitHub Issue에 대응됩니다.
+- **Feature 식별자는 workflow에 따라 결정**: GitHub workflow에서는 각 Feature가 하나의 GitHub Issue에 대응합니다. local workflow에서는 Issue 없이 `F027` 같은 안정적인 Feature ID를 canonical 식별자로 사용합니다.
 
 ---
 

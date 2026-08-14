@@ -435,3 +435,130 @@ test('commit-audit allows issue-scoped docs commit subjects for docs-only change
     assert.equal(payload.reasonCode, 'COMMIT_ALLOWED');
   });
 });
+
+test('commit-audit allows feature-id-scoped local project commit subjects', async () => {
+  await withTempDir('lsk-commit-audit-local-project-message-', async (dir) => {
+    await initRepo(dir);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'index.ts'), 'export const alpha = true;\n', 'utf-8');
+    await stage(dir, 'src/index.ts');
+
+    const auditResult = await runCli(dir, [
+      'commit-audit',
+      '--json',
+      '--message',
+      'feat(F001): implement alpha shell',
+    ]);
+    const payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'COMMIT_ALLOWED');
+  });
+});
+
+test('commit-audit blocks full feature refs and missing scopes in local commits', async () => {
+  await withTempDir('lsk-commit-audit-local-project-message-block-', async (dir) => {
+    await initRepo(dir);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'index.ts'), 'export const alpha = true;\n', 'utf-8');
+    await stage(dir, 'src/index.ts');
+
+    for (const message of [
+      'feat(F001-alpha): implement alpha shell',
+      'feat: F001 implement alpha shell',
+    ]) {
+      const auditResult = await runCli(dir, [
+        'commit-audit',
+        '--json',
+        '--message',
+        message,
+      ]);
+      const payload = JSON.parse(auditResult.stdout.trim());
+      assert.equal(payload.status, 'blocked');
+      assert.equal(payload.reasonCode, 'COMMIT_MESSAGE_POLICY_VIOLATION');
+    }
+  });
+});
+
+test('commit-audit allows canonical local docs subjects and style project commits', async () => {
+  await withTempDir('lsk-commit-audit-local-docs-message-', async (dir) => {
+    await initRepo(dir);
+
+    const decisionsPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'decisions.md');
+    await fs.appendFile(decisionsPath, '\n- local follow-up\n', 'utf-8');
+    await stage(dir, 'docs/features/F001-alpha/decisions.md');
+
+    const docsAudit = await runCli(dir, [
+      'commit-audit',
+      '--json',
+      '--message',
+      'docs(F001): update alpha docs',
+    ]);
+    assert.equal(JSON.parse(docsAudit.stdout.trim()).status, 'ok');
+
+    const reset = await runCommand(dir, 'git', ['reset']);
+    assert.equal(reset.code, 0, reset.stderr || reset.stdout);
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'index.ts'), 'export const alpha = true;\n', 'utf-8');
+    await stage(dir, 'src/index.ts');
+
+    const styleAudit = await runCli(dir, [
+      'commit-audit',
+      '--json',
+      '--message',
+      'style(F001): normalize alpha formatting',
+    ]);
+    assert.equal(JSON.parse(styleAudit.stdout.trim()).status, 'ok');
+  });
+});
+
+test('commit-audit reads the canonical subject from a commit-msg file', async () => {
+  await withTempDir('lsk-commit-audit-message-file-', async (dir) => {
+    await initRepo(dir);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'index.ts'), 'export const alpha = true;\n', 'utf-8');
+    await stage(dir, 'src/index.ts');
+    const messagePath = path.join(dir, 'COMMIT_EDITMSG');
+    await fs.writeFile(
+      messagePath,
+      '# generated comment\n\nfeat(F001): implement alpha shell\n\nbody\n',
+      'utf-8'
+    );
+
+    const auditResult = await runCli(dir, [
+      'commit-audit',
+      '--json',
+      '--message-file',
+      messagePath,
+    ]);
+    const payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'COMMIT_ALLOWED');
+  });
+});
+
+test('commit-audit --enforce exits non-zero for an invalid commit-msg file', async () => {
+  await withTempDir('lsk-commit-audit-message-file-enforce-', async (dir) => {
+    await initRepo(dir);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'index.ts'), 'export const alpha = true;\n', 'utf-8');
+    await stage(dir, 'src/index.ts');
+    const messagePath = path.join(dir, 'COMMIT_EDITMSG');
+    await fs.writeFile(messagePath, 'feat(F001-alpha): invalid local scope\n', 'utf-8');
+
+    const auditResult = await runCli(dir, [
+      'commit-audit',
+      '--json',
+      '--message-file',
+      messagePath,
+      '--enforce',
+    ]);
+    assert.equal(auditResult.code, 1);
+    const payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'blocked');
+    assert.equal(payload.reasonCode, 'COMMIT_MESSAGE_POLICY_VIOLATION');
+  });
+});

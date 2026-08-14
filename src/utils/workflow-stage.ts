@@ -26,6 +26,7 @@ import {
   parseWorkflowDraftMetadata,
   type WorkflowDraftMetadata,
 } from '../services/GithubWorkflowService.js';
+import { resolveFeatureCommitScope } from './commit-conventions.js';
 import { runProcess } from '../commands/github/process.js';
 import { isPrePrEvidenceSatisfied } from './pre-pr-evidence.js';
 import {
@@ -685,12 +686,13 @@ function buildTaskCommitSummary(input: {
   gateFailureReason?: string | null;
 }): string {
   const { feature, tasks, effectiveProjectGitCwd, docsDirty, projectDirty, gateFailureReason } = input;
-  const docsMessage = tasks.issueNumber
-    ? `git -C "${feature.git.docsGitCwd}" add "${feature.docs.featurePathFromDocs}" && git -C "${feature.git.docsGitCwd}" commit -m "docs(#${tasks.issueNumber}): ${feature.folderName} 문서 업데이트"`
-    : `git -C "${feature.git.docsGitCwd}" add "${feature.docs.featurePathFromDocs}" && git -C "${feature.git.docsGitCwd}" commit -m "docs: ${feature.folderName} 문서 업데이트"`;
-  const projectMessage = tasks.issueNumber
-    ? `Stage only the files touched by the just-finished task in "${effectiveProjectGitCwd}", then commit with: git -C "${effectiveProjectGitCwd}" commit -m "feat(#${tasks.issueNumber}): ${resolveProjectCommitTopic(feature, tasks)}"`
-    : `Stage only the files touched by the just-finished task in "${effectiveProjectGitCwd}", then commit with: git -C "${effectiveProjectGitCwd}" commit -m "feat(${feature.folderName}): ${resolveProjectCommitTopic(feature, tasks)}"`;
+  const scope = resolveFeatureCommitScope({
+    issueNumber: tasks.issueNumber,
+    featureId: feature.id,
+    workflowMode: tasks.issueNumber ? 'github' : 'local',
+  }) || feature.id;
+  const docsMessage = `git -C "${feature.git.docsGitCwd}" add "${feature.docs.featurePathFromDocs}" && git -C "${feature.git.docsGitCwd}" commit -m "docs(${scope}): ${feature.folderName} 문서 업데이트"`;
+  const projectMessage = `Stage only the files touched by the just-finished task in "${effectiveProjectGitCwd}", then commit with: git -C "${effectiveProjectGitCwd}" commit -m "feat(${scope}): ${resolveProjectCommitTopic(feature, tasks)}"`;
 
   const lines = ['Finish the task-level commit checkpoint before continuing.'];
   if (gateFailureReason) {

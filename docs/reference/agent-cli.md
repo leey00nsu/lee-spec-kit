@@ -90,11 +90,15 @@ Approval note:
 
 ### `commit-audit`
 
-Commit-time docs path validator for Codex hooks.
+Commit-time docs-path and canonical commit-subject validator. Feature-scoped subjects use `#123` when a GitHub Issue is linked and the stable Feature ID such as `F027` for issue-less local workflows.
 
 ```bash
 npx lee-spec-kit commit-audit --json
+npx lee-spec-kit commit-audit --message "feat(F027): implement notification settings" --json
+npx lee-spec-kit commit-audit --message-file "$1" --enforce --json
 ```
+
+`--message-file` is intended for Git `commit-msg` hooks and reads the first non-empty, non-comment subject line. Add `--enforce` in Git hooks or CI so a blocked audit exits non-zero. Do not use full refs such as `F027-notification-settings` as commit scopes.
 
 ## Runtime Policy
 
@@ -102,7 +106,7 @@ npx lee-spec-kit commit-audit --json
 - Docs SSOT: active feature docs and linked issue/PR docs
 - Stage gate: obey `workflow-stage --json` before implementation and only implement when it explicitly allows implementation
 - Approval: ask only at documented workflow checkpoints or before remote/destructive actions
-- Commit guard: block `git commit` when staged docs paths fall outside the canonical docs surface or feature-local file set
+- Commit guard: block `git commit` when staged docs paths fall outside the canonical docs surface or feature-local file set, or when a supplied commit subject does not use the canonical Feature scope
 - Standalone workspace mode: when `docsRepo === "standalone"`, both `workspaceRoot` and `projectRoot` are required; `workspaceRoot` is the shared root above `docs/` and the code repo(s), and `.codex/` plus managed `AGENTS.md` stay on the workspace/docs side instead of the project repo
 - Standalone branch policy: keep the docs repo on its docs branch and never create feature branches or worktrees there
 - Standalone execution policy: use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project root

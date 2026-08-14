@@ -51,13 +51,13 @@ Approval and remote actions:
 - If `workflow-stage --json` reports `approvalRequired === true`, stop at that boundary and ask the user before proceeding
 - If `workflow-stage --json` returns labeled `actionOptions` at any approval boundary, keep the same option labels and exact `reply` tokens in the user prompt and do not improvise different reply formats
 - If `workflow-stage --json` reports `nextAction.category === "task_commit"`, make the docs commit and project commit for the just-finished task before starting the next task or moving to the next stage
-- Before `git commit`, prefer `npx lee-spec-kit commit-audit --json` when hooks or manual checks need commit-time docs path enforcement
+- Before `git commit`, prefer `npx lee-spec-kit commit-audit --json`; Feature-scoped commits use `#123` when an Issue is linked and the stable Feature ID such as `F027` for issue-less local workflows
 - Before remote GitHub actions, share the plan or artifact being sent
 - Respect repo policy from docs and config first; hooks only enforce guardrails and continuation checks
 
 Validation:
 
-- Prefer `npx lee-spec-kit commit-audit --json` for commit-time staged docs path validation
+- Prefer `npx lee-spec-kit commit-audit --json` for commit-time staged docs path validation and canonical commit-subject validation
 - Prefer `npx lee-spec-kit workflow-audit --json` as the default docs-sync validator for Codex hooks and end-of-turn checks; it expects the active feature docs to carry one fresh `lee-spec-kit:workflow-sync` marker after meaningful code/doc sync
 
 Optional UI/UX design policy:

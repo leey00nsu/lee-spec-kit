@@ -53,12 +53,12 @@ After installation, run `/hooks` in Codex and review and trust each generated pr
 ### `PreToolUse`
 
 - Adds Bash-level guardrails before remote or destructive commands
-- Uses `commit-audit --json` before allowing `git commit`
+- Uses `commit-audit --json` before allowing `git commit`, and passes `git commit -m/--message` subjects for canonical Feature-scope validation (`#123` for linked Issues, `F027` for issue-less local Features)
 - Uses `workflow-audit --json` before allowing risky remote or destructive commands
 - In `standalone`, commit-time docs validation follows the actual `git -C <repo>` target while workflow sync checks `projectRoot` against the active feature docs and only writes/install files through the configured `workspaceRoot`
 - In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so docs stay on the docs branch, while the exact branch-stage `nextAction.command` is allowed and points at the shared workspace `.worktrees/` root instead of the main project checkout
 
-`PreToolUse` is a workflow guardrail, not a complete security boundary. Current Codex releases do not intercept every `unified_exec` shell path, web tool, or equivalent side-effect path. Keep irreversible policy enforcement in Git hooks, CI, repository permissions, or managed Codex policy.
+`PreToolUse` is a workflow guardrail, not a complete security boundary. Current Codex releases do not intercept every `unified_exec` shell path, web tool, or equivalent side-effect path. For Git-native commit-message enforcement, a `commit-msg` hook can call `npx lee-spec-kit commit-audit --message-file "$1" --enforce --json`; keep irreversible policy enforcement in Git hooks, CI, repository permissions, or managed Codex policy.
 
 ### `Stop`
 

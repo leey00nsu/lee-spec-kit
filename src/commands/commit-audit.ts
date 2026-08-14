@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getConfig } from '../utils/config.js';
 import { runGitCapture } from '../utils/git-run.js';
@@ -16,12 +17,15 @@ import {
 import {
   matchesDocsCommitConvention,
   matchesProjectCommitConvention,
+  resolveFeatureCommitScope,
 } from '../utils/commit-conventions.js';
 
 interface CommitAuditOptions {
   json?: boolean;
   gitRoot?: string;
   message?: string;
+  messageFile?: string;
+  enforce?: boolean;
 }
 
 type CommitAuditReasonCode =
@@ -70,17 +74,23 @@ const FEATURE_DOC_CANDIDATE_PATTERN =
 export function commitAuditCommand(program: Command): void {
   program
     .command('commit-audit')
-    .description('Validate staged docs paths before commit')
+    .description('Validate staged docs paths and canonical commit subjects before commit')
     .option('--json', 'Output JSON for hooks and agents')
     .option('--git-root <path>', 'Override the git root used for staged-path inspection')
     .option('--message <message>', 'Validate a commit subject against the current workflow convention')
+    .option('--message-file <path>', 'Read and validate the commit subject from a commit message file')
+    .option('--enforce', 'Exit non-zero when commit-audit blocks the commit')
     .action(async (options: CommitAuditOptions) => {
       try {
+        const commitMessage = await resolveCommitMessageInput(process.cwd(), options);
         const payload = await collectCommitAudit(
           process.cwd(),
           options.gitRoot,
-          options.message
+          commitMessage
         );
+        if (options.enforce && payload.status === 'blocked') {
+          process.exitCode = 1;
+        }
         if (options.json) {
           console.log(JSON.stringify(payload, null, 2));
           return;
@@ -109,12 +119,33 @@ export function commitAuditCommand(program: Command): void {
               2
             )
           );
+          if (options.enforce) process.exitCode = 1;
           return;
         }
         process.stderr.write(`[${cliError.code}] ${cliError.message}\n`);
         process.exitCode = 1;
       }
     });
+}
+
+async function resolveCommitMessageInput(
+  cwd: string,
+  options: CommitAuditOptions
+): Promise<string | undefined> {
+  if (options.message && options.messageFile) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      'Use either --message or --message-file, not both.'
+    );
+  }
+  if (options.message) return options.message;
+  if (!options.messageFile) return undefined;
+
+  const content = await fs.readFile(path.resolve(cwd, options.messageFile), 'utf-8');
+  return content
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0 && !line.startsWith('#'));
 }
 
 async function collectCommitAudit(
@@ -418,11 +449,18 @@ async function collectCommitMessageViolation(
   }
 
   const selection = await resolveFeatureSelection(cwd);
-  if (selection.status !== 'selected' || !selection.matchedFeature?.issueNumber) {
+  if (selection.status !== 'selected' || !selection.matchedFeature) {
     return null;
   }
 
-  const issueNumber = selection.matchedFeature.issueNumber;
+  const scope = resolveFeatureCommitScope({
+    issueNumber: selection.matchedFeature.issueNumber,
+    featureId: selection.matchedFeature.id,
+    workflowMode: config.workflow?.mode,
+  });
+  if (!scope) {
+    return null;
+  }
   const docsRepoRoot = runGitCapture(['rev-parse', '--show-toplevel'], config.docsDir);
   const normalizedRepoRoot = path.resolve(repoRoot);
   const normalizedDocsRepoRoot = docsRepoRoot ? path.resolve(docsRepoRoot) : null;
@@ -438,19 +476,19 @@ async function collectCommitMessageViolation(
     normalizedDocsRepoRoot === normalizedRepoRoot &&
     (config.docsRepo === 'standalone' || docsOnlyCommit);
   const valid = isDocsCommit
-    ? matchesDocsCommitConvention(normalizedMessage, issueNumber)
-    : matchesProjectCommitConvention(normalizedMessage, issueNumber);
+    ? matchesDocsCommitConvention(normalizedMessage, scope)
+    : matchesProjectCommitConvention(normalizedMessage, scope);
   if (valid) {
     return null;
   }
 
   const expected = isDocsCommit
-    ? `docs(#${issueNumber}): ...`
-    : `type(#${issueNumber}): ... (feat/fix/refactor/test/chore)`;
+    ? `docs(${scope}): ...`
+    : `type(${scope}): ... (feat/fix/refactor/test/style/chore)`;
   return {
     path: '(commit message)',
     kind: 'commit_message_policy',
-    detail: `Commit subject must follow the issue-scoped convention for this feature. Expected ${expected}, received "${normalizedMessage}".`,
+    detail: `Commit subject must follow the canonical feature-scoped convention. Expected ${expected}, received "${normalizedMessage}".`,
   };
 }
 

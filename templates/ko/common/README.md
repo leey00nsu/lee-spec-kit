@@ -16,7 +16,7 @@ npx lee-spec-kit docs get agents --json
 - 기본 실행 경로는 workspace-scoped `AGENTS.md`, Codex 공식 hooks, 그리고 활성 feature 문서입니다.
 - 활성 feature를 정한 뒤에는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 작업 SSOT로 사용합니다.
 - 사용자 승인 요청은 문서화된 workflow checkpoint와 원격/파괴적 작업 전에만 합니다.
-- staged된 docs 경로 검사가 필요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
+- `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용해 staged docs 경로와 canonical Feature-scoped commit 형식을 검증합니다.
 - 코드나 feature 문서를 바꿨다면 종료 전 `npx lee-spec-kit workflow-audit --json`로 동기화 상태를 확인합니다.
 - `isLeeSpecKitProject: false`면 lee-spec-kit 전용 절차를 건너뛰고 일반 워크플로우로 진행합니다.
 

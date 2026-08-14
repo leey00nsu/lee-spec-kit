@@ -299,7 +299,7 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
   const commit = await runCommand(dir, 'git', [
     'commit',
     '-m',
-    'feat(F001-alpha): implement alpha shell',
+    'feat(F001): implement alpha shell',
   ]);
   assert.equal(commit.code, 0, commit.stderr || commit.stdout);
 }
@@ -404,7 +404,7 @@ process.exit(0);
 
 async function commitFeatureDocs(
   dir,
-  message = 'docs: F001-alpha progress',
+  message = 'docs(F001): F001-alpha progress',
   extraPaths = []
 ) {
   const add = await runCommand(dir, 'git', [
@@ -2568,6 +2568,10 @@ test('local squash creates one integration commit and preserves the source Featu
       await runCommand(dir, 'git', ['rev-parse', 'main'])
     ).stdout.trim();
     assert.notEqual(integratedCommit, sourceFeatureTip);
+    const integratedSubject = (
+      await runCommand(dir, 'git', ['log', '-1', '--pretty=%s', 'main'])
+    ).stdout.trim();
+    assert.equal(integratedSubject, 'feat(F001): integrate alpha');
     const parents = (
       await runCommand(dir, 'git', ['rev-list', '--parents', '-n', '1', 'main'])
     ).stdout.trim().split(/\s+/u);
@@ -2736,7 +2740,7 @@ test('standalone local workflow merges the managed worktree branch in the main p
     const commitProject = await runCommand(worktreePath, 'git', [
       'commit',
       '-m',
-      'feat(F001-alpha): implement alpha shell',
+      'feat(F001): implement alpha shell',
     ]);
     assert.equal(commitProject.code, 0, commitProject.stderr || commitProject.stdout);
 
@@ -3007,10 +3011,10 @@ test('workflow-stage reaches done when merge is not required and the feature is 
     tasks = tasks.replace('- [ ] Tests executed and passing (record command/result below)', '- [x] Tests executed and passing (record command/result below)');
     tasks = tasks.replace('- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint', '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint');
     await fs.writeFile(tasksPath, tasks, 'utf-8');
-    await commitFeatureDocs(dir, 'docs: F001-alpha 문서 업데이트', [
+    await commitFeatureDocs(dir, 'docs(F001): F001-alpha 문서 업데이트', [
       'docs/.lee-spec-kit.json',
     ]);
-    await commitTaskProject(dir, 'feat(F001-alpha): implement alpha shell');
+    await commitTaskProject(dir, 'feat(F001): implement alpha shell');
 
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'done');

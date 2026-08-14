@@ -1,6 +1,6 @@
-# Feature 범위 분할 가이드 (Feature = Issue 유지)
+# Feature 범위 분할 가이드
 
-하나의 Feature/Issue가 리뷰 가능한 범위를 넘었을 때 사용하는 가이드입니다.
+하나의 Feature가 리뷰 가능한 범위를 넘었을 때 사용하는 가이드입니다. GitHub workflow에서는 Feature가 Issue에 대응하고, local workflow에서는 Feature ID로 추적합니다.
 
 ---
 
@@ -16,7 +16,8 @@
 주의:
 
 - 작은 범위, 강결합 작업은 단일 이슈 유지가 가능합니다.
-- "Feature = Issue" 원칙을 유지하면서 연관 child 이슈/feature를 생성합니다.
+- GitHub workflow에서는 각 child Feature에 대응하는 child Issue를 생성합니다.
+- local workflow에서는 Issue 없이 각 child Feature의 고유 Feature ID로 추적합니다.
 
 ---
 

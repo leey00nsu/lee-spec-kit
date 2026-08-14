@@ -6,11 +6,11 @@
 
 ## 핵심 개념
 
-| 개념      | GitHub 매핑  | 설명                    |
-| --------- | ------------ | ----------------------- |
-| Feature   | GitHub Issue | 기능 단위 작업          |
-| 태스크    | Commit       | 개별 구현 단위          |
-| 기능 완료 | Pull Request | Feature 완료 시 PR 생성 |
+| 개념      | GitHub workflow | Local workflow | 설명                    |
+| --------- | --------------- | -------------- | ----------------------- |
+| Feature   | GitHub Issue    | Feature ID     | 기능 단위 작업          |
+| 태스크    | Commit          | Commit         | 개별 구현 단위          |
+| 기능 완료 | Pull Request    | Local merge    | Feature 완료 통합       |
 
 ---
 
@@ -50,9 +50,26 @@ main
 
 ### 형식
 
-```
+Feature scope는 아래 canonical 형식 중 하나만 사용하며, 에이전트가 임의의 scope 형식을 만들지 않습니다.
+
+```text
+# GitHub Issue가 연결된 Feature
 {type}(#{issue}): {description}
+
+# Issue가 없는 local Feature
+{type}({featureId}): {description}
 ```
+
+예:
+
+```text
+feat(#123): 사용자 인증 구현
+docs(#123): 인증 스펙 명확화
+feat(F027): 알림 설정 구현
+docs(F027): 알림 문서 업데이트
+```
+
+local Feature의 scope는 안정적인 Feature ID(`F027`)입니다. 전체 폴더 ref인 `F027-notification-settings`를 scope로 사용하지 않으며, `docs: F027 ...`처럼 Feature scope를 생략한 커밋도 canonical 형식이 아닙니다.
 
 ### Type 목록
 
@@ -114,15 +131,17 @@ git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-numbe
 
 #### Standalone 모드 커밋 가이드
 
+workflow에 따라 scope를 선택합니다. Issue가 연결되어 있으면 `#123`, Issue 없는 local Feature라면 `F027` 같은 Feature ID를 사용합니다.
+
 1. **Project 커밋** (코드 변경사항이 있는 경우)
 
    ```bash
-   git commit -m "feat(#123): 기능 구현"
+   git commit -m "feat(F027): 기능 구현"
    ```
 
 2. **Docs 커밋** (문서 변경사항이 있는 경우 - **Docs 레포에서 실행**)
    ```bash
-   git commit -m "docs(#123): 기능 구현 문서 업데이트"
+   git commit -m "docs(F027): 기능 구현 문서 업데이트"
    ```
 
 > 💡 **Core Rule**: 태스크 완료 시점에는 **변경된 모든 레포지토리**가 커밋되어야 합니다.

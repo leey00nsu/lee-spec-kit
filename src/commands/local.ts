@@ -15,6 +15,7 @@ import {
   writeLocalIntegrationState,
   type LocalIntegrationState,
 } from '../utils/local-integration.js';
+import { resolveFeatureCommitScope } from '../utils/commit-conventions.js';
 
 interface LocalActionOptions {
   component?: string;
@@ -244,7 +245,7 @@ async function runLocalMerge(
     }
     const integration =
       context.completionStrategy === 'local-squash'
-        ? integrateLocalSquash(context, feature.folderName, feature.slug)
+        ? integrateLocalSquash(context, feature.folderName, feature.id, feature.slug)
         : integrateLocalFastForward(context, feature.folderName);
     if (integration.status !== 'ok') return integration.payload;
 
@@ -456,6 +457,7 @@ function integrateLocalFastForward(
 function integrateLocalSquash(
   context: Awaited<ReturnType<typeof resolveLocalIntegrationContext>>,
   featureRef: string,
+  featureId: string,
   featureSlug: string
 ): { status: 'ok' } | { status: 'blocked'; payload: LocalActionPayload } {
   const originalBaseTip = context.baseTip;
@@ -479,10 +481,26 @@ function integrateLocalSquash(
     };
   }
 
+  const scope = resolveFeatureCommitScope({
+    featureId,
+    workflowMode: 'local',
+  });
+  if (!scope) {
+    rollbackSquash(context.projectRoot, originalBaseTip);
+    return {
+      status: 'blocked',
+      payload: blocked(
+        'LOCAL_SQUASH_COMMIT_SCOPE_INVALID',
+        featureRef,
+        `Could not resolve a canonical local commit scope from ${featureId}.`
+      ),
+    };
+  }
+
   const commit = gitRun(context.projectRoot, [
     'commit',
     '-m',
-    `feat(${featureRef}): integrate ${featureSlug}`,
+    `feat(${scope}): integrate ${featureSlug}`,
   ]);
   if (commit.code !== 0) {
     rollbackSquash(context.projectRoot, originalBaseTip);

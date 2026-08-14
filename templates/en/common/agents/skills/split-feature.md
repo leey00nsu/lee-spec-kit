@@ -16,7 +16,8 @@ Use this guide when one Feature/Issue becomes too large to review safely.
 Notes:
 
 - Keep one issue only for small, tightly coupled work.
-- Preserve "Feature = Issue" by creating multiple linked child issues/features.
+- In GitHub workflow, create one linked child Issue for each child Feature.
+- In local workflow, track each child Feature by its own Feature ID without requiring Issues.
 
 ---
 

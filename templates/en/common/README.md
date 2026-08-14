@@ -16,7 +16,7 @@ npx lee-spec-kit docs get agents --json
 - Use workspace-scoped `AGENTS.md`, official Codex hooks, and the active feature docs as the default runtime path.
 - Resolve the active feature, then treat `spec.md`, `plan.md`, `tasks.md`, and `decisions.md` as the working SSOT.
 - Ask for approval only at documented workflow checkpoints and before remote or destructive actions.
-- Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
+- Use `npx lee-spec-kit commit-audit --json` before `git commit` for staged docs-path checks and canonical Feature-scoped commit validation.
 - Use `npx lee-spec-kit workflow-audit --json` before stopping when code or feature docs changed.
 - If `isLeeSpecKitProject: false`, skip lee-spec-kit-specific flow and continue with normal workflow.
 

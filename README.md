@@ -77,7 +77,7 @@ npx lee-spec-kit feature user-auth
 - `github`: issue/pr 본문 생성 및 검증
 - `integrations codex-hooks`: 현재 workspace와 configured project root용 Codex hooks 생성/제거
 - `integrations codex`: 선택적 전역 `[features].hooks` 설정 설치/제거
-- `commit-audit --json`: hooks용 commit-time docs path validator
+- `commit-audit --json`: hooks용 commit-time docs path + canonical commit subject validator
 - `workflow-audit --json`: hooks용 docs sync validator
 - `local merge <feature-ref> --json`: 완료된 local Feature를 설정된 fast-forward 또는 squash 전략으로 base branch에 통합하고 사후 검증 실행
 - `local cleanup <feature-ref> --json`: managed worktree 제거 및 설정에 따른 통합 완료 Feature 브랜치 삭제

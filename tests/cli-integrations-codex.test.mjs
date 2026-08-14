@@ -1265,7 +1265,7 @@ test('generated pre-tool hook blocks project commit from workspace root when sta
         input: JSON.stringify({
           cwd: dir,
           tool_input: {
-            command: 'git -C project commit -m "test"',
+            command: 'git -C project commit -m "test(F001): verify docs sync guard"',
           },
         }),
       }
@@ -1542,7 +1542,7 @@ test('generated pre-tool hook blocks standalone multi commits that target a diff
         input: JSON.stringify({
           cwd: dir,
           tool_input: {
-            command: 'git -C web commit -m "test"',
+            command: 'git -C web commit -m "test(F001): verify component scope guard"',
           },
         }),
       }

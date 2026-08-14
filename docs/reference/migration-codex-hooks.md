@@ -13,7 +13,7 @@ This migration keeps the current `lee-spec-kit` docs structure intact.
 ## What Changes
 
 - Codex native `AGENTS.md` + official hooks become the default execution path
-- `commit-audit --json` is the default commit-time docs path validator
+- `commit-audit --json` is the default commit-time docs-path and canonical commit-subject validator
 - `workflow-audit --json` is the default docs-sync validator
 
 ## Existing Project Steps

@@ -60,7 +60,7 @@ This document defines workflow policy, not a custom runtime loop.
 - In local mode, do not stop after implementation approval. Follow the exact `local merge` and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`.
 - In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
-- Use `npx lee-spec-kit commit-audit --json` before `git commit` when staged docs paths need validation.
+- Use `npx lee-spec-kit commit-audit --json` before `git commit`; Feature-scoped commits use `#123` when an Issue is linked and the stable Feature ID such as `F027` for issue-less local workflows.
 - Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.
 
 ## Approval Rules

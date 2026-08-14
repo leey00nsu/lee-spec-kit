@@ -45,7 +45,7 @@ By the time work reaches this folder, the requirement should already be defined 
 - Minimum **3-digit padding** for numbers (001, 002, ...)
 - Expands to **4+ digits** beyond 999 (F1000, F1001, ...)
 - Feature names in kebab-case
-- **Feature = Issue**: Each Feature corresponds to one GitHub Issue.
+- **Feature identity is workflow-dependent**: In GitHub workflow, each Feature corresponds to one GitHub Issue. In local workflow, the canonical identity is the stable Feature ID such as `F027`; no Issue is required.
 
 ---
 

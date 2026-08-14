@@ -6,11 +6,11 @@ Rules for AI agents to automate Git/GitHub operations.
 
 ## Core Concepts
 
-| Concept          | GitHub Mapping | Description                     |
-| ---------------- | -------------- | ------------------------------- |
-| Feature          | GitHub Issue   | Feature-level work unit         |
-| Task             | Commit         | Individual implementation unit  |
-| Feature Complete | Pull Request   | Create PR on feature completion |
+| Concept          | GitHub Workflow | Local Workflow | Description                     |
+| ---------------- | --------------- | -------------- | ------------------------------- |
+| Feature          | GitHub Issue    | Feature ID     | Feature-level work unit         |
+| Task             | Commit          | Commit         | Individual implementation unit  |
+| Feature Complete | Pull Request    | Local merge    | Feature completion integration  |
 
 ---
 
@@ -50,9 +50,26 @@ main
 
 ### Format
 
-```
+Use exactly one canonical Feature scope. Do not invent alternate scope forms.
+
+```text
+# Feature linked to a GitHub Issue
 {type}(#{issue}): {description}
+
+# Issue-less local Feature
+{type}({featureId}): {description}
 ```
+
+Examples:
+
+```text
+feat(#123): implement user auth
+docs(#123): clarify auth spec
+feat(F027): implement notification settings
+docs(F027): update notification docs
+```
+
+For local Features, the scope is the stable Feature ID (`F027`), not the full folder ref (`F027-notification-settings`). Feature-scoped commits without a scope, such as `docs: F027 ...`, are not canonical.
 
 ### Type List
 
@@ -115,15 +132,17 @@ git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-numbe
 
 #### Standalone Mode Commit Guide
 
+Use the scope selected by the workflow: `#123` when an Issue is linked, otherwise the local Feature ID such as `F027`.
+
 1. **Project Commit** (If code changed)
 
    ```bash
-   git commit -m "feat(#123): implement feature"
+   git commit -m "feat(F027): implement feature"
    ```
 
 2. **Docs Commit** (If docs changed - **Run in Docs Repo**)
    ```bash
-   git commit -m "docs(#123): update feature docs"
+   git commit -m "docs(F027): update feature docs"
    ```
 
 > 💡 **Core Rule**: At task completion, **all changed repositories** must be committed.
