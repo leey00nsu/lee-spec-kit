@@ -57,6 +57,8 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 반환되는 `stage`, `nextAction`, `implementationAllowed` 값을 현재 워크플로우 상태로 사용하세요.
 
+`tasks.md`의 최종 완료 체크박스 3개에는 `lee-spec-kit:completion:*` HTML marker가 있습니다. 사용자에게 보이는 문구는 바꿔도 되지만 각 체크박스 라인의 marker는 유지하세요. `workflow-stage`는 marker를 machine-readable identity로 우선 사용하고, 기존 프로젝트 호환을 위해 marker가 없으면 이전 canonical 문구를 fallback으로 인식합니다.
+
 `completionStrategy`가 `"local-ff"` 또는 `"local-squash"`인 local workflow의 완료 흐름은 `implementation_approve → local_merge → local_verify → local_cleanup → done`입니다. 각 단계에서 반환된 helper 명령을 그대로 사용합니다. `local-ff`는 조상 관계로, `local-squash`는 squash commit tree와 내부 보존된 원본 Feature tip의 tree 일치로 통합을 증명하며, 둘 다 cleanup 후에만 `done`입니다.
 
 ---

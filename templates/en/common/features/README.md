@@ -57,6 +57,8 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 Use the returned `stage`, `nextAction`, and `implementationAllowed` values as the current workflow state.
 
+The three final completion checkboxes in `tasks.md` carry `lee-spec-kit:completion:*` HTML markers. You may customize their visible wording, but preserve the marker on each checkbox line; `workflow-stage` uses the marker as the machine-readable identity and falls back to the legacy canonical wording for older projects.
+
 In a local workflow with `completionStrategy: "local-ff"` or `"local-squash"`, completion is `implementation_approve → local_merge → local_verify → local_cleanup → done`. Use the exact helper command returned for each stage. `local-ff` proves ancestry; `local-squash` proves the squash commit tree matches the internally preserved source Feature tip. Both require cleanup before `done`.
 
 ---

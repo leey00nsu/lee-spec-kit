@@ -285,9 +285,11 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
     '- [x] Tests executed and passing (record command/result below)'
   );
   if (options.finalOutcomeChecked !== false) {
+    const finalOutcomeText = options.finalOutcomeText ||
+      'Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint';
     tasks = tasks.replace(
       '- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint',
-      '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint'
+      `- [x] ${finalOutcomeText}`
     );
   }
   await fs.writeFile(tasksPath, tasks, 'utf-8');
@@ -2656,6 +2658,18 @@ test('local implementation approval stays separate from the default merge approv
     assert.match(stage.nextAction.summary, /implementation itself/i);
     assert.match(stage.nextAction.summary, /separate local_merge approval/i);
     assert.match(stage.actionOptions[0].summary, /separate local merge approval/i);
+  });
+});
+
+test('workflow-stage uses completion markers instead of visible checklist wording', async () => {
+  await withTempDir('lsk-workflow-stage-completion-marker-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      finalOutcomeText: 'Completion confirmed using project-specific wording',
+    });
+
+    const stage = await readStage(dir);
+    assert.equal(stage.stage, 'local_merge');
+    assert.equal(stage.blockedReasonCode, 'LOCAL_MERGE_REQUIRED');
   });
 });
 

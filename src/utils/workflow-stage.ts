@@ -224,6 +224,11 @@ const PR_STATUS_LABELS = ['PR Status', 'PR 상태'];
 const PRE_PR_REVIEW_LABELS = ['Pre-PR Review', 'PR 전 리뷰'];
 const PRE_PR_EVIDENCE_LABELS = ['Pre-PR Evidence', 'PR 전 리뷰 Evidence'];
 const PRE_PR_DECISION_LABELS = ['Pre-PR Decision', 'PR 전 리뷰 Decision'];
+const COMPLETION_MARKERS = {
+  allTasks: 'lee-spec-kit:completion:all-tasks',
+  tests: 'lee-spec-kit:completion:tests',
+  finalOutcome: 'lee-spec-kit:completion:final-outcome',
+} as const;
 
 function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirements {
   const workflow = config.workflow || {};
@@ -297,6 +302,23 @@ function withoutFencedCodeBlocks(content: string): string[] {
   return lines;
 }
 
+function parseCompletionCheckbox(
+  lines: string[],
+  marker: string,
+  legacyPattern: RegExp
+): boolean {
+  const markerToken = `<!-- ${marker} -->`;
+  const markedLines = lines.filter((line) => line.includes(markerToken));
+
+  if (markedLines.length > 0) {
+    return markedLines.length === 1 && parseMarkdownCheckbox(markedLines[0]) === true;
+  }
+
+  return lines.some(
+    (line) => legacyPattern.test(line) && parseMarkdownCheckbox(line) === true
+  );
+}
+
 function parseTasksDoc(content: string): ParsedTasks {
   const issueRaw = extractFieldValue(content, ISSUE_LABELS);
   const issueNumberMatch = issueRaw?.match(/^#(\d+)$/);
@@ -319,25 +341,21 @@ function parseTasksDoc(content: string): ParsedTasks {
     });
   }
 
-  const allTasksChecked = nonCodeLines
-    .some(
-      (line) =>
-        /(All tasks are|모든 태스크가)/i.test(line) &&
-        parseMarkdownCheckbox(line) === true
-    );
-  const testsChecked = nonCodeLines
-    .some(
-      (line) =>
-        /(Tests executed and passing|테스트 실행 및 통과)/i.test(line) &&
-        parseMarkdownCheckbox(line) === true
-    );
-  const finalOutcomeChecked = nonCodeLines
-    .some(
-      (line) =>
-        /(Final outcome shared and any required user confirmation recorded|Final user approval|최종 결과를 공유했고, 필요한 사용자 확인을 문서화된 workflow checkpoint 기준으로 기록함)/i.test(
-          line
-        ) && parseMarkdownCheckbox(line) === true
-    );
+  const allTasksChecked = parseCompletionCheckbox(
+    nonCodeLines,
+    COMPLETION_MARKERS.allTasks,
+    /(All tasks are|모든 태스크가)/i
+  );
+  const testsChecked = parseCompletionCheckbox(
+    nonCodeLines,
+    COMPLETION_MARKERS.tests,
+    /(Tests executed and passing|테스트 실행 및 통과)/i
+  );
+  const finalOutcomeChecked = parseCompletionCheckbox(
+    nonCodeLines,
+    COMPLETION_MARKERS.finalOutcome,
+    /(Final outcome shared and any required user confirmation recorded|Final user approval|최종 결과를 공유했고, 필요한 사용자 확인을 문서화된 workflow checkpoint 기준으로 기록함)/i
+  );
 
   const prStatus = (() => {
     const value = (extractFieldValue(content, PR_STATUS_LABELS) || '')

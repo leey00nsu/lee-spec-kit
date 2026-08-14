@@ -81,9 +81,9 @@
 
 > ⚠️ This is a **final verification checklist**. Only check after you actually verified.
 
-- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked
-- [ ] Tests executed and passing (record command/result below)
-- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint
+- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked <!-- lee-spec-kit:completion:all-tasks -->
+- [ ] Tests executed and passing (record command/result below) <!-- lee-spec-kit:completion:tests -->
+- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint <!-- lee-spec-kit:completion:final-outcome -->
 
 ### Test Run Log (Latest by Command)
 
