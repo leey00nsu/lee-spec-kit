@@ -44,6 +44,8 @@ export type WorkflowStageId =
   | 'implementation'
   | 'task_commit'
   | 'implementation_approve'
+  | 'feature_verify'
+  | 'feature_remediation'
   | 'local_merge'
   | 'local_verify'
   | 'local_cleanup'
@@ -68,6 +70,8 @@ export interface WorkflowStageAction {
     | 'task_execute'
     | 'task_commit'
     | 'implementation_approve'
+    | 'feature_verify'
+    | 'feature_remediation'
     | 'local_merge'
     | 'local_verify'
     | 'local_cleanup'
@@ -137,6 +141,8 @@ export interface WorkflowStagePayload {
     | 'BRANCH_NOT_READY'
     | 'TASK_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
+    | 'FEATURE_VERIFICATION_REQUIRED'
+    | 'FEATURE_REMEDIATION_REQUIRED'
     | 'LOCAL_MERGE_REQUIRED'
     | 'LOCAL_VERIFICATION_REQUIRED'
     | 'LOCAL_CLEANUP_REQUIRED'
@@ -1952,10 +1958,61 @@ export async function collectWorkflowStage(
     resolveLocalCompletionStrategy(config) !== 'none'
   ) {
     const localState = await resolveLocalIntegrationContext(config, feature);
+    const localVerifyCommand =
+      `npx lee-spec-kit local verify ${buildFeatureArgs(feature)} --json`;
     const localMergeBaseCommand =
       `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
 
     if (!localState.integrationComplete) {
+      const featureVerified =
+        !!localState.state &&
+        ['feature_verified', 'merged', 'verified', 'cleaned'].includes(
+          localState.state.status
+        ) &&
+        localState.state.verifiedFeatureTip === localState.featureTip &&
+        localState.state.verifiedFeatureTree === localState.featureTree;
+      const featureVerificationFailed =
+        localState.state?.status === 'feature_failed' &&
+        localState.state.featureTip === localState.featureTip;
+
+      if (featureVerificationFailed) {
+        return {
+          status: 'ok',
+          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+          docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature),
+          stage: 'feature_remediation',
+          nextAction: buildAction(
+            'feature_remediation',
+            `Fix the failed checks in ${localState.featureBranch} at ${localState.featureWorktree}, commit the remediation, then verify the new Feature tip. Re-run the command without code changes to retry an environmental failure.`,
+            false,
+            localVerifyCommand
+          ),
+          approvalRequired: false,
+          implementationAllowed: true,
+          blockedReasonCode: 'FEATURE_REMEDIATION_REQUIRED',
+        };
+      }
+
+      if (!featureVerified) {
+        return {
+          status: 'ok',
+          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+          docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature),
+          stage: 'feature_verify',
+          nextAction: buildAction(
+            'feature_verify',
+            `Run the configured Feature checks in ${localState.featureBranch} before integration and bind the result to its exact commit and tree.`,
+            false,
+            localVerifyCommand
+          ),
+          approvalRequired: false,
+          implementationAllowed: false,
+          blockedReasonCode: 'FEATURE_VERIFICATION_REQUIRED',
+        };
+      }
+
       const approvalRequired = resolveActionApprovalRequired(
         config,
         'local_merge',

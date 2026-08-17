@@ -26,10 +26,12 @@ export interface PrePrReviewerConfig {
   onUnavailable: 'inherit' | 'error';
 }
 
-export interface LocalPostMergeCheck {
+export interface LocalWorkflowCheck {
   command: string;
   args?: string[];
 }
+
+export type LocalPostMergeCheck = LocalWorkflowCheck;
 
 export interface ProjectConfig {
   schemaId?: string;
@@ -62,6 +64,7 @@ export interface ProjectConfig {
     baseBranch?: string;
     completionStrategy?: 'local-ff' | 'local-squash' | 'none';
     deleteFeatureBranchAfterMerge?: boolean;
+    featureChecks?: LocalWorkflowCheck[];
     postMergeChecks?: LocalPostMergeCheck[];
     codeDirtyScope?: 'repo' | 'component' | 'auto';
     componentPaths?: Record<string, string[]>;

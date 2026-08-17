@@ -407,6 +407,42 @@ async function backfillMissingConfigDefaults(
       workflow.deleteFeatureBranchAfterMerge = true;
       changedPaths.push('workflow.deleteFeatureBranchAfterMerge');
     }
+    // 0.9.1 ran postMergeChecks only after moving the base branch. Migrate
+    // those checks to Feature verification so failed checks remain repairable.
+    if (!Object.prototype.hasOwnProperty.call(workflow, 'featureChecks')) {
+      workflow.featureChecks = Array.isArray(workflow.postMergeChecks)
+        ? workflow.postMergeChecks
+        : [];
+      workflow.postMergeChecks = [];
+      changedPaths.push('workflow.featureChecks');
+      changedPaths.push('workflow.postMergeChecks');
+    }
+    setIfMissing(workflow, 'featureChecks', [], 'workflow.featureChecks');
+    if (!Array.isArray(workflow.featureChecks)) {
+      workflow.featureChecks = [];
+      changedPaths.push('workflow.featureChecks');
+    } else {
+      const normalizedFeatureChecks = workflow.featureChecks.flatMap(
+        (value) => {
+          if (!isPlainObject(value) || typeof value.command !== 'string') {
+            return [];
+          }
+          const command = value.command.trim();
+          if (!command) return [];
+          const args = Array.isArray(value.args)
+            ? value.args.filter((arg): arg is string => typeof arg === 'string')
+            : [];
+          return [{ command, ...(args.length > 0 ? { args } : {}) }];
+        }
+      );
+      if (
+        JSON.stringify(normalizedFeatureChecks) !==
+        JSON.stringify(workflow.featureChecks)
+      ) {
+        workflow.featureChecks = normalizedFeatureChecks;
+        changedPaths.push('workflow.featureChecks');
+      }
+    }
     setIfMissing(workflow, 'postMergeChecks', [], 'workflow.postMergeChecks');
     if (!Array.isArray(workflow.postMergeChecks)) {
       workflow.postMergeChecks = [];

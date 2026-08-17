@@ -826,6 +826,7 @@ async function runInit(options: InitOptions): Promise<void> {
                 baseBranch: resolveInitialBaseBranch(cwd, docsRepo, projectRoot),
                 completionStrategy: 'local-ff',
                 deleteFeatureBranchAfterMerge: true,
+                featureChecks: [],
                 postMergeChecks: [],
               }
             : {}),

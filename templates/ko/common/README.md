@@ -138,7 +138,8 @@ npx lee-spec-kit docs get agents --json
 - `workflow.baseBranch` (string): 완료된 local Feature를 통합할 기준 브랜치
 - `workflow.completionStrategy` (`"local-ff" | "local-squash" | "none"`): fast-forward, 검증된 단일 squash commit 생성, 또는 명시적으로 통합 없이 종료
 - `workflow.deleteFeatureBranchAfterMerge` (boolean): cleanup 후 통합된 local Feature 브랜치 삭제 여부. 원격 브랜치는 삭제하지 않음
-- `workflow.postMergeChecks` (array): local 통합 뒤 기준 브랜치에서 실행할 구조화 명령. 예: `{ "command": "pnpm", "args": ["test"] }`
+- `workflow.featureChecks` (array): 통합 전에 Feature worktree에서 실행할 build/test/lint/typecheck 명령
+- `workflow.postMergeChecks` (array): 통합된 기준 브랜치 환경이 실제로 필요한 선택적 검사
 - `approval` (object, optional): repo 정책/커스텀 validator용 승인 checkpoint 메타데이터
   - 기본 Codex-native 경로는 여전히 문서화된 checkpoint와 원격/파괴적 작업을 우선 기준으로 승인 요청합니다.
   - legacy runtime은 이 필드를 직접 소비했지만, 이제는 category 기반 checkpoint 메타데이터가 정말 필요할 때만 유지하세요.
@@ -168,6 +169,7 @@ npx lee-spec-kit docs get agents --json
     "baseBranch": "main",
     "completionStrategy": "local-ff",
     "deleteFeatureBranchAfterMerge": true,
+    "featureChecks": [],
     "postMergeChecks": [],
     "prePrReview": {
       "evidenceMode": "path_required",

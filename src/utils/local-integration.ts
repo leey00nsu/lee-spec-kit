@@ -1,13 +1,18 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'fs-extra';
-import type { LocalPostMergeCheck, ProjectConfig } from '../config/types.js';
+import type { LocalWorkflowCheck, ProjectConfig } from '../config/types.js';
 import type { ResolvedFeature } from './feature-resolver.js';
 import { runGitCapture } from './git-run.js';
 import { runProcess } from '../commands/github/process.js';
 import { resolveStandaloneProjectRoots } from './standalone-workspace.js';
 
-export type LocalIntegrationStateStatus = 'merged' | 'verified' | 'cleaned';
+export type LocalIntegrationStateStatus =
+  | 'feature_failed'
+  | 'feature_verified'
+  | 'merged'
+  | 'verified'
+  | 'cleaned';
 export type LocalCompletionStrategy = 'local-ff' | 'local-squash' | 'none';
 
 export interface LocalIntegrationState {
@@ -24,13 +29,35 @@ export interface LocalIntegrationState {
   evidenceRef?: string;
   status: LocalIntegrationStateStatus;
   mergedAt: string;
+  featureVerifiedAt?: string | null;
   verifiedAt: string | null;
   cleanedAt: string | null;
-  verification: Array<{
-    command: string;
-    args: string[];
-    exitCode: number;
-  }>;
+  verifiedFeatureTip?: string;
+  verifiedFeatureTree?: string;
+  originalBaseTip?: string;
+  featureVerification?: LocalCheckResult[];
+  postMergeVerification?: LocalCheckResult[];
+  verification: LocalCheckResult[];
+}
+
+export interface LocalCheckResult {
+  command: string;
+  args: string[];
+  cwd: string;
+  targetSha: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  exitCode: number;
+  runtime: {
+    node: string;
+    platform: string;
+    arch: string;
+    path: string;
+  };
+  stdoutPreview?: string;
+  stderrPreview?: string;
+  logPath: string;
 }
 
 export interface LocalIntegrationContext {
@@ -40,6 +67,7 @@ export interface LocalIntegrationContext {
   baseBranch: string;
   featureBranch: string;
   featureTip: string | null;
+  featureTree: string | null;
   baseTip: string | null;
   currentBranch: string | null;
   state: LocalIntegrationState | null;
@@ -54,7 +82,8 @@ export interface LocalIntegrationContext {
   docsClean: boolean;
   managedFeatureWorktree: boolean;
   featureBranchExists: boolean;
-  postMergeChecks: LocalPostMergeCheck[];
+  featureChecks: LocalWorkflowCheck[];
+  postMergeChecks: LocalWorkflowCheck[];
   deleteFeatureBranchAfterMerge: boolean;
 }
 
@@ -132,7 +161,7 @@ export async function resolveLocalIntegrationContext(
     state.featureTip === featureTip &&
     !!integratedCommit &&
     !!baseTip &&
-    isAncestor(projectRoot, integratedCommit, `refs/heads/${baseBranch}`) &&
+    integratedCommit === baseTip &&
     !!featureTree &&
     integratedTree === featureTree &&
     state.integratedTree === featureTree;
@@ -147,6 +176,7 @@ export async function resolveLocalIntegrationContext(
     baseBranch,
     featureBranch,
     featureTip,
+    featureTree,
     baseTip,
     currentBranch,
     state,
@@ -155,7 +185,7 @@ export async function resolveLocalIntegrationContext(
     integrationComplete:
       completionStrategy === 'local-squash'
         ? squashIntegrationComplete
-        : baseContainsFeature,
+        : !!featureTip && baseTip === featureTip,
     evidenceRef,
     squashCommitMatchesSource,
     squashEvidencePresent,
@@ -164,7 +194,14 @@ export async function resolveLocalIntegrationContext(
     docsClean: isClean(feature.git.docsGitCwd),
     managedFeatureWorktree,
     featureBranchExists: !!featureBranchTip,
-    postMergeChecks: normalizePostMergeChecks(config.workflow?.postMergeChecks),
+    featureChecks: Array.isArray(config.workflow?.featureChecks)
+      ? normalizeWorkflowChecks(config.workflow.featureChecks)
+      : normalizeWorkflowChecks(config.workflow?.postMergeChecks),
+    // Compatibility: pre-0.9.2 postMergeChecks are treated as Feature checks.
+    // Projects can opt into true post-integration checks by defining featureChecks.
+    postMergeChecks: Array.isArray(config.workflow?.featureChecks)
+      ? normalizeWorkflowChecks(config.workflow?.postMergeChecks)
+      : [],
     deleteFeatureBranchAfterMerge:
       config.workflow?.deleteFeatureBranchAfterMerge !== false,
   };
@@ -217,22 +254,79 @@ export function localCleanupComplete(
   );
 }
 
-export function runPostMergeChecks(
-  projectRoot: string,
-  checks: LocalPostMergeCheck[]
+export function runLocalChecks(
+  cwd: string,
+  checks: LocalWorkflowCheck[],
+  targetSha: string,
+  logDir: string,
+  phase: 'feature' | 'post-merge'
 ): LocalIntegrationState['verification'] {
   const results: LocalIntegrationState['verification'] = [];
+  fs.ensureDirSync(logDir);
   for (const check of checks) {
     const args = Array.isArray(check.args) ? check.args.map(String) : [];
-    const result = runProcess(check.command, args, projectRoot);
+    const startedAt = new Date();
+    const result = runProcess(check.command, args, cwd);
+    const finishedAt = new Date();
+    const runtime = {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      path: process.env.PATH || '',
+    };
+    const index = results.length + 1;
+    const logPath = path.join(logDir, `${phase}-${String(index).padStart(2, '0')}.log`);
+    const log = [
+      `phase: ${phase}`,
+      `targetSha: ${targetSha}`,
+      `cwd: ${cwd}`,
+      `command: ${JSON.stringify([check.command, ...args])}`,
+      `startedAt: ${startedAt.toISOString()}`,
+      `finishedAt: ${finishedAt.toISOString()}`,
+      `exitCode: ${result.code}`,
+      `runtime: ${JSON.stringify(runtime)}`,
+      '',
+      '--- stdout ---',
+      result.stdout,
+      '--- stderr ---',
+      result.stderr,
+    ].join('\n');
+    fs.writeFileSync(logPath, log, { encoding: 'utf-8', mode: 0o600 });
     results.push({
       command: check.command,
       args,
+      cwd,
+      targetSha,
+      startedAt: startedAt.toISOString(),
+      finishedAt: finishedAt.toISOString(),
+      durationMs: finishedAt.getTime() - startedAt.getTime(),
       exitCode: result.code,
+      runtime,
+      ...(preview(result.stdout) ? { stdoutPreview: preview(result.stdout) } : {}),
+      ...(preview(result.stderr) ? { stderrPreview: preview(result.stderr) } : {}),
+      logPath,
     });
     if (result.code !== 0) break;
   }
   return results;
+}
+
+export function resolveLocalIntegrationLogDir(
+  projectRoot: string,
+  feature: ResolvedFeature,
+  targetSha: string
+): string {
+  return path.join(
+    path.dirname(resolveStatePath(projectRoot, feature)),
+    'logs',
+    resolveFeatureStateKey(feature),
+    targetSha.slice(0, 12)
+  );
+}
+
+function preview(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}\n…[truncated]` : trimmed;
 }
 
 export function gitRun(
@@ -388,15 +482,15 @@ function resolveRegisteredBranchWorktree(
   return null;
 }
 
-function normalizePostMergeChecks(value: unknown): LocalPostMergeCheck[] {
+function normalizeWorkflowChecks(value: unknown): LocalWorkflowCheck[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(
-      (entry): entry is LocalPostMergeCheck =>
+      (entry): entry is LocalWorkflowCheck =>
         !!entry &&
         typeof entry === 'object' &&
-        typeof (entry as LocalPostMergeCheck).command === 'string' &&
-        !!(entry as LocalPostMergeCheck).command.trim()
+        typeof (entry as LocalWorkflowCheck).command === 'string' &&
+        !!(entry as LocalWorkflowCheck).command.trim()
     )
     .map((entry) => ({
       command: entry.command.trim(),

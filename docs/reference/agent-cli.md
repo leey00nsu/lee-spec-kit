@@ -53,18 +53,21 @@ Machine-readable high-level stage resolver.
 npx lee-spec-kit workflow-stage <featureRef> --json
 ```
 
-For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `local_merge`, `local_verify`, and `local_cleanup`. Run only the exact command returned in `nextAction.command`. Under `local-ff`, `done` requires the base branch to contain the Feature tip. Under `local-squash`, it requires a verified squash commit with the same tree as the preserved source Feature tip. Both strategies also require passing post-merge checks, the base branch checked out, and cleanup complete.
+For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `feature_verify`, `local_merge`, and `local_cleanup`. Failed Feature or post-integration checks enter `feature_remediation` with implementation enabled. Under `local-ff`, the base must equal the verified Feature tip. Under `local-squash`, the integration commit must have the same tree as the verified, preserved source Feature tip.
 
 Under the default approval policy, `implementation_approve` approves the completed implementation and `local_merge` is a separate user checkpoint immediately before the configured fast-forward or squash integration. That second approval covers post-merge checks and configured local cleanup, including local Feature-branch deletion. Remove `local_merge` from `approval.requireCheckCategories` only when the implementation approval should authorize the remaining local completion flow without another checkpoint.
 
-### `local merge` / `local cleanup`
+### `local verify` / `local merge` / `local cleanup`
 
 ```bash
+npx lee-spec-kit local verify <featureRef> --json
 npx lee-spec-kit local merge <featureRef> --json
 npx lee-spec-kit local cleanup <featureRef> --json
 ```
 
-The helpers are intentionally separate: a failed post-merge check leaves durable integration evidence and keeps the workflow at `local_verify`, where `local merge` reruns verification without creating a merge commit. Cleanup never deletes remote branches.
+The helpers are intentionally separate. Feature checks run before integration and their logs record the cwd, target SHA, timing, exit code, and stdout/stderr. A failed optional post-integration check rolls back the local integration before remediation. Cleanup never deletes remote branches.
+
+Any Feature-tip change invalidates the recorded Feature verification and the prior `local_merge` confirmation. Re-run review for the changed diff when Pre-PR review is enabled, then verify the new tip and obtain the normal `local_merge` approval again.
 
 ### `task add`
 

@@ -243,6 +243,9 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
   if (options.postMergeChecks) {
     config.workflow.postMergeChecks = options.postMergeChecks;
   }
+  if (options.featureChecks) {
+    config.workflow.featureChecks = options.featureChecks;
+  }
   if (options.completionStrategy) {
     config.workflow.completionStrategy = options.completionStrategy;
   }
@@ -304,6 +307,15 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
     'feat(F001): implement alpha shell',
   ]);
   assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+  if (options.finalOutcomeChecked !== false && options.autoVerify !== false) {
+    const verify = await runCli(dir, [
+      'local',
+      'verify',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(verify.code, 0, verify.stderr || verify.stdout);
+  }
 }
 
 async function setupFakeReviewGhCli(dir, prViewPayload = {}) {
@@ -2477,7 +2489,7 @@ test('workflow-stage normalizes local branch commands for Korean workflows', asy
 test('local workflow fast-forwards, verifies, cleans up, and only then reaches done', async () => {
   await withTempDir('lsk-workflow-stage-local-merge-', async (dir) => {
     await prepareCompletedLocalFeature(dir, {
-      postMergeChecks: [
+      featureChecks: [
         {
           command: process.execPath,
           args: ['-e', 'process.exit(0)'],
@@ -2534,7 +2546,7 @@ test('local workflow fast-forwards, verifies, cleans up, and only then reaches d
     assert.equal(done.stage, 'done');
     assert.equal(done.nextAction, null);
   });
-});
+}, 60_000);
 
 test('local squash creates one integration commit and preserves the source Feature tip', async () => {
   await withTempDir('lsk-workflow-stage-local-squash-', async (dir) => {
@@ -2646,7 +2658,7 @@ test('local squash creates one integration commit and preserves the source Featu
     );
     assert.equal((await readStage(dir)).stage, 'done');
   });
-});
+}, 60_000);
 
 test('local implementation approval stays separate from the default merge approval', async () => {
   await withTempDir('lsk-workflow-stage-local-implementation-approval-', async (dir) => {
@@ -2758,6 +2770,13 @@ test('standalone local workflow merges the managed worktree branch in the main p
     ]);
     assert.equal(commitProject.code, 0, commitProject.stderr || commitProject.stdout);
 
+    const verifyResult = await runCli(dir, [
+      'local',
+      'verify',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(verifyResult.code, 0, verifyResult.stderr || verifyResult.stdout);
     const mergeStage = await readStage(dir);
     assert.equal(mergeStage.stage, 'local_merge');
     const mergeResult = await runCli(dir, [
@@ -2783,7 +2802,7 @@ test('standalone local workflow merges the managed worktree branch in the main p
     await assert.rejects(() => fs.access(worktreePath));
     assert.equal((await readStage(dir)).stage, 'done');
   });
-});
+}, 60_000);
 
 test('local merge enforces a required approval category with the confirm token', async () => {
   await withTempDir('lsk-workflow-stage-local-merge-approval-', async (dir) => {
@@ -2829,7 +2848,7 @@ test('local merge enforces a required approval category with the confirm token',
   });
 });
 
-test('local workflow re-verifies when the base branch advances after verification', async () => {
+test('local workflow requires reintegration when the base branch advances after verification', async () => {
   await withTempDir('lsk-workflow-stage-local-base-advanced-', async (dir) => {
     await prepareCompletedLocalFeature(dir);
     const mergeResult = await runCli(dir, [
@@ -2852,8 +2871,8 @@ test('local workflow re-verifies when the base branch advances after verificatio
     assert.equal(commit.code, 0, commit.stderr || commit.stdout);
 
     const stage = await readStage(dir);
-    assert.equal(stage.stage, 'local_verify');
-    assert.equal(stage.nextAction.category, 'local_verify');
+    assert.equal(stage.stage, 'local_merge');
+    assert.equal(stage.nextAction.category, 'local_merge');
   });
 });
 
@@ -2958,7 +2977,7 @@ test('local squash rolls the base branch back when its integration commit fails'
   });
 });
 
-test('failed post-merge checks keep local workflow at local_verify', async () => {
+test('failed post-merge checks roll back and enter Feature remediation', async () => {
   await withTempDir('lsk-workflow-stage-local-verify-failed-', async (dir) => {
     await prepareCompletedLocalFeature(dir, {
       postMergeChecks: [
@@ -2969,6 +2988,9 @@ test('failed post-merge checks keep local workflow at local_verify', async () =>
       ],
     });
 
+    const originalBaseTip = (
+      await runCommand(dir, 'git', ['rev-parse', 'main'])
+    ).stdout.trim();
     const result = await runCli(dir, [
       'local',
       'merge',
@@ -2981,10 +3003,77 @@ test('failed post-merge checks keep local workflow at local_verify', async () =>
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.reasonCode, 'LOCAL_POST_MERGE_CHECK_FAILED');
     assert.equal(payload.verification[0].exitCode, 7);
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout.trim(),
+      originalBaseTip
+    );
 
     const stage = await readStage(dir);
-    assert.equal(stage.stage, 'local_verify');
-    assert.equal(stage.nextAction.category, 'local_verify');
+    assert.equal(stage.stage, 'feature_remediation');
+    assert.equal(stage.nextAction.category, 'feature_remediation');
+    assert.equal(stage.implementationAllowed, true);
+  });
+});
+
+test('failed Feature checks preserve the base, diagnostics, and remediation path', async () => {
+  await withTempDir('lsk-workflow-stage-feature-remediation-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      autoVerify: false,
+      featureChecks: [
+        {
+          command: process.execPath,
+          args: ['-e', 'console.error("feature check failed"); process.exit(7)'],
+        },
+      ],
+    });
+    const originalBaseTip = (
+      await runCommand(dir, 'git', ['rev-parse', 'main'])
+    ).stdout.trim();
+    const featureTip = (
+      await runCommand(dir, 'git', ['rev-parse', 'feat/alpha'])
+    ).stdout.trim();
+
+    const before = await readStage(dir);
+    assert.equal(before.stage, 'feature_verify');
+    assert.equal(before.nextAction.category, 'feature_verify');
+
+    const result = await runCli(dir, [
+      'local',
+      'verify',
+      'F001-alpha',
+      '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'LOCAL_FEATURE_CHECK_FAILED');
+    assert.equal(payload.featureTip, featureTip);
+    assert.equal(
+      await normalizePathForCompare(payload.verification[0].cwd),
+      await normalizePathForCompare(dir)
+    );
+    assert.equal(payload.verification[0].targetSha, featureTip);
+    assert.match(payload.verification[0].stderrPreview, /feature check failed/u);
+    await fs.access(payload.verification[0].logPath);
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout.trim(),
+      originalBaseTip
+    );
+
+    const remediation = await readStage(dir);
+    assert.equal(remediation.stage, 'feature_remediation');
+    assert.equal(remediation.implementationAllowed, true);
+    assert.match(remediation.nextAction.summary, /feat\/alpha/u);
+
+    await fs.writeFile(path.join(dir, 'src', 'remediation.ts'), 'export const fixed = true;\n');
+    await runCommand(dir, 'git', ['add', 'src/remediation.ts']);
+    const commit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'fix(F001): remediate feature checks',
+    ]);
+    assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+    const changed = await readStage(dir);
+    assert.equal(changed.stage, 'feature_verify');
   });
 });
 

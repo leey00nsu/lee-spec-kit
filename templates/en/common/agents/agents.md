@@ -57,7 +57,7 @@ This document defines workflow policy, not a custom runtime loop.
 - The Pre-PR review subagent returns findings without modifying code. The main agent remediates findings and records reviewer metadata and the final decision as evidence.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
-- In local mode, do not stop after implementation approval. Follow the exact `local merge` and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`.
+- In local mode, do not stop after implementation approval. Follow the exact `local verify`, `local merge`, and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`. A `feature_remediation` stage explicitly permits fixes in the Feature worktree.
 - In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit`; Feature-scoped commits use `#123` when an Issue is linked and the stable Feature ID such as `F027` for issue-less local workflows.

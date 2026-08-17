@@ -80,11 +80,12 @@ npx lee-spec-kit github pr F001-alpha
 Complete a local workflow by integrating the Feature before it can return `done`.
 
 ```bash
+npx lee-spec-kit local verify F001-alpha --json
 npx lee-spec-kit local merge F001-alpha --json
 npx lee-spec-kit local cleanup F001-alpha --json
 ```
 
-`local merge` uses `workflow.completionStrategy`. `local-ff` only performs a fast-forward into `workflow.baseBranch`; `local-squash` creates one squash commit whose tree must match the source Feature tip and preserves that source tip under an internal `refs/lee-spec-kit/integrations/*` ref. Both strategies reject a Feature whose base has diverged, then run configured `workflow.postMergeChecks`. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when `workflow.deleteFeatureBranchAfterMerge` is enabled.
+`local verify` runs `workflow.featureChecks` in the Feature worktree and records diagnostics against its exact commit and tree. A failure enters `feature_remediation`. `local merge` then uses `workflow.completionStrategy`: `local-ff` moves the base to the verified SHA, while `local-squash` creates one commit whose tree matches the verified source and preserves that source under `refs/lee-spec-kit/integrations/*`. Optional `workflow.postMergeChecks` run only after integration; a failure rolls the base back before remediation. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when configured.
 
 ## Integration Commands
 

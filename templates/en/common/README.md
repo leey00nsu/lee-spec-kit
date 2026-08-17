@@ -138,7 +138,8 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `workflow.baseBranch` (string): branch that receives a completed local Feature
 - `workflow.completionStrategy` (`"local-ff" | "local-squash" | "none"`): fast-forward, create one verified squash commit, or explicitly finish without integration
 - `workflow.deleteFeatureBranchAfterMerge` (boolean): delete the integrated local Feature branch after cleanup; remote branches are never deleted
-- `workflow.postMergeChecks` (array): structured commands run from the base branch after local integration, for example `{ "command": "pnpm", "args": ["test"] }`
+- `workflow.featureChecks` (array): build/test/lint/typecheck commands run in the Feature worktree before integration
+- `workflow.postMergeChecks` (array): optional commands that genuinely require the integrated base-branch environment
 - `approval` (object, optional): optional approval-checkpoint metadata for repo policy and custom validators
   - The Codex-native default path still asks at documented checkpoints and before remote/destructive actions first.
   - Legacy runtime consumed this field directly; keep it only when you intentionally want category-based checkpoint metadata.
@@ -168,6 +169,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
     "baseBranch": "main",
     "completionStrategy": "local-ff",
     "deleteFeatureBranchAfterMerge": true,
+    "featureChecks": [],
     "postMergeChecks": [],
     "prePrReview": {
       "evidenceMode": "path_required",

@@ -14,6 +14,7 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `workflow-audit`
 - `commit-audit`
 - `integrations`
+- `local verify`
 - `local merge`
 - `local cleanup`
 

@@ -218,6 +218,7 @@ test('init writes only canonical workflow runtime settings', async () => {
       baseBranch: 'main',
       completionStrategy: 'local-ff',
       deleteFeatureBranchAfterMerge: true,
+      featureChecks: [],
       postMergeChecks: [],
       prePrReview: {
         evidenceMode: 'path_required',
@@ -293,7 +294,7 @@ test('update preserves valid Pre-PR subagent overrides and normalizes invalid va
   });
 });
 
-test('update normalizes local post-merge checks without enabling integration for legacy projects', async () => {
+test('update migrates legacy post-merge checks to Feature checks', async () => {
   await withTempDir('lsk-config-local-completion-', async (dir) => {
     await writeProjectConfig(dir, {
       workflow: {
@@ -309,9 +310,10 @@ test('update normalizes local post-merge checks without enabling integration for
     const updated = await runConfigUpdate(dir);
 
     assert.equal(updated.workflow.completionStrategy, 'none');
-    assert.deepEqual(updated.workflow.postMergeChecks, [
+    assert.deepEqual(updated.workflow.featureChecks, [
       { command: 'pnpm', args: ['test'] },
     ]);
+    assert.deepEqual(updated.workflow.postMergeChecks, []);
   });
 });
 
