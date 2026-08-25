@@ -1963,6 +1963,20 @@ export async function collectWorkflowStage(
     const localMergeBaseCommand =
       `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
 
+    if (localState.cleanedIntegrationStillValid) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'done',
+        nextAction: null,
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: null,
+      };
+    }
+
     if (!localState.integrationComplete) {
       const featureVerified =
         !!localState.state &&

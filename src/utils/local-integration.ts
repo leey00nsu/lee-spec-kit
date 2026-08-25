@@ -74,6 +74,7 @@ export interface LocalIntegrationContext {
   completionStrategy: Exclude<LocalCompletionStrategy, 'none'>;
   baseContainsFeature: boolean;
   integrationComplete: boolean;
+  cleanedIntegrationStillValid: boolean;
   evidenceRef: string;
   squashCommitMatchesSource: boolean;
   squashEvidencePresent: boolean;
@@ -168,6 +169,26 @@ export async function resolveLocalIntegrationContext(
   const squashEvidencePresent = !!featureTip && evidenceTip === featureTip;
   const squashIntegrationComplete =
     squashCommitMatchesSource && squashEvidencePresent;
+  const recordedStrategy = state?.strategy || 'local-ff';
+  const recordedIntegratedCommit =
+    state?.integratedCommit || state?.mergedBaseTip || null;
+  const baseContainsRecordedIntegration =
+    !!recordedIntegratedCommit &&
+    isAncestor(
+      projectRoot,
+      recordedIntegratedCommit,
+      `refs/heads/${baseBranch}`
+    );
+  const cleanedIntegrationStillValid =
+    state?.status === 'cleaned' &&
+    recordedStrategy === completionStrategy &&
+    state.featureTip === featureTip &&
+    baseContainsRecordedIntegration &&
+    (completionStrategy === 'local-squash'
+      ? state.integratedCommit === recordedIntegratedCommit &&
+        state.integratedTree === featureTree &&
+        squashEvidencePresent
+      : state.mergedBaseTip === featureTip && baseContainsFeature);
 
   return {
     projectRoot,
@@ -186,6 +207,7 @@ export async function resolveLocalIntegrationContext(
       completionStrategy === 'local-squash'
         ? squashIntegrationComplete
         : !!featureTip && baseTip === featureTip,
+    cleanedIntegrationStillValid,
     evidenceRef,
     squashCommitMatchesSource,
     squashEvidencePresent,

@@ -2545,6 +2545,40 @@ test('local workflow fast-forwards, verifies, cleans up, and only then reaches d
     const done = await readStage(dir);
     assert.equal(done.stage, 'done');
     assert.equal(done.nextAction, null);
+
+    await fs.writeFile(path.join(dir, 'src', 'beta.ts'), 'export const beta = true;\n');
+    const addBeta = await runCommand(dir, 'git', ['add', 'src/beta.ts']);
+    assert.equal(addBeta.code, 0, addBeta.stderr || addBeta.stdout);
+    const advanceMain = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'feat(F002): advance main after alpha cleanup',
+    ]);
+    assert.equal(advanceMain.code, 0, advanceMain.stderr || advanceMain.stdout);
+
+    const historicalDone = await readStage(dir);
+    assert.equal(historicalDone.stage, 'done');
+    assert.equal(historicalDone.nextAction, null);
+
+    const orphanMain = await runCommand(dir, 'git', [
+      'checkout',
+      '--orphan',
+      'rewritten-main',
+    ]);
+    assert.equal(orphanMain.code, 0, orphanMain.stderr || orphanMain.stdout);
+    const addRewrite = await runCommand(dir, 'git', ['add', '-A']);
+    assert.equal(addRewrite.code, 0, addRewrite.stderr || addRewrite.stdout);
+    const rewriteCommit = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'chore: rewrite base without the recorded integration',
+    ]);
+    assert.equal(rewriteCommit.code, 0, rewriteCommit.stderr || rewriteCommit.stdout);
+    const deleteMain = await runCommand(dir, 'git', ['branch', '-D', 'main']);
+    assert.equal(deleteMain.code, 0, deleteMain.stderr || deleteMain.stdout);
+    const renameMain = await runCommand(dir, 'git', ['branch', '-m', 'main']);
+    assert.equal(renameMain.code, 0, renameMain.stderr || renameMain.stdout);
+    assert.equal((await readStage(dir)).stage, 'local_merge');
   });
 }, 60_000);
 
@@ -2656,6 +2690,17 @@ test('local squash creates one integration commit and preserves the source Featu
       (await runCommand(dir, 'git', ['rev-parse', evidenceRef])).stdout.trim(),
       sourceFeatureTip
     );
+    assert.equal((await readStage(dir)).stage, 'done');
+
+    await fs.writeFile(path.join(dir, 'src', 'beta.ts'), 'export const beta = true;\n');
+    const addBeta = await runCommand(dir, 'git', ['add', 'src/beta.ts']);
+    assert.equal(addBeta.code, 0, addBeta.stderr || addBeta.stdout);
+    const advanceMain = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'feat(F002): advance main after squash cleanup',
+    ]);
+    assert.equal(advanceMain.code, 0, advanceMain.stderr || advanceMain.stdout);
     assert.equal((await readStage(dir)).stage, 'done');
   });
 }, 60_000);

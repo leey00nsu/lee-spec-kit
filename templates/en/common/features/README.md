@@ -59,7 +59,7 @@ Use the returned `stage`, `nextAction`, and `implementationAllowed` values as th
 
 The three final completion checkboxes in `tasks.md` carry `lee-spec-kit:completion:*` HTML markers. You may customize their visible wording, but preserve the marker on each checkbox line; `workflow-stage` uses the marker as the machine-readable identity and falls back to the legacy canonical wording for older projects.
 
-In a local workflow with `completionStrategy: "local-ff"` or `"local-squash"`, completion is `implementation_approve → feature_verify → local_merge → local_cleanup → done`. Failed checks enter `feature_remediation` with implementation enabled. `local-ff` moves only the verified Feature SHA; `local-squash` requires the integration tree to match the verified Feature tree. Both require cleanup before `done`.
+In a local workflow with `completionStrategy: "local-ff"` or `"local-squash"`, completion is `implementation_approve → feature_verify → local_merge → local_cleanup → done`. Failed checks enter `feature_remediation` with implementation enabled. `local-ff` moves only the verified Feature SHA; `local-squash` requires the integration tree to match the verified Feature tree. Both require cleanup before `done`. After cleanup, a Feature remains `done` while its recorded integration commit is still an ancestor of the current base, even when later Features advance that base.
 
 A remediation commit invalidates verification and the prior local-merge confirmation. Refresh review evidence for the changed diff when Pre-PR review is enabled, verify the new tip, and obtain local-merge approval again.
 

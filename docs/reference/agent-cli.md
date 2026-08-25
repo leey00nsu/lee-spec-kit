@@ -53,7 +53,7 @@ Machine-readable high-level stage resolver.
 npx lee-spec-kit workflow-stage <featureRef> --json
 ```
 
-For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `feature_verify`, `local_merge`, and `local_cleanup`. Failed Feature or post-integration checks enter `feature_remediation` with implementation enabled. Under `local-ff`, the base must equal the verified Feature tip. Under `local-squash`, the integration commit must have the same tree as the verified, preserved source Feature tip.
+For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `feature_verify`, `local_merge`, and `local_cleanup`. Failed Feature or post-integration checks enter `feature_remediation` with implementation enabled. Under `local-ff`, the base must equal the verified Feature tip during integration. Under `local-squash`, the integration commit must have the same tree as the verified, preserved source Feature tip. After cleanup, the Feature remains `done` when its recorded integration commit is still an ancestor of the current base, so later Features do not reopen historical completion stages.
 
 Under the default approval policy, `implementation_approve` approves the completed implementation and `local_merge` is a separate user checkpoint immediately before the configured fast-forward or squash integration. That second approval covers post-merge checks and configured local cleanup, including local Feature-branch deletion. Remove `local_merge` from `approval.requireCheckCategories` only when the implementation approval should authorize the remaining local completion flow without another checkpoint.
 

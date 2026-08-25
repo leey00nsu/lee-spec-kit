@@ -59,7 +59,7 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 `tasks.md`의 최종 완료 체크박스 3개에는 `lee-spec-kit:completion:*` HTML marker가 있습니다. 사용자에게 보이는 문구는 바꿔도 되지만 각 체크박스 라인의 marker는 유지하세요. `workflow-stage`는 marker를 machine-readable identity로 우선 사용하고, 기존 프로젝트 호환을 위해 marker가 없으면 이전 canonical 문구를 fallback으로 인식합니다.
 
-`completionStrategy`가 `"local-ff"` 또는 `"local-squash"`인 local workflow의 완료 흐름은 `implementation_approve → feature_verify → local_merge → local_cleanup → done`입니다. 검사 실패 시 구현이 허용된 `feature_remediation`으로 이동합니다. `local-ff`는 검증된 Feature SHA만 옮기고, `local-squash`는 통합 tree가 검증된 Feature tree와 같아야 합니다. 둘 다 cleanup 후에만 `done`입니다.
+`completionStrategy`가 `"local-ff"` 또는 `"local-squash"`인 local workflow의 완료 흐름은 `implementation_approve → feature_verify → local_merge → local_cleanup → done`입니다. 검사 실패 시 구현이 허용된 `feature_remediation`으로 이동합니다. `local-ff`는 검증된 Feature SHA만 옮기고, `local-squash`는 통합 tree가 검증된 Feature tree와 같아야 합니다. 둘 다 cleanup 후에만 `done`입니다. cleanup이 끝난 Feature는 기록된 통합 커밋이 현재 base의 조상으로 남아 있는 한 후속 Feature가 base를 전진시켜도 `done`을 유지합니다.
 
 remediation 커밋이 추가되면 기존 검증과 local merge 승인은 무효입니다. Pre-PR review가 활성화되어 있다면 변경된 diff의 review evidence를 갱신하고 새 tip을 검증한 뒤 local merge 승인을 다시 받습니다.
 
