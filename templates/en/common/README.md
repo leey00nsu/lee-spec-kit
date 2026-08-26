@@ -130,6 +130,14 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
+- `workflow.agentExecution.task` (object): task implementation delegation settings
+  - `enabled`: delegates each `task_execute` action to a subagent; new and updated projects default to `true`
+  - `type`: currently only `"subagent"` is supported
+  - `model`: `"inherit"` or a model name supported by the runtime
+  - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
+  - `onUnavailable`: `inherit | error` when the requested model is unavailable
+  - `workflow-stage` returns a stable task ID, working/docs directories, and a machine-readable `workerContract`. The worker executes directly without rerunning `workflow-stage` or delegating again.
+  - The implementation subagent can edit project code and run task-scoped checks. The main agent retains docs, task state, commits, approvals, and remote actions; official hooks reject commits while `task_execute` is active.
 - `workflow.agentReview.task` / `workflow.agentReview.feature` (object): task/Feature independent review settings
   - `enabled`: enables that review gate; new projects default task to `false` and Feature to `true`
   - `evidenceMode`: `path_required | any`
@@ -174,6 +182,15 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
     "deleteFeatureBranchAfterMerge": true,
     "featureChecks": [],
     "postMergeChecks": [],
+    "agentExecution": {
+      "task": {
+        "enabled": true,
+        "type": "subagent",
+        "model": "inherit",
+        "reasoningEffort": "high",
+        "onUnavailable": "inherit"
+      }
+    },
     "agentReview": {
       "task": {
         "enabled": false,
@@ -208,7 +225,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 }
 ```
 
-New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
+New and updated projects delegate task implementation by default; set `workflow.agentExecution.task.enabled` to `false` for main-agent execution. New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
 
 ```json
 {

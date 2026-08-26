@@ -130,6 +130,14 @@ npx lee-spec-kit docs get agents --json
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
+- `workflow.agentExecution.task` (object): 태스크 구현 위임 설정
+  - `enabled`: 각 `task_execute`를 서브에이전트에게 위임할지 여부. 새 프로젝트와 업데이트된 프로젝트의 기본값은 `true`
+  - `type`: 현재 `"subagent"`만 지원
+  - `model`: `"inherit"` 또는 런타임이 지원하는 모델명
+  - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
+  - `onUnavailable`: 지정 모델을 사용할 수 없을 때 `inherit | error`
+  - `workflow-stage`는 안정적인 태스크 ID, 작업/docs 경로, machine-readable `workerContract`를 반환합니다. worker는 `workflow-stage` 재호출이나 재위임 없이 직접 실행합니다.
+  - 구현 서브에이전트는 프로젝트 코드와 태스크 범위 검사를 담당하고, 메인 에이전트는 문서, 태스크 상태, 커밋, 승인, 원격 작업을 유지합니다. 공식 hook은 `task_execute` 중 커밋을 거부합니다.
 - `workflow.agentReview.task` / `workflow.agentReview.feature` (object): 태스크/Feature 독립 리뷰 설정
   - `enabled`: 해당 리뷰 게이트 활성화 여부. 새 프로젝트는 task `false`, Feature `true`
   - `evidenceMode`: `path_required | any`
@@ -174,6 +182,15 @@ npx lee-spec-kit docs get agents --json
     "deleteFeatureBranchAfterMerge": true,
     "featureChecks": [],
     "postMergeChecks": [],
+    "agentExecution": {
+      "task": {
+        "enabled": true,
+        "type": "subagent",
+        "model": "inherit",
+        "reasoningEffort": "high",
+        "onUnavailable": "inherit"
+      }
+    },
     "agentReview": {
       "task": {
         "enabled": false,
@@ -208,7 +225,7 @@ npx lee-spec-kit docs get agents --json
 }
 ```
 
-새 local 프로젝트는 `local-ff`와 Feature agent review를 사용합니다. 태스크마다 리뷰하려면 `workflow.agentReview.task.enabled`를 `true`로 켜세요. base branch에 하나의 commit만 남기려면 `local-squash`를 선택하세요. 이때 task checkpoint 증거를 위해 원본 Feature tip을 내부 `refs/lee-spec-kit/integrations/*` ref로 보존합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff` 또는 `local-squash`로 명시적으로 전환하세요.
+새 프로젝트와 업데이트된 프로젝트는 기본적으로 태스크 구현을 위임합니다. 메인 에이전트가 직접 구현하게 하려면 `workflow.agentExecution.task.enabled`를 `false`로 설정하세요. 새 local 프로젝트는 `local-ff`와 Feature agent review를 사용합니다. 태스크마다 리뷰하려면 `workflow.agentReview.task.enabled`를 `true`로 켜세요. base branch에 하나의 commit만 남기려면 `local-squash`를 선택하세요. 이때 task checkpoint 증거를 위해 원본 Feature tip을 내부 `refs/lee-spec-kit/integrations/*` ref로 보존합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff` 또는 `local-squash`로 명시적으로 전환하세요.
 
 ```json
 {

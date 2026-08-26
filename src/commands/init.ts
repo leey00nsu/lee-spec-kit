@@ -44,6 +44,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import {
+  createDefaultAgentExecutionTaskConfig,
   createDefaultAgentReviewerConfig,
   createDefaultApprovalConfig,
 } from '../utils/config.js';
@@ -830,6 +831,9 @@ async function runInit(options: InitOptions): Promise<void> {
                 postMergeChecks: [],
               }
             : {}),
+          agentExecution: {
+            task: createDefaultAgentExecutionTaskConfig(),
+          },
           agentReview: {
             task: {
               enabled: false,

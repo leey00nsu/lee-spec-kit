@@ -617,6 +617,99 @@ test('generated pre-tool hook blocks commit when staged docs paths violate commi
   });
 });
 
+test('generated pre-tool hook blocks commits while task implementation is active', async () => {
+  await withTempDir('lsk-codex-hook-task-worker-commit-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    await runCommand(dir, 'git', ['branch', '-M', 'main']);
+    await runCommand(dir, 'git', ['config', 'user.name', 'Test User']);
+    await runCommand(dir, 'git', ['config', 'user.email', 'test@example.com']);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+    for (const fileName of ['spec.md', 'plan.md']) {
+      const filePath = path.join(featureDir, fileName);
+      const content = await fs.readFile(filePath, 'utf-8');
+      await fs.writeFile(
+        filePath,
+        content.replace(/- \*\*Status\*\*: .*/, '- **Status**: Approved'),
+        'utf-8'
+      );
+    }
+
+    const tasksPath = path.join(featureDir, 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+    tasks = tasks.replace(
+      '## Completion Criteria',
+      `- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-08-26
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [ ] add UI
+
+## Completion Criteria`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const addResult = await runCommand(dir, 'git', ['add', '.']);
+    assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
+    const commitResult = await runCommand(dir, 'git', ['commit', '-m', 'baseline']);
+    assert.equal(commitResult.code, 0, commitResult.stderr || commitResult.stdout);
+
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+
+    const hookResult = await runCommand(
+      dir,
+      process.execPath,
+      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+      {
+        input: JSON.stringify({
+          cwd: dir,
+          tool_input: {
+            command: 'git commit -m "feat(F001): premature worker commit"',
+          },
+        }),
+      }
+    );
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    const payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.decision, 'block');
+    assert.match(payload.reason, /Commits are not allowed while task_execute is active/i);
+  });
+});
+
 test('generated pre-tool hook blocks wrapped and windows-style git commit commands', async () => {
   await withTempDir('lsk-codex-hook-pre-tool-wrapped-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

@@ -13,6 +13,9 @@ Use the active feature folder as the execution SSOT.
   - continue the single `[DOING]` task, or
   - move the next highest-priority `[TODO]` task to `[DOING]`
 - Work one task at a time. Do not batch-complete multiple tasks in one pass.
+- When `nextAction.executor === "subagent"`, delegate that task's implementation and task-scoped verification to a fresh subagent in `nextAction.workingDirectory` using the returned `model`, `reasoningEffort`, `onUnavailable`, and exact `workerContract`. If a requested model is unavailable, `inherit` means retry with the current model inherited and `error` means stop and report the failure.
+- The implementation worker executes the assigned task directly. It must not run `workflow-stage`, delegate again, edit lee-spec-kit docs, change task state, commit, request approval, or perform remote/destructive actions. It may edit project code and run task-scoped checks only.
+- Legacy task lines without an explicit ID receive a stable synthetic `taskId` from `workflow-stage`; use that returned ID without rewriting the legacy task solely to add an ID.
 
 ## 2. Execute and record
 
@@ -35,6 +38,7 @@ Use the active feature folder as the execution SSOT.
 ## 4. Commit and stop guardrails
 
 - Before `git commit`, use `npx lee-spec-kit commit-audit --json` when docs-path validation matters.
+- The main agent, never the implementation subagent, owns docs/project commits and the task checkpoint.
 - Before stopping, use `npx lee-spec-kit workflow-audit --json` if code or feature docs changed.
 - Keep one row per test command in the `tasks.md` test log and update that row on reruns instead of appending duplicates.
 

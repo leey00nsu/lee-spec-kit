@@ -172,6 +172,13 @@ test('update removes runtime settings that no current command consumes', async (
     const updated = await runConfigUpdate(dir);
 
     assert.equal('prePrReview' in updated.workflow, false);
+    assert.deepEqual(updated.workflow.agentExecution.task, {
+      enabled: true,
+      type: 'subagent',
+      model: 'inherit',
+      reasoningEffort: 'high',
+      onUnavailable: 'inherit',
+    });
     assert.deepEqual(updated.workflow.agentReview.task, {
       enabled: false,
       evidenceMode: 'path_required',
@@ -231,6 +238,15 @@ test('init writes only canonical workflow runtime settings', async () => {
       deleteFeatureBranchAfterMerge: true,
       featureChecks: [],
       postMergeChecks: [],
+      agentExecution: {
+        task: {
+          enabled: true,
+          type: 'subagent',
+          model: 'inherit',
+          reasoningEffort: 'high',
+          onUnavailable: 'inherit',
+        },
+      },
       agentReview: {
         task: {
           enabled: false,
@@ -313,6 +329,35 @@ test('update migrates valid Pre-PR subagent overrides and normalizes invalid val
     assert.deepEqual(updated.workflow.agentReview.feature.reviewer, {
       type: 'subagent',
       model: 'gpt-reviewer',
+      reasoningEffort: 'high',
+      onUnavailable: 'inherit',
+    });
+  });
+});
+
+test('update normalizes task implementation subagent settings and preserves opt-out', async () => {
+  await withTempDir('lsk-config-task-executor-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'local',
+        agentExecution: {
+          task: {
+            enabled: false,
+            type: 'main',
+            model: '  gpt-task-worker  ',
+            reasoningEffort: 'extreme',
+            onUnavailable: 'skip',
+          },
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.deepEqual(updated.workflow.agentExecution.task, {
+      enabled: false,
+      type: 'subagent',
+      model: 'gpt-task-worker',
       reasoningEffort: 'high',
       onUnavailable: 'inherit',
     });

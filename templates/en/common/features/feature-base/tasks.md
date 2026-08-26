@@ -3,6 +3,7 @@
 ## Task Rules
 
 - **Status**: normally `[TODO]` → `[DOING]` → `[DONE]`; when `workflow.agentReview.task.enabled=true`, use `[DOING]` → `[REVIEW]` → `[DONE]`
+- **Implementation delegation**: when `workflow.agentExecution.task.enabled=true`, the configured worker follows the returned `workerContract`, executes directly without running `workflow-stage` or delegating again, and may edit project code plus run task-scoped checks only; the main agent retains this document, task state, commits, approvals, and remote actions.
 - **Task communication / confirmation**:
   - `[TODO] → [DOING]`: share the task title first, then update the task state in `tasks.md`
   - `[DOING] → [REVIEW]/[DONE]`: share the result and verification first, then update `Acceptance` and `Checklist` in the same edit

@@ -53,6 +53,8 @@
 - lee-spec-kit은 문서 구조, workflow 단계, validator를 담당합니다.
 - Codex는 실행 루프, 도구 사용, hook lifecycle을 담당합니다.
 - `implementationAllowed === true`일 때만 구현 코드를 수정합니다. 일반 태스크 구현은 `stage === "implementation"`에서, 리뷰 수정은 `task_review_fix` 또는 `feature_review_fix`에서, 검증 수정은 `feature_remediation`에서만 수행합니다.
+- `nextAction.category`가 `task_execute`이고 `executor`가 `subagent`이면 해당 태스크 하나를 활성화한 뒤, 반환된 `workingDirectory`에서 fresh 서브에이전트에게 반환된 모델·추론도·unavailability 정책과 정확한 `workerContract`로 구현과 태스크 범위 검증을 위임합니다. 특정 이름의 실행 스킬은 요구하지 않습니다.
+- 구현 worker는 직접 실행하며 `workflow-stage`를 호출하거나 다른 서브에이전트를 생성하지 않습니다. 프로젝트 코드 수정과 범위 내 검사는 수행할 수 있지만 lee-spec-kit 문서 수정, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 메인 에이전트가 결과를 확인하고 문서 동기화, 태스크 전환, 커밋, 후속 workflow를 소유하며, 공식 hook은 `task_execute`가 활성화된 동안 커밋을 차단합니다.
 - `nextAction.category`가 `task_review`이고 `executor`가 `subagent`이면 반환된 task ID와 SHA/tree 범위를 fresh context의 읽기 전용 서브에이전트가 리뷰합니다.
 - `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면 반환된 모델·추론도·SHA/tree 범위로 fresh context의 읽기 전용 Feature 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
 - 리뷰 서브에이전트는 finding만 반환하고 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata, reviewed diff, evidence, decision, reviewed head/tree를 기록합니다.

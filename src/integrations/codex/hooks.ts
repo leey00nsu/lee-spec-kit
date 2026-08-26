@@ -960,6 +960,20 @@ if (hasUnsupportedShellWrappedDangerousCommand && !commandFeatureRef) {
   printBlock('lee-spec-kit hooks do not support this shell wrapper for git or gh commands. Re-run the command from a supported shell or the target repo root instead.');
   process.exit(0);
 }
+if (isGitCommit) {
+  const commitStageArgs = commandFeatureRef
+    ? ['workflow-stage', commandFeatureRef, '--json']
+    : ['workflow-stage', '--json'];
+  const commitStageResult = runLeeSpecKitJson(commitStageArgs, workflowCwd);
+  const commitStage = commitStageResult.ok ? commitStageResult.data : null;
+  if (
+    commitStage?.status === 'ok' &&
+    commitStage?.nextAction?.category === 'task_execute'
+  ) {
+    printBlock('Commits are not allowed while task_execute is active. The task implementation worker must return code and verification results without committing; the main agent must synchronize docs and task state before the task_commit checkpoint.');
+    process.exit(0);
+  }
+}
 if (stageBoundAction || isPotentialMergeCleanupCommand || hasUnsupportedShellWrappedDangerousCommand) {
   const stageArgs = commandFeatureRef
     ? ['workflow-stage', commandFeatureRef, '--json']

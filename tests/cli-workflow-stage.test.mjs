@@ -772,9 +772,87 @@ test('workflow-stage allows implementation only after issue creation and expecte
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'implementation');
     assert.equal(payload.nextAction.category, 'task_execute');
+    assert.equal(payload.nextAction.executor, 'subagent');
+    assert.equal(payload.nextAction.model, 'inherit');
+    assert.equal(payload.nextAction.reasoningEffort, 'high');
+    assert.equal(payload.nextAction.onUnavailable, 'inherit');
+    assert.equal(payload.nextAction.taskId, 'T-F001-alpha-01');
+    assert.equal(payload.nextAction.taskIdSource, 'document');
+    assert.equal(payload.nextAction.taskTitle, 'implement alpha shell');
+    assert.equal(
+      await normalizePathForCompare(payload.nextAction.workingDirectory),
+      await normalizePathForCompare(dir)
+    );
+    assert.equal(
+      await normalizePathForCompare(payload.nextAction.docsDirectory),
+      await normalizePathForCompare(path.join(dir, 'docs'))
+    );
+    assert.deepEqual(payload.nextAction.workerContract, {
+      role: 'task_implementation_worker',
+      executeDirectly: true,
+      spawnSubagents: false,
+      runWorkflowStage: false,
+      editProjectCode: true,
+      runTaskScopedVerification: true,
+      editDocs: false,
+      changeTaskState: false,
+      commit: false,
+      requestApproval: false,
+      remoteActions: false,
+    });
+    assert.match(payload.nextAction.summary, /delegate implementation/i);
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, true);
     assert.equal(payload.blockedReasonCode, null);
+  });
+});
+
+test('workflow-stage exposes configured task subagent settings and supports main-agent opt-out', async () => {
+  await withTempDir('lsk-workflow-stage-task-executor-', async (dir) => {
+    const fakeGh = await setupFakeGhCli(dir);
+    await initRepo(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Issue**: #', '- **Issue**: #123');
+    tasks = tasks.replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.agentExecution.task = {
+      enabled: true,
+      type: 'subagent',
+      model: 'gpt-task-worker',
+      reasoningEffort: 'xhigh',
+      onUnavailable: 'error',
+    };
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const checkout = await runCommand(dir, 'git', ['checkout', '-b', 'feat/123-alpha']);
+    assert.equal(checkout.code, 0, checkout.stderr || checkout.stdout);
+
+    const delegated = await readStage(dir, fakeGh.env);
+    assert.equal(delegated.nextAction.category, 'task_execute');
+    assert.equal(delegated.nextAction.executor, 'subagent');
+    assert.equal(delegated.nextAction.model, 'gpt-task-worker');
+    assert.equal(delegated.nextAction.reasoningEffort, 'xhigh');
+    assert.equal(delegated.nextAction.onUnavailable, 'error');
+
+    config.workflow.agentExecution.task.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const direct = await readStage(dir, fakeGh.env);
+    assert.equal(direct.nextAction.category, 'task_execute');
+    assert.equal(direct.nextAction.executor, undefined);
+    assert.equal(direct.nextAction.model, undefined);
+    assert.equal(direct.nextAction.reasoningEffort, undefined);
+    assert.equal(direct.nextAction.onUnavailable, undefined);
+    assert.equal(direct.nextAction.workerContract, undefined);
+    assert.equal(direct.nextAction.docsDirectory, undefined);
+    assert.doesNotMatch(direct.nextAction.summary, /delegate implementation/i);
   });
 });
 
@@ -810,6 +888,7 @@ test('workflow-stage restores the task commit checkpoint before implementation a
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'task_commit');
     assert.equal(payload.nextAction.category, 'task_commit');
+    assert.equal(payload.nextAction.executor, undefined);
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
@@ -1119,6 +1198,11 @@ test('workflow-stage uses the standalone managed worktree once it exists', async
     const payload = await readStage(dir, fakeGh.env);
     assert.equal(payload.stage, 'implementation');
     assert.equal(payload.nextAction.category, 'task_execute');
+    assert.equal(payload.nextAction.executor, 'subagent');
+    assert.equal(
+      await normalizePathForCompare(payload.nextAction.workingDirectory),
+      await normalizePathForCompare(worktreePath)
+    );
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, true);
     assert.equal(payload.blockedReasonCode, null);
@@ -1484,7 +1568,7 @@ test('workflow-stage blocks Feature review when the completed Feature branch is 
   });
 });
 
-test('workflow-stage keeps parsing legacy task lines without ids and with lowercase status', async () => {
+test('workflow-stage gives legacy REVIEW tasks a stable synthetic id when task review is disabled', async () => {
   await withTempDir('lsk-workflow-stage-legacy-task-line-', async (dir) => {
     await initRepo(dir, { workflow: 'local' });
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
@@ -1498,7 +1582,7 @@ test('workflow-stage keeps parsing legacy task lines without ids and with lowerc
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
-      '- [doing][NON-PRD] implement legacy alpha shell'
+      '- [review][NON-PRD] implement legacy alpha shell'
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
     await commitFeatureDocs(dir, 'docs(F001): preserve legacy task format', [
@@ -1509,6 +1593,18 @@ test('workflow-stage keeps parsing legacy task lines without ids and with lowerc
     assert.equal(payload.stage, 'implementation');
     assert.equal(payload.nextAction.category, 'task_execute');
     assert.match(payload.nextAction.summary, /implement legacy alpha shell/);
+    assert.match(payload.nextAction.taskId, /^T-F001-legacy-[a-f0-9]{10}$/);
+    assert.equal(payload.nextAction.taskIdSource, 'synthetic');
+    const syntheticTaskId = payload.nextAction.taskId;
+
+    tasks = (await fs.readFile(tasksPath, 'utf-8')).replace(
+      '- [review][NON-PRD] implement legacy alpha shell',
+      '- [doing][NON-PRD] implement legacy alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    const resumed = await readStage(dir);
+    assert.equal(resumed.nextAction.taskId, syntheticTaskId);
+    assert.equal(resumed.nextAction.taskIdSource, 'synthetic');
   });
 });
 

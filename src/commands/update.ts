@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import { execFileSync } from 'child_process';
 import {
   AGENT_REVIEW_REASONING_EFFORTS,
+  createDefaultAgentExecutionTaskConfig,
   createDefaultAgentReviewerConfig,
   createDefaultApprovalConfig,
   getConfig,
@@ -469,6 +470,55 @@ async function backfillMissingConfigDefaults(
         changedPaths.push('workflow.postMergeChecks');
       }
     }
+  }
+
+  if (!isPlainObject(workflow.agentExecution)) {
+    workflow.agentExecution = {};
+    changedPaths.push('workflow.agentExecution');
+  }
+  const agentExecution = workflow.agentExecution as Record<string, unknown>;
+  if (!isPlainObject(agentExecution.task)) {
+    agentExecution.task = {};
+    changedPaths.push('workflow.agentExecution.task');
+  }
+  const taskExecution = agentExecution.task as Record<string, unknown>;
+  const defaultTaskExecution = createDefaultAgentExecutionTaskConfig();
+  setIfMissing(
+    taskExecution,
+    'enabled',
+    defaultTaskExecution.enabled,
+    'workflow.agentExecution.task.enabled'
+  );
+  if (typeof taskExecution.enabled !== 'boolean') {
+    taskExecution.enabled = defaultTaskExecution.enabled;
+    changedPaths.push('workflow.agentExecution.task.enabled');
+  }
+  if (taskExecution.type !== 'subagent') {
+    taskExecution.type = defaultTaskExecution.type;
+    changedPaths.push('workflow.agentExecution.task.type');
+  }
+  if (typeof taskExecution.model !== 'string' || !taskExecution.model.trim()) {
+    taskExecution.model = defaultTaskExecution.model;
+    changedPaths.push('workflow.agentExecution.task.model');
+  } else if (taskExecution.model !== taskExecution.model.trim()) {
+    taskExecution.model = taskExecution.model.trim();
+    changedPaths.push('workflow.agentExecution.task.model');
+  }
+  if (
+    typeof taskExecution.reasoningEffort !== 'string' ||
+    !AGENT_REVIEW_REASONING_EFFORTS.includes(
+      taskExecution.reasoningEffort as (typeof AGENT_REVIEW_REASONING_EFFORTS)[number]
+    )
+  ) {
+    taskExecution.reasoningEffort = defaultTaskExecution.reasoningEffort;
+    changedPaths.push('workflow.agentExecution.task.reasoningEffort');
+  }
+  if (
+    taskExecution.onUnavailable !== 'inherit' &&
+    taskExecution.onUnavailable !== 'error'
+  ) {
+    taskExecution.onUnavailable = defaultTaskExecution.onUnavailable;
+    changedPaths.push('workflow.agentExecution.task.onUnavailable');
   }
 
   const legacyPrePrReview = isPlainObject(workflow.prePrReview)

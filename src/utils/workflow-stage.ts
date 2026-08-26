@@ -1,8 +1,11 @@
 import fs from 'fs-extra';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   AGENT_REVIEW_REASONING_EFFORTS,
+  createDefaultAgentExecutionTaskConfig,
   createDefaultAgentReviewerConfig,
+  type AgentExecutorConfig,
   type AgentReviewPhaseConfig,
   type AgentReviewerConfig,
   type ProjectConfig,
@@ -100,9 +103,28 @@ export interface WorkflowStageAction {
   onUnavailable?: AgentReviewerConfig['onUnavailable'];
   reviewScope?: 'task' | 'feature';
   taskId?: string;
+  taskIdSource?: 'document' | 'synthetic';
+  taskTitle?: string;
   baseSha?: string;
   targetSha?: string;
   targetTree?: string;
+  workingDirectory?: string;
+  docsDirectory?: string;
+  workerContract?: WorkflowTaskWorkerContract;
+}
+
+export interface WorkflowTaskWorkerContract {
+  role: 'task_implementation_worker';
+  executeDirectly: true;
+  spawnSubagents: false;
+  runWorkflowStage: false;
+  editProjectCode: true;
+  runTaskScopedVerification: true;
+  editDocs: false;
+  changeTaskState: false;
+  commit: false;
+  requestApproval: false;
+  remoteActions: false;
 }
 
 export type WorkflowReviewState =
@@ -178,6 +200,7 @@ type WorkflowRequirements = {
   requireMerge: boolean;
   taskReviewEnabled: boolean;
   featureReviewEnabled: boolean;
+  taskExecutionEnabled: boolean;
 };
 
 type DocApprovalStatus = 'draft' | 'review' | 'approved' | null;
@@ -198,7 +221,8 @@ type ParsedTasks = {
   tasks: Array<{
     raw: string;
     status: SimpleTaskStatus;
-    taskId: string | null;
+    taskId: string;
+    taskIdSource: 'document' | 'synthetic';
     title: string;
     reviewEvidence: string | null;
     reviewDecision: string | null;
@@ -314,6 +338,7 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
       workflow.agentReview?.feature?.enabled ??
       workflow.prePrReview?.enabled ??
       !isLocalWorkflow,
+    taskExecutionEnabled: workflow.agentExecution?.task?.enabled ?? true,
   };
 }
 
@@ -453,7 +478,21 @@ function extractTaskReviewValue(
   return null;
 }
 
-function parseTasksDoc(content: string): ParsedTasks {
+function buildSyntheticTaskId(
+  feature: ResolvedFeature,
+  title: string,
+  sameTitleOccurrence: number
+): string {
+  const fingerprint = createHash('sha256')
+    .update(
+      `${feature.folderName}\0${normalizeCommitTopicText(title).toLowerCase()}\0${sameTitleOccurrence}`
+    )
+    .digest('hex')
+    .slice(0, 10);
+  return `T-${feature.id}-legacy-${fingerprint}`;
+}
+
+function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
   const issueRaw = extractFieldValue(content, ISSUE_LABELS);
   const issueNumberMatch = issueRaw?.match(/^#(\d+)$/);
   const issueNumber = issueNumberMatch ? Number(issueNumberMatch[1]) : null;
@@ -462,6 +501,7 @@ function parseTasksDoc(content: string): ParsedTasks {
   const prePrDecision = extractFieldValue(content, PRE_PR_DECISION_LABELS);
   const tasks: ParsedTasks['tasks'] = [];
   const nonCodeLines = withoutFencedCodeBlocks(content);
+  const legacyTitleOccurrences = new Map<string, number>();
 
   for (let index = 0; index < nonCodeLines.length; index += 1) {
     const line = nonCodeLines[index];
@@ -472,10 +512,17 @@ function parseTasksDoc(content: string): ParsedTasks {
       index,
       ['Review Decision', 'Task Review Decision', '태스크 리뷰 Decision']
     );
+    const legacyTitleKey = normalizeCommitTopicText(parsed.title).toLowerCase();
+    const sameTitleOccurrence = (legacyTitleOccurrences.get(legacyTitleKey) || 0) + 1;
+    legacyTitleOccurrences.set(legacyTitleKey, sameTitleOccurrence);
+    const taskId =
+      parsed.taskId ||
+      buildSyntheticTaskId(feature, parsed.title, sameTitleOccurrence);
     tasks.push({
       raw: line,
       status: parsed.status,
-      taskId: parsed.taskId,
+      taskId,
+      taskIdSource: parsed.taskId ? 'document' : 'synthetic',
       title: parsed.title,
       reviewEvidence: extractTaskReviewValue(
         nonCodeLines,
@@ -844,7 +891,7 @@ function resolveProjectCommitTopic(
   const raw =
     activeTask?.title ||
     getLastDoneTask(tasks)?.title ||
-    nextTodoTask(tasks)?.title ||
+    tasks.tasks.find((task) => task.status === 'TODO')?.title ||
     feature.folderName;
   const withoutTaskId = normalizeCommitTopicText(raw || '').replace(
     /^T-[A-Za-z0-9-]+\s+/,
@@ -1174,10 +1221,13 @@ function buildPostMergeCleanupSummary(state: PostMergeCleanupState): string {
   return `Finish the post-merge cleanup before closing the feature: ${remaining.join(', ')}.`;
 }
 
-function nextTodoTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] | null {
-  return tasks.tasks.find((task) => task.status === 'DOING') ||
+function nextExecutableTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] {
+  return (
+    tasks.tasks.find((task) => task.status === 'DOING') ||
+    tasks.tasks.find((task) => task.status === 'REVIEW') ||
     tasks.tasks.find((task) => task.status === 'TODO') ||
-    null;
+    tasks.tasks.find((task) => task.status !== 'DONE')!
+  );
 }
 
 function allTasksDone(tasks: ParsedTasks): boolean {
@@ -1398,13 +1448,18 @@ function buildAction(
   summary: string,
   approvalRequired: boolean,
   command: string | null = null,
-  reviewer?: AgentReviewerConfig,
-  reviewContext?: {
-    reviewScope: 'task' | 'feature';
+  agent?: AgentReviewerConfig | AgentExecutorConfig,
+  actionContext?: {
+    reviewScope?: 'task' | 'feature';
     taskId?: string;
-    baseSha: string;
-    targetSha: string;
-    targetTree: string;
+    taskIdSource?: 'document' | 'synthetic';
+    taskTitle?: string;
+    baseSha?: string;
+    targetSha?: string;
+    targetTree?: string;
+    workingDirectory?: string;
+    docsDirectory?: string;
+    workerContract?: WorkflowTaskWorkerContract;
   }
 ): WorkflowStageAction {
   return {
@@ -1412,15 +1467,15 @@ function buildAction(
     summary,
     approvalRequired,
     command,
-    ...(reviewer
+    ...(agent
       ? {
-          executor: reviewer.type,
-          model: reviewer.model,
-          reasoningEffort: reviewer.reasoningEffort,
-          onUnavailable: reviewer.onUnavailable,
+          executor: agent.type,
+          model: agent.model,
+          reasoningEffort: agent.reasoningEffort,
+          onUnavailable: agent.onUnavailable,
         }
       : {}),
-    ...(reviewContext || {}),
+    ...(actionContext || {}),
   };
 }
 
@@ -1446,6 +1501,44 @@ function resolveAgentReviewer(
     reasoningEffort,
     onUnavailable:
       configured?.onUnavailable === 'error' ? 'error' : defaults.onUnavailable,
+  };
+}
+
+function resolveTaskExecutor(config: ProjectConfig): AgentExecutorConfig {
+  const defaults = createDefaultAgentExecutionTaskConfig();
+  const configured = config.workflow?.agentExecution?.task;
+  const model =
+    typeof configured?.model === 'string' && configured.model.trim()
+      ? configured.model.trim()
+      : defaults.model;
+  const reasoningEffort = AGENT_REVIEW_REASONING_EFFORTS.includes(
+    configured?.reasoningEffort as AgentExecutorConfig['reasoningEffort']
+  )
+    ? (configured?.reasoningEffort as AgentExecutorConfig['reasoningEffort'])
+    : defaults.reasoningEffort;
+
+  return {
+    type: 'subagent',
+    model,
+    reasoningEffort,
+    onUnavailable:
+      configured?.onUnavailable === 'error' ? 'error' : defaults.onUnavailable,
+  };
+}
+
+function createTaskWorkerContract(): WorkflowTaskWorkerContract {
+  return {
+    role: 'task_implementation_worker',
+    executeDirectly: true,
+    spawnSubagents: false,
+    runWorkflowStage: false,
+    editProjectCode: true,
+    runTaskScopedVerification: true,
+    editDocs: false,
+    changeTaskState: false,
+    commit: false,
+    requestApproval: false,
+    remoteActions: false,
   };
 }
 
@@ -1896,7 +1989,7 @@ export async function collectWorkflowStage(
   const planStatus = parseApprovalStatus(
     extractFieldValue(planContent || '', ['Status', '상태']) || undefined
   );
-  const tasks = parseTasksDoc(tasksContent || '');
+  const tasks = parseTasksDoc(tasksContent || '', feature);
   const issueDraft = parseWorkflowDraftMetadataExtended(issueContent || '');
   const prDraft = parseWorkflowDraftMetadataExtended(prContent || '');
   const remoteReviewState = requirements.requireReview && tasks.prLink
@@ -2497,7 +2590,7 @@ export async function collectWorkflowStage(
   }
 
   if (!allTasksDone(tasks)) {
-    const currentTask = nextTodoTask(tasks);
+    const currentTask = nextExecutableTask(tasks);
     if (committedTaskGateRequiresCheckpoint && !committedTaskGate.pass) {
       return {
         status: 'ok',
@@ -2527,6 +2620,9 @@ export async function collectWorkflowStage(
       taskCommitGatePolicy === 'warn' && !committedTaskGate.pass
         ? `\nTask commit boundary warning: ${describeTaskCommitGateFailure(committedTaskGate)}`
         : '';
+    const delegationGuidance = requirements.taskExecutionEnabled
+      ? ' Delegate implementation and task-scoped verification to a fresh configured subagent under the returned workerContract. The worker executes directly and must not run workflow-stage or delegate again. The main agent retains docs updates, task state transitions, commits, approvals, and remote actions'
+      : '';
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2535,10 +2631,24 @@ export async function collectWorkflowStage(
       stage: 'implementation',
       nextAction: buildAction(
         'task_execute',
-        currentTask
-          ? `Continue the next implementation task: ${currentTask.title}${requirements.taskReviewEnabled ? '. When implementation and checks are complete, move it to REVIEW instead of DONE' : ''}${commitWarning}`
-          : 'Continue the active implementation task.',
-        false
+        `Continue the next implementation task: ${currentTask.title}.${delegationGuidance}${requirements.taskReviewEnabled ? ' When implementation and checks are complete, move it to REVIEW instead of DONE' : ''}${commitWarning}`,
+        false,
+        null,
+        requirements.taskExecutionEnabled
+          ? resolveTaskExecutor(config)
+          : undefined,
+        {
+          taskId: currentTask.taskId,
+          taskIdSource: currentTask.taskIdSource,
+          taskTitle: currentTask.title,
+          workingDirectory: effectiveProjectGitCwd,
+          ...(requirements.taskExecutionEnabled
+            ? {
+                docsDirectory: config.docsDir,
+                workerContract: createTaskWorkerContract(),
+              }
+            : {}),
+        }
       ),
       approvalRequired: false,
       implementationAllowed: true,

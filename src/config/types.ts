@@ -19,11 +19,18 @@ export const AGENT_REVIEW_REASONING_EFFORTS = [
 export type AgentReviewReasoningEffort =
   (typeof AGENT_REVIEW_REASONING_EFFORTS)[number];
 
-export interface AgentReviewerConfig {
+export interface AgentRuntimeConfig {
   type: 'subagent';
   model: string;
   reasoningEffort: AgentReviewReasoningEffort;
   onUnavailable: 'inherit' | 'error';
+}
+
+export type AgentReviewerConfig = AgentRuntimeConfig;
+export type AgentExecutorConfig = AgentRuntimeConfig;
+
+export interface AgentExecutionTaskConfig extends AgentExecutorConfig {
+  enabled: boolean;
 }
 
 export interface AgentReviewPhaseConfig {
@@ -82,6 +89,9 @@ export interface ProjectConfig {
     codeDirtyScope?: 'repo' | 'component' | 'auto';
     componentPaths?: Record<string, string[]>;
     taskCommitGate?: 'off' | 'warn' | 'strict';
+    agentExecution?: {
+      task?: Partial<AgentExecutionTaskConfig>;
+    };
     agentReview?: {
       task?: AgentReviewPhaseConfig;
       feature?: AgentReviewPhaseConfig;
@@ -109,6 +119,16 @@ export function createDefaultApprovalConfig(): NonNullable<ProjectConfig['approv
 
 export function createDefaultAgentReviewerConfig(): AgentReviewerConfig {
   return {
+    type: 'subagent',
+    model: 'inherit',
+    reasoningEffort: 'high',
+    onUnavailable: 'inherit',
+  };
+}
+
+export function createDefaultAgentExecutionTaskConfig(): AgentExecutionTaskConfig {
+  return {
+    enabled: true,
     type: 'subagent',
     model: 'inherit',
     reasoningEffort: 'high',

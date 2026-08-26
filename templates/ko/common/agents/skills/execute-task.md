@@ -13,6 +13,9 @@
   - 이미 `[DOING]`인 태스크가 하나 있으면 그것을 이어서 수행하고
   - 없으면 가장 우선순위가 높은 `[TODO]` 태스크를 `[DOING]`으로 바꿉니다
 - 한 번에 하나의 태스크만 진행합니다.
+- `nextAction.executor === "subagent"`이면 반환된 `workingDirectory`에서 해당 태스크의 구현과 태스크 범위 검증을 fresh 서브에이전트에게 반환된 `model`, `reasoningEffort`, `onUnavailable` 설정과 정확한 `workerContract`로 위임합니다. 지정 모델을 사용할 수 없을 때 `inherit`은 현재 모델을 상속해 다시 위임하고, `error`는 중단 후 실패를 보고한다는 뜻입니다.
+- 구현 worker는 할당된 태스크를 직접 실행합니다. `workflow-stage` 재호출, 재위임, lee-spec-kit 문서 수정, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 프로젝트 코드 수정과 태스크 범위 검사만 수행합니다.
+- 명시적 ID가 없는 레거시 태스크는 `workflow-stage`가 안정적인 synthetic `taskId`를 반환합니다. ID 추가만을 위해 레거시 태스크 문서를 다시 쓰지 말고 반환된 ID를 사용합니다.
 
 ## 2. 실행과 기록
 
@@ -35,6 +38,7 @@
 ## 4. 커밋과 종료 가드레일
 
 - docs 경로 검사가 중요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.
+- 문서/프로젝트 커밋과 태스크 checkpoint는 구현 서브에이전트가 아니라 메인 에이전트가 소유합니다.
 - 코드나 feature 문서를 바꿨다면 종료 전에 `npx lee-spec-kit workflow-audit --json`로 동기화 상태를 확인합니다.
 - `tasks.md` 테스트 로그는 명령어당 1개 행만 유지하고, 재실행 시 기존 행을 갱신합니다.
 

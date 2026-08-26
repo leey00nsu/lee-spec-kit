@@ -61,6 +61,8 @@ The three final completion checkboxes in `tasks.md` carry `lee-spec-kit:completi
 
 With Feature agent review enabled, local completion is `feature review → implementation_approve → feature_verify → local_merge → local_cleanup → done`. With task review enabled, every task follows `DOING → REVIEW → task review → DONE`. Failed checks enter `feature_remediation` with implementation enabled. `local-ff` moves only the verified Feature SHA; `local-squash` requires the integration tree to match the verified Feature tree. Both require cleanup before `done`. After cleanup, a Feature remains `done` while its recorded integration commit is still an ancestor of the current base, even when later Features advance that base.
 
+When `workflow.agentExecution.task.enabled=true`, each `task_execute` action carries the configured subagent model, reasoning effort, stable task ID, implementation working directory, and a machine-readable `workerContract`. The worker executes directly without calling `workflow-stage` or delegating again. It edits project code and runs task-scoped checks only; the main agent owns docs synchronization, task transitions, commits, approvals, and remote actions. Official hooks block commits until the main agent advances the workflow to `task_commit`.
+
 A remediation commit invalidates verification and the prior local-merge confirmation. Refresh review evidence for the changed diff when Pre-PR review is enabled, verify the new tip, and obtain local-merge approval again.
 
 ---
