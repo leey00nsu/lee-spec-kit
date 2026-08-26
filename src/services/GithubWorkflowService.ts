@@ -824,7 +824,7 @@ export function extractTaskTitles(tasksContent: string): string[] {
       .split('\n')
       .map((line) => {
         const match = line.match(
-          /^\s*-\s*\[(?:TODO|DOING|DONE)\][^\n]*?\s+(?:T-[A-Z0-9-]+\s+)?(.+?)\s*$/
+          /^\s*-\s*\[(?:TODO|DOING|REVIEW|DONE)\][^\n]*?\s+(?:T-[A-Z0-9-]+\s+)?(.+?)\s*$/
         );
         if (!match) return undefined;
         return sanitizeDraftItem(match[1]);

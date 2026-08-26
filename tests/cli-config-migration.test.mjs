@@ -171,7 +171,18 @@ test('update removes runtime settings that no current command consumes', async (
 
     const updated = await runConfigUpdate(dir);
 
-    assert.deepEqual(updated.workflow.prePrReview, {
+    assert.equal('prePrReview' in updated.workflow, false);
+    assert.deepEqual(updated.workflow.agentReview.task, {
+      enabled: false,
+      evidenceMode: 'path_required',
+      reviewer: {
+        type: 'subagent',
+        model: 'inherit',
+        reasoningEffort: 'high',
+        onUnavailable: 'inherit',
+      },
+    });
+    assert.deepEqual(updated.workflow.agentReview.feature, {
       enabled: true,
       evidenceMode: 'any',
       reviewer: {
@@ -220,13 +231,26 @@ test('init writes only canonical workflow runtime settings', async () => {
       deleteFeatureBranchAfterMerge: true,
       featureChecks: [],
       postMergeChecks: [],
-      prePrReview: {
-        evidenceMode: 'path_required',
-        reviewer: {
-          type: 'subagent',
-          model: 'inherit',
-          reasoningEffort: 'high',
-          onUnavailable: 'inherit',
+      agentReview: {
+        task: {
+          enabled: false,
+          evidenceMode: 'path_required',
+          reviewer: {
+            type: 'subagent',
+            model: 'inherit',
+            reasoningEffort: 'high',
+            onUnavailable: 'inherit',
+          },
+        },
+        feature: {
+          enabled: true,
+          evidenceMode: 'path_required',
+          reviewer: {
+            type: 'subagent',
+            model: 'inherit',
+            reasoningEffort: 'high',
+            onUnavailable: 'inherit',
+          },
         },
       },
     });
@@ -267,7 +291,7 @@ test('update adds local merge to the previous generated default approval policy'
   });
 });
 
-test('update preserves valid Pre-PR subagent overrides and normalizes invalid values', async () => {
+test('update migrates valid Pre-PR subagent overrides and normalizes invalid values', async () => {
   await withTempDir('lsk-config-pre-pr-reviewer-', async (dir) => {
     await writeProjectConfig(dir, {
       workflow: {
@@ -285,12 +309,32 @@ test('update preserves valid Pre-PR subagent overrides and normalizes invalid va
 
     const updated = await runConfigUpdate(dir);
 
-    assert.deepEqual(updated.workflow.prePrReview.reviewer, {
+    assert.equal('prePrReview' in updated.workflow, false);
+    assert.deepEqual(updated.workflow.agentReview.feature.reviewer, {
       type: 'subagent',
       model: 'gpt-reviewer',
       reasoningEffort: 'high',
       onUnavailable: 'inherit',
     });
+  });
+});
+
+test('update preserves the previously implicit local Feature-review default', async () => {
+  await withTempDir('lsk-config-local-agent-review-default-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'local',
+        prePrReview: {
+          evidenceMode: 'path_required',
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.agentReview.task.enabled, false);
+    assert.equal(updated.workflow.agentReview.feature.enabled, false);
+    assert.equal('prePrReview' in updated.workflow, false);
   });
 });
 

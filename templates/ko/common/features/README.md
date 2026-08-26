@@ -59,7 +59,7 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 `tasks.md`의 최종 완료 체크박스 3개에는 `lee-spec-kit:completion:*` HTML marker가 있습니다. 사용자에게 보이는 문구는 바꿔도 되지만 각 체크박스 라인의 marker는 유지하세요. `workflow-stage`는 marker를 machine-readable identity로 우선 사용하고, 기존 프로젝트 호환을 위해 marker가 없으면 이전 canonical 문구를 fallback으로 인식합니다.
 
-`completionStrategy`가 `"local-ff"` 또는 `"local-squash"`인 local workflow의 완료 흐름은 `implementation_approve → feature_verify → local_merge → local_cleanup → done`입니다. 검사 실패 시 구현이 허용된 `feature_remediation`으로 이동합니다. `local-ff`는 검증된 Feature SHA만 옮기고, `local-squash`는 통합 tree가 검증된 Feature tree와 같아야 합니다. 둘 다 cleanup 후에만 `done`입니다. cleanup이 끝난 Feature는 기록된 통합 커밋이 현재 base의 조상으로 남아 있는 한 후속 Feature가 base를 전진시켜도 `done`을 유지합니다.
+Feature agent review가 활성화된 local workflow의 완료 흐름은 `feature review → implementation_approve → feature_verify → local_merge → local_cleanup → done`입니다. 태스크 리뷰가 활성화되면 각 태스크는 `DOING → REVIEW → task review → DONE`을 거칩니다. 검사 실패 시 구현이 허용된 `feature_remediation`으로 이동합니다. `local-ff`는 검증된 Feature SHA만 옮기고, `local-squash`는 통합 tree가 검증된 Feature tree와 같아야 합니다. 둘 다 cleanup 후에만 `done`입니다. cleanup이 끝난 Feature는 기록된 통합 커밋이 현재 base의 조상으로 남아 있는 한 후속 Feature가 base를 전진시켜도 `done`을 유지합니다.
 
 remediation 커밋이 추가되면 기존 검증과 local merge 승인은 무효입니다. Pre-PR review가 활성화되어 있다면 변경된 diff의 review evidence를 갱신하고 새 tip을 검증한 뒤 local merge 승인을 다시 받습니다.
 
@@ -130,14 +130,15 @@ Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 S
 | Pre-PR 리뷰 상태 | `tasks.md`의 `PR 전 리뷰` | `Pending` \| `Done` |
 | Pre-PR 리뷰 Evidence | `tasks.md`의 `PR 전 리뷰 Evidence` | 근거 링크/로그/문서 경로 |
 | Pre-PR 리뷰 Decision | `tasks.md`의 `PR 전 리뷰 Decision` | `결정: approve|changes_requested|blocked ...` |
+| Pre-PR 리뷰 target | `PR 전 리뷰 Head` / `PR 전 리뷰 Tree` | `workflow-stage`가 반환한 현재 SHA/tree |
 | PR 리뷰 Evidence | `tasks.md`의 `PR 리뷰 Evidence` | 근거 링크/로그/문서 경로 |
 | PR 리뷰 Decision | `tasks.md`의 `PR 리뷰 Decision` | `결정: ...` (또는 `decision: ...`) |
 
 ---
 
-## Pre-PR 서브에이전트 체크리스트
+## Agent review 체크리스트
 
-모든 Pre-PR 리뷰는 `workflow-stage --json`이 반환한 모델·추론도 설정으로 fresh context의 읽기 전용 서브에이전트에게 맡깁니다. 서브에이전트는 `agents/skills/create-pr.md`의 `Pre-PR 기본 체크리스트`를 기준으로 리뷰하고, 메인 에이전트가 finding 반영과 evidence 기록을 담당합니다.
+task/Feature 리뷰는 `workflow-stage --json`이 반환한 모델·추론도·SHA/tree 설정으로 fresh context의 읽기 전용 서브에이전트에게 맡깁니다. 태스크는 해당 checkpoint 범위를, Feature는 base부터 Feature tip까지를 검토합니다. 서브에이전트는 코드를 수정하지 않고 결함 중심 finding만 반환하며, 메인 에이전트가 finding 반영과 evidence 기록을 담당합니다. 특정 이름의 리뷰 스킬은 요구하지 않습니다.
 
 ---
 

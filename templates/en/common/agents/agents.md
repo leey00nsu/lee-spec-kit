@@ -52,9 +52,10 @@ This document defines workflow policy, not a custom runtime loop.
 
 - lee-spec-kit owns docs structure, workflow stages, and validators.
 - Codex owns the execution loop, tool usage, and hook lifecycle.
-- Do not start implementation unless `workflow-stage --json` reports `stage === "implementation"` and `implementationAllowed === true`.
-- When `workflow-stage --json` returns `nextAction.category: pre_pr_review` with `executor: subagent`, run a fresh, read-only subagent review using the returned `model`, `reasoningEffort`, and `onUnavailable` policy. Do not select or require a named review skill.
-- The Pre-PR review subagent returns findings without modifying code. The main agent remediates findings and records reviewer metadata and the final decision as evidence.
+- Modify implementation code only when `implementationAllowed === true`. Normal task work uses `stage === "implementation"`; review fixes use `task_review_fix` or `feature_review_fix`, and verification fixes use `feature_remediation`.
+- When `nextAction.category` is `task_review` with `executor: subagent`, delegate a fresh read-only review for the returned task ID and SHA/tree range.
+- When `nextAction.category` is `pre_pr_review` with `executor: subagent`, run a fresh read-only Feature review using the returned model, reasoning effort, and SHA/tree range. Do not select or require a named review skill.
+- Review subagents return findings without modifying code. The main agent remediates findings and records reviewer metadata, reviewed diff, evidence, decision, and reviewed head/tree.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
 - In local mode, do not stop after implementation approval. Follow the exact `local verify`, `local merge`, and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`. A `feature_remediation` stage explicitly permits fixes in the Feature worktree.

@@ -2,10 +2,11 @@
 
 ## Task Rules
 
-- **Status**: `[TODO]` → `[DOING]` → `[DONE]`
+- **Status**: normally `[TODO]` → `[DOING]` → `[DONE]`; when `workflow.agentReview.task.enabled=true`, use `[DOING]` → `[REVIEW]` → `[DONE]`
 - **Task communication / confirmation**:
   - `[TODO] → [DOING]`: share the task title first, then update the task state in `tasks.md`
-  - `[DOING] → [DONE]`: share the result and verification first, then update `Acceptance` and `Checklist` in the same edit
+  - `[DOING] → [REVIEW]/[DONE]`: share the result and verification first, then update `Acceptance` and `Checklist` in the same edit
+  - `[REVIEW] → [DONE]`: record the fresh task review evidence, decision, reviewed head, and reviewed tree before completion
   - Ask for approval before changing task state only when the task crosses a documented review checkpoint or before remote/destructive actions.
   - Do not invent a standalone `OK` approval step when the workflow does not require one.
   - Do not mark `[DONE]` while any item in that task's `Checklist` remains unchecked.
@@ -39,7 +40,10 @@
 - **Pre-PR Decision**: -
   - Format: `decision: approve|changes_requested|blocked ...` (or `결정: ...`)
   - PR creation requires final decision `approve`
-  - Follow `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`) as the default baseline
+- **Pre-PR Reviewed Head**: -
+  - Project code commit SHA reviewed by the Feature reviewer
+- **Pre-PR Reviewed Tree**: -
+  - Project code tree SHA reviewed by the Feature reviewer
 - **PR Review**: -
   - Values: Pending | Running | Done
   - Mark `Running` when PR review handoff starts; use `Done` only if your team explicitly tracks review completion here
@@ -59,6 +63,10 @@
     - (verification condition)
   - Checklist:
     - [ ] (subtask)
+  - Review Evidence: -
+  - Review Decision: -
+  - Reviewed Head: -
+  - Reviewed Tree: -
 ```
 
 > `PRD-FR-001` in the example is just one valid `PRD-*` key. If the key is not defined in the PRD source yet, do not add it to tasks first.

@@ -30,21 +30,14 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
 
   for (const line of lines) {
     if (
-      /^\s*-\s*\*\*(Issue|PR|PR Status|PR 상태|Pre-PR Review|PR 전 리뷰)\*\*\s*:/.test(
+      /^\s*-\s*\*\*(Issue|PR|PR Status|PR 상태|PR Review|PR 리뷰|PR Review Evidence|PR 리뷰 Evidence)\*\*\s*:/.test(
         line
       )
     ) {
       continue;
     }
     if (
-      /^\s*-\s*\*\*(Pre-PR Evidence|PR 전 리뷰 Evidence)\*\*\s*:/.test(
-        line
-      )
-    ) {
-      continue;
-    }
-    if (
-      /^\s*-\s*\*\*(Pre-PR Decision|PR Review Decision|PR 전 리뷰 Decision|PR 리뷰 Decision)\*\*\s*:/.test(
+      /^\s*-\s*\*\*(PR Review Decision|PR 리뷰 Decision)\*\*\s*:/.test(
         line
       )
     ) {
@@ -59,10 +52,32 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
     if (/^\s*-\s*Example:\s*review note link/i.test(line)) continue;
     if (/^\s*-\s*사전 리뷰 최종 결과/.test(line)) continue;
     if (/^\s*-\s*예:\s*리뷰 노트 링크/.test(line)) continue;
+    if (/^\s*-\s*PR creation requires/i.test(line)) continue;
+    if (/^\s*-\s*PR 생성 전/.test(line)) continue;
+    if (/agents\/skills\/create-pr\.md/.test(line)) continue;
+    if (/^\s*-\s*Mark .*PR review handoff/i.test(line)) continue;
+    if (/^\s*-\s*PR 리뷰 handoff/.test(line)) continue;
+    if (/^\s*-\s*Record why\/how review comments/i.test(line)) continue;
+    if (/^\s*-\s*리뷰 지적사항을/.test(line)) continue;
     filtered.push(line);
   }
 
   next = filtered.join('\n');
+  next = lang === 'ko'
+    ? next
+        .replaceAll('**PR 전 리뷰**', '**Feature 리뷰**')
+        .replaceAll('**PR 전 리뷰 Evidence**', '**Feature 리뷰 Evidence**')
+        .replaceAll('**PR 전 리뷰 Decision**', '**Feature 리뷰 Decision**')
+        .replaceAll('**PR 전 리뷰 Head**', '**Feature 리뷰 Head**')
+        .replaceAll('**PR 전 리뷰 Tree**', '**Feature 리뷰 Tree**')
+        .replaceAll('pre-PR 리뷰 handoff', 'Feature 리뷰 handoff')
+    : next
+        .replaceAll('**Pre-PR Review**', '**Feature Review**')
+        .replaceAll('**Pre-PR Evidence**', '**Feature Review Evidence**')
+        .replaceAll('**Pre-PR Decision**', '**Feature Review Decision**')
+        .replaceAll('**Pre-PR Reviewed Head**', '**Feature Reviewed Head**')
+        .replaceAll('**Pre-PR Reviewed Tree**', '**Feature Reviewed Tree**')
+        .replaceAll('pre-PR review handoff', 'Feature review handoff');
   next = next
     .replace(/feat\/\{issue-number\}-/g, 'feat/')
     .replace(/feat\/\{이슈번호\}-/g, 'feat/')

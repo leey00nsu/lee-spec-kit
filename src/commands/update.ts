@@ -4,10 +4,10 @@ import path from 'path';
 import fs from 'fs-extra';
 import { execFileSync } from 'child_process';
 import {
+  AGENT_REVIEW_REASONING_EFFORTS,
+  createDefaultAgentReviewerConfig,
   createDefaultApprovalConfig,
-  createDefaultPrePrReviewerConfig,
   getConfig,
-  PRE_PR_REVIEW_REASONING_EFFORTS,
 } from '../utils/config.js';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getTemplatesDir } from '../utils/paths.js';
@@ -471,62 +471,95 @@ async function backfillMissingConfigDefaults(
     }
   }
 
-  if (!isPlainObject(workflow.prePrReview)) {
-    workflow.prePrReview = {};
-    changedPaths.push('workflow.prePrReview');
+  const legacyPrePrReview = isPlainObject(workflow.prePrReview)
+    ? { ...workflow.prePrReview }
+    : null;
+  if (!isPlainObject(workflow.agentReview)) {
+    workflow.agentReview = {};
+    changedPaths.push('workflow.agentReview');
   }
-  const prePrReview = workflow.prePrReview as Record<string, unknown>;
-  setIfMissing(
-    prePrReview,
-    'evidenceMode',
-    'path_required',
-    'workflow.prePrReview.evidenceMode'
-  );
-  if (
-    prePrReview.evidenceMode !== undefined &&
-    prePrReview.evidenceMode !== 'path_required' &&
-    prePrReview.evidenceMode !== 'any'
-  ) {
-    prePrReview.evidenceMode = 'path_required';
-    changedPaths.push('workflow.prePrReview.evidenceMode');
-  }
-  if ('findings' in prePrReview) {
-    delete prePrReview.findings;
-    changedPaths.push('workflow.prePrReview.findings');
-  }
-  const defaultReviewer = createDefaultPrePrReviewerConfig();
-  if (!isPlainObject(prePrReview.reviewer)) {
-    prePrReview.reviewer = defaultReviewer;
-    changedPaths.push('workflow.prePrReview.reviewer');
-  } else {
-    const reviewer = prePrReview.reviewer as Record<string, unknown>;
+  const agentReview = workflow.agentReview as Record<string, unknown>;
+  const normalizeAgentReviewPhase = (
+    key: 'task' | 'feature',
+    enabledDefault: boolean,
+    legacySeed: Record<string, unknown> | null = null
+  ): void => {
+    const phasePath = `workflow.agentReview.${key}`;
+    if (!isPlainObject(agentReview[key])) {
+      agentReview[key] = legacySeed ? { ...legacySeed } : {};
+      changedPaths.push(phasePath);
+    }
+    const phase = agentReview[key] as Record<string, unknown>;
+    setIfMissing(phase, 'enabled', enabledDefault, `${phasePath}.enabled`);
+    if (typeof phase.enabled !== 'boolean') {
+      phase.enabled = enabledDefault;
+      changedPaths.push(`${phasePath}.enabled`);
+    }
+    setIfMissing(
+      phase,
+      'evidenceMode',
+      'path_required',
+      `${phasePath}.evidenceMode`
+    );
+    if (phase.evidenceMode !== 'path_required' && phase.evidenceMode !== 'any') {
+      phase.evidenceMode = 'path_required';
+      changedPaths.push(`${phasePath}.evidenceMode`);
+    }
+    if ('findings' in phase) {
+      delete phase.findings;
+      changedPaths.push(`${phasePath}.findings`);
+    }
+
+    const defaultReviewer = createDefaultAgentReviewerConfig();
+    if (!isPlainObject(phase.reviewer)) {
+      phase.reviewer = defaultReviewer;
+      changedPaths.push(`${phasePath}.reviewer`);
+      return;
+    }
+
+    const reviewer = phase.reviewer as Record<string, unknown>;
     if (reviewer.type !== 'subagent') {
       reviewer.type = defaultReviewer.type;
-      changedPaths.push('workflow.prePrReview.reviewer.type');
+      changedPaths.push(`${phasePath}.reviewer.type`);
     }
     if (typeof reviewer.model !== 'string' || !reviewer.model.trim()) {
       reviewer.model = defaultReviewer.model;
-      changedPaths.push('workflow.prePrReview.reviewer.model');
+      changedPaths.push(`${phasePath}.reviewer.model`);
     } else if (reviewer.model !== reviewer.model.trim()) {
       reviewer.model = reviewer.model.trim();
-      changedPaths.push('workflow.prePrReview.reviewer.model');
+      changedPaths.push(`${phasePath}.reviewer.model`);
     }
     if (
       typeof reviewer.reasoningEffort !== 'string' ||
-      !PRE_PR_REVIEW_REASONING_EFFORTS.includes(
-        reviewer.reasoningEffort as (typeof PRE_PR_REVIEW_REASONING_EFFORTS)[number]
+      !AGENT_REVIEW_REASONING_EFFORTS.includes(
+        reviewer.reasoningEffort as (typeof AGENT_REVIEW_REASONING_EFFORTS)[number]
       )
     ) {
       reviewer.reasoningEffort = defaultReviewer.reasoningEffort;
-      changedPaths.push('workflow.prePrReview.reviewer.reasoningEffort');
+      changedPaths.push(`${phasePath}.reviewer.reasoningEffort`);
     }
     if (
       reviewer.onUnavailable !== 'inherit' &&
       reviewer.onUnavailable !== 'error'
     ) {
       reviewer.onUnavailable = defaultReviewer.onUnavailable;
-      changedPaths.push('workflow.prePrReview.reviewer.onUnavailable');
+      changedPaths.push(`${phasePath}.reviewer.onUnavailable`);
     }
+  };
+
+  normalizeAgentReviewPhase('task', false);
+  const legacyFeatureEnabled =
+    typeof legacyPrePrReview?.enabled === 'boolean'
+      ? legacyPrePrReview.enabled
+      : workflow.mode !== 'local';
+  normalizeAgentReviewPhase(
+    'feature',
+    legacyFeatureEnabled,
+    legacyPrePrReview
+  );
+  if (hasOwnKey(workflow, 'prePrReview')) {
+    delete workflow.prePrReview;
+    changedPaths.push('workflow.prePrReview');
   }
   if (!isPlainObject(raw.pr)) {
     raw.pr = {};

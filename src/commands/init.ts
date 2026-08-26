@@ -44,8 +44,8 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import {
+  createDefaultAgentReviewerConfig,
   createDefaultApprovalConfig,
-  createDefaultPrePrReviewerConfig,
 } from '../utils/config.js';
 
 // Git 레포지토리 내부인지 확인
@@ -830,9 +830,17 @@ async function runInit(options: InitOptions): Promise<void> {
                 postMergeChecks: [],
               }
             : {}),
-          prePrReview: {
-            evidenceMode: 'path_required',
-            reviewer: createDefaultPrePrReviewerConfig(),
+          agentReview: {
+            task: {
+              enabled: false,
+              evidenceMode: 'path_required',
+              reviewer: createDefaultAgentReviewerConfig(),
+            },
+            feature: {
+              enabled: true,
+              evidenceMode: 'path_required',
+              reviewer: createDefaultAgentReviewerConfig(),
+            },
           },
         },
         pr: {

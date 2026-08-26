@@ -59,7 +59,7 @@ Use the returned `stage`, `nextAction`, and `implementationAllowed` values as th
 
 The three final completion checkboxes in `tasks.md` carry `lee-spec-kit:completion:*` HTML markers. You may customize their visible wording, but preserve the marker on each checkbox line; `workflow-stage` uses the marker as the machine-readable identity and falls back to the legacy canonical wording for older projects.
 
-In a local workflow with `completionStrategy: "local-ff"` or `"local-squash"`, completion is `implementation_approve → feature_verify → local_merge → local_cleanup → done`. Failed checks enter `feature_remediation` with implementation enabled. `local-ff` moves only the verified Feature SHA; `local-squash` requires the integration tree to match the verified Feature tree. Both require cleanup before `done`. After cleanup, a Feature remains `done` while its recorded integration commit is still an ancestor of the current base, even when later Features advance that base.
+With Feature agent review enabled, local completion is `feature review → implementation_approve → feature_verify → local_merge → local_cleanup → done`. With task review enabled, every task follows `DOING → REVIEW → task review → DONE`. Failed checks enter `feature_remediation` with implementation enabled. `local-ff` moves only the verified Feature SHA; `local-squash` requires the integration tree to match the verified Feature tree. Both require cleanup before `done`. After cleanup, a Feature remains `done` while its recorded integration commit is still an ancestor of the current base, even when later Features advance that base.
 
 A remediation commit invalidates verification and the prior local-merge confirmation. Refresh review evidence for the changed diff when Pre-PR review is enabled, verify the new tip, and obtain local-merge approval again.
 
@@ -130,14 +130,15 @@ Keeping the shared artifact for history is fine, but when it conflicts with feat
 | Pre-PR review status | `Pre-PR Review` in `tasks.md` | `Pending` \| `Done` |
 | Pre-PR review evidence | `Pre-PR Evidence` in `tasks.md` | evidence link/log/doc path |
 | Pre-PR review decision | `Pre-PR Decision` in `tasks.md` | `decision: approve\|changes_requested\|blocked ...` |
+| Pre-PR review target | `Pre-PR Reviewed Head` / `Pre-PR Reviewed Tree` | current SHA/tree returned by `workflow-stage` |
 | PR review evidence | `PR Review Evidence` in `tasks.md` | evidence link/log/doc path |
 | PR review decision | `PR Review Decision` in `tasks.md` | `decision: ...` (or `결정: ...`) |
 
 ---
 
-## Pre-PR Subagent Checklist
+## Agent Review Checklist
 
-Delegate every Pre-PR review to a fresh, read-only subagent using the model and reasoning effort returned by `workflow-stage --json`. The subagent follows `agents/skills/create-pr.md` (`Pre-PR Baseline Checklist`); the main agent owns finding remediation and evidence recording.
+Delegate task and Feature reviews to fresh, read-only subagents using the model, reasoning effort, and SHA/tree target returned by `workflow-stage --json`. Task review covers its checkpoint range; Feature review covers the base-to-Feature-tip diff. The subagent returns defect-focused findings without modifying code; the main agent owns remediation and evidence recording. No named review skill is required.
 
 ---
 

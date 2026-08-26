@@ -52,9 +52,10 @@
 
 - lee-spec-kit은 문서 구조, workflow 단계, validator를 담당합니다.
 - Codex는 실행 루프, 도구 사용, hook lifecycle을 담당합니다.
-- `workflow-stage --json`가 `stage === "implementation"`이고 `implementationAllowed === true`를 반환하기 전에는 구현을 시작하지 않습니다.
-- `workflow-stage --json`의 `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면, 반환된 `model`, `reasoningEffort`, `onUnavailable` 정책으로 fresh context의 읽기 전용 서브에이전트 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
-- Pre-PR 리뷰 서브에이전트는 finding만 반환하며 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata와 최종 decision을 evidence에 기록합니다.
+- `implementationAllowed === true`일 때만 구현 코드를 수정합니다. 일반 태스크 구현은 `stage === "implementation"`에서, 리뷰 수정은 `task_review_fix` 또는 `feature_review_fix`에서, 검증 수정은 `feature_remediation`에서만 수행합니다.
+- `nextAction.category`가 `task_review`이고 `executor`가 `subagent`이면 반환된 task ID와 SHA/tree 범위를 fresh context의 읽기 전용 서브에이전트가 리뷰합니다.
+- `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면 반환된 모델·추론도·SHA/tree 범위로 fresh context의 읽기 전용 Feature 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
+- 리뷰 서브에이전트는 finding만 반환하고 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata, reviewed diff, evidence, decision, reviewed head/tree를 기록합니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
 - standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.

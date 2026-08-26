@@ -2,6 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   fs,
+  ignoreGitArtifacts,
   normalizePathForCompare,
   path,
   runCli,
@@ -110,6 +111,7 @@ async function initStandaloneRepo(dir, options = {}) {
 
 async function setupLocalOriginRemote(repoDir) {
   const remotePath = path.join(repoDir, 'origin.git');
+  await ignoreGitArtifacts(repoDir, ['/origin.git/']);
   const initBare = await runCommand(repoDir, 'git', ['init', '--bare', remotePath]);
   assert.equal(initBare.code, 0, initBare.stderr || initBare.stdout);
   const addRemote = await runCommand(repoDir, 'git', ['remote', 'add', 'origin', remotePath]);
@@ -249,6 +251,8 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
   if (options.completionStrategy) {
     config.workflow.completionStrategy = options.completionStrategy;
   }
+  config.workflow.agentReview.feature.enabled =
+    options.featureReviewEnabled ?? false;
   if (options.approvalCategories) {
     config.approval = {
       mode: 'category',
@@ -322,6 +326,7 @@ async function setupFakeReviewGhCli(dir, prViewPayload = {}) {
   const binDir = path.join(dir, 'fake-review-bin');
   const scriptPath = path.join(binDir, 'gh');
   const cmdScriptPath = path.join(binDir, 'gh.cmd');
+  await ignoreGitArtifacts(dir, ['/fake-review-bin/']);
   await fs.mkdir(binDir, { recursive: true });
   await fs.writeFile(
     scriptPath,
@@ -382,6 +387,7 @@ async function setupFailingPrViewGhCli(dir) {
   const binDir = path.join(dir, 'fake-review-fail-bin');
   const scriptPath = path.join(binDir, 'gh');
   const cmdScriptPath = path.join(binDir, 'gh.cmd');
+  await ignoreGitArtifacts(dir, ['/fake-review-fail-bin/']);
   await fs.mkdir(binDir, { recursive: true });
   await fs.writeFile(
     scriptPath,
@@ -449,6 +455,51 @@ async function commitTaskProject(
   assert.equal(add.code, 0, add.stderr || add.stdout);
   const commit = await runCommand(dir, 'git', ['commit', '-m', message]);
   assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+
+  const tasksPath = path.join(featureDir(dir), 'tasks.md');
+  try {
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    if (/\*\*Pre-PR Review\*\*:\s*Done/i.test(tasks)) {
+      const head = (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+      const tree = (
+        await runCommand(dir, 'git', ['rev-parse', `${head}^{tree}`])
+      ).stdout.trim();
+      if (/\*\*Pre-PR Reviewed Head\*\*:/.test(tasks)) {
+        tasks = tasks.replace(
+          /^- \*\*Pre-PR Reviewed Head\*\*:.*$/m,
+          `- **Pre-PR Reviewed Head**: ${head}`
+        );
+        tasks = tasks.replace(
+          /^- \*\*Pre-PR Reviewed Tree\*\*:.*$/m,
+          `- **Pre-PR Reviewed Tree**: ${tree}`
+        );
+      } else {
+        tasks = tasks.replace(
+          /(^- \*\*Pre-PR Decision\*\*:.*$)/m,
+          `$1\n- **Pre-PR Reviewed Head**: ${head}\n- **Pre-PR Reviewed Tree**: ${tree}`
+        );
+      }
+      await fs.writeFile(tasksPath, tasks, 'utf-8');
+      const addReviewTarget = await runCommand(dir, 'git', ['add', tasksPath]);
+      assert.equal(
+        addReviewTarget.code,
+        0,
+        addReviewTarget.stderr || addReviewTarget.stdout
+      );
+      const commitReviewTarget = await runCommand(dir, 'git', [
+        'commit',
+        '-m',
+        'docs(#123): record Feature review target',
+      ]);
+      assert.equal(
+        commitReviewTarget.code,
+        0,
+        commitReviewTarget.stderr || commitReviewTarget.stdout
+      );
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
 }
 
 async function preparePrePrEvidenceCase(
@@ -471,10 +522,10 @@ async function preparePrePrEvidenceCase(
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     if (evidenceMode) {
-      config.workflow.prePrReview.evidenceMode = evidenceMode;
+      config.workflow.agentReview.feature.evidenceMode = evidenceMode;
     }
     if (reviewer) {
-      config.workflow.prePrReview.reviewer = reviewer;
+      config.workflow.agentReview.feature.reviewer = reviewer;
     }
     await fs.writeFile(
       configPath,
@@ -1092,7 +1143,7 @@ test('workflow-stage does not bypass the issue gate when tasks.md has an issue n
   });
 });
 
-test('workflow-stage restores implementation approval after all tasks are done', async () => {
+test('workflow-stage runs Feature review before implementation approval', async () => {
   await withTempDir('lsk-workflow-stage-implementation-approve-', async (dir) => {
     const fakeGh = await setupFakeGhCli(dir);
     await initRepo(dir);
@@ -1116,17 +1167,440 @@ test('workflow-stage restores implementation approval after all tasks are done',
     await commitTaskProject(dir);
 
     const payload = await readStage(dir, fakeGh.env);
-    assert.equal(payload.stage, 'implementation_approve');
-    assert.equal(payload.nextAction.category, 'implementation_approve');
-    assert.equal(payload.approvalRequired, true);
-    assert.equal(payload.primaryActionLabel, 'A');
-    assert.deepEqual(
-      payload.actionOptions.map((option) => [option.label, option.reply]),
-      [['A', 'A'], ['B', 'B']]
-    );
-    assert.match(payload.actionOptions[0].summary, /approve the completed implementation/i);
+    assert.equal(payload.stage, 'pre_pr_review');
+    assert.equal(payload.nextAction.category, 'pre_pr_review');
+    assert.equal(payload.nextAction.executor, 'subagent');
+    assert.equal(payload.nextAction.reviewScope, 'feature');
+    assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
-    assert.equal(payload.blockedReasonCode, 'IMPLEMENTATION_APPROVAL_REQUIRED');
+    assert.equal(payload.blockedReasonCode, 'PRE_PR_REVIEW_NOT_APPROVED');
+  });
+});
+
+test('workflow-stage gates REVIEW tasks on a fresh subagent decision bound to the code tree', async () => {
+  await withTempDir('lsk-workflow-stage-task-review-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.task.enabled = true;
+    config.workflow.agentReview.task.reviewer = {
+      type: 'subagent',
+      model: 'gpt-task-reviewer',
+      reasoningEffort: 'xhigh',
+      onUnavailable: 'error',
+    };
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    await writePlanningReadyDocs(dir);
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [REVIEW][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace(
+      '    - [x] add UI',
+      `    - [x] add UI
+  - Review Evidence: -
+  - Review Decision: -
+  - Reviewed Head: -
+  - Reviewed Tree: -`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): prepare task review', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir, 'feat(F001): implement alpha shell');
+
+    const initial = await readStage(dir);
+    assert.equal(initial.stage, 'task_review');
+    assert.equal(initial.nextAction.category, 'task_review');
+    assert.equal(initial.nextAction.executor, 'subagent');
+    assert.equal(initial.nextAction.model, 'gpt-task-reviewer');
+    assert.equal(initial.nextAction.reasoningEffort, 'xhigh');
+    assert.equal(initial.nextAction.onUnavailable, 'error');
+    assert.equal(initial.nextAction.reviewScope, 'task');
+    assert.equal(initial.nextAction.taskId, 'T-F001-alpha-01');
+    assert.ok(initial.nextAction.baseSha);
+    assert.ok(initial.nextAction.targetSha);
+    assert.ok(initial.nextAction.targetTree);
+
+    const evidencePath = path.join(featureDir(dir), 'review-trace.json');
+    await fs.writeFile(evidencePath, '{"taskReviews":{}}\n', 'utf-8');
+    tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '  - Review Evidence: -',
+      '  - Review Evidence: docs/features/F001-alpha/review-trace.json'
+    );
+    tasks = tasks.replace(
+      '  - Review Decision: -',
+      '  - Review Decision: decision: changes_requested - add a guard'
+    );
+    tasks = tasks.replace(
+      '  - Reviewed Head: -',
+      `  - Reviewed Head: ${initial.nextAction.targetSha}`
+    );
+    tasks = tasks.replace(
+      '  - Reviewed Tree: -',
+      `  - Reviewed Tree: ${initial.nextAction.targetTree}`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): record task review findings', [
+      'docs/features/F001-alpha/review-trace.json',
+    ]);
+
+    const fix = await readStage(dir);
+    assert.equal(fix.stage, 'task_review_fix');
+    assert.equal(fix.nextAction.category, 'task_review_fix');
+    assert.equal(fix.implementationAllowed, true);
+
+    await commitTaskProject(dir, 'fix(F001): implement alpha shell guard', 'guard.ts');
+    const stale = await readStage(dir);
+    assert.equal(stale.stage, 'task_review');
+    assert.equal(stale.nextAction.executor, 'subagent');
+    assert.notEqual(stale.nextAction.targetSha, initial.nextAction.targetSha);
+
+    tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      /^ {2}- Review Decision:.*$/m,
+      '  - Review Decision: decision: approve - current tree reviewed'
+    );
+    tasks = tasks.replace(
+      /^ {2}- Reviewed Head:.*$/m,
+      `  - Reviewed Head: ${stale.nextAction.targetSha}`
+    );
+    tasks = tasks.replace(
+      /^ {2}- Reviewed Tree:.*$/m,
+      `  - Reviewed Tree: ${stale.nextAction.targetTree}`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): approve task review');
+
+    const approved = await readStage(dir);
+    assert.equal(approved.stage, 'task_review');
+    assert.equal(approved.nextAction.category, 'task_review_complete');
+    assert.equal(approved.nextAction.executor, undefined);
+    assert.equal(approved.implementationAllowed, false);
+  });
+});
+
+test('workflow-stage does not allow DONE to bypass an enabled task review', async () => {
+  await withTempDir('lsk-workflow-stage-task-review-done-bypass-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.task.enabled = true;
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    await writePlanningReadyDocs(dir);
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): mark task done', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir);
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'task_review');
+    assert.equal(payload.nextAction.category, 'task_review');
+    assert.equal(payload.nextAction.reviewScope, 'task');
+    assert.equal(payload.nextAction.taskId, 'T-F001-alpha-01');
+    assert.equal(payload.implementationAllowed, false);
+  });
+});
+
+test('workflow-stage reviews every commit since the previous task checkpoint or Feature base', async () => {
+  await withTempDir('lsk-workflow-stage-task-review-range-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const featureBranch = await runCommand(dir, 'git', [
+      'checkout',
+      '-b',
+      'feat/alpha',
+    ]);
+    assert.equal(featureBranch.code, 0, featureBranch.stderr || featureBranch.stdout);
+    const featureBase = (
+      await runCommand(dir, 'git', ['rev-parse', 'main'])
+    ).stdout.trim();
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.task.enabled = true;
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    await writePlanningReadyDocs(dir);
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [REVIEW][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace(
+      '    - [x] add UI',
+      `    - [x] add UI
+  - Review Evidence: -
+  - Review Decision: -
+  - Reviewed Head: -
+  - Reviewed Tree: -`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): prepare multi-commit task review', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir, 'feat(F001): implement alpha shell part one');
+    await commitTaskProject(
+      dir,
+      'feat(F001): implement alpha shell part two',
+      'alpha-part-two.ts'
+    );
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'task_review');
+    assert.equal(payload.nextAction.baseSha, featureBase);
+    const targetParent = (
+      await runCommand(dir, 'git', [
+        'rev-parse',
+        `${payload.nextAction.targetSha}^`,
+      ])
+    ).stdout.trim();
+    assert.notEqual(payload.nextAction.baseSha, targetParent);
+  });
+});
+
+test('workflow-stage uses the previous approved task checkpoint as the next task review base', async () => {
+  await withTempDir('lsk-workflow-stage-task-review-previous-checkpoint-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const featureBranch = await runCommand(dir, 'git', [
+      'checkout',
+      '-b',
+      'feat/alpha',
+    ]);
+    assert.equal(featureBranch.code, 0, featureBranch.stderr || featureBranch.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.task.enabled = true;
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+    await writePlanningReadyDocs(dir);
+    await commitFeatureDocs(dir, 'docs(F001): prepare sequential task reviews', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir, 'feat(F001): implement first task');
+    const firstTaskHead = (
+      await runCommand(dir, 'git', ['rev-parse', 'HEAD'])
+    ).stdout.trim();
+    const firstTaskTree = (
+      await runCommand(dir, 'git', ['rev-parse', `${firstTaskHead}^{tree}`])
+    ).stdout.trim();
+
+    const evidencePath = path.join(featureDir(dir), 'review-trace.json');
+    await fs.writeFile(evidencePath, '{"taskReviews":{}}\n', 'utf-8');
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    tasks = tasks.replace(
+      '    - [x] add UI',
+      `    - [x] add UI
+  - Review Evidence: docs/features/F001-alpha/review-trace.json
+  - Review Decision: decision: approve - first task reviewed
+  - Reviewed Head: ${firstTaskHead}
+  - Reviewed Tree: ${firstTaskTree}
+
+- [REVIEW][NON-PRD] T-F001-alpha-02 implement beta shell
+  - Date: 2026-08-26
+  - Acceptance:
+    - beta shell renders
+  - Checklist:
+    - [x] add beta UI
+  - Review Evidence: -
+  - Review Decision: -
+  - Reviewed Head: -
+  - Reviewed Tree: -`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): record first task review', [
+      'docs/features/F001-alpha/review-trace.json',
+    ]);
+    await commitTaskProject(dir, 'feat(F001): implement beta shell part one', 'beta.ts');
+    await commitTaskProject(
+      dir,
+      'feat(F001): implement beta shell part two',
+      'beta-part-two.ts'
+    );
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'task_review');
+    assert.equal(payload.nextAction.taskId, 'T-F001-alpha-02');
+    assert.equal(payload.nextAction.baseSha, firstTaskHead);
+  });
+});
+
+test('workflow-stage blocks Feature review when the completed Feature branch is not checked out', async () => {
+  await withTempDir('lsk-workflow-stage-feature-review-wrong-branch-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      autoVerify: false,
+      featureReviewEnabled: true,
+      finalOutcomeChecked: false,
+    });
+    const completedDocs = new Map();
+    for (const fileName of ['spec.md', 'plan.md', 'tasks.md']) {
+      completedDocs.set(
+        fileName,
+        await fs.readFile(path.join(featureDir(dir), fileName), 'utf-8')
+      );
+    }
+
+    const checkoutMain = await runCommand(dir, 'git', ['checkout', 'main']);
+    assert.equal(checkoutMain.code, 0, checkoutMain.stderr || checkoutMain.stdout);
+    for (const [fileName, content] of completedDocs) {
+      await fs.writeFile(path.join(featureDir(dir), fileName), content, 'utf-8');
+    }
+    await commitFeatureDocs(dir, 'docs(F001): sync completed Feature docs');
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
+    assert.equal(payload.nextAction.command, 'git checkout feat/alpha');
+    assert.equal(payload.blockedReasonCode, 'BRANCH_NOT_READY');
+  });
+});
+
+test('workflow-stage keeps parsing legacy task lines without ids and with lowercase status', async () => {
+  await withTempDir('lsk-workflow-stage-legacy-task-line-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+    await writePlanningReadyDocs(dir);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [doing][NON-PRD] implement legacy alpha shell'
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): preserve legacy task format', [
+      'docs/.lee-spec-kit.json',
+    ]);
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'implementation');
+    assert.equal(payload.nextAction.category, 'task_execute');
+    assert.match(payload.nextAction.summary, /implement legacy alpha shell/);
+  });
+});
+
+test('workflow-stage requires a checkpoint commit for untracked implementation files before review', async () => {
+  await withTempDir('lsk-workflow-stage-task-review-untracked-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.task.enabled = true;
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+    await writePlanningReadyDocs(dir);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [REVIEW][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    );
+    tasks = tasks.replace('- [ ] add UI', '- [x] add UI');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): prepare untracked review case', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir);
+    await fs.writeFile(
+      path.join(dir, 'src', 'untracked-implementation.ts'),
+      'export const untracked = true;\n',
+      'utf-8'
+    );
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'task_commit');
+    assert.equal(payload.nextAction.category, 'task_commit');
+    assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
+  });
+});
+
+test('local workflow runs configured Feature review before implementation approval', async () => {
+  await withTempDir('lsk-workflow-stage-local-feature-review-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      autoVerify: false,
+      featureReviewEnabled: true,
+      finalOutcomeChecked: false,
+    });
+
+    const review = await readStage(dir);
+    assert.equal(review.stage, 'pre_pr_review');
+    assert.equal(review.nextAction.reviewScope, 'feature');
+    assert.equal(review.nextAction.executor, 'subagent');
+    assert.ok(review.nextAction.targetSha);
+    assert.ok(review.nextAction.targetTree);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    const evidencePath = path.join(featureDir(dir), 'review-trace.json');
+    await fs.writeFile(evidencePath, '{"featureReview":{}}\n', 'utf-8');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Feature Review**: -', '- **Feature Review**: Done');
+    tasks = tasks.replace(
+      '- **Feature Review Evidence**: -',
+      '- **Feature Review Evidence**: docs/features/F001-alpha/review-trace.json'
+    );
+    tasks = tasks.replace(
+      '- **Feature Review Decision**: -',
+      '- **Feature Review Decision**: decision: approve - current Feature tree reviewed'
+    );
+    tasks = tasks.replace(
+      '- **Feature Reviewed Head**: -',
+      `- **Feature Reviewed Head**: ${review.nextAction.targetSha}`
+    );
+    tasks = tasks.replace(
+      '- **Feature Reviewed Tree**: -',
+      `- **Feature Reviewed Tree**: ${review.nextAction.targetTree}`
+    );
+    assert.match(tasks, /^- \*\*Feature Review\*\*: Done$/m);
+    assert.match(tasks, /^- \*\*Feature Review Evidence\*\*: docs\/features\/F001-alpha\/review-trace\.json$/m);
+    assert.match(tasks, /^- \*\*Feature Review Decision\*\*: decision: approve\b.*$/m);
+    assert.match(tasks, new RegExp(`^- \\*\\*Feature Reviewed Head\\*\\*: ${review.nextAction.targetSha}$`, 'm'));
+    assert.match(tasks, new RegExp(`^- \\*\\*Feature Reviewed Tree\\*\\*: ${review.nextAction.targetTree}$`, 'm'));
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): approve local Feature review', [
+      'docs/features/F001-alpha/review-trace.json',
+    ]);
+
+    const approval = await readStage(dir);
+    assert.equal(
+      approval.stage,
+      'implementation_approve',
+      JSON.stringify(approval, null, 2)
+    );
+    assert.equal(approval.nextAction.category, 'implementation_approve');
   });
 });
 
@@ -2733,6 +3207,10 @@ test('workflow-stage uses completion markers instead of visible checklist wordin
 test('standalone local workflow merges the managed worktree branch in the main project repo', async () => {
   await withTempDir('lsk-workflow-stage-local-standalone-merge-', async (dir) => {
     const { projectRoot } = await initStandaloneRepo(dir, { workflow: 'local' });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
     const base = featureDir(dir);
     await setStatus(path.join(base, 'spec.md'), 'Status', 'Approved');
     await setStatus(path.join(base, 'plan.md'), 'Status', 'Approved');
@@ -3134,6 +3612,7 @@ test('workflow-stage reaches done when merge is not required and the feature is 
       requireMerge: false,
       completionStrategy: 'none',
     };
+    config.workflow.agentReview.feature.enabled = false;
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
     const base = featureDir(dir);

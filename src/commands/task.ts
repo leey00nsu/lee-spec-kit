@@ -58,6 +58,10 @@ function formatTaskBlock(input: {
     ...input.acceptanceItems.map((item) => `    - ${item}`),
     '  - Checklist:',
     ...input.checklistItems.map((item) => `    - [ ] ${item}`),
+    '  - Review Evidence: -',
+    '  - Review Decision: -',
+    '  - Reviewed Head: -',
+    '  - Reviewed Tree: -',
   ];
 }
 

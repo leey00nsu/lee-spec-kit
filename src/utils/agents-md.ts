@@ -36,7 +36,7 @@ Before taking the next workflow step:
 3. When relevant, also read \`issue.md\` and \`pr.md\`
 4. Run \`npx lee-spec-kit workflow-stage <feature-ref> --json\` and follow only the returned \`nextAction\`
 5. If \`workflow-stage --json\` returns \`primaryActionLabel\` and \`actionOptions\`, treat \`primaryActionLabel\` as the default option label and present the exact \`actionOptions[*].reply\` tokens to the user before continuing
-6. Do not start implementation unless \`stage === "implementation"\` and \`implementationAllowed === true\`
+6. Do not modify implementation code unless \`implementationAllowed === true\`; normal task work uses \`stage === "implementation"\`, while \`task_review_fix\`, \`feature_review_fix\`, and \`feature_remediation\` are the only review/remediation exceptions
 7. Treat stages before implementation as hard gates:
    - spec approval plus plan / tasks readiness
    - issue preparation / issue creation
@@ -47,10 +47,11 @@ Before taking the next workflow step:
 10. In standalone mode, do not hand-write \`git worktree add\`; run the exact \`nextAction.command\` from \`workflow-stage\` so the managed workspace path, stale directory cleanup, and \`.env\` / \`.env.*\` copy step stay consistent
 11. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
 12. When docs are synced to code, keep exactly one explicit marker like \`<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->\` in a single active feature doc (prefer \`tasks.md\` or \`decisions.md\`): replace an existing marker timestamp or remove duplicates instead of appending another marker, so \`workflow-audit\` can prove the sync happened after the latest code change
-13. When \`workflow-stage --json\` returns \`nextAction.category === "pre_pr_review"\` and \`nextAction.executor === "subagent"\`, delegate a fresh read-only review using the returned \`model\`, \`reasoningEffort\`, and \`onUnavailable\` policy; do not select or require a named review skill
-14. The Pre-PR review subagent returns findings without modifying code; the main agent remediates findings and records the actual reviewer metadata, reviewed diff scope, evidence, and final decision
-15. For a local workflow, do not report completion directly after implementation approval; follow the exact returned \`local verify\` / \`local merge\` / \`local cleanup\` commands until \`workflow-stage\` proves verification, integration, and cleanup and returns \`done\`; \`feature_remediation\` explicitly permits Feature worktree fixes
-16. In a \`local-ff\` or \`local-squash\` workflow, keep implementation approval and local merge approval distinct when \`local_merge\` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup
+13. When \`workflow-stage --json\` returns \`nextAction.category === "task_review"\` with \`executor === "subagent"\`, delegate a fresh read-only review for the returned \`taskId\`, \`baseSha\`, \`targetSha\`, and \`targetTree\`; the main agent records the evidence and moves the task from \`REVIEW\` to \`DONE\` only after an approve decision
+14. When \`workflow-stage --json\` returns \`nextAction.category === "pre_pr_review"\` and \`nextAction.executor === "subagent"\`, delegate a fresh read-only Feature review using the returned \`model\`, \`reasoningEffort\`, \`onUnavailable\`, and review target metadata; do not select or require a named review skill
+15. Review subagents return findings without modifying code; the main agent remediates findings and records the actual reviewer metadata, reviewed diff scope, evidence, decision, reviewed head, and reviewed tree
+16. For a local workflow, do not report completion directly after implementation approval; follow the exact returned \`local verify\` / \`local merge\` / \`local cleanup\` commands until \`workflow-stage\` proves verification, integration, and cleanup and returns \`done\`; review-fix and \`feature_remediation\` stages explicitly permit scoped fixes
+17. In a \`local-ff\` or \`local-squash\` workflow, keep implementation approval and local merge approval distinct when \`local_merge\` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup
 
 Approval and remote actions:
 

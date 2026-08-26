@@ -7,7 +7,7 @@ export const DEFAULT_APPROVAL_REQUIRE_CHECK_CATEGORIES = [
   'local_merge',
 ] as const;
 
-export const PRE_PR_REVIEW_REASONING_EFFORTS = [
+export const AGENT_REVIEW_REASONING_EFFORTS = [
   'low',
   'medium',
   'high',
@@ -16,15 +16,28 @@ export const PRE_PR_REVIEW_REASONING_EFFORTS = [
   'ultra',
 ] as const;
 
-export type PrePrReviewReasoningEffort =
-  (typeof PRE_PR_REVIEW_REASONING_EFFORTS)[number];
+export type AgentReviewReasoningEffort =
+  (typeof AGENT_REVIEW_REASONING_EFFORTS)[number];
 
-export interface PrePrReviewerConfig {
+export interface AgentReviewerConfig {
   type: 'subagent';
   model: string;
-  reasoningEffort: PrePrReviewReasoningEffort;
+  reasoningEffort: AgentReviewReasoningEffort;
   onUnavailable: 'inherit' | 'error';
 }
+
+export interface AgentReviewPhaseConfig {
+  enabled?: boolean;
+  evidenceMode?: 'any' | 'path_required';
+  reviewer?: Partial<AgentReviewerConfig>;
+}
+
+/** @deprecated Use AGENT_REVIEW_REASONING_EFFORTS. */
+export const PRE_PR_REVIEW_REASONING_EFFORTS = AGENT_REVIEW_REASONING_EFFORTS;
+/** @deprecated Use AgentReviewReasoningEffort. */
+export type PrePrReviewReasoningEffort = AgentReviewReasoningEffort;
+/** @deprecated Use AgentReviewerConfig. */
+export type PrePrReviewerConfig = AgentReviewerConfig;
 
 export interface LocalWorkflowCheck {
   command: string;
@@ -69,11 +82,12 @@ export interface ProjectConfig {
     codeDirtyScope?: 'repo' | 'component' | 'auto';
     componentPaths?: Record<string, string[]>;
     taskCommitGate?: 'off' | 'warn' | 'strict';
-    prePrReview?: {
-      enabled?: boolean;
-      evidenceMode?: 'any' | 'path_required';
-      reviewer?: Partial<PrePrReviewerConfig>;
+    agentReview?: {
+      task?: AgentReviewPhaseConfig;
+      feature?: AgentReviewPhaseConfig;
     };
+    /** @deprecated Migrated to agentReview.feature by update. */
+    prePrReview?: AgentReviewPhaseConfig;
   };
   approval?: {
     mode?: 'steps' | 'category' | 'builtin';
@@ -93,11 +107,16 @@ export function createDefaultApprovalConfig(): NonNullable<ProjectConfig['approv
   };
 }
 
-export function createDefaultPrePrReviewerConfig(): PrePrReviewerConfig {
+export function createDefaultAgentReviewerConfig(): AgentReviewerConfig {
   return {
     type: 'subagent',
     model: 'inherit',
     reasoningEffort: 'high',
     onUnavailable: 'inherit',
   };
+}
+
+/** @deprecated Use createDefaultAgentReviewerConfig. */
+export function createDefaultPrePrReviewerConfig(): PrePrReviewerConfig {
+  return createDefaultAgentReviewerConfig();
 }

@@ -1,9 +1,10 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import {
-  createDefaultPrePrReviewerConfig,
-  PRE_PR_REVIEW_REASONING_EFFORTS,
-  type PrePrReviewerConfig,
+  AGENT_REVIEW_REASONING_EFFORTS,
+  createDefaultAgentReviewerConfig,
+  type AgentReviewPhaseConfig,
+  type AgentReviewerConfig,
   type ProjectConfig,
 } from '../config/types.js';
 import { LEGACY_APPROVAL_CATEGORY_STEPS } from '../config/legacy-approval.js';
@@ -29,7 +30,9 @@ import {
 import { resolveFeatureCommitScope } from './commit-conventions.js';
 import { runProcess } from '../commands/github/process.js';
 import { isPrePrEvidenceSatisfied } from './pre-pr-evidence.js';
+import { parseTaskLine } from './task-lines.js';
 import {
+  isAncestor,
   localCleanupComplete,
   resolveLocalCompletionStrategy,
   resolveLocalIntegrationContext,
@@ -43,6 +46,8 @@ export type WorkflowStageId =
   | 'branch'
   | 'implementation'
   | 'task_commit'
+  | 'task_review'
+  | 'task_review_fix'
   | 'implementation_approve'
   | 'feature_verify'
   | 'feature_remediation'
@@ -50,6 +55,7 @@ export type WorkflowStageId =
   | 'local_verify'
   | 'local_cleanup'
   | 'pre_pr_review'
+  | 'feature_review_fix'
   | 'pr'
   | 'code_review'
   | 'merge'
@@ -69,6 +75,9 @@ export interface WorkflowStageAction {
     | 'branch_create'
     | 'task_execute'
     | 'task_commit'
+    | 'task_review'
+    | 'task_review_complete'
+    | 'task_review_fix'
     | 'implementation_approve'
     | 'feature_verify'
     | 'feature_remediation'
@@ -76,6 +85,7 @@ export interface WorkflowStageAction {
     | 'local_verify'
     | 'local_cleanup'
     | 'pre_pr_review'
+    | 'feature_review_fix'
     | 'pr_prepare'
     | 'pr_create'
     | 'code_review'
@@ -86,8 +96,13 @@ export interface WorkflowStageAction {
   command: string | null;
   executor?: 'subagent';
   model?: string;
-  reasoningEffort?: PrePrReviewerConfig['reasoningEffort'];
-  onUnavailable?: PrePrReviewerConfig['onUnavailable'];
+  reasoningEffort?: AgentReviewerConfig['reasoningEffort'];
+  onUnavailable?: AgentReviewerConfig['onUnavailable'];
+  reviewScope?: 'task' | 'feature';
+  taskId?: string;
+  baseSha?: string;
+  targetSha?: string;
+  targetTree?: string;
 }
 
 export type WorkflowReviewState =
@@ -140,6 +155,7 @@ export interface WorkflowStagePayload {
     | 'ISSUE_NOT_CREATED'
     | 'BRANCH_NOT_READY'
     | 'TASK_COMMIT_REQUIRED'
+    | 'TASK_REVIEW_NOT_APPROVED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
     | 'FEATURE_VERIFICATION_REQUIRED'
     | 'FEATURE_REMEDIATION_REQUIRED'
@@ -160,7 +176,8 @@ type WorkflowRequirements = {
   requirePr: boolean;
   requireReview: boolean;
   requireMerge: boolean;
-  prePrReviewEnabled: boolean;
+  taskReviewEnabled: boolean;
+  featureReviewEnabled: boolean;
 };
 
 type DocApprovalStatus = 'draft' | 'review' | 'approved' | null;
@@ -176,10 +193,18 @@ type ParsedTasks = {
   prePrEvidence: string | null;
   prePrDecision: string | null;
   prePrDecisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
+  prePrReviewedHead: string | null;
+  prePrReviewedTree: string | null;
   tasks: Array<{
     raw: string;
     status: SimpleTaskStatus;
+    taskId: string | null;
     title: string;
+    reviewEvidence: string | null;
+    reviewDecision: string | null;
+    reviewDecisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
+    reviewedHead: string | null;
+    reviewedTree: string | null;
   }>;
   completion: {
     allTasksChecked: boolean;
@@ -227,9 +252,36 @@ const ISSUE_LABELS = ['Issue', 'Issue Number', '이슈', '이슈 번호'];
 const BRANCH_LABELS = ['Branch', '브랜치'];
 const PR_LABELS = ['PR', 'Pull Request'];
 const PR_STATUS_LABELS = ['PR Status', 'PR 상태'];
-const PRE_PR_REVIEW_LABELS = ['Pre-PR Review', 'PR 전 리뷰'];
-const PRE_PR_EVIDENCE_LABELS = ['Pre-PR Evidence', 'PR 전 리뷰 Evidence'];
-const PRE_PR_DECISION_LABELS = ['Pre-PR Decision', 'PR 전 리뷰 Decision'];
+const PRE_PR_REVIEW_LABELS = [
+  'Pre-PR Review',
+  'PR 전 리뷰',
+  'Feature Review',
+  'Feature 리뷰',
+];
+const PRE_PR_EVIDENCE_LABELS = [
+  'Pre-PR Evidence',
+  'PR 전 리뷰 Evidence',
+  'Feature Review Evidence',
+  'Feature 리뷰 Evidence',
+];
+const PRE_PR_DECISION_LABELS = [
+  'Pre-PR Decision',
+  'PR 전 리뷰 Decision',
+  'Feature Review Decision',
+  'Feature 리뷰 Decision',
+];
+const PRE_PR_REVIEWED_HEAD_LABELS = [
+  'Pre-PR Reviewed Head',
+  'PR 전 리뷰 Head',
+  'Feature Reviewed Head',
+  'Feature 리뷰 Head',
+];
+const PRE_PR_REVIEWED_TREE_LABELS = [
+  'Pre-PR Reviewed Tree',
+  'PR 전 리뷰 Tree',
+  'Feature Reviewed Tree',
+  'Feature 리뷰 Tree',
+];
 const COMPLETION_MARKERS = {
   allTasks: 'lee-spec-kit:completion:all-tasks',
   tests: 'lee-spec-kit:completion:tests',
@@ -257,7 +309,11 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
     requirePr: workflow.requirePr ?? !isLocalWorkflow,
     requireReview: workflow.requireReview ?? !isLocalWorkflow,
     requireMerge: workflow.requireMerge ?? !isLocalWorkflow,
-    prePrReviewEnabled: workflow.prePrReview?.enabled ?? !isLocalWorkflow,
+    taskReviewEnabled: workflow.agentReview?.task?.enabled ?? false,
+    featureReviewEnabled:
+      workflow.agentReview?.feature?.enabled ??
+      workflow.prePrReview?.enabled ??
+      !isLocalWorkflow,
   };
 }
 
@@ -325,6 +381,78 @@ function parseCompletionCheckbox(
   );
 }
 
+function parseReviewDecisionOutcome(
+  value: string | null
+): 'approve' | 'changes_requested' | 'blocked' | null {
+  const match = (value || '')
+    .trim()
+    .toLowerCase()
+    .match(/\b(approve|changes_requested|blocked)\b/);
+  return (match?.[1] as 'approve' | 'changes_requested' | 'blocked') || null;
+}
+
+function parseWorkflowTaskLine(
+  line: string,
+  index = -1
+): {
+  index: number;
+  raw: string;
+  status: SimpleTaskStatus;
+  taskId: string | null;
+  title: string;
+} | null {
+  const canonical = parseTaskLine(line, index);
+  if (canonical) {
+    return {
+      index,
+      raw: line,
+      status: canonical.status,
+      taskId: canonical.taskId,
+      title: canonical.title,
+    };
+  }
+
+  const legacy = line.match(
+    /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\](?:\[[^\]]+\])*\s+(?:(T-[A-Za-z0-9-]+)\s+)?(.+?)\s*$/i
+  );
+  if (!legacy) return null;
+  return {
+    index,
+    raw: line,
+    status: legacy[1].toUpperCase() as SimpleTaskStatus,
+    taskId: legacy[2] || null,
+    title: legacy[3].trim(),
+  };
+}
+
+function extractTaskReviewValue(
+  lines: string[],
+  startIndex: number,
+  labels: string[]
+): string | null {
+  let endIndex = lines.length;
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    if (parseWorkflowTaskLine(lines[index]) || /^\s*##\s+/.test(lines[index])) {
+      endIndex = index;
+      break;
+    }
+  }
+
+  for (let index = startIndex + 1; index < endIndex; index += 1) {
+    for (const label of labels) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = lines[index].match(
+        new RegExp(
+          `^\\s*-\\s*(?:\\*\\*)?${escaped}(?:\\*\\*)?:\\s*(.*?)\\s*$`,
+          'i'
+        )
+      );
+      if (match) return sanitizeMetadataValue(match[1]);
+    }
+  }
+  return null;
+}
+
 function parseTasksDoc(content: string): ParsedTasks {
   const issueRaw = extractFieldValue(content, ISSUE_LABELS);
   const issueNumberMatch = issueRaw?.match(/^#(\d+)$/);
@@ -335,15 +463,37 @@ function parseTasksDoc(content: string): ParsedTasks {
   const tasks: ParsedTasks['tasks'] = [];
   const nonCodeLines = withoutFencedCodeBlocks(content);
 
-  for (const line of nonCodeLines) {
-    const match = line.match(
-      /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\](?:\[[^\]]+\])*\s+(.+?)\s*$/i
+  for (let index = 0; index < nonCodeLines.length; index += 1) {
+    const line = nonCodeLines[index];
+    const parsed = parseWorkflowTaskLine(line, index);
+    if (!parsed) continue;
+    const reviewDecision = extractTaskReviewValue(
+      nonCodeLines,
+      index,
+      ['Review Decision', 'Task Review Decision', '태스크 리뷰 Decision']
     );
-    if (!match) continue;
     tasks.push({
       raw: line,
-      status: match[1].toUpperCase() as SimpleTaskStatus,
-      title: match[2].trim(),
+      status: parsed.status,
+      taskId: parsed.taskId,
+      title: parsed.title,
+      reviewEvidence: extractTaskReviewValue(
+        nonCodeLines,
+        index,
+        ['Review Evidence', 'Task Review Evidence', '태스크 리뷰 Evidence']
+      ),
+      reviewDecision,
+      reviewDecisionOutcome: parseReviewDecisionOutcome(reviewDecision),
+      reviewedHead: extractTaskReviewValue(
+        nonCodeLines,
+        index,
+        ['Reviewed Head', 'Task Reviewed Head', '태스크 리뷰 Head']
+      ),
+      reviewedTree: extractTaskReviewValue(
+        nonCodeLines,
+        index,
+        ['Reviewed Tree', 'Task Reviewed Tree', '태스크 리뷰 Tree']
+      ),
     });
   }
 
@@ -382,11 +532,7 @@ function parseTasksDoc(content: string): ParsedTasks {
     return null;
   })();
 
-  const prePrDecisionOutcome = (() => {
-    const value = (prePrDecision || '').trim().toLowerCase();
-    const match = value.match(/\b(approve|changes_requested|blocked)\b/);
-    return (match?.[1] as ParsedTasks['prePrDecisionOutcome']) || null;
-  })();
+  const prePrDecisionOutcome = parseReviewDecisionOutcome(prePrDecision);
 
   return {
     docStatus: parseApprovalStatus(
@@ -402,6 +548,12 @@ function parseTasksDoc(content: string): ParsedTasks {
     ),
     prePrDecision: sanitizeMetadataValue(prePrDecision),
     prePrDecisionOutcome,
+    prePrReviewedHead: sanitizeMetadataValue(
+      extractFieldValue(content, PRE_PR_REVIEWED_HEAD_LABELS)
+    ),
+    prePrReviewedTree: sanitizeMetadataValue(
+      extractFieldValue(content, PRE_PR_REVIEWED_TREE_LABELS)
+    ),
     tasks,
     completion: {
       allTasksChecked,
@@ -602,7 +754,7 @@ function hasUncommittedChanges(gitCwd: string | null | undefined): boolean {
   if (!gitCwd) return false;
   const status =
     runGitCapture(
-      ['status', '--porcelain', '--untracked-files=no'],
+      ['status', '--porcelain', '--untracked-files=normal'],
       gitCwd
     ) || '';
   return status.trim().length > 0;
@@ -770,6 +922,27 @@ function resolveExpectedBranch(feature: ResolvedFeature, tasks: ParsedTasks): st
   if (tasks.branch) return tasks.branch;
   if (!tasks.issueNumber) return null;
   return `feat/${tasks.issueNumber}-${feature.slug}`;
+}
+
+function buildExpectedBranchCommand(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  expectedBranch: string,
+  requireWorktree: boolean
+): string {
+  if (requireWorktree) {
+    return buildManagedWorktreeCreateCommand(
+      config,
+      feature.git.projectGitCwd,
+      expectedBranch
+    );
+  }
+  return localBranchExists(
+    resolveProjectRootGitCwd(config, feature),
+    expectedBranch
+  )
+    ? `git checkout ${expectedBranch}`
+    : `git checkout -b ${expectedBranch}`;
 }
 
 function resolveProjectRootFromGitCwd(projectGitCwd: string): string {
@@ -1011,22 +1184,190 @@ function allTasksDone(tasks: ParsedTasks): boolean {
   return tasks.tasks.length > 0 && tasks.tasks.every((task) => task.status === 'DONE');
 }
 
-function prePrSatisfied(
+type ReviewTarget = {
+  baseSha: string;
+  targetSha: string;
+  targetTree: string;
+};
+
+type TaskReviewBase = {
+  reviewedHead: string;
+  reviewedTree: string;
+};
+
+function resolveAgentReviewPhase(
+  config: ProjectConfig,
+  scope: 'task' | 'feature'
+): AgentReviewPhaseConfig {
+  if (scope === 'task') {
+    return config.workflow?.agentReview?.task || {};
+  }
+  return (
+    config.workflow?.agentReview?.feature ||
+    config.workflow?.prePrReview ||
+    {}
+  );
+}
+
+function resolveProjectReviewTarget(
+  config: ProjectConfig,
+  projectGitCwd: string,
+  scope: 'task' | 'feature',
+  taskBase: TaskReviewBase | null = null
+): ReviewTarget | null {
+  const pathArgs = ['--', '.'];
+  const relativeDocsDir = path.relative(projectGitCwd, config.docsDir);
+  const normalizedDocsDir = normalizeGitRelativePath(relativeDocsDir);
+  if (
+    normalizedDocsDir &&
+    normalizedDocsDir !== '.' &&
+    normalizedDocsDir !== '..' &&
+    !normalizedDocsDir.startsWith('../')
+  ) {
+    pathArgs.push(`:(exclude)${normalizedDocsDir}/**`);
+  }
+
+  const targetSha =
+    runGitCapture(['log', '-n', '1', '--pretty=%H', ...pathArgs], projectGitCwd) ||
+    runGitCapture(['rev-parse', 'HEAD'], projectGitCwd) ||
+    '';
+  if (!targetSha) return null;
+  const targetTree =
+    runGitCapture(['rev-parse', `${targetSha}^{tree}`], projectGitCwd) || '';
+  if (!targetTree) return null;
+
+  let baseSha = '';
+  if (scope === 'task' && taskBase) {
+    const actualBaseTree =
+      runGitCapture(
+        ['rev-parse', `${taskBase.reviewedHead}^{tree}`],
+        projectGitCwd
+      ) || '';
+    if (
+      actualBaseTree === taskBase.reviewedTree &&
+      taskBase.reviewedHead !== targetSha &&
+      isAncestor(projectGitCwd, taskBase.reviewedHead, targetSha)
+    ) {
+      baseSha = taskBase.reviewedHead;
+    }
+  }
+
+  if (!baseSha) {
+    const baseBranch = config.workflow?.baseBranch?.trim() || 'main';
+    for (const candidate of [`origin/${baseBranch}`, baseBranch]) {
+      const candidateBase =
+        runGitCapture(['merge-base', candidate, targetSha], projectGitCwd) || '';
+      if (candidateBase && candidateBase !== targetSha) {
+        baseSha = candidateBase;
+        break;
+      }
+    }
+  }
+
+  if (!baseSha) {
+    baseSha =
+      runGitCapture(['rev-parse', `${targetSha}^`], projectGitCwd) || targetSha;
+  }
+
+  return { baseSha, targetSha, targetTree };
+}
+
+function reviewEvidenceSatisfied(
   config: ProjectConfig,
   feature: ResolvedFeature,
-  tasks: ParsedTasks
+  scope: 'task' | 'feature',
+  evidence: string | null
+): boolean {
+  return isPrePrEvidenceSatisfied({
+    docsDir: config.docsDir,
+    featureDir: feature.path,
+    evidence,
+    evidenceMode: resolveAgentReviewPhase(config, scope).evidenceMode,
+  });
+}
+
+function featureReviewSatisfied(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  tasks: ParsedTasks,
+  target: ReviewTarget | null
 ): boolean {
   return (
+    !!target &&
     tasks.prePrReviewStatus === 'done' &&
-    isPrePrEvidenceSatisfied({
-      docsDir: config.docsDir,
-      featureDir: feature.path,
-      evidence: tasks.prePrEvidence,
-      evidenceMode: config.workflow?.prePrReview?.evidenceMode,
-    }) &&
+    reviewEvidenceSatisfied(config, feature, 'feature', tasks.prePrEvidence) &&
     !!tasks.prePrDecision &&
-    tasks.prePrDecisionOutcome === 'approve'
+    tasks.prePrDecisionOutcome === 'approve' &&
+    tasks.prePrReviewedHead === target.targetSha &&
+    tasks.prePrReviewedTree === target.targetTree
   );
+}
+
+function taskReviewEvidenceSatisfied(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  task: ParsedTasks['tasks'][number],
+  target: ReviewTarget | null
+): boolean {
+  return (
+    !!target &&
+    reviewEvidenceSatisfied(config, feature, 'task', task.reviewEvidence) &&
+    task.reviewDecisionOutcome === 'approve' &&
+    task.reviewedHead === target.targetSha &&
+    task.reviewedTree === target.targetTree
+  );
+}
+
+function recordedTaskReviewSatisfied(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  projectGitCwd: string,
+  task: ParsedTasks['tasks'][number],
+  currentTargetSha: string | null
+): boolean {
+  if (
+    !currentTargetSha ||
+    !task.reviewedHead ||
+    !task.reviewedTree ||
+    task.reviewDecisionOutcome !== 'approve' ||
+    !reviewEvidenceSatisfied(config, feature, 'task', task.reviewEvidence)
+  ) {
+    return false;
+  }
+
+  const actualTree =
+    runGitCapture(
+      ['rev-parse', `${task.reviewedHead}^{tree}`],
+      projectGitCwd
+    ) || '';
+  return (
+    actualTree === task.reviewedTree &&
+    isAncestor(projectGitCwd, task.reviewedHead, currentTargetSha)
+  );
+}
+
+function resolvePreviousTaskReviewBase(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  tasks: ParsedTasks,
+  task: ParsedTasks['tasks'][number]
+): TaskReviewBase | null {
+  const taskIndex = tasks.tasks.indexOf(task);
+  for (let index = taskIndex - 1; index >= 0; index -= 1) {
+    const previous = tasks.tasks[index];
+    if (
+      previous.reviewDecisionOutcome === 'approve' &&
+      previous.reviewedHead &&
+      previous.reviewedTree &&
+      reviewEvidenceSatisfied(config, feature, 'task', previous.reviewEvidence)
+    ) {
+      return {
+        reviewedHead: previous.reviewedHead,
+        reviewedTree: previous.reviewedTree,
+      };
+    }
+  }
+  return null;
 }
 
 function issueExistsRemotely(
@@ -1057,7 +1398,14 @@ function buildAction(
   summary: string,
   approvalRequired: boolean,
   command: string | null = null,
-  reviewer?: PrePrReviewerConfig
+  reviewer?: AgentReviewerConfig,
+  reviewContext?: {
+    reviewScope: 'task' | 'feature';
+    taskId?: string;
+    baseSha: string;
+    targetSha: string;
+    targetTree: string;
+  }
 ): WorkflowStageAction {
   return {
     category,
@@ -1072,20 +1420,24 @@ function buildAction(
           onUnavailable: reviewer.onUnavailable,
         }
       : {}),
+    ...(reviewContext || {}),
   };
 }
 
-function resolvePrePrReviewer(config: ProjectConfig): PrePrReviewerConfig {
-  const defaults = createDefaultPrePrReviewerConfig();
-  const configured = config.workflow?.prePrReview?.reviewer;
+function resolveAgentReviewer(
+  config: ProjectConfig,
+  scope: 'task' | 'feature'
+): AgentReviewerConfig {
+  const defaults = createDefaultAgentReviewerConfig();
+  const configured = resolveAgentReviewPhase(config, scope).reviewer;
   const model =
     typeof configured?.model === 'string' && configured.model.trim()
       ? configured.model.trim()
       : defaults.model;
-  const reasoningEffort = PRE_PR_REVIEW_REASONING_EFFORTS.includes(
-    configured?.reasoningEffort as PrePrReviewerConfig['reasoningEffort']
+  const reasoningEffort = AGENT_REVIEW_REASONING_EFFORTS.includes(
+    configured?.reasoningEffort as AgentReviewerConfig['reasoningEffort']
   )
-    ? (configured?.reasoningEffort as PrePrReviewerConfig['reasoningEffort'])
+    ? (configured?.reasoningEffort as AgentReviewerConfig['reasoningEffort'])
     : defaults.reasoningEffort;
 
   return {
@@ -1725,9 +2077,12 @@ export async function collectWorkflowStage(
       runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], effectiveProjectGitCwd) ||
       null;
     if (expectedBranch && currentBranch !== expectedBranch) {
-      const branchCommand = requirements.requireWorktree
-        ? buildManagedWorktreeCreateCommand(config, feature.git.projectGitCwd, expectedBranch)
-        : `git checkout -b ${expectedBranch}`;
+      const branchCommand = buildExpectedBranchCommand(
+        config,
+        feature,
+        expectedBranch,
+        requirements.requireWorktree
+      );
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -1753,6 +2108,179 @@ export async function collectWorkflowStage(
   const lastDoneTask = getLastDoneTask(tasks);
   const docsDirty = hasUncommittedChanges(feature.git.docsGitCwd);
   const projectDirty = hasUncommittedChanges(effectiveProjectGitCwd);
+  const currentTaskReviewTip = requirements.taskReviewEnabled
+    ? resolveProjectReviewTarget(config, effectiveProjectGitCwd, 'task')
+    : null;
+  const unreviewedDoneTask = requirements.taskReviewEnabled
+    ? tasks.tasks.find(
+        (task) =>
+          task.status === 'DONE' &&
+          !recordedTaskReviewSatisfied(
+            config,
+            feature,
+            effectiveProjectGitCwd,
+            task,
+            currentTaskReviewTip?.targetSha || null
+          )
+      ) || null
+    : null;
+  const reviewTask =
+    unreviewedDoneTask ||
+    tasks.tasks.find((task) => task.status === 'REVIEW') ||
+    null;
+
+  if (requirements.taskReviewEnabled && reviewTask) {
+    if (docsDirty || projectDirty) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_commit',
+        nextAction: buildAction(
+          'task_commit',
+          buildTaskCommitSummary({
+            feature,
+            tasks,
+            effectiveProjectGitCwd,
+            docsDirty,
+            projectDirty,
+            gateFailureReason:
+              'the task must have a clean checkpoint commit before independent review',
+          }),
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+      };
+    }
+
+    const reviewTarget = resolveProjectReviewTarget(
+      config,
+      effectiveProjectGitCwd,
+      'task',
+      resolvePreviousTaskReviewBase(config, feature, tasks, reviewTask)
+    );
+    if (!reviewTarget) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_commit',
+        nextAction: buildAction(
+          'task_commit',
+          'Create a project commit for the task before requesting independent review.',
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+      };
+    }
+    const reviewContext = {
+      reviewScope: 'task' as const,
+      ...(reviewTask.taskId ? { taskId: reviewTask.taskId } : {}),
+      ...reviewTarget,
+    };
+    const evidenceMatchesTarget =
+      reviewTask.reviewedHead === reviewTarget.targetSha &&
+      reviewTask.reviewedTree === reviewTarget.targetTree;
+
+    if (
+      evidenceMatchesTarget &&
+      reviewTask.reviewDecisionOutcome === 'changes_requested'
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_review_fix',
+        nextAction: buildAction(
+          'task_review_fix',
+          `Address the independent review findings for ${reviewTask.taskId || reviewTask.title}, return the task to REVIEW, commit the new code tip, and request a fresh review.`,
+          false,
+          null,
+          undefined,
+          reviewContext
+        ),
+        approvalRequired: false,
+        implementationAllowed: true,
+        blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+      };
+    }
+
+    if (
+      evidenceMatchesTarget &&
+      reviewTask.reviewDecisionOutcome === 'blocked'
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_review',
+        nextAction: buildAction(
+          'task_review',
+          `Resolve the recorded review blocker for ${reviewTask.taskId || reviewTask.title} before continuing.`,
+          false,
+          null,
+          undefined,
+          reviewContext
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+      };
+    }
+
+    if (taskReviewEvidenceSatisfied(config, feature, reviewTask, reviewTarget)) {
+      const completionSummary =
+        reviewTask.status === 'DONE'
+          ? `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Commit the review evidence before continuing.`
+          : `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Mark the task DONE and commit the review evidence before starting another task.`;
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_review',
+        nextAction: buildAction(
+          'task_review_complete',
+          completionSummary,
+          false,
+          null,
+          undefined,
+          reviewContext
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+      };
+    }
+
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'task_review',
+      nextAction: buildAction(
+        'task_review',
+        `Delegate a fresh read-only review of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
+        false,
+        null,
+        resolveAgentReviewer(config, 'task'),
+        reviewContext
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+    };
+  }
+
   const pendingDoneTransitions = countPendingDoneTransitions(feature) || 0;
   const taskCommitCheckpointRequired =
     !activeTaskOpen &&
@@ -1796,6 +2324,178 @@ export async function collectWorkflowStage(
     taskCommitGatePolicy === 'strict' ||
     committedTaskGate.reason === 'DONE_TRANSITIONS_COUNT';
 
+  if (committedTaskGateRequiresCheckpoint && !committedTaskGate.pass) {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'task_commit',
+      nextAction: buildAction(
+        'task_commit',
+        buildTaskCommitSummary({
+          feature,
+          tasks,
+          effectiveProjectGitCwd,
+          docsDirty,
+          projectDirty,
+          gateFailureReason: describeTaskCommitGateFailure(committedTaskGate),
+        }),
+        false
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+    };
+  }
+
+  let resolvedLocalState: Awaited<
+    ReturnType<typeof resolveLocalIntegrationContext>
+  > | null = null;
+  if (
+    allTasksDone(tasks) &&
+    config.workflow?.mode === 'local' &&
+    resolveLocalCompletionStrategy(config) !== 'none'
+  ) {
+    resolvedLocalState = await resolveLocalIntegrationContext(config, feature);
+  }
+
+  const remoteReviewAlreadyComplete =
+    currentReviewState === 'merged' &&
+    tasks.prStatus === 'approved' &&
+    prDraft.prStatus === 'approved';
+  const featureReviewNeededForLifecycle =
+    allTasksDone(tasks) &&
+    requirements.featureReviewEnabled &&
+    !resolvedLocalState?.integrationComplete &&
+    !remoteReviewAlreadyComplete;
+
+  if (featureReviewNeededForLifecycle) {
+    const expectedBranch = resolveExpectedBranch(feature, tasks);
+    const currentBranch =
+      runGitCapture(['branch', '--show-current'], effectiveProjectGitCwd) ||
+      runGitCapture(
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        effectiveProjectGitCwd
+      ) ||
+      null;
+    if (
+      requirements.requireBranch &&
+      expectedBranch &&
+      currentBranch !== expectedBranch
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'branch',
+        nextAction: buildAction(
+          'branch_create',
+          requirements.requireWorktree
+            ? `Restore or create the managed worktree for ${expectedBranch} before Feature review.`
+            : `Switch back to ${expectedBranch} before Feature review.`,
+          false,
+          buildExpectedBranchCommand(
+            config,
+            feature,
+            expectedBranch,
+            requirements.requireWorktree
+          )
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'BRANCH_NOT_READY',
+      };
+    }
+
+    const reviewTarget = resolveProjectReviewTarget(
+      config,
+      effectiveProjectGitCwd,
+      'feature'
+    );
+    const reviewContext = reviewTarget
+      ? { reviewScope: 'feature' as const, ...reviewTarget }
+      : null;
+    const evidenceMatchesTarget =
+      !!reviewTarget &&
+      tasks.prePrReviewedHead === reviewTarget.targetSha &&
+      tasks.prePrReviewedTree === reviewTarget.targetTree;
+
+    if (
+      reviewContext &&
+      evidenceMatchesTarget &&
+      tasks.prePrDecisionOutcome === 'changes_requested'
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'feature_review_fix',
+        nextAction: buildAction(
+          'feature_review_fix',
+          'Address the Feature review findings, commit the remediation, and request a fresh review of the new code tree before implementation approval.',
+          false,
+          null,
+          undefined,
+          reviewContext
+        ),
+        approvalRequired: false,
+        implementationAllowed: true,
+        blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
+      };
+    }
+
+    if (
+      reviewContext &&
+      evidenceMatchesTarget &&
+      tasks.prePrDecisionOutcome === 'blocked'
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'pre_pr_review',
+        nextAction: buildAction(
+          'pre_pr_review',
+          'Resolve the recorded Feature review blocker before implementation approval or integration.',
+          false,
+          null,
+          undefined,
+          reviewContext
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
+      };
+    }
+
+    if (!featureReviewSatisfied(config, feature, tasks, reviewTarget)) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'pre_pr_review',
+        nextAction: buildAction(
+          'pre_pr_review',
+          reviewTarget
+            ? `Delegate an independent read-only Feature review to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
+            : 'Create a project commit before requesting the independent Feature review.',
+          false,
+          null,
+          reviewTarget ? resolveAgentReviewer(config, 'feature') : undefined,
+          reviewContext || undefined
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
+      };
+    }
+  }
+
   if (!allTasksDone(tasks)) {
     const currentTask = nextTodoTask(tasks);
     if (committedTaskGateRequiresCheckpoint && !committedTaskGate.pass) {
@@ -1836,7 +2536,7 @@ export async function collectWorkflowStage(
       nextAction: buildAction(
         'task_execute',
         currentTask
-          ? `Continue the next implementation task: ${currentTask.title}${commitWarning}`
+          ? `Continue the next implementation task: ${currentTask.title}${requirements.taskReviewEnabled ? '. When implementation and checks are complete, move it to REVIEW instead of DONE' : ''}${commitWarning}`
           : 'Continue the active implementation task.',
         false
       ),
@@ -1931,33 +2631,11 @@ export async function collectWorkflowStage(
   }
 
   if (
-    requirements.prePrReviewEnabled &&
-    !prePrSatisfied(config, feature, tasks)
-  ) {
-    return {
-      status: 'ok',
-      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-      docsDir: config.docsDir,
-      featureRef: buildFeatureRef(feature),
-      stage: 'pre_pr_review',
-      nextAction: buildAction(
-        'pre_pr_review',
-        'Delegate an independent read-only Pre-PR review to a fresh subagent and record its findings, decision, and reviewer metadata as evidence.',
-        false,
-        null,
-        resolvePrePrReviewer(config)
-      ),
-      approvalRequired: false,
-      implementationAllowed: false,
-      blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
-    };
-  }
-
-  if (
     config.workflow?.mode === 'local' &&
     resolveLocalCompletionStrategy(config) !== 'none'
   ) {
-    const localState = await resolveLocalIntegrationContext(config, feature);
+    const localState =
+      resolvedLocalState || await resolveLocalIntegrationContext(config, feature);
     const localVerifyCommand =
       `npx lee-spec-kit local verify ${buildFeatureArgs(feature)} --json`;
     const localMergeBaseCommand =

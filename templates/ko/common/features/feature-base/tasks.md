@@ -2,10 +2,11 @@
 
 ## 태스크 규칙
 
-- **상태**: `[TODO]` → `[DOING]` → `[DONE]`
+- **상태**: 기본은 `[TODO]` → `[DOING]` → `[DONE]`; `workflow.agentReview.task.enabled=true`이면 `[DOING]` → `[REVIEW]` → `[DONE]`
 - **태스크 공유 / 확인**:
   - `[TODO] → [DOING]`: 시작 전 태스크 제목을 공유하고 `tasks.md`에서 상태를 함께 갱신합니다
-  - `[DOING] → [DONE]`: 완료 전 결과/검증을 공유하고 같은 수정에서 `Acceptance`와 `Checklist`를 함께 갱신합니다
+  - `[DOING] → [REVIEW]/[DONE]`: 완료 전 결과/검증을 공유하고 같은 수정에서 `Acceptance`와 `Checklist`를 함께 갱신합니다
+  - `[REVIEW] → [DONE]`: 완료 전에 fresh 태스크 리뷰 Evidence, Decision, Reviewed Head, Reviewed Tree를 기록합니다
   - 태스크 상태 변경 전에 승인이 필요한 경우는 문서화된 review checkpoint 또는 원격/파괴적 작업 직전뿐입니다.
   - 워크플로우가 요구하지 않는 standalone `OK` 승인 단계는 만들지 않습니다.
   - 해당 태스크의 `Checklist`에 unchecked 항목이 남아 있으면 `[DONE]`으로 전환하지 않습니다.
@@ -39,7 +40,10 @@
 - **PR 전 리뷰 Decision**: -
   - 형식: `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`)
   - PR 생성 전 최종 통과 기준은 `approve`
-  - 기본 베이스라인으로 `agents/skills/create-pr.md`(`Pre-PR 기본 체크리스트`) 기준을 따르세요
+- **PR 전 리뷰 Head**: -
+  - Feature 리뷰가 확인한 project code commit SHA
+- **PR 전 리뷰 Tree**: -
+  - Feature 리뷰가 확인한 project code tree SHA
 - **PR 리뷰**: -
   - 값: Pending | Running | Done
   - PR 리뷰 handoff를 시작하면 `Running`, 팀에서 별도 완료 상태를 추적할 때만 `Done`으로 변경
@@ -59,6 +63,10 @@
     - (검증 조건)
   - Checklist:
     - [ ] (서브 태스크)
+  - Review Evidence: -
+  - Review Decision: -
+  - Reviewed Head: -
+  - Reviewed Tree: -
 ```
 
 > 위 예시의 `PRD-FR-001`은 가능한 `PRD-*` key 중 하나일 뿐입니다. 아직 PRD 원문에 정의되지 않았다면 태스크에 먼저 넣지 마세요.

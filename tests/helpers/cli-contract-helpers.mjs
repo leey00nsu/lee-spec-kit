@@ -139,12 +139,29 @@ async function normalizePathForCompare(filePath) {
   }
 }
 
+async function ignoreGitArtifacts(dir, patterns) {
+  const gitInfoDir = path.join(dir, '.git', 'info');
+  const ignorePath = await pathExists(gitInfoDir)
+    ? path.join(gitInfoDir, 'exclude')
+    : path.join(dir, '.gitignore');
+  const existing = await fs.readFile(ignorePath, 'utf-8').catch(() => '');
+  const entries = new Set(existing.split(/\r?\n/).filter(Boolean));
+  for (const pattern of patterns) entries.add(pattern);
+  await fs.mkdir(path.dirname(ignorePath), { recursive: true });
+  await fs.writeFile(ignorePath, `${[...entries].join('\n')}\n`, 'utf-8');
+}
+
 async function setupFakeGhCli(dir, options = {}) {
   const binDir = path.join(dir, 'fake-bin');
   const logPath = path.join(dir, 'gh-invocations.log');
   const cwdLogPath = path.join(dir, 'gh-cwd.log');
   const scriptPath = path.join(binDir, 'gh');
   const cmdScriptPath = path.join(binDir, 'gh.cmd');
+  await ignoreGitArtifacts(dir, [
+    '/fake-bin/',
+    '/gh-invocations.log',
+    '/gh-cwd.log',
+  ]);
   await fs.mkdir(binDir, { recursive: true });
   const logPathLiteral = JSON.stringify(logPath);
   const cwdLogPathLiteral = JSON.stringify(cwdLogPath);
@@ -491,6 +508,7 @@ export {
   withTempDir,
   pathExists,
   normalizePathForCompare,
+  ignoreGitArtifacts,
   setupFakeGhCli,
   setupFakeNpxCli,
   setFeatureAsDone,

@@ -64,6 +64,10 @@ test('task add appends a complete task block to tasks.md', async () => {
       tasks,
       /- \[TODO\]\[NON-PRD\] T-F001-alpha-01 implement alpha shell\n {2}- Date: \d{4}-\d{2}-\d{2}\n {2}- Acceptance:\n {4}- alpha command renders expected output\n {2}- Checklist:\n {4}- \[ \] add command handler\n {4}- \[ \] cover CLI output/
     );
+    assert.match(tasks, / {2}- Review Evidence: -/);
+    assert.match(tasks, / {2}- Review Decision: -/);
+    assert.match(tasks, / {2}- Reviewed Head: -/);
+    assert.match(tasks, / {2}- Reviewed Tree: -/);
     assert.ok(
       tasks.indexOf('T-F001-alpha-01 implement alpha shell') <
         tasks.indexOf('## Completion Criteria')

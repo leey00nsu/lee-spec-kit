@@ -130,7 +130,10 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `workflow.prePrReview.reviewer` (object): Pre-PR subagent execution settings
+- `workflow.agentReview.task` / `workflow.agentReview.feature` (object): task/Feature independent review settings
+  - `enabled`: enables that review gate; new projects default task to `false` and Feature to `true`
+  - `evidenceMode`: `path_required | any`
+  - `reviewer`: fresh read-only subagent execution settings
   - `type`: currently only `"subagent"` is supported
   - `model`: `"inherit"` or a model name supported by the runtime
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
@@ -171,13 +174,26 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
     "deleteFeatureBranchAfterMerge": true,
     "featureChecks": [],
     "postMergeChecks": [],
-    "prePrReview": {
-      "evidenceMode": "path_required",
-      "reviewer": {
-        "type": "subagent",
-        "model": "inherit",
-        "reasoningEffort": "high",
-        "onUnavailable": "inherit"
+    "agentReview": {
+      "task": {
+        "enabled": false,
+        "evidenceMode": "path_required",
+        "reviewer": {
+          "type": "subagent",
+          "model": "inherit",
+          "reasoningEffort": "high",
+          "onUnavailable": "inherit"
+        }
+      },
+      "feature": {
+        "enabled": true,
+        "evidenceMode": "path_required",
+        "reviewer": {
+          "type": "subagent",
+          "model": "inherit",
+          "reasoningEffort": "high",
+          "onUnavailable": "inherit"
+        }
       }
     }
   },
@@ -192,7 +208,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 }
 ```
 
-New local projects use `local-ff`. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
+New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
 
 ```json
 {

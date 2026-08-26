@@ -149,6 +149,8 @@ test('init --non-interactive works with explicit flags without --yes', async () 
     assert.equal(await pathExists(path.join(featureDir, 'issue.md')), false);
     assert.equal(await pathExists(path.join(featureDir, 'pr.md')), false);
     assert.doesNotMatch(tasks, /Pre-PR Review|PR 전 리뷰/);
+    assert.match(tasks, /Feature Review|Feature 리뷰/);
+    assert.doesNotMatch(tasks, /\*\*PR Review|\*\*PR 리뷰/);
     assert.match(tasks, /Local Tracking|로컬 추적 정보/);
   });
 });
