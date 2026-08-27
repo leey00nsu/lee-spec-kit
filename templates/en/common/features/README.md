@@ -57,11 +57,13 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 Use the returned `stage`, `nextAction`, and `implementationAllowed` values as the current workflow state.
 
+With Plan review enabled, planning follows `plan Review → fresh read-only Plan review → plan approval`. The review is bound to the returned `specHash` and `planHash`; changing either document's content invalidates the prior evidence. The reviewer checks the Verification Contract and test decisions without editing docs.
+
 The three final completion checkboxes in `tasks.md` carry `lee-spec-kit:completion:*` HTML markers. You may customize their visible wording, but preserve the marker on each checkbox line; `workflow-stage` uses the marker as the machine-readable identity and falls back to the legacy canonical wording for older projects.
 
 With Feature agent review enabled, local completion is `feature review → implementation_approve → feature_verify → local_merge → local_cleanup → done`. With task review enabled, every task follows `DOING → REVIEW → task review → DONE`. Failed checks enter `feature_remediation` with implementation enabled. `local-ff` moves only the verified Feature SHA; `local-squash` requires the integration tree to match the verified Feature tree. Both require cleanup before `done`. After cleanup, a Feature remains `done` while its recorded integration commit is still an ancestor of the current base, even when later Features advance that base.
 
-When `workflow.agentExecution.task.enabled=true`, each `task_execute` action carries the configured subagent model, reasoning effort, stable task ID, implementation working directory, and a machine-readable `workerContract`. The worker executes directly without calling `workflow-stage` or delegating again. It edits project code and runs task-scoped checks only; the main agent owns docs synchronization, task transitions, commits, approvals, and remote actions. Official hooks block commits until the main agent advances the workflow to `task_commit`.
+When `workflow.agentExecution.task.enabled=true`, each `task_execute` action carries the configured subagent model, reasoning effort, stable task ID, implementation working directory, and a machine-readable `workerContract`. The worker executes directly without calling `workflow-stage` or delegating again. It follows the approved Verification Contract, does not add unplanned durable tests, edits project code, and runs task-scoped checks only; the main agent owns docs synchronization, task transitions, commits, approvals, and remote actions. Official hooks block commits until the main agent advances the workflow to `task_commit`.
 
 A remediation commit invalidates verification and the prior local-merge confirmation. Refresh review evidence for the changed diff when Pre-PR review is enabled, verify the new tip, and obtain local-merge approval again.
 
@@ -126,6 +128,9 @@ Keeping the shared artifact for history is fine, but when it conflicts with feat
 | Scope | Field | Values |
 | --- | --- | --- |
 | Document status | `Status` in `spec.md`/`plan.md`, `Doc Status` in `tasks.md` | `Draft` \| `Review` \| `Approved` |
+| Plan review status | `Plan Review` in `plan.md` | `Pending` \| `Running` \| `Done` |
+| Plan review evidence/decision | `Plan Review Evidence` / `Plan Review Decision` | evidence path and `decision: approve\|changes_requested\|blocked ...` |
+| Plan review target | `Plan Reviewed Spec Hash` / `Plan Reviewed Plan Hash` | current content hashes returned by `workflow-stage` |
 | Issue doc status | `Status` in `issue.md` | `Draft` \| `Ready` |
 | PR doc status | `Status` in `pr.md` | `Draft` \| `Ready` |
 | PR review status | `PR Status` in `tasks.md` | `Review` \| `Approved` |
@@ -140,7 +145,7 @@ Keeping the shared artifact for history is fine, but when it conflicts with feat
 
 ## Agent Review Checklist
 
-Delegate task and Feature reviews to fresh, read-only subagents using the model, reasoning effort, and SHA/tree target returned by `workflow-stage --json`. Task review covers its checkpoint range; Feature review covers the base-to-Feature-tip diff. The subagent returns defect-focused findings without modifying code; the main agent owns remediation and evidence recording. No named review skill is required.
+Delegate Plan, task, and Feature reviews to fresh, read-only subagents using the model, reasoning effort, and exact target returned by `workflow-stage --json`. Plan review covers current spec/plan content hashes, task review covers its checkpoint range, and Feature review covers the base-to-Feature-tip diff. The subagent returns defect-focused findings without modifying code or docs; the main agent owns remediation and evidence recording. No named review skill is required.
 
 ---
 
@@ -149,7 +154,7 @@ Delegate task and Feature reviews to fresh, read-only subagents using the model,
 | File           | Role                      | When to Write       |
 | -------------- | ------------------------- | ------------------- |
 | `spec.md`      | **What and Why**          | Feature definition  |
-| `plan.md`      | **How** (technical)       | After spec approval |
+| `plan.md`      | **How** + Verification Contract | After spec approval |
 | `tasks.md`     | Specific work items       | After plan approval |
 | `issue.md`     | Issue draft + issue state (`Draft/Ready`) | Before/when creating issue |
 | `pr.md`        | PR draft + PR state (`Draft/Ready`) | Before/when creating PR |

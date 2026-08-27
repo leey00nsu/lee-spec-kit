@@ -835,6 +835,11 @@ async function runInit(options: InitOptions): Promise<void> {
             task: createDefaultAgentExecutionTaskConfig(),
           },
           agentReview: {
+            plan: {
+              enabled: true,
+              evidenceMode: 'path_required',
+              reviewer: createDefaultAgentReviewerConfig(),
+            },
             task: {
               enabled: false,
               evidenceMode: 'path_required',

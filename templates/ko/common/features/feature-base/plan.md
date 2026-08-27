@@ -12,6 +12,16 @@
 - **작성일**: {YYYY-MM-DD}
 - **상태**: -
   - 값: Draft | Review | Approved
+- **Plan 검수**: Pending
+  - 값: Pending | Running | Done
+- **Plan 검수 Evidence**: -
+  - 예: `docs/features/F001-foo/decisions.md` 또는 docs 루트 아래의 실제 리뷰 산출물
+- **Plan 검수 Decision**: -
+  - 형식: `결정: approve|changes_requested|blocked ...` 또는 `decision: ...`
+- **Plan 검수 Spec Hash**: -
+  - `workflow-stage --json`이 반환한 정확한 `specHash`
+- **Plan 검수 Plan Hash**: -
+  - `workflow-stage --json`이 반환한 정확한 `planHash`
 
 ---
 
@@ -37,11 +47,38 @@ src/
 
 ---
 
-## 테스트 전략
+## Verification Contract
 
-- **단위 테스트**:
-- **통합 테스트**:
-- **E2E 테스트**:
+### 변경 분류
+
+- **유형**: COPY | REFACTOR | BUG_FIX | NEW_BEHAVIOR | HIGH_RISK
+- **위험도**: LOW | MEDIUM | HIGH
+
+### 관찰 가능한 계약
+
+- **지원해야 하는 동작**:
+- **전제조건**:
+- **성공 후 보장**:
+- **중요한 실패 후 보장**:
+- **의도적으로 지원하지 않는 사례**:
+
+### 테스트 결정
+
+| 계약 / 요구사항 | 결정 | 테스트 수준 | 보호할 현실적인 회귀 | 독립적인 Oracle |
+| --------------- | ---- | ----------- | --------------------- | ---------------- |
+| (AC/FR 참조)    | NONE \| UPDATE \| ADD | 단위 \| 통합 \| E2E \| 비테스트 | (방지할 실패) | (스펙/출시 동작/외부 기준) |
+
+### 의도적으로 제외하는 테스트
+
+- (중복, 구현 세부사항, 비지원 합성 입력, 프레임워크 자체 동작 등)
+
+### 검증 실행
+
+- **구현 중**:
+- **태스크 완료 전**:
+- **Feature 완료 전**:
+- **수동/UI 검증**:
+- **전체 테스트 필요 여부**: Yes | No — (이유)
 
 ---
 

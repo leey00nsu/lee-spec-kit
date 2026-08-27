@@ -44,6 +44,8 @@ import {
 export type WorkflowStageId =
   | 'spec'
   | 'plan'
+  | 'plan_review'
+  | 'plan_review_fix'
   | 'tasks'
   | 'issue'
   | 'branch'
@@ -70,6 +72,8 @@ export interface WorkflowStageAction {
     | 'spec_write'
     | 'spec_approve'
     | 'plan_write'
+    | 'plan_review'
+    | 'plan_review_fix'
     | 'plan_approve'
     | 'tasks_write'
     | 'tasks_approve'
@@ -101,13 +105,15 @@ export interface WorkflowStageAction {
   model?: string;
   reasoningEffort?: AgentReviewerConfig['reasoningEffort'];
   onUnavailable?: AgentReviewerConfig['onUnavailable'];
-  reviewScope?: 'task' | 'feature';
+  reviewScope?: 'plan' | 'task' | 'feature';
   taskId?: string;
   taskIdSource?: 'document' | 'synthetic';
   taskTitle?: string;
   baseSha?: string;
   targetSha?: string;
   targetTree?: string;
+  specHash?: string;
+  planHash?: string;
   workingDirectory?: string;
   docsDirectory?: string;
   workerContract?: WorkflowTaskWorkerContract;
@@ -120,6 +126,8 @@ export interface WorkflowTaskWorkerContract {
   runWorkflowStage: false;
   editProjectCode: true;
   runTaskScopedVerification: true;
+  followVerificationContract: true;
+  addUnplannedDurableTests: false;
   editDocs: false;
   changeTaskState: false;
   commit: false;
@@ -173,6 +181,7 @@ export interface WorkflowStagePayload {
   blockedReasonCode:
     | 'SPEC_NOT_APPROVED'
     | 'PLAN_NOT_APPROVED'
+    | 'PLAN_REVIEW_NOT_APPROVED'
     | 'TASKS_NOT_READY'
     | 'ISSUE_NOT_CREATED'
     | 'BRANCH_NOT_READY'
@@ -198,6 +207,7 @@ type WorkflowRequirements = {
   requirePr: boolean;
   requireReview: boolean;
   requireMerge: boolean;
+  planReviewEnabled: boolean;
   taskReviewEnabled: boolean;
   featureReviewEnabled: boolean;
   taskExecutionEnabled: boolean;
@@ -235,6 +245,16 @@ type ParsedTasks = {
     testsChecked: boolean;
     finalOutcomeChecked: boolean;
   };
+};
+
+type ParsedPlanReview = {
+  status: 'pending' | 'running' | 'done' | null;
+  evidence: string | null;
+  decision: string | null;
+  decisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
+  reviewedSpecHash: string | null;
+  reviewedPlanHash: string | null;
+  hasMetadata: boolean;
 };
 
 type ParsedWorkflowDraft = WorkflowDraftMetadata & {
@@ -306,6 +326,27 @@ const PRE_PR_REVIEWED_TREE_LABELS = [
   'Feature Reviewed Tree',
   'Feature 리뷰 Tree',
 ];
+const PLAN_REVIEW_STATUS_LABELS = ['Plan Review', 'Plan 검수', 'Plan 리뷰'];
+const PLAN_REVIEW_EVIDENCE_LABELS = [
+  'Plan Review Evidence',
+  'Plan 검수 Evidence',
+  'Plan 리뷰 Evidence',
+];
+const PLAN_REVIEW_DECISION_LABELS = [
+  'Plan Review Decision',
+  'Plan 검수 Decision',
+  'Plan 리뷰 Decision',
+];
+const PLAN_REVIEWED_SPEC_HASH_LABELS = [
+  'Plan Reviewed Spec Hash',
+  'Plan 검수 Spec Hash',
+  'Plan 리뷰 Spec Hash',
+];
+const PLAN_REVIEWED_PLAN_HASH_LABELS = [
+  'Plan Reviewed Plan Hash',
+  'Plan 검수 Plan Hash',
+  'Plan 리뷰 Plan Hash',
+];
 const COMPLETION_MARKERS = {
   allTasks: 'lee-spec-kit:completion:all-tasks',
   tests: 'lee-spec-kit:completion:tests',
@@ -333,6 +374,7 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
     requirePr: workflow.requirePr ?? !isLocalWorkflow,
     requireReview: workflow.requireReview ?? !isLocalWorkflow,
     requireMerge: workflow.requireMerge ?? !isLocalWorkflow,
+    planReviewEnabled: workflow.agentReview?.plan?.enabled ?? true,
     taskReviewEnabled: workflow.agentReview?.task?.enabled ?? false,
     featureReviewEnabled:
       workflow.agentReview?.feature?.enabled ??
@@ -615,6 +657,78 @@ function sanitizeMetadataValue(value: string | null): string | null {
   const trimmed = value.trim().replace(/^`(.+)`$/, '$1');
   if (!trimmed || trimmed === '-') return null;
   return trimmed;
+}
+
+function parsePlanReview(content: string): ParsedPlanReview {
+  const statusValue = sanitizeMetadataValue(
+    extractFieldValue(content, PLAN_REVIEW_STATUS_LABELS)
+  )?.toLowerCase();
+  const status =
+    statusValue === 'pending' ||
+    statusValue === 'running' ||
+    statusValue === 'done'
+      ? statusValue
+      : null;
+  const evidence = sanitizeMetadataValue(
+    extractFieldValue(content, PLAN_REVIEW_EVIDENCE_LABELS)
+  );
+  const decision = sanitizeMetadataValue(
+    extractFieldValue(content, PLAN_REVIEW_DECISION_LABELS)
+  );
+  const reviewedSpecHash = sanitizeMetadataValue(
+    extractFieldValue(content, PLAN_REVIEWED_SPEC_HASH_LABELS)
+  );
+  const reviewedPlanHash = sanitizeMetadataValue(
+    extractFieldValue(content, PLAN_REVIEWED_PLAN_HASH_LABELS)
+  );
+
+  return {
+    status,
+    evidence,
+    decision,
+    decisionOutcome: parseReviewDecisionOutcome(decision),
+    reviewedSpecHash,
+    reviewedPlanHash,
+    hasMetadata: PLAN_REVIEW_STATUS_LABELS.some((label) => {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`^\\s*-\\s*\\*\\*${escaped}\\*\\*:`, 'mi').test(content);
+    }),
+  };
+}
+
+function buildReviewDocumentHash(
+  content: string,
+  excludedLabels: string[]
+): string {
+  const excluded = new Set(
+    [...excludedLabels, 'Status', '상태'].map((label) => label.toLowerCase())
+  );
+  const normalized = content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => {
+      const match = line.match(/^\s*-\s*\*\*(.+?)\*\*\s*:/);
+      return !match || !excluded.has(match[1].trim().toLowerCase());
+    })
+    .join('\n')
+    .trim();
+  return createHash('sha256').update(normalized).digest('hex');
+}
+
+function buildPlanReviewTarget(
+  specContent: string,
+  planContent: string
+): { specHash: string; planHash: string } {
+  return {
+    specHash: buildReviewDocumentHash(specContent, []),
+    planHash: buildReviewDocumentHash(planContent, [
+      ...PLAN_REVIEW_STATUS_LABELS,
+      ...PLAN_REVIEW_EVIDENCE_LABELS,
+      ...PLAN_REVIEW_DECISION_LABELS,
+      ...PLAN_REVIEWED_SPEC_HASH_LABELS,
+      ...PLAN_REVIEWED_PLAN_HASH_LABELS,
+    ]),
+  };
 }
 
 function normalizeCommitTopicText(value: string): string {
@@ -1247,8 +1361,11 @@ type TaskReviewBase = {
 
 function resolveAgentReviewPhase(
   config: ProjectConfig,
-  scope: 'task' | 'feature'
+  scope: 'plan' | 'task' | 'feature'
 ): AgentReviewPhaseConfig {
+  if (scope === 'plan') {
+    return config.workflow?.agentReview?.plan || {};
+  }
   if (scope === 'task') {
     return config.workflow?.agentReview?.task || {};
   }
@@ -1325,7 +1442,7 @@ function resolveProjectReviewTarget(
 function reviewEvidenceSatisfied(
   config: ProjectConfig,
   feature: ResolvedFeature,
-  scope: 'task' | 'feature',
+  scope: 'plan' | 'task' | 'feature',
   evidence: string | null
 ): boolean {
   return isPrePrEvidenceSatisfied({
@@ -1334,6 +1451,21 @@ function reviewEvidenceSatisfied(
     evidence,
     evidenceMode: resolveAgentReviewPhase(config, scope).evidenceMode,
   });
+}
+
+function planReviewSatisfied(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  review: ParsedPlanReview,
+  target: { specHash: string; planHash: string }
+): boolean {
+  return (
+    review.status === 'done' &&
+    reviewEvidenceSatisfied(config, feature, 'plan', review.evidence) &&
+    review.decisionOutcome === 'approve' &&
+    review.reviewedSpecHash === target.specHash &&
+    review.reviewedPlanHash === target.planHash
+  );
 }
 
 function featureReviewSatisfied(
@@ -1450,13 +1582,15 @@ function buildAction(
   command: string | null = null,
   agent?: AgentReviewerConfig | AgentExecutorConfig,
   actionContext?: {
-    reviewScope?: 'task' | 'feature';
+    reviewScope?: 'plan' | 'task' | 'feature';
     taskId?: string;
     taskIdSource?: 'document' | 'synthetic';
     taskTitle?: string;
     baseSha?: string;
     targetSha?: string;
     targetTree?: string;
+    specHash?: string;
+    planHash?: string;
     workingDirectory?: string;
     docsDirectory?: string;
     workerContract?: WorkflowTaskWorkerContract;
@@ -1481,7 +1615,7 @@ function buildAction(
 
 function resolveAgentReviewer(
   config: ProjectConfig,
-  scope: 'task' | 'feature'
+  scope: 'plan' | 'task' | 'feature'
 ): AgentReviewerConfig {
   const defaults = createDefaultAgentReviewerConfig();
   const configured = resolveAgentReviewPhase(config, scope).reviewer;
@@ -1534,6 +1668,8 @@ function createTaskWorkerContract(): WorkflowTaskWorkerContract {
     runWorkflowStage: false,
     editProjectCode: true,
     runTaskScopedVerification: true,
+    followVerificationContract: true,
+    addUnplannedDurableTests: false,
     editDocs: false,
     changeTaskState: false,
     commit: false,
@@ -1948,6 +2084,84 @@ function resolveFeatureSelectionError(
   };
 }
 
+function resolvePlanReviewPayload(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  review: ParsedPlanReview,
+  target: { specHash: string; planHash: string }
+): WorkflowStagePayload {
+  const targetMatches =
+    review.reviewedSpecHash === target.specHash &&
+    review.reviewedPlanHash === target.planHash;
+  const actionContext = {
+    reviewScope: 'plan' as const,
+    specHash: target.specHash,
+    planHash: target.planHash,
+    docsDirectory: config.docsDir,
+  };
+
+  if (targetMatches && review.decisionOutcome === 'changes_requested') {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'plan_review_fix',
+      nextAction: buildAction(
+        'plan_review_fix',
+        'Address the independent Plan review findings in spec.md or plan.md, keep implementation blocked, and request a fresh review for the resulting document hashes.',
+        false,
+        null,
+        undefined,
+        actionContext
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
+    };
+  }
+
+  if (targetMatches && review.decisionOutcome === 'blocked') {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'plan_review',
+      nextAction: buildAction(
+        'plan_review',
+        'Resolve the recorded Plan review blocker before Plan approval.',
+        false,
+        null,
+        undefined,
+        actionContext
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
+    };
+  }
+
+  return {
+    status: 'ok',
+    reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+    docsDir: config.docsDir,
+    featureRef: buildFeatureRef(feature),
+    stage: 'plan_review',
+    nextAction: buildAction(
+      'plan_review',
+      'Delegate a fresh read-only review of spec.md and plan.md. Verify the Verification Contract, NONE/UPDATE/ADD decisions, requirement coverage, independent oracles, stable observation boundaries, realistic failure/rollback cases, exclusions, and focused/full verification scope. Record Plan Review status, evidence, decision, reviewer metadata, Reviewed Spec Hash, and Reviewed Plan Hash without modifying the documents.',
+      false,
+      null,
+      resolveAgentReviewer(config, 'plan'),
+      actionContext
+    ),
+    approvalRequired: false,
+    implementationAllowed: false,
+    blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
+  };
+}
+
 export async function collectWorkflowStage(
   cwd: string,
   selector?: string,
@@ -1990,6 +2204,14 @@ export async function collectWorkflowStage(
     extractFieldValue(planContent || '', ['Status', '상태']) || undefined
   );
   const tasks = parseTasksDoc(tasksContent || '', feature);
+  const planReview = parsePlanReview(planContent || '');
+  const planReviewTarget = buildPlanReviewTarget(
+    specContent || '',
+    planContent || ''
+  );
+  const enforcePlanReview =
+    requirements.planReviewEnabled &&
+    (tasks.docStatus !== 'approved' || planReview.hasMetadata);
   const issueDraft = parseWorkflowDraftMetadataExtended(issueContent || '');
   const prDraft = parseWorkflowDraftMetadataExtended(prContent || '');
   const remoteReviewState = requirements.requireReview && tasks.prLink
@@ -2037,6 +2259,18 @@ export async function collectWorkflowStage(
 
   if (planStatus !== 'approved') {
     const isReviewStage = planStatus === 'review';
+    if (
+      isReviewStage &&
+      enforcePlanReview &&
+      !planReviewSatisfied(config, feature, planReview, planReviewTarget)
+    ) {
+      return resolvePlanReviewPayload(
+        config,
+        feature,
+        planReview,
+        planReviewTarget
+      );
+    }
     const approvalRequired = isReviewStage
       ? resolveActionApprovalRequired(config, 'plan_approve', true)
       : false;
@@ -2067,6 +2301,13 @@ export async function collectWorkflowStage(
       actionOptions,
       blockedReasonCode: 'PLAN_NOT_APPROVED',
     };
+  }
+
+  if (
+    enforcePlanReview &&
+    !planReviewSatisfied(config, feature, planReview, planReviewTarget)
+  ) {
+    return resolvePlanReviewPayload(config, feature, planReview, planReviewTarget);
   }
 
   if (tasks.tasks.length === 0 || tasks.docStatus !== 'approved') {

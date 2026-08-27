@@ -179,6 +179,16 @@ test('update removes runtime settings that no current command consumes', async (
       reasoningEffort: 'high',
       onUnavailable: 'inherit',
     });
+    assert.deepEqual(updated.workflow.agentReview.plan, {
+      enabled: true,
+      evidenceMode: 'path_required',
+      reviewer: {
+        type: 'subagent',
+        model: 'inherit',
+        reasoningEffort: 'high',
+        onUnavailable: 'inherit',
+      },
+    });
     assert.deepEqual(updated.workflow.agentReview.task, {
       enabled: false,
       evidenceMode: 'path_required',
@@ -248,6 +258,16 @@ test('init writes only canonical workflow runtime settings', async () => {
         },
       },
       agentReview: {
+        plan: {
+          enabled: true,
+          evidenceMode: 'path_required',
+          reviewer: {
+            type: 'subagent',
+            model: 'inherit',
+            reasoningEffort: 'high',
+            onUnavailable: 'inherit',
+          },
+        },
         task: {
           enabled: false,
           evidenceMode: 'path_required',
@@ -335,6 +355,41 @@ test('update migrates valid Pre-PR subagent overrides and normalizes invalid val
   });
 });
 
+test('update preserves configurable Plan review subagent settings', async () => {
+  await withTempDir('lsk-config-plan-reviewer-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'github',
+        agentReview: {
+          plan: {
+            enabled: false,
+            evidenceMode: 'any',
+            reviewer: {
+              type: 'subagent',
+              model: '  gpt-plan-reviewer  ',
+              reasoningEffort: 'xhigh',
+              onUnavailable: 'error',
+            },
+          },
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.deepEqual(updated.workflow.agentReview.plan, {
+      enabled: false,
+      evidenceMode: 'any',
+      reviewer: {
+        type: 'subagent',
+        model: 'gpt-plan-reviewer',
+        reasoningEffort: 'xhigh',
+        onUnavailable: 'error',
+      },
+    });
+  });
+});
+
 test('update normalizes task implementation subagent settings and preserves opt-out', async () => {
   await withTempDir('lsk-config-task-executor-', async (dir) => {
     await writeProjectConfig(dir, {
@@ -377,6 +432,7 @@ test('update preserves the previously implicit local Feature-review default', as
 
     const updated = await runConfigUpdate(dir);
 
+    assert.equal(updated.workflow.agentReview.plan.enabled, true);
     assert.equal(updated.workflow.agentReview.task.enabled, false);
     assert.equal(updated.workflow.agentReview.feature.enabled, false);
     assert.equal('prePrReview' in updated.workflow, false);

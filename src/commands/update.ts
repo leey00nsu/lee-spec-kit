@@ -530,7 +530,7 @@ async function backfillMissingConfigDefaults(
   }
   const agentReview = workflow.agentReview as Record<string, unknown>;
   const normalizeAgentReviewPhase = (
-    key: 'task' | 'feature',
+    key: 'plan' | 'task' | 'feature',
     enabledDefault: boolean,
     legacySeed: Record<string, unknown> | null = null
   ): void => {
@@ -597,6 +597,7 @@ async function backfillMissingConfigDefaults(
     }
   };
 
+  normalizeAgentReviewPhase('plan', true);
   normalizeAgentReviewPhase('task', false);
   const legacyFeatureEnabled =
     typeof legacyPrePrReview?.enabled === 'boolean'

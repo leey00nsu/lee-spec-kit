@@ -138,14 +138,15 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
   - `onUnavailable`: `inherit | error` when the requested model is unavailable
   - `workflow-stage` returns a stable task ID, working/docs directories, and a machine-readable `workerContract`. The worker executes directly without rerunning `workflow-stage` or delegating again.
   - The implementation subagent can edit project code and run task-scoped checks. The main agent retains docs, task state, commits, approvals, and remote actions; official hooks reject commits while `task_execute` is active.
-- `workflow.agentReview.task` / `workflow.agentReview.feature` (object): task/Feature independent review settings
-  - `enabled`: enables that review gate; new projects default task to `false` and Feature to `true`
+- `workflow.agentReview.plan` / `workflow.agentReview.task` / `workflow.agentReview.feature` (object): Plan/task/Feature independent review settings
+  - `enabled`: enables that review gate; new projects default Plan and Feature to `true`, and task to `false`
   - `evidenceMode`: `path_required | any`
   - `reviewer`: fresh read-only subagent execution settings
   - `type`: currently only `"subagent"` is supported
   - `model`: `"inherit"` or a model name supported by the runtime
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
   - `onUnavailable`: `inherit | error` when the requested model is unavailable
+  - Plan review runs before Plan approval and binds its evidence to the exact `specHash` and `planHash` returned by `workflow-stage`; later spec/plan content changes require a fresh review
 - `workflow.baseBranch` (string): branch that receives a completed local Feature
 - `workflow.completionStrategy` (`"local-ff" | "local-squash" | "none"`): fast-forward, create one verified squash commit, or explicitly finish without integration
 - `workflow.deleteFeatureBranchAfterMerge` (boolean): delete the integrated local Feature branch after cleanup; remote branches are never deleted
@@ -192,6 +193,16 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
       }
     },
     "agentReview": {
+      "plan": {
+        "enabled": true,
+        "evidenceMode": "path_required",
+        "reviewer": {
+          "type": "subagent",
+          "model": "inherit",
+          "reasoningEffort": "high",
+          "onUnavailable": "inherit"
+        }
+      },
       "task": {
         "enabled": false,
         "evidenceMode": "path_required",
@@ -225,7 +236,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 }
 ```
 
-New and updated projects delegate task implementation by default; set `workflow.agentExecution.task.enabled` to `false` for main-agent execution. New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
+New and updated projects delegate task implementation and enable Plan review by default; set `workflow.agentExecution.task.enabled` or `workflow.agentReview.plan.enabled` to `false` to opt out. New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
 
 ```json
 {

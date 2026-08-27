@@ -20,10 +20,11 @@ This guide defines how to start or continue a feature in the Codex-native lee-sp
 - Docs are the SSOT. Follow the active feature docs directly.
 - Progress through the documented stages directly:
   - `spec.md` defines scope and review state
-  - `plan.md` defines the implementation approach
+  - `plan.md` defines the implementation approach and Verification Contract
   - `tasks.md` drives execution order
   - `issue.md` / `pr.md` are part of the stage gate once the feature reaches GitHub workflow stages
 - Do not begin implementation just because `tasks.md` exists. Implementation starts only when `workflow-stage --json` allows it.
+- When Plan review is enabled, move `plan.md` to Review, delegate the returned fresh read-only `plan_review`, and record its evidence, decision, reviewer metadata, `specHash`, and `planHash`. Only an approved review of the current hashes can reach Plan approval. The reviewer challenges NONE/UPDATE/ADD decisions, requirement coverage, independent oracles, stable observation boundaries, realistic failure/rollback cases, exclusions, and focused/full verification scope without editing docs.
 - When scope or behavior changes, update the active feature docs in the same turn before continuing.
 - Ask for approval at documented review checkpoints and before remote or destructive actions.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` when docs-path validation matters.

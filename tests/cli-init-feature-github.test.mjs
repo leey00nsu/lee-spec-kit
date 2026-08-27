@@ -145,7 +145,11 @@ test('init --non-interactive works with explicit flags without --yes', async () 
     );
 
     const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+    const plan = await fs.readFile(path.join(featureDir, 'plan.md'), 'utf-8');
     const tasks = await fs.readFile(path.join(featureDir, 'tasks.md'), 'utf-8');
+    assert.match(plan, /Plan Review|Plan 검수/);
+    assert.match(plan, /Verification Contract/);
+    assert.match(plan, /NONE \\\| UPDATE \\\| ADD/);
     assert.equal(await pathExists(path.join(featureDir, 'issue.md')), false);
     assert.equal(await pathExists(path.join(featureDir, 'pr.md')), false);
     assert.doesNotMatch(tasks, /Pre-PR Review|PR 전 리뷰/);

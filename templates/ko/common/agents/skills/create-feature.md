@@ -20,10 +20,11 @@
 - 문서가 SSOT입니다. 활성 feature 문서를 직접 따라갑니다.
 - 문서 단계는 직접 따라갑니다:
   - `spec.md`는 범위와 리뷰 상태를 정의합니다
-  - `plan.md`는 구현 접근을 정의합니다
+  - `plan.md`는 구현 접근과 Verification Contract를 정의합니다
   - `tasks.md`는 실제 실행 순서를 정의합니다
   - `issue.md`, `pr.md`는 GitHub 단계에 들어가면 stage gate의 일부로 사용합니다
 - `tasks.md`가 있다고 바로 구현하지 않습니다. 구현은 `workflow-stage --json`가 허용할 때만 시작합니다.
+- Plan 검수가 활성화되어 있으면 `plan.md`를 Review로 바꾸고 반환된 fresh 읽기 전용 `plan_review`를 위임한 뒤 evidence, decision, reviewer metadata, `specHash`, `planHash`를 기록합니다. 현재 hash에 대한 approve 검수만 Plan 승인으로 이어질 수 있습니다. reviewer는 문서를 수정하지 않고 NONE/UPDATE/ADD 결정, 요구사항 커버리지, 독립적인 Oracle, 안정적인 관찰 경계, 현실적인 실패/롤백, 제외 범위, focused/full 검증 범위를 점검합니다.
 - 범위나 동작이 바뀌면 같은 턴 안에서 활성 feature 문서를 같이 업데이트합니다.
 - 사용자 승인은 문서화된 review checkpoint와 원격/파괴적 작업 전에만 요청합니다.
 - docs 경로 검사가 중요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.

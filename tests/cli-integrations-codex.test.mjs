@@ -680,6 +680,7 @@ test('generated pre-tool hook blocks commits while task implementation is active
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.workflow.requireBranch = false;
+    config.workflow.agentReview.plan.enabled = false;
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
 
     const addResult = await runCommand(dir, 'git', ['add', '.']);
@@ -1210,6 +1211,11 @@ test('generated pre-tool hook allows exact standalone branch_create nextAction c
       './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.agentReview.plan.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
 
     const featureResult = await runCli(dir, [
       'feature',

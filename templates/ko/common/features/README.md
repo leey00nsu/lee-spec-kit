@@ -57,11 +57,13 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 반환되는 `stage`, `nextAction`, `implementationAllowed` 값을 현재 워크플로우 상태로 사용하세요.
 
+Plan 검수가 활성화되면 계획 단계는 `plan Review → fresh 읽기 전용 Plan 검수 → plan 승인` 순서로 진행됩니다. 검수는 반환된 `specHash`와 `planHash`에 묶이며 두 문서 중 하나의 내용이 바뀌면 기존 evidence가 무효입니다. reviewer는 문서를 수정하지 않고 Verification Contract와 테스트 결정을 점검합니다.
+
 `tasks.md`의 최종 완료 체크박스 3개에는 `lee-spec-kit:completion:*` HTML marker가 있습니다. 사용자에게 보이는 문구는 바꿔도 되지만 각 체크박스 라인의 marker는 유지하세요. `workflow-stage`는 marker를 machine-readable identity로 우선 사용하고, 기존 프로젝트 호환을 위해 marker가 없으면 이전 canonical 문구를 fallback으로 인식합니다.
 
 Feature agent review가 활성화된 local workflow의 완료 흐름은 `feature review → implementation_approve → feature_verify → local_merge → local_cleanup → done`입니다. 태스크 리뷰가 활성화되면 각 태스크는 `DOING → REVIEW → task review → DONE`을 거칩니다. 검사 실패 시 구현이 허용된 `feature_remediation`으로 이동합니다. `local-ff`는 검증된 Feature SHA만 옮기고, `local-squash`는 통합 tree가 검증된 Feature tree와 같아야 합니다. 둘 다 cleanup 후에만 `done`입니다. cleanup이 끝난 Feature는 기록된 통합 커밋이 현재 base의 조상으로 남아 있는 한 후속 Feature가 base를 전진시켜도 `done`을 유지합니다.
 
-`workflow.agentExecution.task.enabled=true`이면 각 `task_execute`가 설정된 서브에이전트 모델·추론도·안정적인 태스크 ID·구현 작업 경로·machine-readable `workerContract`를 반환합니다. worker는 `workflow-stage`를 재호출하거나 다시 위임하지 않고 직접 실행합니다. 프로젝트 코드와 태스크 범위 검사만 담당하며, 메인 에이전트가 문서 동기화, 태스크 전환, 커밋, 승인, 원격 작업을 소유합니다. 공식 hook은 메인 에이전트가 workflow를 `task_commit`으로 전진시키기 전까지 커밋을 차단합니다.
+`workflow.agentExecution.task.enabled=true`이면 각 `task_execute`가 설정된 서브에이전트 모델·추론도·안정적인 태스크 ID·구현 작업 경로·machine-readable `workerContract`를 반환합니다. worker는 `workflow-stage`를 재호출하거나 다시 위임하지 않고 직접 실행합니다. 승인된 Verification Contract를 따르고 계획되지 않은 영구 테스트를 추가하지 않으며 프로젝트 코드와 태스크 범위 검사만 담당합니다. 메인 에이전트가 문서 동기화, 태스크 전환, 커밋, 승인, 원격 작업을 소유하고 공식 hook은 메인 에이전트가 workflow를 `task_commit`으로 전진시키기 전까지 커밋을 차단합니다.
 
 remediation 커밋이 추가되면 기존 검증과 local merge 승인은 무효입니다. Pre-PR review가 활성화되어 있다면 변경된 diff의 review evidence를 갱신하고 새 tip을 검증한 뒤 local merge 승인을 다시 받습니다.
 
@@ -126,6 +128,9 @@ Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 S
 | 구분 | 필드 | 값 |
 | --- | --- | --- |
 | 문서 상태 | `spec.md`/`plan.md`의 `상태`, `tasks.md`의 `문서 상태` | `Draft` \| `Review` \| `Approved` |
+| Plan 검수 상태 | `plan.md`의 `Plan 검수` | `Pending` \| `Running` \| `Done` |
+| Plan 검수 Evidence/Decision | `Plan 검수 Evidence` / `Plan 검수 Decision` | evidence 경로와 `결정: approve\|changes_requested\|blocked ...` |
+| Plan 검수 target | `Plan 검수 Spec Hash` / `Plan 검수 Plan Hash` | `workflow-stage`가 반환한 현재 내용 hash |
 | 이슈 문서 상태 | `issue.md`의 `상태` | `Draft` \| `Ready` |
 | PR 문서 상태 | `pr.md`의 `상태` | `Draft` \| `Ready` |
 | PR 리뷰 상태 | `tasks.md`의 `PR 상태` | `Review` \| `Approved` |
@@ -140,7 +145,7 @@ Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 S
 
 ## Agent review 체크리스트
 
-task/Feature 리뷰는 `workflow-stage --json`이 반환한 모델·추론도·SHA/tree 설정으로 fresh context의 읽기 전용 서브에이전트에게 맡깁니다. 태스크는 해당 checkpoint 범위를, Feature는 base부터 Feature tip까지를 검토합니다. 서브에이전트는 코드를 수정하지 않고 결함 중심 finding만 반환하며, 메인 에이전트가 finding 반영과 evidence 기록을 담당합니다. 특정 이름의 리뷰 스킬은 요구하지 않습니다.
+Plan/task/Feature 리뷰는 `workflow-stage --json`이 반환한 모델·추론도·정확한 target 설정으로 fresh context의 읽기 전용 서브에이전트에게 맡깁니다. Plan은 현재 spec/plan 내용 hash를, 태스크는 해당 checkpoint 범위를, Feature는 base부터 Feature tip까지를 검토합니다. 서브에이전트는 코드나 문서를 수정하지 않고 결함 중심 finding만 반환하며, 메인 에이전트가 finding 반영과 evidence 기록을 담당합니다. 특정 이름의 리뷰 스킬은 요구하지 않습니다.
 
 ---
 
@@ -149,7 +154,7 @@ task/Feature 리뷰는 `workflow-stage --json`이 반환한 모델·추론도·S
 | 파일           | 역할                       | 작성 시점      |
 | -------------- | -------------------------- | -------------- |
 | `spec.md`      | **무엇을, 왜** 만드는지    | 기능 정의 시   |
-| `plan.md`      | **어떻게** 만드는지 (기술) | 스펙 승인 후   |
+| `plan.md`      | **어떻게** + Verification Contract | 스펙 승인 후   |
 | `tasks.md`     | 구체적인 작업 목록         | 계획 승인 후   |
 | `issue.md`     | 이슈 초안 + 이슈 상태(`Draft/Ready`) | 이슈 생성 전/생성 시 |
 | `pr.md`        | PR 초안 + PR 상태(`Draft/Ready`) | PR 생성 전/생성 시 |

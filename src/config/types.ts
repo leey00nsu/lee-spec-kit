@@ -93,6 +93,7 @@ export interface ProjectConfig {
       task?: Partial<AgentExecutionTaskConfig>;
     };
     agentReview?: {
+      plan?: AgentReviewPhaseConfig;
       task?: AgentReviewPhaseConfig;
       feature?: AgentReviewPhaseConfig;
     };

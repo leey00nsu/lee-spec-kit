@@ -15,6 +15,7 @@ Use the active feature folder as the execution SSOT.
 - Work one task at a time. Do not batch-complete multiple tasks in one pass.
 - When `nextAction.executor === "subagent"`, delegate that task's implementation and task-scoped verification to a fresh subagent in `nextAction.workingDirectory` using the returned `model`, `reasoningEffort`, `onUnavailable`, and exact `workerContract`. If a requested model is unavailable, `inherit` means retry with the current model inherited and `error` means stop and report the failure.
 - The implementation worker executes the assigned task directly. It must not run `workflow-stage`, delegate again, edit lee-spec-kit docs, change task state, commit, request approval, or perform remote/destructive actions. It may edit project code and run task-scoped checks only.
+- The implementation worker follows the approved `plan.md` Verification Contract: `NONE` adds no durable test, `UPDATE` minimally changes the owning existing test, and `ADD` adds only contract-linked tests. If the approved decision is insufficient, report the gap to the main agent instead of expanding test scope.
 - Legacy task lines without an explicit ID receive a stable synthetic `taskId` from `workflow-stage`; use that returned ID without rewriting the legacy task solely to add an ID.
 
 ## 2. Execute and record
@@ -46,7 +47,7 @@ Use the active feature folder as the execution SSOT.
 
 - Ask for approval only at documented review checkpoints and before remote or destructive actions.
 - Before issue creation, PR creation, push, merge, or similar remote actions, share the exact artifact or plan first.
-- Delegate task/Feature review to the fresh read-only subagent and model settings returned by `workflow-stage`; keep docs updates, finding remediation, approval handling, and remote actions in the main session.
+- Delegate Plan/task/Feature review to the fresh read-only subagent and exact hash/SHA/tree target returned by `workflow-stage`; keep docs updates, finding remediation, approval handling, and remote actions in the main session.
 
 ## Strict Rules
 

@@ -12,7 +12,11 @@ import {
 } from './helpers/cli-contract-helpers.mjs';
 
 async function initRepo(dir, options = {}) {
-  const { lang = 'en', workflow = 'github' } = options;
+  const {
+    lang = 'en',
+    workflow = 'github',
+    planReviewEnabled = false,
+  } = options;
   const gitInit = await runCommand(dir, 'git', ['init']);
   assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
   const gitMain = await runCommand(dir, 'git', ['branch', '-M', 'main']);
@@ -38,6 +42,11 @@ async function initRepo(dir, options = {}) {
   ]);
   assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
+  const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+  const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  config.workflow.agentReview.plan.enabled = planReviewEnabled;
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
   const featureResult = await runCli(dir, [
     'feature',
     'alpha',
@@ -54,7 +63,11 @@ async function initRepo(dir, options = {}) {
 }
 
 async function initStandaloneRepo(dir, options = {}) {
-  const { lang = 'en', workflow = 'github' } = options;
+  const {
+    lang = 'en',
+    workflow = 'github',
+    planReviewEnabled = false,
+  } = options;
   const projectRoot = path.join(dir, 'project');
   await fs.mkdir(projectRoot, { recursive: true });
 
@@ -91,6 +104,11 @@ async function initStandaloneRepo(dir, options = {}) {
     './docs',
   ]);
   assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+  const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+  const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  config.workflow.agentReview.plan.enabled = planReviewEnabled;
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
 
   const featureResult = await runCli(dir, [
     'feature',
@@ -154,6 +172,34 @@ async function setStatus(filePath, label, value) {
     `- **${label}**: ${value}`
   );
   await fs.writeFile(filePath, next, 'utf-8');
+}
+
+async function recordPlanReview(
+  dir,
+  target,
+  decision = 'approve',
+  status = 'Done'
+) {
+  const planPath = path.join(featureDir(dir), 'plan.md');
+  let plan = await fs.readFile(planPath, 'utf-8');
+  plan = plan.replace(/^- \*\*Plan Review\*\*:.*$/m, `- **Plan Review**: ${status}`);
+  plan = plan.replace(
+    /^- \*\*Plan Review Evidence\*\*:.*$/m,
+    '- **Plan Review Evidence**: features/F001-alpha/decisions.md'
+  );
+  plan = plan.replace(
+    /^- \*\*Plan Review Decision\*\*:.*$/m,
+    `- **Plan Review Decision**: decision: ${decision} - independent Plan review`
+  );
+  plan = plan.replace(
+    /^- \*\*Plan Reviewed Spec Hash\*\*:.*$/m,
+    `- **Plan Reviewed Spec Hash**: ${target.specHash}`
+  );
+  plan = plan.replace(
+    /^- \*\*Plan Reviewed Plan Hash\*\*:.*$/m,
+    `- **Plan Reviewed Plan Hash**: ${target.planHash}`
+  );
+  await fs.writeFile(planPath, plan, 'utf-8');
 }
 
 async function writePlanningReadyDocs(dir, { issueStatus = 'Draft' } = {}) {
@@ -662,6 +708,98 @@ test('workflow-stage moves to plan_approve when plan.md is in review', async () 
   });
 });
 
+test('workflow-stage delegates Plan review before approval and invalidates evidence when Plan content changes', async () => {
+  await withTempDir('lsk-workflow-stage-plan-review-', async (dir) => {
+    await initRepo(dir, { planReviewEnabled: true });
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+
+    const review = await readStage(dir);
+    assert.equal(review.stage, 'plan_review');
+    assert.equal(review.nextAction.category, 'plan_review');
+    assert.equal(review.nextAction.executor, 'subagent');
+    assert.equal(review.nextAction.reviewScope, 'plan');
+    assert.match(review.nextAction.specHash, /^[a-f0-9]{64}$/);
+    assert.match(review.nextAction.planHash, /^[a-f0-9]{64}$/);
+    assert.equal(review.nextAction.model, 'inherit');
+    assert.equal(review.nextAction.reasoningEffort, 'high');
+    assert.equal(review.nextAction.onUnavailable, 'inherit');
+    assert.equal(review.implementationAllowed, false);
+    assert.equal(review.blockedReasonCode, 'PLAN_REVIEW_NOT_APPROVED');
+
+    await recordPlanReview(dir, review.nextAction);
+    const approve = await readStage(dir);
+    assert.equal(approve.stage, 'plan');
+    assert.equal(approve.nextAction.category, 'plan_approve');
+
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    const plan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      plan.replace('(Component structure, data flow)', 'Use a layered component flow.'),
+      'utf-8'
+    );
+
+    const stale = await readStage(dir);
+    assert.equal(stale.stage, 'plan_review');
+    assert.equal(stale.nextAction.category, 'plan_review');
+    assert.equal(stale.nextAction.executor, 'subagent');
+    assert.notEqual(stale.nextAction.planHash, review.nextAction.planHash);
+
+    await recordPlanReview(dir, stale.nextAction);
+    const reapproved = await readStage(dir);
+    assert.equal(reapproved.nextAction.category, 'plan_approve');
+
+    const specPath = path.join(featureDir(dir), 'spec.md');
+    const spec = await fs.readFile(specPath, 'utf-8');
+    await fs.writeFile(specPath, `${spec}\nUpdated accepted behavior.\n`, 'utf-8');
+
+    const staleSpec = await readStage(dir);
+    assert.equal(staleSpec.stage, 'plan_review');
+    assert.equal(staleSpec.nextAction.executor, 'subagent');
+    assert.notEqual(staleSpec.nextAction.specHash, review.nextAction.specHash);
+  });
+});
+
+test('workflow-stage routes current Plan review findings to plan_review_fix', async () => {
+  await withTempDir('lsk-workflow-stage-plan-review-fix-', async (dir) => {
+    await initRepo(dir, { planReviewEnabled: true });
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+
+    const review = await readStage(dir);
+    await recordPlanReview(dir, review.nextAction, 'changes_requested');
+
+    const fix = await readStage(dir);
+    assert.equal(fix.stage, 'plan_review_fix');
+    assert.equal(fix.nextAction.category, 'plan_review_fix');
+    assert.equal(fix.nextAction.executor, undefined);
+    assert.equal(fix.nextAction.specHash, review.nextAction.specHash);
+    assert.equal(fix.nextAction.planHash, review.nextAction.planHash);
+    assert.equal(fix.implementationAllowed, false);
+    assert.equal(fix.blockedReasonCode, 'PLAN_REVIEW_NOT_APPROVED');
+  });
+});
+
+test('workflow-stage grandfathers an approved legacy task plan without Plan review metadata', async () => {
+  await withTempDir('lsk-workflow-stage-plan-review-legacy-', async (dir) => {
+    await initRepo(dir, { planReviewEnabled: true });
+    await writePlanningReadyDocs(dir, { issueStatus: 'Draft' });
+
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    const plan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      plan.replace(/^- \*\*Plan Review\*\*:.*\n/m, ''),
+      'utf-8'
+    );
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'issue');
+    assert.equal(payload.nextAction.category, 'issue_prepare');
+  });
+});
+
 test('workflow-stage stays at tasks_write until tasks.md is execution-ready', async () => {
   await withTempDir('lsk-workflow-stage-tasks-write-', async (dir) => {
     await initRepo(dir);
@@ -794,6 +932,8 @@ test('workflow-stage allows implementation only after issue creation and expecte
       runWorkflowStage: false,
       editProjectCode: true,
       runTaskScopedVerification: true,
+      followVerificationContract: true,
+      addUnplannedDurableTests: false,
       editDocs: false,
       changeTaskState: false,
       commit: false,

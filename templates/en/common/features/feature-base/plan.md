@@ -12,6 +12,16 @@
 - **Created**: {YYYY-MM-DD}
 - **Status**: -
   - Values: Draft | Review | Approved
+- **Plan Review**: Pending
+  - Values: Pending | Running | Done
+- **Plan Review Evidence**: -
+  - Example: `docs/features/F001-foo/decisions.md` or another existing review artifact under the docs root
+- **Plan Review Decision**: -
+  - Format: `decision: approve|changes_requested|blocked ...`
+- **Plan Reviewed Spec Hash**: -
+  - Exact `specHash` returned by `workflow-stage --json`
+- **Plan Reviewed Plan Hash**: -
+  - Exact `planHash` returned by `workflow-stage --json`
 
 ---
 
@@ -37,11 +47,38 @@ src/
 
 ---
 
-## Test Strategy
+## Verification Contract
 
-- **Unit Tests**:
-- **Integration Tests**:
-- **E2E Tests**:
+### Change Classification
+
+- **Type**: COPY | REFACTOR | BUG_FIX | NEW_BEHAVIOR | HIGH_RISK
+- **Risk**: LOW | MEDIUM | HIGH
+
+### Observable Contract
+
+- **Supported behavior**:
+- **Preconditions**:
+- **Success guarantees**:
+- **Important failure guarantees**:
+- **Intentionally unsupported cases**:
+
+### Test Decisions
+
+| Contract / Requirement | Decision | Test Level | Realistic Regression Protected | Independent Oracle |
+| ---------------------- | -------- | ---------- | ------------------------------ | ------------------ |
+| (AC/FR reference)      | NONE \| UPDATE \| ADD | Unit \| Integration \| E2E \| Non-test | (failure this prevents) | (spec/released behavior/external reference) |
+
+### Excluded Tests
+
+- (duplicates, implementation details, unsupported synthetic inputs, or framework behavior intentionally not tested)
+
+### Verification Execution
+
+- **During implementation**:
+- **Before task completion**:
+- **Before Feature completion**:
+- **Manual/UI verification**:
+- **Full suite required**: Yes | No — (reason)
 
 ---
 
