@@ -117,6 +117,9 @@ npx lee-spec-kit docs get agents --json
 ## CLI 설정 파일 (`.lee-spec-kit.json`)
 
 `lee-spec-kit init`을 실행하면 문서 루트(기본: `docs/`)에 `.lee-spec-kit.json`이 생성됩니다.
+대화형 init에서는 권장 설정을 그대로 쓰거나 Task 구현 위임, Plan/Task/Feature 검수,
+Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에서는 `--task-agent`,
+`--reviews`, `--completion-strategy`로 같은 값을 지정합니다.
 
 - `lee-spec-kit feature`, `config`, `update`, `detect`, workflow validator에서 문서 위치/프로젝트 타입/언어를 해석하는 용도로 사용됩니다.
 - `docsRepo`, `pushDocs`, `docsRemote`는 CLI 관리 **Docs Push 정책**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)

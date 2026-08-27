@@ -45,6 +45,14 @@ npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
 ```
 
+`init`은 GitHub/Local 워크플로우와 Task 구현 위임, Plan/Task/Feature 검수,
+Local 통합 방식을 대화형으로 설정합니다. 자동화 환경에서는 같은 값을 플래그로
+지정할 수 있습니다.
+
+```bash
+npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --completion-strategy local-squash --non-interactive
+```
+
 그 다음부터는 자연어로 요청하면 됩니다.
 
 ## 왜 만들었나

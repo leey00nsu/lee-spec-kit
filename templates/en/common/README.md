@@ -117,6 +117,10 @@ When requirements/scope change, the “what to update” must be explicit in doc
 ## CLI Config (`.lee-spec-kit.json`)
 
 When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs root (default: `docs/`).
+Interactive init lets you keep the recommended defaults or customize task
+implementation delegation, Plan/Task/Feature reviews, and Local integration.
+Non-interactive setup exposes the same choices through `--task-agent`,
+`--reviews`, and `--completion-strategy`.
 
 - Used by `lee-spec-kit feature`, `config`, `update`, `detect`, and workflow validators to resolve docs location / project type / language.
 - `docsRepo`, `pushDocs`, `docsRemote` are metadata for the CLI-managed **Docs Push policy** (the CLI does not auto-push).

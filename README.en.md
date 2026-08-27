@@ -45,6 +45,14 @@ npx lee-spec-kit idea improve-auth-flow
 npx lee-spec-kit feature user-auth
 ```
 
+`init` interactively configures the GitHub/Local workflow, task implementation
+delegation, Plan/Task/Feature review gates, and Local integration strategy. The
+same choices are available as flags for automation.
+
+```bash
+npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --completion-strategy local-squash --non-interactive
+```
+
 After that, the human can keep using normal natural-language requests.
 
 ## Why It Exists

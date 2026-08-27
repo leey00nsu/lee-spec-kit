@@ -159,6 +159,102 @@ test('init --non-interactive works with explicit flags without --yes', async () 
   });
 });
 
+test('init applies explicit task agent, review, and local completion options', async () => {
+  await withTempDir('lsk-init-workflow-options-', async (dir) => {
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'custom-workflow',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--task-agent',
+      'off',
+      '--reviews',
+      'plan,task',
+      '--completion-strategy',
+      'local-squash',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+
+    assert.equal(config.workflow.mode, 'local');
+    assert.equal(config.workflow.agentExecution.task.enabled, false);
+    assert.equal(config.workflow.agentReview.plan.enabled, true);
+    assert.equal(config.workflow.agentReview.task.enabled, true);
+    assert.equal(config.workflow.agentReview.feature.enabled, false);
+    assert.equal(config.workflow.completionStrategy, 'local-squash');
+    assert.match(result.stdout, /Configuration summary/);
+    assert.match(result.stdout, /Task implementation: main agent/);
+    assert.match(result.stdout, /Reviews: Plan, Task/);
+    assert.match(result.stdout, /Local integration: local-squash/);
+  });
+});
+
+test('init accepts no review gates and prints the Korean configuration summary', async () => {
+  await withTempDir('lsk-init-workflow-none-ko-', async (dir) => {
+    const result = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'custom-workflow',
+      '--type',
+      'single',
+      '--lang',
+      'ko',
+      '--workflow',
+      'github',
+      '--reviews',
+      'none',
+      '--dir',
+      './docs',
+    ]);
+
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.equal(config.workflow.agentReview.plan.enabled, false);
+    assert.equal(config.workflow.agentReview.task.enabled, false);
+    assert.equal(config.workflow.agentReview.feature.enabled, false);
+    assert.match(result.stdout, /설정 요약/);
+    assert.match(result.stdout, /검수: 없음/);
+  });
+});
+
+test('init rejects invalid workflow customization flags', async () => {
+  await withTempDir('lsk-init-workflow-invalid-', async (dir) => {
+    const invalidReviews = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--reviews',
+      'plan,unknown',
+    ]);
+    assert.notEqual(invalidReviews.code, 0);
+    assert.match(invalidReviews.stderr, /--reviews/);
+
+    const githubCompletion = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--workflow',
+      'github',
+      '--completion-strategy',
+      'local-ff',
+    ]);
+    assert.notEqual(githubCompletion.code, 0);
+    assert.match(githubCompletion.stderr, /--workflow local/);
+  });
+});
+
 test('init appends lee-spec-kit managed block to existing AGENTS.md', async () => {
   await withTempDir('lsk-init-agents-append-', async (dir) => {
     const agentsMdPath = path.join(dir, 'AGENTS.md');

@@ -161,6 +161,9 @@ interface InitOptions {
   components?: string;
   lang?: 'ko' | 'en';
   workflow?: 'github' | 'local';
+  taskAgent?: 'on' | 'off';
+  reviews?: string;
+  completionStrategy?: 'local-ff' | 'local-squash' | 'none';
   dir?: string;
   docsRepo?: 'embedded' | 'standalone';
   projectRoot?: string;
@@ -170,6 +173,52 @@ interface InitOptions {
   yes?: boolean;
   force?: boolean;
   nonInteractive?: boolean;
+}
+
+const INIT_REVIEW_PHASES = ['plan', 'task', 'feature'] as const;
+type InitReviewPhase = (typeof INIT_REVIEW_PHASES)[number];
+type InitCompletionStrategy = 'local-ff' | 'local-squash' | 'none';
+
+function parseInitReviews(
+  value: string | undefined
+): InitReviewPhase[] | undefined {
+  if (typeof value === 'undefined') return undefined;
+  const normalized = value
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  if (normalized.length === 1 && normalized[0] === 'none') return [];
+  if (
+    normalized.length === 0 ||
+    normalized.includes('none') ||
+    normalized.some(
+      (entry) => !INIT_REVIEW_PHASES.includes(entry as InitReviewPhase)
+    )
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--reviews` must be a comma-separated subset of `plan,task,feature`, or `none`.'
+    );
+  }
+  return INIT_REVIEW_PHASES.filter((phase) => normalized.includes(phase));
+}
+
+function assertValidInitWorkflowOptions(options: InitOptions): void {
+  if (options.taskAgent && !['on', 'off'].includes(options.taskAgent)) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--task-agent` must be `on` or `off`.'
+    );
+  }
+  if (
+    options.completionStrategy &&
+    !['local-ff', 'local-squash', 'none'].includes(options.completionStrategy)
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--completion-strategy` must be `local-ff`, `local-squash`, or `none`.'
+    );
+  }
 }
 
 export function initCommand(program: Command): void {
@@ -187,6 +236,15 @@ export function initCommand(program: Command): void {
     )
     .option('-l, --lang <lang>', 'Language: ko | en (default: en)')
     .option('--workflow <mode>', 'Workflow mode: github | local')
+    .option('--task-agent <mode>', 'Task implementation agent: on | off')
+    .option(
+      '--reviews <list>',
+      'Review gates: comma-separated plan,task,feature | none'
+    )
+    .option(
+      '--completion-strategy <strategy>',
+      'Local completion: local-ff | local-squash | none'
+    )
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('--docs-repo <mode>', 'Docs repository mode: embedded | standalone')
     .option(
@@ -226,6 +284,7 @@ export function initCommand(program: Command): void {
 }
 
 async function runInit(options: InitOptions): Promise<void> {
+  assertValidInitWorkflowOptions(options);
   const cwd = process.cwd();
   const defaultName = path.basename(cwd);
 
@@ -234,6 +293,10 @@ async function runInit(options: InitOptions): Promise<void> {
   let components = parseComponentsOption(options.components);
   let lang = options.lang || 'en';
   let workflowMode = options.workflow || 'github';
+  let taskAgentEnabled = options.taskAgent !== 'off';
+  let enabledReviews = parseInitReviews(options.reviews) ?? ['plan', 'feature'];
+  let completionStrategy: InitCompletionStrategy =
+    options.completionStrategy || 'local-ff';
   let docsRepo: 'embedded' | 'standalone' = options.docsRepo || 'embedded';
   let pushDocs: boolean | undefined =
     typeof options.pushDocs === 'boolean' ? options.pushDocs : undefined;
@@ -372,6 +435,24 @@ async function runInit(options: InitOptions): Promise<void> {
           ],
           initial: 0,
         },
+        {
+          type: options.workflow ? null : 'select',
+          name: 'workflowMode',
+          message: tr(lang, 'cli', 'init.prompt.workflowMode'),
+          choices: [
+            {
+              title: tr(lang, 'cli', 'init.choice.workflow.github.title'),
+              value: 'github',
+              description: tr(lang, 'cli', 'init.choice.workflow.github.desc'),
+            },
+            {
+              title: tr(lang, 'cli', 'init.choice.workflow.local.title'),
+              value: 'local',
+              description: tr(lang, 'cli', 'init.choice.workflow.local.desc'),
+            },
+          ],
+          initial: 0,
+        },
       ],
       {
         onCancel: () => {
@@ -383,6 +464,7 @@ async function runInit(options: InitOptions): Promise<void> {
     projectName = response.projectName || projectName;
     projectType = response.projectType || projectType;
     docsRepo = response.docsRepo || 'embedded';
+    workflowMode = response.workflowMode || workflowMode;
 
     // standalone 선택 시 추가 질문
     if (docsRepo === 'standalone') {
@@ -515,6 +597,139 @@ async function runInit(options: InitOptions): Promise<void> {
         docsRemote = remoteResponse.docsRemote || docsRemote;
       }
     }
+
+    const hasExplicitWorkflowSetup =
+      typeof options.taskAgent !== 'undefined' ||
+      typeof options.reviews !== 'undefined' ||
+      typeof options.completionStrategy !== 'undefined';
+    let customizeWorkflow = hasExplicitWorkflowSetup;
+
+    if (!hasExplicitWorkflowSetup) {
+      const setupResponse = await prompts(
+        [
+          {
+            type: 'select',
+            name: 'workflowSetup',
+            message: tr(lang, 'cli', 'init.prompt.workflowSetup'),
+            choices: [
+              {
+                title: tr(
+                  lang,
+                  'cli',
+                  'init.choice.workflowSetup.recommended.title'
+                ),
+                value: 'recommended',
+                description: tr(
+                  lang,
+                  'cli',
+                  'init.choice.workflowSetup.recommended.desc'
+                ),
+              },
+              {
+                title: tr(
+                  lang,
+                  'cli',
+                  'init.choice.workflowSetup.custom.title'
+                ),
+                value: 'custom',
+                description: tr(
+                  lang,
+                  'cli',
+                  'init.choice.workflowSetup.custom.desc'
+                ),
+              },
+            ],
+            initial: 0,
+          },
+        ],
+        {
+          onCancel: () => {
+            throw new Error('canceled');
+          },
+        }
+      );
+      customizeWorkflow = setupResponse.workflowSetup === 'custom';
+    }
+
+    if (customizeWorkflow) {
+      const workflowResponse = await prompts(
+        [
+          {
+            type: typeof options.taskAgent === 'undefined' ? 'select' : null,
+            name: 'taskAgent',
+            message: tr(lang, 'cli', 'init.prompt.taskAgent'),
+            choices: [
+              {
+                title: tr(lang, 'cli', 'init.choice.taskAgent.on'),
+                value: true,
+              },
+              {
+                title: tr(lang, 'cli', 'init.choice.taskAgent.off'),
+                value: false,
+              },
+            ],
+            initial: 0,
+          },
+          {
+            type: typeof options.reviews === 'undefined' ? 'multiselect' : null,
+            name: 'reviews',
+            message: tr(lang, 'cli', 'init.prompt.reviews'),
+            choices: INIT_REVIEW_PHASES.map((phase) => ({
+              title: tr(lang, 'cli', `init.choice.review.${phase}`),
+              value: phase,
+              selected: phase !== 'task',
+            })),
+          },
+          {
+            type:
+              workflowMode === 'local' &&
+              typeof options.completionStrategy === 'undefined'
+                ? 'select'
+                : null,
+            name: 'completionStrategy',
+            message: tr(lang, 'cli', 'init.prompt.completionStrategy'),
+            choices: [
+              {
+                title: tr(
+                  lang,
+                  'cli',
+                  'init.choice.completionStrategy.localFf'
+                ),
+                value: 'local-ff',
+              },
+              {
+                title: tr(
+                  lang,
+                  'cli',
+                  'init.choice.completionStrategy.localSquash'
+                ),
+                value: 'local-squash',
+              },
+              {
+                title: tr(lang, 'cli', 'init.choice.completionStrategy.none'),
+                value: 'none',
+              },
+            ],
+            initial: 0,
+          },
+        ],
+        {
+          onCancel: () => {
+            throw new Error('canceled');
+          },
+        }
+      );
+      if (typeof workflowResponse.taskAgent === 'boolean') {
+        taskAgentEnabled = workflowResponse.taskAgent;
+      }
+      if (Array.isArray(workflowResponse.reviews)) {
+        enabledReviews = INIT_REVIEW_PHASES.filter((phase) =>
+          workflowResponse.reviews.includes(phase)
+        );
+      }
+      completionStrategy =
+        workflowResponse.completionStrategy || completionStrategy;
+    }
   }
 
   // 타입 기본값
@@ -544,6 +759,12 @@ async function runInit(options: InitOptions): Promise<void> {
     tr(lang, 'cli', 'validation.context.workflowMode'),
     lang
   );
+  if (workflowMode !== 'local' && options.completionStrategy) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--completion-strategy` can only be used with `--workflow local`.'
+    );
+  }
 
   if (projectType === 'single') {
     if (components.length > 0) {
@@ -750,7 +971,7 @@ async function runInit(options: InitOptions): Promise<void> {
       }
 
       console.log();
-      console.log(chalk.blue(tr(lang, 'cli', 'init.log.creatingDocs')));
+      console.log(chalk.blue(tr(lang, 'cli', 'init.log.configSummaryTitle')));
       console.log(
         chalk.gray(
           `  ${tr(lang, 'cli', 'init.log.projectLabel')}: ${projectName}`
@@ -765,6 +986,42 @@ async function runInit(options: InitOptions): Promise<void> {
       console.log(
         chalk.gray(`  ${tr(lang, 'cli', 'init.log.pathLabel')}: ${targetDir}`)
       );
+      console.log(
+        chalk.gray(
+          `  ${tr(lang, 'cli', 'init.log.workflowLabel')}: ${workflowMode}`
+        )
+      );
+      console.log(
+        chalk.gray(
+          `  ${tr(lang, 'cli', 'init.log.taskAgentLabel')}: ${tr(
+            lang,
+            'cli',
+            taskAgentEnabled
+              ? 'init.summary.taskAgent.on'
+              : 'init.summary.taskAgent.off'
+          )}`
+        )
+      );
+      const reviewSummary =
+        enabledReviews.length > 0
+          ? enabledReviews
+              .map((phase) => tr(lang, 'cli', `init.choice.review.${phase}`))
+              .join(', ')
+          : tr(lang, 'cli', 'init.summary.reviews.none');
+      console.log(
+        chalk.gray(
+          `  ${tr(lang, 'cli', 'init.log.reviewsLabel')}: ${reviewSummary}`
+        )
+      );
+      if (workflowMode === 'local') {
+        console.log(
+          chalk.gray(
+            `  ${tr(lang, 'cli', 'init.log.completionStrategyLabel')}: ${completionStrategy}`
+          )
+        );
+      }
+      console.log();
+      console.log(chalk.blue(tr(lang, 'cli', 'init.log.creatingDocs')));
       console.log();
 
       // 템플릿 복사 (common only)
@@ -825,28 +1082,31 @@ async function runInit(options: InitOptions): Promise<void> {
           ...(workflowMode === 'local'
             ? {
                 baseBranch: resolveInitialBaseBranch(cwd, docsRepo, projectRoot),
-                completionStrategy: 'local-ff',
+                completionStrategy,
                 deleteFeatureBranchAfterMerge: true,
                 featureChecks: [],
                 postMergeChecks: [],
               }
             : {}),
           agentExecution: {
-            task: createDefaultAgentExecutionTaskConfig(),
+            task: {
+              ...createDefaultAgentExecutionTaskConfig(),
+              enabled: taskAgentEnabled,
+            },
           },
           agentReview: {
             plan: {
-              enabled: true,
+              enabled: enabledReviews.includes('plan'),
               evidenceMode: 'path_required',
               reviewer: createDefaultAgentReviewerConfig(),
             },
             task: {
-              enabled: false,
+              enabled: enabledReviews.includes('task'),
               evidenceMode: 'path_required',
               reviewer: createDefaultAgentReviewerConfig(),
             },
             feature: {
-              enabled: true,
+              enabled: enabledReviews.includes('feature'),
               evidenceMode: 'path_required',
               reviewer: createDefaultAgentReviewerConfig(),
             },

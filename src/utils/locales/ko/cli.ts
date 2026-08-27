@@ -67,6 +67,35 @@ export const koCli = {
   'init.choice.docsRepo.embedded.desc': '프로젝트와 함께 push됩니다',
   'init.choice.docsRepo.standalone.title': 'standalone - 별도 독립 레포',
   'init.choice.docsRepo.standalone.desc': 'push 여부를 별도로 설정합니다',
+  'init.prompt.workflowMode': '워크플로우 방식을 선택하세요:',
+  'init.choice.workflow.github.title': 'GitHub - Issue와 PR 기반 워크플로우',
+  'init.choice.workflow.github.desc':
+    '원격 Issue, 브랜치, PR, 리뷰, 병합 단계를 사용합니다',
+  'init.choice.workflow.local.title': 'Local - 로컬 통합 워크플로우',
+  'init.choice.workflow.local.desc':
+    'GitHub 없이 관리형 worktree와 로컬 검증을 사용합니다',
+  'init.prompt.workflowSetup': '워크플로우 자동화 방식을 설정하세요:',
+  'init.choice.workflowSetup.recommended.title':
+    '권장 설정 - 균형 잡힌 기본값 사용',
+  'init.choice.workflowSetup.recommended.desc':
+    'Task 구현을 위임하고 Plan과 Feature를 검수합니다',
+  'init.choice.workflowSetup.custom.title': '직접 설정 - 옵션 선택',
+  'init.choice.workflowSetup.custom.desc':
+    'Task 위임, 검수 단계, 로컬 통합 방식을 선택합니다',
+  'init.prompt.taskAgent': 'Task 구현을 서브에이전트에게 위임할까요?',
+  'init.choice.taskAgent.on': '사용 - 각 Task 구현을 위임',
+  'init.choice.taskAgent.off': '사용 안 함 - 메인 에이전트가 직접 구현',
+  'init.prompt.reviews': '독립 검수 단계를 선택하세요:',
+  'init.choice.review.plan': 'Plan',
+  'init.choice.review.task': 'Task',
+  'init.choice.review.feature': 'Feature',
+  'init.prompt.completionStrategy': '로컬 통합 방식을 선택하세요:',
+  'init.choice.completionStrategy.localFf':
+    'local-ff - 검증된 Feature 브랜치를 fast-forward 통합',
+  'init.choice.completionStrategy.localSquash':
+    'local-squash - 검증된 하나의 커밋으로 통합',
+  'init.choice.completionStrategy.none':
+    'none - Feature 브랜치를 통합하지 않고 종료',
   'init.prompt.componentRepoPath':
     '{component} 컴포넌트 레포지토리 경로를 입력하세요:',
   'init.prompt.projectRepoPath': '프로젝트 레포지토리 경로를 입력하세요:',
@@ -77,11 +106,19 @@ export const koCli = {
   'init.prompt.remoteUrl': '원격 레포 URL을 입력하세요:',
   'init.validation.enterUrl': 'URL을 입력해주세요',
   'init.prompt.overwrite': '{dir} 폴더가 이미 존재합니다. 덮어쓰시겠습니까?',
+  'init.log.configSummaryTitle': '⚙️  설정 요약',
   'init.log.creatingDocs': '📁 docs 구조 생성 중...',
   'init.log.projectLabel': '프로젝트',
   'init.log.typeLabel': '타입',
   'init.log.langLabel': '언어',
   'init.log.pathLabel': '경로',
+  'init.log.workflowLabel': '워크플로우',
+  'init.log.taskAgentLabel': 'Task 구현',
+  'init.log.reviewsLabel': '검수',
+  'init.log.completionStrategyLabel': '로컬 통합',
+  'init.summary.taskAgent.on': '서브에이전트',
+  'init.summary.taskAgent.off': '메인 에이전트',
+  'init.summary.reviews.none': '없음',
   'init.log.docsCreated': '✅ docs 구조 생성 완료!',
   'init.log.nextStepsTitle': '다음 단계:',
   'init.log.nextSteps1': '  1. {docsDir}/prd/README.md 작성',

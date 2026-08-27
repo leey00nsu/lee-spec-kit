@@ -66,6 +66,36 @@ export const enCli = {
   'init.choice.docsRepo.embedded.desc': 'Pushed together with the project',
   'init.choice.docsRepo.standalone.title': 'standalone - separate docs repo',
   'init.choice.docsRepo.standalone.desc': 'Configure push settings separately',
+  'init.prompt.workflowMode': 'Select workflow mode:',
+  'init.choice.workflow.github.title':
+    'GitHub - Issue and pull request workflow',
+  'init.choice.workflow.github.desc':
+    'Use remote Issue, branch, pull request, review, and merge gates',
+  'init.choice.workflow.local.title': 'Local - local integration workflow',
+  'init.choice.workflow.local.desc':
+    'Use managed worktrees and local verification without requiring GitHub',
+  'init.prompt.workflowSetup': 'Configure workflow automation:',
+  'init.choice.workflowSetup.recommended.title':
+    'Recommended - use balanced defaults',
+  'init.choice.workflowSetup.recommended.desc':
+    'Delegate task implementation and review Plan plus Feature',
+  'init.choice.workflowSetup.custom.title': 'Custom - choose workflow options',
+  'init.choice.workflowSetup.custom.desc':
+    'Select task delegation, review gates, and local integration',
+  'init.prompt.taskAgent': 'Delegate task implementation to a subagent?',
+  'init.choice.taskAgent.on': 'On - delegate each task implementation',
+  'init.choice.taskAgent.off': 'Off - implement tasks in the main agent',
+  'init.prompt.reviews': 'Select independent review gates:',
+  'init.choice.review.plan': 'Plan',
+  'init.choice.review.task': 'Task',
+  'init.choice.review.feature': 'Feature',
+  'init.prompt.completionStrategy': 'Select local integration strategy:',
+  'init.choice.completionStrategy.localFf':
+    'local-ff - fast-forward the verified Feature branch',
+  'init.choice.completionStrategy.localSquash':
+    'local-squash - integrate as one verified commit',
+  'init.choice.completionStrategy.none':
+    'none - finish without integrating the Feature branch',
   'init.prompt.componentRepoPath':
     'Enter repository path for component "{component}":',
   'init.prompt.projectRepoPath': 'Enter project repository path:',
@@ -76,11 +106,19 @@ export const enCli = {
   'init.prompt.remoteUrl': 'Enter remote repository URL:',
   'init.validation.enterUrl': 'Please enter a URL',
   'init.prompt.overwrite': '{dir} already exists. Overwrite?',
+  'init.log.configSummaryTitle': '⚙️  Configuration summary',
   'init.log.creatingDocs': '📁 Creating docs structure...',
   'init.log.projectLabel': 'Project',
   'init.log.typeLabel': 'Type',
   'init.log.langLabel': 'Lang',
   'init.log.pathLabel': 'Path',
+  'init.log.workflowLabel': 'Workflow',
+  'init.log.taskAgentLabel': 'Task implementation',
+  'init.log.reviewsLabel': 'Reviews',
+  'init.log.completionStrategyLabel': 'Local integration',
+  'init.summary.taskAgent.on': 'subagent',
+  'init.summary.taskAgent.off': 'main agent',
+  'init.summary.reviews.none': 'none',
   'init.log.docsCreated': '✅ Docs structure created!',
   'init.log.nextStepsTitle': 'Next steps:',
   'init.log.nextSteps1': '  1. Write {docsDir}/prd/README.md',

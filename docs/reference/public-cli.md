@@ -11,7 +11,14 @@ Initialize the current docs schema and seed the workspace-scoped `AGENTS.md` ent
 ```bash
 npx lee-spec-kit init
 npx lee-spec-kit init --name my-project --type multi
+npx lee-spec-kit init --workflow local --task-agent off --reviews plan,task,feature --completion-strategy local-squash
 ```
+
+Interactive init offers recommended defaults or custom workflow automation. Use
+`--task-agent on|off`, `--reviews plan,task,feature|none`, and (for Local mode)
+`--completion-strategy local-ff|local-squash|none` for reproducible
+non-interactive setup. Recommended defaults enable the task implementation
+subagent plus Plan and Feature review, while Task review remains disabled.
 
 ### `idea`
 
