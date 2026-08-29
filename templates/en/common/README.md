@@ -121,6 +121,8 @@ Interactive init lets you keep the recommended defaults or customize task
 implementation delegation, Plan/Task/Feature reviews, and Local integration.
 Non-interactive setup exposes the same choices through `--task-agent`,
 `--reviews`, `--max-review-rounds`, and `--completion-strategy`.
+Existing projects can change the same settings with `lee-spec-kit config
+--interactive` or the corresponding non-interactive flags.
 
 - Used by `lee-spec-kit feature`, `config`, `update`, `detect`, and workflow validators to resolve docs location / project type / language.
 - `docsRepo`, `pushDocs`, `docsRemote` are metadata for the CLI-managed **Docs Push policy** (the CLI does not auto-push).
@@ -135,13 +137,14 @@ Non-interactive setup exposes the same choices through `--task-agent`,
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
 - `workflow.agentExecution.task` (object): task implementation delegation settings
-  - `enabled`: delegates each `task_execute` action to a subagent; new and updated projects default to `true`
+  - `enabled`: delegates each `task_execute` action to a subagent; new projects default to `true`, while projects created before this setting existed keep it disabled until explicitly enabled
   - `type`: currently only `"subagent"` is supported
   - `model`: `"inherit"` or a model name supported by the runtime
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
   - `onUnavailable`: `inherit | error` when the requested model is unavailable
   - `workflow-stage` returns a stable task ID, working/docs directories, and a machine-readable `workerContract`. The worker executes directly without rerunning `workflow-stage` or delegating again.
   - The implementation subagent can edit project code and run task-scoped checks. The main agent retains docs, task state, commits, approvals, and remote actions; official hooks reject commits while `task_execute` is active.
+- `workflow.agentAutomationConfigured` (boolean): records that `init` or `config` explicitly selected the agent automation policy, preventing legacy-default repair from overriding that choice
 - `workflow.agentReview.maxRounds` (positive integer): maximum automatic finding-remediation passes shared by Plan/task/Feature reviews before remaining `changes_requested` findings are preserved as residual risks and the review gate auto-completes; the initial review is not counted and the default is `1`
 - `workflow.agentReview.plan` / `workflow.agentReview.task` / `workflow.agentReview.feature` (object): Plan/task/Feature independent review settings
   - `enabled`: enables that review gate; new projects default Plan and Feature to `true`, and task to `false`
@@ -183,6 +186,7 @@ Non-interactive setup exposes the same choices through `--task-agent`,
   "docsRepo": "embedded",
   "workflow": {
     "mode": "local",
+    "agentAutomationConfigured": true,
     "baseBranch": "main",
     "completionStrategy": "local-ff",
     "deleteFeatureBranchAfterMerge": true,
@@ -237,12 +241,16 @@ Non-interactive setup exposes the same choices through `--task-agent`,
   "approval": {
     "mode": "category",
     "default": "skip",
-    "requireCheckCategories": ["spec_approve", "implementation_approve", "local_merge"]
+    "requireCheckCategories": [
+      "spec_approve",
+      "implementation_approve",
+      "local_merge"
+    ]
   }
 }
 ```
 
-New and updated projects delegate task implementation and enable Plan review by default; set `workflow.agentExecution.task.enabled` or `workflow.agentReview.plan.enabled` to `false` to opt out. New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Finding remediation defaults to `1`: findings from the first review are applied once and reviewed again. If the next review still returns `changes_requested`, those findings remain as residual risks and the review gate completes automatically without user approval. `blocked` never auto-completes. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
+New projects delegate task implementation and enable Plan review by default. Existing projects that predate those settings keep task delegation and Plan/Task review disabled, so updating does not silently change the execution policy. An older project whose generated defaults were already backfilled by v0.9.4-v0.9.6 is also restored to the safe disabled state when its creation date and untouched generated settings identify that case; customized agent settings are preserved. Use `lee-spec-kit config --interactive`, or `config --task-agent on|off --reviews plan,task,feature|none --max-review-rounds N`, to opt in or change it. New local projects use `local-ff` with Feature agent review enabled. Legacy Feature review behavior is preserved from the former Pre-PR setting and workflow mode. Finding remediation defaults to `1`: findings from the first review are applied once and reviewed again. If the next review still returns `changes_requested`, those findings remain as residual risks and the review gate completes automatically without user approval. `blocked` never auto-completes. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
 
 ```json
 {
@@ -256,7 +264,11 @@ New and updated projects delegate task implementation and enable Plan review by 
   "approval": {
     "mode": "category",
     "default": "skip",
-    "requireCheckCategories": ["spec_approve", "implementation_approve", "local_merge"]
+    "requireCheckCategories": [
+      "spec_approve",
+      "implementation_approve",
+      "local_merge"
+    ]
   }
 }
 ```

@@ -120,6 +120,8 @@ npx lee-spec-kit docs get agents --json
 대화형 init에서는 권장 설정을 그대로 쓰거나 Task 구현 위임, Plan/Task/Feature 검수,
 Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에서는 `--task-agent`,
 `--reviews`, `--max-review-rounds`, `--completion-strategy`로 같은 값을 지정합니다.
+기존 프로젝트도 `lee-spec-kit config --interactive` 또는 같은 config 플래그로
+이 설정을 변경할 수 있습니다.
 
 - `lee-spec-kit feature`, `config`, `update`, `detect`, workflow validator에서 문서 위치/프로젝트 타입/언어를 해석하는 용도로 사용됩니다.
 - `docsRepo`, `pushDocs`, `docsRemote`는 CLI 관리 **Docs Push 정책**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)
@@ -134,13 +136,14 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
 - `workflow.agentExecution.task` (object): 태스크 구현 위임 설정
-  - `enabled`: 각 `task_execute`를 서브에이전트에게 위임할지 여부. 새 프로젝트와 업데이트된 프로젝트의 기본값은 `true`
+  - `enabled`: 각 `task_execute`를 서브에이전트에게 위임할지 여부. 새 프로젝트의 기본값은 `true`이며, 이 설정이 생기기 전 프로젝트는 명시적으로 켜기 전까지 꺼진 상태를 유지
   - `type`: 현재 `"subagent"`만 지원
   - `model`: `"inherit"` 또는 런타임이 지원하는 모델명
   - `reasoningEffort`: `low | medium | high | xhigh | max | ultra`
   - `onUnavailable`: 지정 모델을 사용할 수 없을 때 `inherit | error`
   - `workflow-stage`는 안정적인 태스크 ID, 작업/docs 경로, machine-readable `workerContract`를 반환합니다. worker는 `workflow-stage` 재호출이나 재위임 없이 직접 실행합니다.
   - 구현 서브에이전트는 프로젝트 코드와 태스크 범위 검사를 담당하고, 메인 에이전트는 문서, 태스크 상태, 커밋, 승인, 원격 작업을 유지합니다. 공식 hook은 `task_execute` 중 커밋을 거부합니다.
+- `workflow.agentAutomationConfigured` (boolean): `init` 또는 `config`에서 에이전트 자동화 정책을 명시적으로 선택했음을 기록해, 구버전 기본값 복구가 해당 선택을 덮어쓰지 않게 함
 - `workflow.agentReview.maxRounds` (양의 정수): Plan/태스크/Feature 리뷰에 공통 적용되는 리뷰 지적 자동 반영 최대 횟수. 한도 뒤 남은 `changes_requested` finding은 잔여 위험으로 보존하고 리뷰 게이트를 자동 완료합니다. 최초 리뷰는 세지 않으며 기본값은 `1`
 - `workflow.agentReview.plan` / `workflow.agentReview.task` / `workflow.agentReview.feature` (object): Plan/태스크/Feature 독립 리뷰 설정
   - `enabled`: 해당 리뷰 게이트 활성화 여부. 새 프로젝트는 Plan과 Feature `true`, task `false`
@@ -182,6 +185,7 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
   "docsRepo": "embedded",
   "workflow": {
     "mode": "local",
+    "agentAutomationConfigured": true,
     "baseBranch": "main",
     "completionStrategy": "local-ff",
     "deleteFeatureBranchAfterMerge": true,
@@ -236,12 +240,16 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
   "approval": {
     "mode": "category",
     "default": "skip",
-    "requireCheckCategories": ["spec_approve", "implementation_approve", "local_merge"]
+    "requireCheckCategories": [
+      "spec_approve",
+      "implementation_approve",
+      "local_merge"
+    ]
   }
 }
 ```
 
-새 프로젝트와 업데이트된 프로젝트는 기본적으로 태스크 구현을 위임하고 Plan 검수를 활성화합니다. 직접 구현하거나 Plan 검수를 끄려면 각각 `workflow.agentExecution.task.enabled` 또는 `workflow.agentReview.plan.enabled`를 `false`로 설정하세요. 새 local 프로젝트는 `local-ff`와 Feature agent review를 사용합니다. 태스크마다 리뷰하려면 `workflow.agentReview.task.enabled`를 `true`로 켜세요. 리뷰 지적 자동 반영 기본값은 `1`입니다. 즉 첫 리뷰 지적은 한 번 반영하고 다시 리뷰합니다. 다음 리뷰도 `changes_requested`이면 finding을 잔여 위험으로 보존하고 사용자 승인 없이 리뷰 게이트를 자동 완료합니다. `blocked`는 자동 완료하지 않습니다. base branch에 하나의 commit만 남기려면 `local-squash`를 선택하세요. 이때 task checkpoint 증거를 위해 원본 Feature tip을 내부 `refs/lee-spec-kit/integrations/*` ref로 보존합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff` 또는 `local-squash`로 명시적으로 전환하세요.
+새 프로젝트는 기본적으로 태스크 구현을 위임하고 Plan 검수를 활성화합니다. 해당 설정이 생기기 전의 기존 프로젝트는 Task 위임과 Plan/Task 검수를 꺼진 상태로 유지하므로, 업데이트만으로 실행 정책이 바뀌지 않습니다. v0.9.4-v0.9.6 업데이트가 생성 기본값을 이미 기록한 기존 프로젝트도 생성일과 수정되지 않은 기본 설정 형태로 식별되면 안전한 비활성 상태로 복구하며, 커스텀 에이전트 설정은 보존합니다. `lee-spec-kit config --interactive` 또는 `config --task-agent on|off --reviews plan,task,feature|none --max-review-rounds N`으로 명시적으로 켜거나 변경할 수 있습니다. 새 local 프로젝트는 `local-ff`와 Feature agent review를 사용합니다. 기존 Feature 리뷰 동작은 이전 Pre-PR 설정과 workflow mode의 의미를 보존합니다. 리뷰 지적 자동 반영 기본값은 `1`입니다. 즉 첫 리뷰 지적은 한 번 반영하고 다시 리뷰합니다. 다음 리뷰도 `changes_requested`이면 finding을 잔여 위험으로 보존하고 사용자 승인 없이 리뷰 게이트를 자동 완료합니다. `blocked`는 자동 완료하지 않습니다. base branch에 하나의 commit만 남기려면 `local-squash`를 선택하세요. 이때 task checkpoint 증거를 위해 원본 Feature tip을 내부 `refs/lee-spec-kit/integrations/*` ref로 보존합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff` 또는 `local-squash`로 명시적으로 전환하세요.
 
 ```json
 {
@@ -255,7 +263,11 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
   "approval": {
     "mode": "category",
     "default": "skip",
-    "requireCheckCategories": ["spec_approve", "implementation_approve", "local_merge"]
+    "requireCheckCategories": [
+      "spec_approve",
+      "implementation_approve",
+      "local_merge"
+    ]
   }
 }
 ```

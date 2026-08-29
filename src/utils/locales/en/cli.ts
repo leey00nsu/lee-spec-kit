@@ -25,6 +25,7 @@ export const enCli = {
     'For multi projects, specify a target component via `--component`.',
   'config.projectRootSet': '✅ {repo} projectRoot set: {path}',
   'config.projectRootSetSingle': '✅ projectRoot set: {path}',
+  'config.workflowUpdated': '✅ Workflow configuration updated.',
 
   'update.start': '📦 Starting template update...',
   'update.langLabel': 'Lang',
@@ -41,6 +42,8 @@ export const enCli = {
     'Cannot determine git status (not a git repo or git unavailable). Use --force to overwrite.',
   'update.docsWorktreeDirty':
     'Docs working tree has changes. Commit/stash your changes, or run with --force to overwrite.',
+  'update.legacyAutomationSafe':
+    'Existing projects keep newly introduced task delegation and Plan/Task review disabled unless they had explicitly opted in. Configure them with `npx lee-spec-kit config --interactive` or the config flags.',
 
   'init.selectLangPrompt': 'Select docs language:',
   'init.currentDirectoryLabel': '📍 Current directory',

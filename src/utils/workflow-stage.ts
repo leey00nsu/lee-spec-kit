@@ -11,6 +11,7 @@ import {
   type ProjectConfig,
 } from '../config/types.js';
 import { LEGACY_APPROVAL_CATEGORY_STEPS } from '../config/legacy-approval.js';
+import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
 import { createDefaultApprovalConfig, getConfig } from './config.js';
 import {
   getFeatureDocPaths,
@@ -371,6 +372,8 @@ const COMPLETION_MARKERS = {
 
 function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirements {
   const workflow = config.workflow || {};
+  const legacyBackfilledAgentAutomation =
+    resolveLegacyBackfilledAgentAutomation(config);
   const hasCanonicalMode =
     workflow.mode === 'github' || workflow.mode === 'local';
   const workflowMode = hasCanonicalMode
@@ -390,13 +393,20 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
     requirePr: workflow.requirePr ?? !isLocalWorkflow,
     requireReview: workflow.requireReview ?? !isLocalWorkflow,
     requireMerge: workflow.requireMerge ?? !isLocalWorkflow,
-    planReviewEnabled: workflow.agentReview?.plan?.enabled ?? true,
+    // Missing agent automation keys identify projects created before these
+    // policies existed. Keep their historical main-agent/no-Plan-review
+    // behavior; new projects opt in explicitly through init.
+    planReviewEnabled: legacyBackfilledAgentAutomation.planReview
+      ? false
+      : workflow.agentReview?.plan?.enabled ?? false,
     taskReviewEnabled: workflow.agentReview?.task?.enabled ?? false,
     featureReviewEnabled:
       workflow.agentReview?.feature?.enabled ??
       workflow.prePrReview?.enabled ??
       !isLocalWorkflow,
-    taskExecutionEnabled: workflow.agentExecution?.task?.enabled ?? true,
+    taskExecutionEnabled: legacyBackfilledAgentAutomation.taskExecution
+      ? false
+      : workflow.agentExecution?.task?.enabled ?? false,
   };
 }
 

@@ -25,6 +25,26 @@ findings are applied once and reviewed again; another `changes_requested`
 decision is preserved as residual risk and the review gate completes
 automatically instead of starting a second fix or requesting user approval.
 
+### `config`
+
+View the current configuration, or deliberately change workflow automation for
+an existing project.
+
+```bash
+npx lee-spec-kit config
+npx lee-spec-kit config --interactive
+npx lee-spec-kit config --task-agent on --reviews plan,feature --max-review-rounds 1
+npx lee-spec-kit config --completion-strategy local-squash
+```
+
+Projects created before task delegation and Plan/Task review settings existed
+keep those newly introduced policies disabled during runtime and `update` unless
+the project had explicitly configured them. Older projects carrying the exact
+generated defaults backfilled by v0.9.4-v0.9.6 are restored to the safe disabled
+state, while customized agent settings are preserved. Legacy Feature review
+behavior is preserved. This prevents a CLI upgrade from silently changing who
+implements or reviews work; use `config` to opt in deliberately.
+
 ### `idea`
 
 Create an indexed idea document before promoting work into a feature.

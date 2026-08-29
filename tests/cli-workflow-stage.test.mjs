@@ -704,6 +704,12 @@ test('workflow-stage moves to plan_approve when plan.md is in review', async () 
     await initRepo(dir);
     await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
     await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.createdAt = '2026-08-25';
+    delete config.workflow.agentAutomationConfigured;
+    config.workflow.agentReview.plan.enabled = true;
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
     const payload = await readStage(dir);
     assert.equal(payload.stage, 'plan');
@@ -1056,6 +1062,13 @@ test('workflow-stage exposes configured task subagent settings and supports main
     assert.equal(direct.nextAction.workerContract, undefined);
     assert.equal(direct.nextAction.docsDirectory, undefined);
     assert.doesNotMatch(direct.nextAction.summary, /delegate implementation/i);
+
+    delete config.workflow.agentExecution.task.enabled;
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    const legacyMissingSetting = await readStage(dir, fakeGh.env);
+    assert.equal(legacyMissingSetting.nextAction.category, 'task_execute');
+    assert.equal(legacyMissingSetting.nextAction.executor, undefined);
   });
 });
 

@@ -56,6 +56,7 @@ export type LocalPostMergeCheck = LocalWorkflowCheck;
 export interface ProjectConfig {
   schemaId?: string;
   docsDir: string;
+  createdAt?: string;
   projectName?: string;
   projectType: ProjectType;
   components?: string[];
@@ -89,6 +90,8 @@ export interface ProjectConfig {
     codeDirtyScope?: 'repo' | 'component' | 'auto';
     componentPaths?: Record<string, string[]>;
     taskCommitGate?: 'off' | 'warn' | 'strict';
+    /** True when init/config explicitly selected agent automation policy. */
+    agentAutomationConfigured?: boolean;
     agentExecution?: {
       task?: Partial<AgentExecutionTaskConfig>;
     };
@@ -111,7 +114,9 @@ export interface ProjectConfig {
   };
 }
 
-export function createDefaultApprovalConfig(): NonNullable<ProjectConfig['approval']> {
+export function createDefaultApprovalConfig(): NonNullable<
+  ProjectConfig['approval']
+> {
   return {
     mode: 'category',
     default: 'skip',

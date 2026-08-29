@@ -32,10 +32,7 @@ async function runConfigUpdate(dir) {
   const result = await runCli(dir, ['update', '--agents-md', '--force']);
   assert.equal(result.code, 0, result.stderr || result.stdout);
   return JSON.parse(
-    await fs.readFile(
-      path.join(dir, 'docs', '.lee-spec-kit.json'),
-      'utf-8'
-    )
+    await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
   );
 }
 
@@ -173,14 +170,14 @@ test('update removes runtime settings that no current command consumes', async (
 
     assert.equal('prePrReview' in updated.workflow, false);
     assert.deepEqual(updated.workflow.agentExecution.task, {
-      enabled: true,
+      enabled: false,
       type: 'subagent',
       model: 'inherit',
       reasoningEffort: 'high',
       onUnavailable: 'inherit',
     });
     assert.deepEqual(updated.workflow.agentReview.plan, {
-      enabled: true,
+      enabled: false,
       evidenceMode: 'path_required',
       reviewer: {
         type: 'subagent',
@@ -233,10 +230,7 @@ test('init writes only canonical workflow runtime settings', async () => {
     assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const config = JSON.parse(
-      await fs.readFile(
-        path.join(dir, 'docs', '.lee-spec-kit.json'),
-        'utf-8'
-      )
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
     );
 
     assert.deepEqual(config.workflow, {
@@ -249,6 +243,7 @@ test('init writes only canonical workflow runtime settings', async () => {
       deleteFeatureBranchAfterMerge: true,
       featureChecks: [],
       postMergeChecks: [],
+      agentAutomationConfigured: true,
       agentExecution: {
         task: {
           enabled: true,
@@ -457,7 +452,7 @@ test('update normalizes task implementation subagent settings and preserves opt-
   });
 });
 
-test('update preserves the previously implicit local Feature-review default', async () => {
+test('update keeps newly introduced automation disabled for legacy local projects', async () => {
   await withTempDir('lsk-config-local-agent-review-default-', async (dir) => {
     await writeProjectConfig(dir, {
       workflow: {
@@ -470,10 +465,226 @@ test('update preserves the previously implicit local Feature-review default', as
 
     const updated = await runConfigUpdate(dir);
 
-    assert.equal(updated.workflow.agentReview.plan.enabled, true);
+    assert.equal(updated.workflow.agentExecution.task.enabled, false);
+    assert.equal(updated.workflow.agentReview.plan.enabled, false);
     assert.equal(updated.workflow.agentReview.task.enabled, false);
     assert.equal(updated.workflow.agentReview.feature.enabled, false);
     assert.equal('prePrReview' in updated.workflow, false);
+  });
+});
+
+test('update preserves explicitly enabled agent automation', async () => {
+  await withTempDir('lsk-config-agent-explicit-opt-in-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'local',
+        agentExecution: { task: { enabled: true } },
+        agentReview: {
+          plan: { enabled: true },
+          task: { enabled: true },
+          feature: { enabled: true },
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.agentExecution.task.enabled, true);
+    assert.equal(updated.workflow.agentReview.plan.enabled, true);
+    assert.equal(updated.workflow.agentReview.task.enabled, true);
+    assert.equal(updated.workflow.agentReview.feature.enabled, true);
+  });
+});
+
+test('update repairs agent automation defaults previously backfilled into an older project', async () => {
+  await withTempDir('lsk-config-agent-backfill-repair-', async (dir) => {
+    await writeProjectConfig(dir, {
+      createdAt: '2026-08-25',
+      workflow: {
+        mode: 'local',
+        agentExecution: {
+          task: {
+            enabled: true,
+            type: 'subagent',
+            model: 'inherit',
+            reasoningEffort: 'high',
+            onUnavailable: 'inherit',
+          },
+        },
+        agentReview: {
+          maxRounds: 1,
+          plan: {
+            enabled: true,
+            evidenceMode: 'path_required',
+            reviewer: {
+              type: 'subagent',
+              model: 'inherit',
+              reasoningEffort: 'high',
+              onUnavailable: 'inherit',
+            },
+          },
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.agentExecution.task.enabled, false);
+    assert.equal(updated.workflow.agentReview.plan.enabled, false);
+  });
+});
+
+test('update preserves generated agent defaults for projects created after opt-in init existed', async () => {
+  await withTempDir('lsk-config-agent-new-project-', async (dir) => {
+    await writeProjectConfig(dir, {
+      createdAt: '2026-08-27',
+      workflow: {
+        mode: 'local',
+        agentExecution: {
+          task: {
+            enabled: true,
+            type: 'subagent',
+            model: 'inherit',
+            reasoningEffort: 'high',
+            onUnavailable: 'inherit',
+          },
+        },
+        agentReview: {
+          plan: {
+            enabled: true,
+            evidenceMode: 'path_required',
+            reviewer: {
+              type: 'subagent',
+              model: 'inherit',
+              reasoningEffort: 'high',
+              onUnavailable: 'inherit',
+            },
+          },
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.agentExecution.task.enabled, true);
+    assert.equal(updated.workflow.agentReview.plan.enabled, true);
+  });
+});
+
+test('config normalizes legacy backfilled defaults before applying a partial opt-in', async () => {
+  await withTempDir('lsk-config-agent-partial-opt-in-', async (dir) => {
+    await writeProjectConfig(dir, {
+      createdAt: '2026-08-25',
+      workflow: {
+        mode: 'local',
+        agentExecution: {
+          task: {
+            enabled: true,
+            type: 'subagent',
+            model: 'inherit',
+            reasoningEffort: 'high',
+            onUnavailable: 'inherit',
+          },
+        },
+        agentReview: {
+          plan: {
+            enabled: true,
+            evidenceMode: 'path_required',
+            reviewer: {
+              type: 'subagent',
+              model: 'inherit',
+              reasoningEffort: 'high',
+              onUnavailable: 'inherit',
+            },
+          },
+        },
+      },
+    });
+
+    const result = await runCli(dir, [
+      'config',
+      '--task-agent',
+      'on',
+      '--non-interactive',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.equal(config.workflow.agentExecution.task.enabled, true);
+    assert.equal(config.workflow.agentReview.plan.enabled, false);
+    assert.equal(config.workflow.agentAutomationConfigured, true);
+  });
+});
+
+test('config changes agent automation and local completion settings', async () => {
+  await withTempDir('lsk-config-workflow-options-', async (dir) => {
+    await writeProjectConfig(dir, { workflow: { mode: 'local' } });
+
+    const enable = await runCli(dir, [
+      'config',
+      '--task-agent',
+      'on',
+      '--reviews',
+      'plan,feature',
+      '--max-review-rounds',
+      '2',
+      '--completion-strategy',
+      'local-squash',
+      '--non-interactive',
+    ]);
+    assert.equal(enable.code, 0, enable.stderr || enable.stdout);
+
+    let config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.equal(config.workflow.agentExecution.task.enabled, true);
+    assert.equal(config.workflow.agentReview.plan.enabled, true);
+    assert.equal(config.workflow.agentReview.task.enabled, false);
+    assert.equal(config.workflow.agentReview.feature.enabled, true);
+    assert.equal(config.workflow.agentReview.maxRounds, 2);
+    assert.equal(config.workflow.completionStrategy, 'local-squash');
+    assert.equal(config.workflow.agentAutomationConfigured, true);
+
+    const disable = await runCli(dir, [
+      'config',
+      '--task-agent',
+      'off',
+      '--reviews',
+      'none',
+      '--non-interactive',
+    ]);
+    assert.equal(disable.code, 0, disable.stderr || disable.stdout);
+
+    config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.equal(config.workflow.agentExecution.task.enabled, false);
+    assert.equal(config.workflow.agentReview.plan.enabled, false);
+    assert.equal(config.workflow.agentReview.task.enabled, false);
+    assert.equal(config.workflow.agentReview.feature.enabled, false);
+  });
+});
+
+test('config rejects invalid workflow customization values', async () => {
+  await withTempDir('lsk-config-workflow-invalid-', async (dir) => {
+    await writeProjectConfig(dir, { workflow: { mode: 'github' } });
+
+    for (const args of [
+      ['--task-agent', 'sometimes'],
+      ['--reviews', 'plan,unknown'],
+      ['--max-review-rounds', '0'],
+      ['--completion-strategy', 'local-ff'],
+      ['--interactive', '--non-interactive'],
+    ]) {
+      const result = await runCli(dir, ['config', ...args]);
+      assert.notEqual(
+        result.code,
+        0,
+        `${args.join(' ')} unexpectedly succeeded`
+      );
+    }
   });
 });
 

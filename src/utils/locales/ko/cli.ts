@@ -27,6 +27,7 @@ export const koCli = {
     'Multi 프로젝트는 --component로 대상 컴포넌트를 지정해야 합니다.',
   'config.projectRootSet': '✅ {repo} projectRoot 설정 완료: {path}',
   'config.projectRootSetSingle': '✅ projectRoot 설정 완료: {path}',
+  'config.workflowUpdated': '✅ 워크플로우 설정을 업데이트했습니다.',
 
   'update.start': '📦 템플릿 업데이트를 시작합니다...',
   'update.langLabel': '언어',
@@ -43,6 +44,8 @@ export const koCli = {
     'git 상태를 확인할 수 없습니다. (git repo가 아니거나 git 실행 불가) --force로 강제 덮어쓰기를 사용하세요.',
   'update.docsWorktreeDirty':
     'docs 작업트리에 변경사항이 있어 update를 진행할 수 없습니다. 변경사항을 커밋/스태시 후 다시 실행하거나 --force로 덮어쓰세요.',
+  'update.legacyAutomationSafe':
+    '기존 프로젝트는 명시적으로 사용한 경우가 아니면 새 Task 위임과 Plan/Task 검수를 꺼진 상태로 유지합니다. `npx lee-spec-kit config --interactive` 또는 config 플래그로 설정할 수 있습니다.',
 
   'init.selectLangPrompt': '문서 언어를 선택하세요:',
   'init.currentDirectoryLabel': '📍 현재 위치',

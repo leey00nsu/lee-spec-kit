@@ -101,6 +101,7 @@ function toProjectConfig(
   return {
     schemaId: 'lee-spec',
     docsDir,
+    createdAt: configFile.createdAt,
     projectName: configFile.projectName,
     projectType,
     components: projectType === 'multi' ? components : undefined,

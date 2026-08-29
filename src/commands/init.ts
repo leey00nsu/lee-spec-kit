@@ -1123,6 +1123,7 @@ async function runInit(options: InitOptions): Promise<void> {
                 postMergeChecks: [],
               }
             : {}),
+          agentAutomationConfigured: true,
           agentExecution: {
             task: {
               ...createDefaultAgentExecutionTaskConfig(),

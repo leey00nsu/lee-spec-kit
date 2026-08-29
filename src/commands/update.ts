@@ -36,6 +36,7 @@ import {
   migrateLegacyApprovalSettings,
   migrateLegacyWorkflowSettings,
 } from '../config/migrate.js';
+import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -170,7 +171,9 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       const updateAgentsMd = options.agentsMd || !hasExplicitSelection;
 
       console.log(chalk.blue(tr(lang, 'cli', 'update.start')));
-      console.log(chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`));
+      console.log(
+        chalk.gray(`  - ${tr(lang, 'cli', 'update.langLabel')}: ${lang}`)
+      );
       console.log(
         chalk.gray(`  - ${tr(lang, 'cli', 'update.typeLabel')}: ${projectType}`)
       );
@@ -182,7 +185,12 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       if (updateAgents) {
         console.log(chalk.blue(tr(lang, 'cli', 'update.updatingAgents')));
 
-        const commonAgentsBase = path.join(templatesDir, lang, 'common', 'agents');
+        const commonAgentsBase = path.join(
+          templatesDir,
+          lang,
+          'common',
+          'agents'
+        );
         const targetAgentsBase = path.join(docsDir, 'agents');
 
         const commonAgents = commonAgentsBase;
@@ -218,14 +226,15 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           updatedCount += count;
         }
         console.log(
-          chalk.green(
-            `  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`
-          )
+          chalk.green(`  ✅ ${tr(lang, 'cli', 'update.agentsUpdated')}`)
         );
       }
 
       if (updateAgentsMd) {
-        const agentsMdTargets = await collectAgentsMdTargets(cwd, currentConfig);
+        const agentsMdTargets = await collectAgentsMdTargets(
+          cwd,
+          currentConfig
+        );
         for (const target of agentsMdTargets) {
           const result = await upsertLeeSpecKitAgentsMd(target, {
             lang,
@@ -256,13 +265,27 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
           )
         );
         console.log(
-          chalk.gray(
-            `    (${configBackfill.changedPaths.join(', ')})`
-          )
+          chalk.gray(`    (${configBackfill.changedPaths.join(', ')})`)
         );
+        if (
+          configBackfill.changedPaths.includes(
+            'workflow.agentExecution.task.enabled'
+          ) ||
+          configBackfill.changedPaths.includes(
+            'workflow.agentReview.plan.enabled'
+          )
+        ) {
+          console.log(
+            chalk.yellow(
+              `  - ${tr(lang, 'cli', 'update.legacyAutomationSafe')}`
+            )
+          );
+        }
       }
       console.log(
-        chalk.green(`✅ ${tr(lang, 'cli', 'update.updatedTotal', { count: updatedCount })}`)
+        chalk.green(
+          `✅ ${tr(lang, 'cli', 'update.updatedTotal', { count: updatedCount })}`
+        )
       );
     },
     { owner: 'update' }
@@ -362,6 +385,8 @@ async function backfillMissingConfigDefaults(
   }
   const workflow = raw.workflow as Record<string, unknown>;
   changedPaths.push(...migrateLegacyWorkflowSettings(workflow));
+  const restoreLegacyAgentAutomationDefaults =
+    resolveLegacyBackfilledAgentAutomation(raw);
   setIfMissing(
     workflow,
     'requireWorktree',
@@ -377,7 +402,10 @@ async function backfillMissingConfigDefaults(
 
   if (workflow.mode === 'local') {
     setIfMissing(workflow, 'baseBranch', 'main', 'workflow.baseBranch');
-    if (typeof workflow.baseBranch !== 'string' || !workflow.baseBranch.trim()) {
+    if (
+      typeof workflow.baseBranch !== 'string' ||
+      !workflow.baseBranch.trim()
+    ) {
       workflow.baseBranch = 'main';
       changedPaths.push('workflow.baseBranch');
     } else if (workflow.baseBranch !== workflow.baseBranch.trim()) {
@@ -486,11 +514,18 @@ async function backfillMissingConfigDefaults(
   setIfMissing(
     taskExecution,
     'enabled',
-    defaultTaskExecution.enabled,
+    false,
     'workflow.agentExecution.task.enabled'
   );
   if (typeof taskExecution.enabled !== 'boolean') {
-    taskExecution.enabled = defaultTaskExecution.enabled;
+    taskExecution.enabled = false;
+    changedPaths.push('workflow.agentExecution.task.enabled');
+  }
+  if (
+    restoreLegacyAgentAutomationDefaults.taskExecution &&
+    taskExecution.enabled !== false
+  ) {
+    taskExecution.enabled = false;
     changedPaths.push('workflow.agentExecution.task.enabled');
   }
   if (taskExecution.type !== 'subagent') {
@@ -560,7 +595,10 @@ async function backfillMissingConfigDefaults(
       'path_required',
       `${phasePath}.evidenceMode`
     );
-    if (phase.evidenceMode !== 'path_required' && phase.evidenceMode !== 'any') {
+    if (
+      phase.evidenceMode !== 'path_required' &&
+      phase.evidenceMode !== 'any'
+    ) {
       phase.evidenceMode = 'path_required';
       changedPaths.push(`${phasePath}.evidenceMode`);
     }
@@ -606,17 +644,20 @@ async function backfillMissingConfigDefaults(
     }
   };
 
-  normalizeAgentReviewPhase('plan', true);
+  normalizeAgentReviewPhase('plan', false);
+  if (restoreLegacyAgentAutomationDefaults.planReview) {
+    const planReview = agentReview.plan as Record<string, unknown>;
+    if (planReview.enabled !== false) {
+      planReview.enabled = false;
+      changedPaths.push('workflow.agentReview.plan.enabled');
+    }
+  }
   normalizeAgentReviewPhase('task', false);
   const legacyFeatureEnabled =
     typeof legacyPrePrReview?.enabled === 'boolean'
       ? legacyPrePrReview.enabled
       : workflow.mode !== 'local';
-  normalizeAgentReviewPhase(
-    'feature',
-    legacyFeatureEnabled,
-    legacyPrePrReview
-  );
+  normalizeAgentReviewPhase('feature', legacyFeatureEnabled, legacyPrePrReview);
   if (hasOwnKey(workflow, 'prePrReview')) {
     delete workflow.prePrReview;
     changedPaths.push('workflow.prePrReview');
@@ -670,7 +711,8 @@ async function updateFolder(
     skipDirectories?: Set<string>;
   } = {}
 ): Promise<number> {
-  const protectedFiles = options.protectedFiles ?? new Set(['custom.md', 'constitution.md']);
+  const protectedFiles =
+    options.protectedFiles ?? new Set(['custom.md', 'constitution.md']);
   const skipDirectories = options.skipDirectories ?? new Set<string>();
 
   // 대상 폴더가 없으면 생성
@@ -791,11 +833,15 @@ function getDocsPorcelainStatus(
   if (!top) return null;
   const rel = path.relative(top, docsDir) || '.';
   try {
-    const output = execFileSync('git', ['status', '--porcelain=v1', '--', rel], {
-      cwd: top,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    const output = execFileSync(
+      'git',
+      ['status', '--porcelain=v1', '--', rel],
+      {
+        cwd: top,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }
+    );
     if (ignoredAbsPaths.length === 0) {
       return output;
     }
