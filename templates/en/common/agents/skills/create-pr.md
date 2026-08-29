@@ -31,8 +31,10 @@ When `workflow-stage --json` returns `nextAction.executor: subagent`, delegate t
 8. Use `commandsExecuted` only for optional audit/targeted verification that you actually chose to run during review.
 9. In code-review stage, keep `PR Review Evidence/Decision` aligned with `decisions.md` by adding a `PR Review Log` section with `Summary` and `Decision`.
 10. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
-11. Confirm `Pre-PR Reviewed Head` and `Pre-PR Reviewed Tree` match the `targetSha` and `targetTree` returned by `workflow-stage`.
-12. Ensure the final decision is `approve` before moving to PR creation.
+11. Record `Pre-PR Review Round` from the returned `reviewRound`.
+12. Confirm `Pre-PR Reviewed Head` and `Pre-PR Reviewed Tree` match the `targetSha` and `targetTree` returned by `workflow-stage`.
+13. `workflow.agentReview.maxRounds` counts Feature finding-remediation passes, not the initial review. If `workflow-stage` returns `review_escalation`, stop automatic remediation and present its exact action options. Another remediation requires increasing the setting first.
+14. Ensure the final decision is `approve` before moving to PR creation.
 
 The review artifact must record the actual `executor`, `model`, `reasoningEffort`, reviewed commit/diff scope, target SHA/tree, findings, and final decision. The review subagent must not modify code; the main agent owns finding remediation and documentation updates.
 

@@ -176,6 +176,8 @@ test('init applies explicit task agent, review, and local completion options', a
       'off',
       '--reviews',
       'plan,task',
+      '--max-review-rounds',
+      '3',
       '--completion-strategy',
       'local-squash',
       '--dir',
@@ -192,10 +194,12 @@ test('init applies explicit task agent, review, and local completion options', a
     assert.equal(config.workflow.agentReview.plan.enabled, true);
     assert.equal(config.workflow.agentReview.task.enabled, true);
     assert.equal(config.workflow.agentReview.feature.enabled, false);
+    assert.equal(config.workflow.agentReview.maxRounds, 3);
     assert.equal(config.workflow.completionStrategy, 'local-squash');
     assert.match(result.stdout, /Configuration summary/);
     assert.match(result.stdout, /Task implementation: main agent/);
     assert.match(result.stdout, /Reviews: Plan, Task/);
+    assert.match(result.stdout, /Review remediation rounds: 3/);
     assert.match(result.stdout, /Local integration: local-squash/);
   });
 });
@@ -252,6 +256,17 @@ test('init rejects invalid workflow customization flags', async () => {
     ]);
     assert.notEqual(githubCompletion.code, 0);
     assert.match(githubCompletion.stderr, /--workflow local/);
+
+    for (const value of ['0', '-1', '1.5', 'many']) {
+      const invalidMaxRounds = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--max-review-rounds',
+        value,
+      ]);
+      assert.notEqual(invalidMaxRounds.code, 0);
+      assert.match(invalidMaxRounds.stderr, /--max-review-rounds/);
+    }
   });
 });
 

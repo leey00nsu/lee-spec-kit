@@ -529,6 +529,15 @@ async function backfillMissingConfigDefaults(
     changedPaths.push('workflow.agentReview');
   }
   const agentReview = workflow.agentReview as Record<string, unknown>;
+  setIfMissing(agentReview, 'maxRounds', 1, 'workflow.agentReview.maxRounds');
+  if (
+    typeof agentReview.maxRounds !== 'number' ||
+    !Number.isInteger(agentReview.maxRounds) ||
+    agentReview.maxRounds < 1
+  ) {
+    agentReview.maxRounds = 1;
+    changedPaths.push('workflow.agentReview.maxRounds');
+  }
   const normalizeAgentReviewPhase = (
     key: 'plan' | 'task' | 'feature',
     enabledDefault: boolean,

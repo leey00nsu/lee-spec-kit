@@ -86,6 +86,8 @@ export const koCli = {
   'init.choice.taskAgent.on': '사용 - 각 Task 구현을 위임',
   'init.choice.taskAgent.off': '사용 안 함 - 메인 에이전트가 직접 구현',
   'init.prompt.reviews': '독립 검수 단계를 선택하세요:',
+  'init.prompt.maxReviewRounds':
+    '사용자에게 판단을 요청하기 전 리뷰 지적 자동 반영 최대 횟수:',
   'init.choice.review.plan': 'Plan',
   'init.choice.review.task': 'Task',
   'init.choice.review.feature': 'Feature',
@@ -115,6 +117,7 @@ export const koCli = {
   'init.log.workflowLabel': '워크플로우',
   'init.log.taskAgentLabel': 'Task 구현',
   'init.log.reviewsLabel': '검수',
+  'init.log.maxReviewRoundsLabel': '리뷰 지적 자동 반영 횟수',
   'init.log.completionStrategyLabel': '로컬 통합',
   'init.summary.taskAgent.on': '서브에이전트',
   'init.summary.taskAgent.off': '메인 에이전트',

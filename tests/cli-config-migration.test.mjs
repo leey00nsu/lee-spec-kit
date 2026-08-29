@@ -189,6 +189,7 @@ test('update removes runtime settings that no current command consumes', async (
         onUnavailable: 'inherit',
       },
     });
+    assert.equal(updated.workflow.agentReview.maxRounds, 1);
     assert.deepEqual(updated.workflow.agentReview.task, {
       enabled: false,
       evidenceMode: 'path_required',
@@ -258,6 +259,7 @@ test('init writes only canonical workflow runtime settings', async () => {
         },
       },
       agentReview: {
+        maxRounds: 1,
         plan: {
           enabled: true,
           evidenceMode: 'path_required',
@@ -389,6 +391,42 @@ test('update preserves configurable Plan review subagent settings', async () => 
     });
   });
 });
+
+test('update preserves a valid maximum review round count', async () => {
+  await withTempDir('lsk-config-review-rounds-', async (dir) => {
+    await writeProjectConfig(dir, {
+      workflow: {
+        mode: 'github',
+        agentReview: {
+          maxRounds: 3,
+        },
+      },
+    });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.equal(updated.workflow.agentReview.maxRounds, 3);
+  });
+});
+
+for (const invalidMaxRounds of [0, -1, 1.5, '3']) {
+  test(`update normalizes invalid maximum review rounds ${JSON.stringify(invalidMaxRounds)}`, async () => {
+    await withTempDir('lsk-config-invalid-review-rounds-', async (dir) => {
+      await writeProjectConfig(dir, {
+        workflow: {
+          mode: 'github',
+          agentReview: {
+            maxRounds: invalidMaxRounds,
+          },
+        },
+      });
+
+      const updated = await runConfigUpdate(dir);
+
+      assert.equal(updated.workflow.agentReview.maxRounds, 1);
+    });
+  });
+}
 
 test('update normalizes task implementation subagent settings and preserves opt-out', async () => {
   await withTempDir('lsk-config-task-executor-', async (dir) => {

@@ -163,6 +163,7 @@ interface InitOptions {
   workflow?: 'github' | 'local';
   taskAgent?: 'on' | 'off';
   reviews?: string;
+  maxReviewRounds?: string;
   completionStrategy?: 'local-ff' | 'local-squash' | 'none';
   dir?: string;
   docsRepo?: 'embedded' | 'standalone';
@@ -219,6 +220,15 @@ function assertValidInitWorkflowOptions(options: InitOptions): void {
       '`--completion-strategy` must be `local-ff`, `local-squash`, or `none`.'
     );
   }
+  if (options.maxReviewRounds !== undefined) {
+    const parsed = Number(options.maxReviewRounds);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw createCliError(
+        'INVALID_ARGUMENT',
+        '`--max-review-rounds` must be a positive integer.'
+      );
+    }
+  }
 }
 
 export function initCommand(program: Command): void {
@@ -240,6 +250,10 @@ export function initCommand(program: Command): void {
     .option(
       '--reviews <list>',
       'Review gates: comma-separated plan,task,feature | none'
+    )
+    .option(
+      '--max-review-rounds <count>',
+      'Automatic review finding remediation rounds before user escalation (default: 1)'
     )
     .option(
       '--completion-strategy <strategy>',
@@ -295,6 +309,7 @@ async function runInit(options: InitOptions): Promise<void> {
   let workflowMode = options.workflow || 'github';
   let taskAgentEnabled = options.taskAgent !== 'off';
   let enabledReviews = parseInitReviews(options.reviews) ?? ['plan', 'feature'];
+  let maxReviewRounds = Number(options.maxReviewRounds || 1);
   let completionStrategy: InitCompletionStrategy =
     options.completionStrategy || 'local-ff';
   let docsRepo: 'embedded' | 'standalone' = options.docsRepo || 'embedded';
@@ -601,6 +616,7 @@ async function runInit(options: InitOptions): Promise<void> {
     const hasExplicitWorkflowSetup =
       typeof options.taskAgent !== 'undefined' ||
       typeof options.reviews !== 'undefined' ||
+      typeof options.maxReviewRounds !== 'undefined' ||
       typeof options.completionStrategy !== 'undefined';
     let customizeWorkflow = hasExplicitWorkflowSetup;
 
@@ -682,6 +698,14 @@ async function runInit(options: InitOptions): Promise<void> {
           },
           {
             type:
+              typeof options.maxReviewRounds === 'undefined' ? 'number' : null,
+            name: 'maxReviewRounds',
+            message: tr(lang, 'cli', 'init.prompt.maxReviewRounds'),
+            initial: 1,
+            min: 1,
+          },
+          {
+            type:
               workflowMode === 'local' &&
               typeof options.completionStrategy === 'undefined'
                 ? 'select'
@@ -726,6 +750,12 @@ async function runInit(options: InitOptions): Promise<void> {
         enabledReviews = INIT_REVIEW_PHASES.filter((phase) =>
           workflowResponse.reviews.includes(phase)
         );
+      }
+      if (
+        Number.isInteger(workflowResponse.maxReviewRounds) &&
+        workflowResponse.maxReviewRounds > 0
+      ) {
+        maxReviewRounds = workflowResponse.maxReviewRounds;
       }
       completionStrategy =
         workflowResponse.completionStrategy || completionStrategy;
@@ -1013,6 +1043,11 @@ async function runInit(options: InitOptions): Promise<void> {
           `  ${tr(lang, 'cli', 'init.log.reviewsLabel')}: ${reviewSummary}`
         )
       );
+      console.log(
+        chalk.gray(
+          `  ${tr(lang, 'cli', 'init.log.maxReviewRoundsLabel')}: ${maxReviewRounds}`
+        )
+      );
       if (workflowMode === 'local') {
         console.log(
           chalk.gray(
@@ -1095,6 +1130,7 @@ async function runInit(options: InitOptions): Promise<void> {
             },
           },
           agentReview: {
+            maxRounds: maxReviewRounds,
             plan: {
               enabled: enabledReviews.includes('plan'),
               evidenceMode: 'path_required',

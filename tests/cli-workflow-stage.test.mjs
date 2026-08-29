@@ -178,7 +178,8 @@ async function recordPlanReview(
   dir,
   target,
   decision = 'approve',
-  status = 'Done'
+  status = 'Done',
+  round = 1
 ) {
   const planPath = path.join(featureDir(dir), 'plan.md');
   let plan = await fs.readFile(planPath, 'utf-8');
@@ -190,6 +191,10 @@ async function recordPlanReview(
   plan = plan.replace(
     /^- \*\*Plan Review Decision\*\*:.*$/m,
     `- **Plan Review Decision**: decision: ${decision} - independent Plan review`
+  );
+  plan = plan.replace(
+    /^- \*\*Plan Review Round\*\*:.*$/m,
+    `- **Plan Review Round**: ${round}`
   );
   plan = plan.replace(
     /^- \*\*Plan Reviewed Spec Hash\*\*:.*$/m,
@@ -764,6 +769,10 @@ test('workflow-stage delegates Plan review before approval and invalidates evide
 test('workflow-stage routes current Plan review findings to plan_review_fix', async () => {
   await withTempDir('lsk-workflow-stage-plan-review-fix-', async (dir) => {
     await initRepo(dir, { planReviewEnabled: true });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.agentReview.maxRounds = 2;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
     await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
     await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
 
@@ -778,6 +787,68 @@ test('workflow-stage routes current Plan review findings to plan_review_fix', as
     assert.equal(fix.nextAction.planHash, review.nextAction.planHash);
     assert.equal(fix.implementationAllowed, false);
     assert.equal(fix.blockedReasonCode, 'PLAN_REVIEW_NOT_APPROVED');
+  });
+});
+
+test('workflow-stage applies one Plan review finding round before default escalation', async () => {
+  await withTempDir('lsk-workflow-stage-plan-review-escalation-', async (dir) => {
+    await initRepo(dir, { planReviewEnabled: true });
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    await setStatus(path.join(featureDir(dir), 'plan.md'), 'Status', 'Review');
+
+    const review = await readStage(dir);
+    assert.equal(review.nextAction.reviewRound, 1);
+    assert.equal(review.nextAction.maxReviewRounds, 1);
+    await recordPlanReview(dir, review.nextAction, 'changes_requested');
+
+    const fix = await readStage(dir);
+    assert.equal(fix.stage, 'plan_review_fix');
+    assert.equal(fix.nextAction.category, 'plan_review_fix');
+    assert.equal(fix.implementationAllowed, false);
+
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    const plan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      plan.replace(
+        '(Component structure, data flow)',
+        'Addressed the requested structure change.'
+      ),
+      'utf-8'
+    );
+
+    const secondReview = await readStage(dir);
+    assert.equal(secondReview.stage, 'plan_review');
+    assert.equal(secondReview.nextAction.reviewRound, 2);
+    await recordPlanReview(
+      dir,
+      secondReview.nextAction,
+      'changes_requested',
+      'Done',
+      2
+    );
+
+    const escalation = await readStage(dir);
+    assert.equal(escalation.stage, 'review_escalation');
+    assert.equal(escalation.nextAction.category, 'review_escalation');
+    assert.equal(escalation.approvalRequired, true);
+    assert.equal(escalation.implementationAllowed, false);
+    assert.equal(escalation.primaryActionLabel, 'A');
+    assert.deepEqual(
+      escalation.actionOptions.map((option) => option.reply),
+      ['A', 'B']
+    );
+
+    const reviewedPlan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      `${reviewedPlan}\nAdditional unreviewed Plan change.\n`,
+      'utf-8'
+    );
+
+    const stillEscalated = await readStage(dir);
+    assert.equal(stillEscalated.stage, 'review_escalation');
+    assert.equal(stillEscalated.implementationAllowed, false);
   });
 });
 
@@ -1430,6 +1501,7 @@ test('workflow-stage gates REVIEW tasks on a fresh subagent decision bound to th
       `    - [x] add UI
   - Review Evidence: -
   - Review Decision: -
+  - Review Round: -
   - Reviewed Head: -
   - Reviewed Tree: -`
     );
@@ -1463,6 +1535,7 @@ test('workflow-stage gates REVIEW tasks on a fresh subagent decision bound to th
       '  - Review Decision: -',
       '  - Review Decision: decision: changes_requested - add a guard'
     );
+    tasks = tasks.replace('  - Review Round: -', '  - Review Round: 1');
     tasks = tasks.replace(
       '  - Reviewed Head: -',
       `  - Reviewed Head: ${initial.nextAction.targetSha}`
@@ -1482,26 +1555,79 @@ test('workflow-stage gates REVIEW tasks on a fresh subagent decision bound to th
     assert.equal(fix.implementationAllowed, true);
 
     await commitTaskProject(dir, 'fix(F001): implement alpha shell guard', 'guard.ts');
-    const stale = await readStage(dir);
-    assert.equal(stale.stage, 'task_review');
-    assert.equal(stale.nextAction.executor, 'subagent');
-    assert.notEqual(stale.nextAction.targetSha, initial.nextAction.targetSha);
+    const secondReview = await readStage(dir);
+    assert.equal(secondReview.stage, 'task_review');
+    assert.equal(secondReview.nextAction.executor, 'subagent');
+    assert.equal(secondReview.nextAction.reviewRound, 2);
+    assert.notEqual(secondReview.nextAction.targetSha, initial.nextAction.targetSha);
+
+    tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      /^ {2}- Review Decision:.*$/m,
+      '  - Review Decision: decision: changes_requested - add a second guard'
+    );
+    tasks = tasks.replace(
+      /^ {2}- Review Round:.*$/m,
+      '  - Review Round: 2'
+    );
+    tasks = tasks.replace(
+      /^ {2}- Reviewed Head:.*$/m,
+      `  - Reviewed Head: ${secondReview.nextAction.targetSha}`
+    );
+    tasks = tasks.replace(
+      /^ {2}- Reviewed Tree:.*$/m,
+      `  - Reviewed Tree: ${secondReview.nextAction.targetTree}`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): record second task review findings');
+
+    const escalation = await readStage(dir);
+    assert.equal(escalation.stage, 'review_escalation');
+    assert.equal(escalation.nextAction.category, 'review_escalation');
+    assert.equal(escalation.nextAction.reviewRound, 2);
+    assert.equal(escalation.approvalRequired, true);
+    assert.equal(escalation.implementationAllowed, false);
+
+    const escalatedConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    escalatedConfig.workflow.agentReview.maxRounds = 2;
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(escalatedConfig, null, 2)}\n`,
+      'utf-8'
+    );
+    await commitFeatureDocs(dir, 'docs(F001): authorize second task remediation', [
+      'docs/.lee-spec-kit.json',
+    ]);
+
+    const secondFix = await readStage(dir);
+    assert.equal(secondFix.stage, 'task_review_fix');
+    assert.equal(secondFix.implementationAllowed, true);
+
+    await commitTaskProject(
+      dir,
+      'fix(F001): implement second alpha shell guard',
+      'second-guard.ts'
+    );
+    const thirdReview = await readStage(dir);
+    assert.equal(thirdReview.stage, 'task_review');
+    assert.equal(thirdReview.nextAction.reviewRound, 3);
 
     tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
       /^ {2}- Review Decision:.*$/m,
       '  - Review Decision: decision: approve - current tree reviewed'
     );
+    tasks = tasks.replace(/^ {2}- Review Round:.*$/m, '  - Review Round: 3');
     tasks = tasks.replace(
       /^ {2}- Reviewed Head:.*$/m,
-      `  - Reviewed Head: ${stale.nextAction.targetSha}`
+      `  - Reviewed Head: ${thirdReview.nextAction.targetSha}`
     );
     tasks = tasks.replace(
       /^ {2}- Reviewed Tree:.*$/m,
-      `  - Reviewed Tree: ${stale.nextAction.targetTree}`
+      `  - Reviewed Tree: ${thirdReview.nextAction.targetTree}`
     );
     await fs.writeFile(tasksPath, tasks, 'utf-8');
-    await commitFeatureDocs(dir, 'docs(F001): approve task review');
+    await commitFeatureDocs(dir, 'docs(F001): approve third task review');
 
     const approved = await readStage(dir);
     assert.equal(approved.stage, 'task_review');
@@ -1813,6 +1939,10 @@ test('local workflow runs configured Feature review before implementation approv
       '- **Feature Review Decision**: decision: approve - current Feature tree reviewed'
     );
     tasks = tasks.replace(
+      '- **Feature Review Round**: -',
+      '- **Feature Review Round**: 1'
+    );
+    tasks = tasks.replace(
       '- **Feature Reviewed Head**: -',
       `- **Feature Reviewed Head**: ${review.nextAction.targetSha}`
     );
@@ -1823,6 +1953,7 @@ test('local workflow runs configured Feature review before implementation approv
     assert.match(tasks, /^- \*\*Feature Review\*\*: Done$/m);
     assert.match(tasks, /^- \*\*Feature Review Evidence\*\*: docs\/features\/F001-alpha\/review-trace\.json$/m);
     assert.match(tasks, /^- \*\*Feature Review Decision\*\*: decision: approve\b.*$/m);
+    assert.match(tasks, /^- \*\*Feature Review Round\*\*: 1$/m);
     assert.match(tasks, new RegExp(`^- \\*\\*Feature Reviewed Head\\*\\*: ${review.nextAction.targetSha}$`, 'm'));
     assert.match(tasks, new RegExp(`^- \\*\\*Feature Reviewed Tree\\*\\*: ${review.nextAction.targetTree}$`, 'm'));
     await fs.writeFile(tasksPath, tasks, 'utf-8');
@@ -1837,6 +1968,98 @@ test('local workflow runs configured Feature review before implementation approv
       JSON.stringify(approval, null, 2)
     );
     assert.equal(approval.nextAction.category, 'implementation_approve');
+  });
+});
+
+test('workflow-stage applies one Feature review finding round before default escalation', async () => {
+  await withTempDir('lsk-workflow-stage-feature-review-escalation-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      autoVerify: false,
+      featureReviewEnabled: true,
+      finalOutcomeChecked: false,
+    });
+
+    const review = await readStage(dir);
+    assert.equal(review.stage, 'pre_pr_review');
+    assert.equal(review.nextAction.reviewRound, 1);
+    assert.equal(review.nextAction.maxReviewRounds, 1);
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    const evidencePath = path.join(featureDir(dir), 'review-trace.json');
+    await fs.writeFile(evidencePath, '{"featureReview":{}}\n', 'utf-8');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace('- **Feature Review**: -', '- **Feature Review**: Done');
+    tasks = tasks.replace(
+      '- **Feature Review Evidence**: -',
+      '- **Feature Review Evidence**: docs/features/F001-alpha/review-trace.json'
+    );
+    tasks = tasks.replace(
+      '- **Feature Review Decision**: -',
+      '- **Feature Review Decision**: decision: changes_requested - add a guard'
+    );
+    tasks = tasks.replace(
+      '- **Feature Review Round**: -',
+      '- **Feature Review Round**: 1'
+    );
+    tasks = tasks.replace(
+      '- **Feature Reviewed Head**: -',
+      `- **Feature Reviewed Head**: ${review.nextAction.targetSha}`
+    );
+    tasks = tasks.replace(
+      '- **Feature Reviewed Tree**: -',
+      `- **Feature Reviewed Tree**: ${review.nextAction.targetTree}`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): record Feature review findings', [
+      'docs/features/F001-alpha/review-trace.json',
+    ]);
+
+    const fix = await readStage(dir);
+    assert.equal(fix.stage, 'feature_review_fix');
+    assert.equal(fix.nextAction.category, 'feature_review_fix');
+    assert.equal(fix.implementationAllowed, true);
+
+    await commitTaskProject(
+      dir,
+      'fix(F001): address Feature review guard',
+      'feature-guard.ts'
+    );
+    const secondReview = await readStage(dir);
+    assert.equal(secondReview.stage, 'pre_pr_review');
+    assert.equal(secondReview.nextAction.reviewRound, 2);
+
+    tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      /^- \*\*Feature Review Decision\*\*:.*$/m,
+      '- **Feature Review Decision**: decision: changes_requested - add another guard'
+    );
+    tasks = tasks.replace(
+      /^- \*\*Feature Review Round\*\*:.*$/m,
+      '- **Feature Review Round**: 2'
+    );
+    tasks = tasks.replace(
+      /^- \*\*Feature Reviewed Head\*\*:.*$/m,
+      `- **Feature Reviewed Head**: ${secondReview.nextAction.targetSha}`
+    );
+    tasks = tasks.replace(
+      /^- \*\*Feature Reviewed Tree\*\*:.*$/m,
+      `- **Feature Reviewed Tree**: ${secondReview.nextAction.targetTree}`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): record second Feature review findings');
+
+    const escalation = await readStage(dir);
+    assert.equal(escalation.stage, 'review_escalation');
+    assert.equal(escalation.nextAction.category, 'review_escalation');
+    assert.equal(escalation.nextAction.reviewScope, 'feature');
+    assert.equal(escalation.nextAction.reviewRound, 2);
+    assert.equal(escalation.nextAction.maxReviewRounds, 1);
+    assert.equal(escalation.approvalRequired, true);
+    assert.equal(escalation.implementationAllowed, false);
+    assert.deepEqual(
+      escalation.actionOptions.map((option) => option.reply),
+      ['A', 'B']
+    );
   });
 });
 

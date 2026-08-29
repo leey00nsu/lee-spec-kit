@@ -120,7 +120,7 @@ When you run `lee-spec-kit init`, it creates `.lee-spec-kit.json` in the docs ro
 Interactive init lets you keep the recommended defaults or customize task
 implementation delegation, Plan/Task/Feature reviews, and Local integration.
 Non-interactive setup exposes the same choices through `--task-agent`,
-`--reviews`, and `--completion-strategy`.
+`--reviews`, `--max-review-rounds`, and `--completion-strategy`.
 
 - Used by `lee-spec-kit feature`, `config`, `update`, `detect`, and workflow validators to resolve docs location / project type / language.
 - `docsRepo`, `pushDocs`, `docsRemote` are metadata for the CLI-managed **Docs Push policy** (the CLI does not auto-push).
@@ -142,6 +142,7 @@ Non-interactive setup exposes the same choices through `--task-agent`,
   - `onUnavailable`: `inherit | error` when the requested model is unavailable
   - `workflow-stage` returns a stable task ID, working/docs directories, and a machine-readable `workerContract`. The worker executes directly without rerunning `workflow-stage` or delegating again.
   - The implementation subagent can edit project code and run task-scoped checks. The main agent retains docs, task state, commits, approvals, and remote actions; official hooks reject commits while `task_execute` is active.
+- `workflow.agentReview.maxRounds` (positive integer): maximum automatic finding-remediation passes shared by Plan/task/Feature reviews before `workflow-stage` returns `review_escalation`; the initial review is not counted and the default is `1`
 - `workflow.agentReview.plan` / `workflow.agentReview.task` / `workflow.agentReview.feature` (object): Plan/task/Feature independent review settings
   - `enabled`: enables that review gate; new projects default Plan and Feature to `true`, and task to `false`
   - `evidenceMode`: `path_required | any`
@@ -197,6 +198,7 @@ Non-interactive setup exposes the same choices through `--task-agent`,
       }
     },
     "agentReview": {
+      "maxRounds": 1,
       "plan": {
         "enabled": true,
         "evidenceMode": "path_required",
@@ -240,7 +242,7 @@ Non-interactive setup exposes the same choices through `--task-agent`,
 }
 ```
 
-New and updated projects delegate task implementation and enable Plan review by default; set `workflow.agentExecution.task.enabled` or `workflow.agentReview.plan.enabled` to `false` to opt out. New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
+New and updated projects delegate task implementation and enable Plan review by default; set `workflow.agentExecution.task.enabled` or `workflow.agentReview.plan.enabled` to `false` to opt out. New local projects use `local-ff` with Feature agent review enabled. Set `workflow.agentReview.task.enabled` to `true` when every task also needs independent review. Finding remediation defaults to `1`: findings from the first review are applied once and reviewed again, and another `changes_requested` decision returns `review_escalation`. Increase `workflow.agentReview.maxRounds` before authorizing another remediation and fresh review. Choose `local-squash` to create one base-branch commit while preserving the source Feature tip under an internal `refs/lee-spec-kit/integrations/*` ref for task-checkpoint evidence. During `update`, an existing local project with no explicit `completionStrategy` receives `none` so an upgrade does not unexpectedly merge its current branch. Set it to `local-ff` or `local-squash` deliberately when ready.
 
 ```json
 {

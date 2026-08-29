@@ -31,8 +31,10 @@ Pre-PR 리뷰에서 서브에이전트가 항상 수행하는 최소 기준입�
 8. 리뷰 중에 audit/타깃 검증 명령을 실제로 실행했다면 그때만 `commandsExecuted`에 기록합니다.
 9. 코드리뷰 단계에서도 `PR 리뷰 Evidence/Decision`과 `decisions.md`를 동기화하고 `PR Review Log`(또는 `PR 리뷰 로그`)의 `Summary`/`Decision`을 기록합니다.
 10. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.
-11. `PR 전 리뷰 Head`와 `PR 전 리뷰 Tree`가 `workflow-stage`의 `targetSha`와 `targetTree`와 일치하는지 확인합니다.
-12. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.
+11. 반환된 `reviewRound`를 `PR 전 리뷰 Round`에 기록합니다.
+12. `PR 전 리뷰 Head`와 `PR 전 리뷰 Tree`가 `workflow-stage`의 `targetSha`와 `targetTree`와 일치하는지 확인합니다.
+13. `workflow.agentReview.maxRounds`는 최초 Feature 리뷰가 아니라 지적 자동 반영 횟수입니다. `workflow-stage`가 `review_escalation`을 반환하면 자동 수정을 멈추고 정확한 선택지를 사용자에게 제시합니다. 추가 반영은 먼저 설정값을 늘려야 합니다.
+14. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.
 
 리뷰 산출물에는 실제 사용한 `executor`, `model`, `reasoningEffort`, 검토한 commit/diff 범위, target SHA/tree, finding과 최종 decision을 기록합니다. 리뷰 서브에이전트는 코드를 수정하지 않으며, finding 반영과 문서 갱신은 메인 에이전트가 담당합니다.
 

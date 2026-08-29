@@ -23,7 +23,8 @@ Use the active feature folder as the execution SSOT.
 - Keep `tasks.md` aligned with reality:
   - do not mark `[DONE]` without real completion and verification
   - when `workflow.agentReview.task.enabled=true`, move completed implementation to `[REVIEW]` instead of `[DONE]`, create the checkpoint commit, and run the independent review
-  - move `[REVIEW]` to `[DONE]` only after the task reviewer approves the current SHA/tree
+  - record the returned `reviewRound`, and move `[REVIEW]` to `[DONE]` only after the task reviewer approves the current SHA/tree
+  - `workflow.agentReview.maxRounds` counts task finding-remediation passes, not the initial review; at `review_escalation`, stop automatic remediation and present the exact action options, and increase the setting before another remediation
   - update `Acceptance` and `Checklist` in the same edit when closing a task
   - if a completed task needs follow-up, add a new task instead of rewriting history
 - If you need to add a new task, append a complete task block in `tasks.md` with a concrete title, `Acceptance`, `Checklist`, and `NON-PRD` or existing `PRD-*` tag.

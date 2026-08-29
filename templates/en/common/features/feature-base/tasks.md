@@ -7,10 +7,11 @@
 - **Task communication / confirmation**:
   - `[TODO] → [DOING]`: share the task title first, then update the task state in `tasks.md`
   - `[DOING] → [REVIEW]/[DONE]`: share the result and verification first, then update `Acceptance` and `Checklist` in the same edit
-  - `[REVIEW] → [DONE]`: record the fresh task review evidence, decision, reviewed head, and reviewed tree before completion
+  - `[REVIEW] → [DONE]`: record the returned review round, fresh task review evidence, decision, reviewed head, and reviewed tree before completion
   - Ask for approval before changing task state only when the task crosses a documented review checkpoint or before remote/destructive actions.
   - Do not invent a standalone `OK` approval step when the workflow does not require one.
   - Do not mark `[DONE]` while any item in that task's `Checklist` remains unchecked.
+  - `workflow.agentReview.maxRounds` counts automatic finding-remediation passes, not the initial review. Stop at `review_escalation` after those passes are exhausted; another remediation requires increasing the setting first.
 - **PRD mapping (recommended)**: add an existing PRD requirement ID tag like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
@@ -41,6 +42,8 @@
 - **Pre-PR Decision**: -
   - Format: `decision: approve|changes_requested|blocked ...` (or `결정: ...`)
   - PR creation requires final decision `approve`
+- **Pre-PR Review Round**: -
+  - Positive integer returned by `workflow-stage --json`; the first review is `1`
 - **Pre-PR Reviewed Head**: -
   - Project code commit SHA reviewed by the Feature reviewer
 - **Pre-PR Reviewed Tree**: -
@@ -66,6 +69,7 @@
     - [ ] (subtask)
   - Review Evidence: -
   - Review Decision: -
+  - Review Round: -
   - Reviewed Head: -
   - Reviewed Tree: -
 ```

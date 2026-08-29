@@ -18,6 +18,8 @@
   - Example: `docs/features/F001-foo/decisions.md` or another existing review artifact under the docs root
 - **Plan Review Decision**: -
   - Format: `decision: approve|changes_requested|blocked ...`
+- **Plan Review Round**: -
+  - Positive integer returned by `workflow-stage --json`; the first review is `1`
 - **Plan Reviewed Spec Hash**: -
   - Exact `specHash` returned by `workflow-stage --json`
 - **Plan Reviewed Plan Hash**: -

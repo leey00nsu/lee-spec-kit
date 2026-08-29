@@ -68,6 +68,7 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
         .replaceAll('**PR 전 리뷰**', '**Feature 리뷰**')
         .replaceAll('**PR 전 리뷰 Evidence**', '**Feature 리뷰 Evidence**')
         .replaceAll('**PR 전 리뷰 Decision**', '**Feature 리뷰 Decision**')
+        .replaceAll('**PR 전 리뷰 Round**', '**Feature 리뷰 Round**')
         .replaceAll('**PR 전 리뷰 Head**', '**Feature 리뷰 Head**')
         .replaceAll('**PR 전 리뷰 Tree**', '**Feature 리뷰 Tree**')
         .replaceAll('pre-PR 리뷰 handoff', 'Feature 리뷰 handoff')
@@ -75,6 +76,7 @@ function sanitizeTasksForLocal(content: string, lang: Lang): string {
         .replaceAll('**Pre-PR Review**', '**Feature Review**')
         .replaceAll('**Pre-PR Evidence**', '**Feature Review Evidence**')
         .replaceAll('**Pre-PR Decision**', '**Feature Review Decision**')
+        .replaceAll('**Pre-PR Review Round**', '**Feature Review Round**')
         .replaceAll('**Pre-PR Reviewed Head**', '**Feature Reviewed Head**')
         .replaceAll('**Pre-PR Reviewed Tree**', '**Feature Reviewed Tree**')
         .replaceAll('pre-PR review handoff', 'Feature review handoff');

@@ -46,6 +46,7 @@ export type WorkflowStageId =
   | 'plan'
   | 'plan_review'
   | 'plan_review_fix'
+  | 'review_escalation'
   | 'tasks'
   | 'issue'
   | 'branch'
@@ -74,6 +75,7 @@ export interface WorkflowStageAction {
     | 'plan_write'
     | 'plan_review'
     | 'plan_review_fix'
+    | 'review_escalation'
     | 'plan_approve'
     | 'tasks_write'
     | 'tasks_approve'
@@ -106,6 +108,8 @@ export interface WorkflowStageAction {
   reasoningEffort?: AgentReviewerConfig['reasoningEffort'];
   onUnavailable?: AgentReviewerConfig['onUnavailable'];
   reviewScope?: 'plan' | 'task' | 'feature';
+  reviewRound?: number;
+  maxReviewRounds?: number;
   taskId?: string;
   taskIdSource?: 'document' | 'synthetic';
   taskTitle?: string;
@@ -155,6 +159,7 @@ export interface WorkflowStageOption {
     | 'remote_execute'
     | 'review_wait'
     | 'review_fix'
+    | 'review_retry'
     | 'review_sync_approved'
     | 'pr_merge'
     | 'hold';
@@ -226,6 +231,7 @@ type ParsedTasks = {
   prePrEvidence: string | null;
   prePrDecision: string | null;
   prePrDecisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
+  prePrReviewRound: number | null;
   prePrReviewedHead: string | null;
   prePrReviewedTree: string | null;
   tasks: Array<{
@@ -237,6 +243,7 @@ type ParsedTasks = {
     reviewEvidence: string | null;
     reviewDecision: string | null;
     reviewDecisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
+    reviewRound: number | null;
     reviewedHead: string | null;
     reviewedTree: string | null;
   }>;
@@ -252,6 +259,7 @@ type ParsedPlanReview = {
   evidence: string | null;
   decision: string | null;
   decisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
+  reviewRound: number | null;
   reviewedSpecHash: string | null;
   reviewedPlanHash: string | null;
   hasMetadata: boolean;
@@ -314,6 +322,12 @@ const PRE_PR_DECISION_LABELS = [
   'Feature Review Decision',
   'Feature 리뷰 Decision',
 ];
+const PRE_PR_REVIEW_ROUND_LABELS = [
+  'Pre-PR Review Round',
+  'PR 전 리뷰 Round',
+  'Feature Review Round',
+  'Feature 리뷰 Round',
+];
 const PRE_PR_REVIEWED_HEAD_LABELS = [
   'Pre-PR Reviewed Head',
   'PR 전 리뷰 Head',
@@ -336,6 +350,11 @@ const PLAN_REVIEW_DECISION_LABELS = [
   'Plan Review Decision',
   'Plan 검수 Decision',
   'Plan 리뷰 Decision',
+];
+const PLAN_REVIEW_ROUND_LABELS = [
+  'Plan Review Round',
+  'Plan 검수 Round',
+  'Plan 리뷰 Round',
 ];
 const PLAN_REVIEWED_SPEC_HASH_LABELS = [
   'Plan Reviewed Spec Hash',
@@ -458,6 +477,20 @@ function parseReviewDecisionOutcome(
   return (match?.[1] as 'approve' | 'changes_requested' | 'blocked') || null;
 }
 
+function parseReviewRound(value: string | null): number | null {
+  const parsed = Number((value || '').trim());
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function resolveMaxReviewRounds(config: ProjectConfig): number {
+  const configured = config.workflow?.agentReview?.maxRounds;
+  return typeof configured === 'number' &&
+    Number.isInteger(configured) &&
+    configured > 0
+    ? configured
+    : 1;
+}
+
 function parseWorkflowTaskLine(
   line: string,
   index = -1
@@ -554,6 +587,13 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
       index,
       ['Review Decision', 'Task Review Decision', '태스크 리뷰 Decision']
     );
+    const reviewRound = parseReviewRound(
+      extractTaskReviewValue(nonCodeLines, index, [
+        'Review Round',
+        'Task Review Round',
+        '태스크 리뷰 Round',
+      ])
+    );
     const legacyTitleKey = normalizeCommitTopicText(parsed.title).toLowerCase();
     const sameTitleOccurrence = (legacyTitleOccurrences.get(legacyTitleKey) || 0) + 1;
     legacyTitleOccurrences.set(legacyTitleKey, sameTitleOccurrence);
@@ -573,6 +613,7 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
       ),
       reviewDecision,
       reviewDecisionOutcome: parseReviewDecisionOutcome(reviewDecision),
+      reviewRound,
       reviewedHead: extractTaskReviewValue(
         nonCodeLines,
         index,
@@ -637,6 +678,9 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
     ),
     prePrDecision: sanitizeMetadataValue(prePrDecision),
     prePrDecisionOutcome,
+    prePrReviewRound: parseReviewRound(
+      extractFieldValue(content, PRE_PR_REVIEW_ROUND_LABELS)
+    ),
     prePrReviewedHead: sanitizeMetadataValue(
       extractFieldValue(content, PRE_PR_REVIEWED_HEAD_LABELS)
     ),
@@ -675,6 +719,9 @@ function parsePlanReview(content: string): ParsedPlanReview {
   const decision = sanitizeMetadataValue(
     extractFieldValue(content, PLAN_REVIEW_DECISION_LABELS)
   );
+  const reviewRound = parseReviewRound(
+    extractFieldValue(content, PLAN_REVIEW_ROUND_LABELS)
+  );
   const reviewedSpecHash = sanitizeMetadataValue(
     extractFieldValue(content, PLAN_REVIEWED_SPEC_HASH_LABELS)
   );
@@ -687,6 +734,7 @@ function parsePlanReview(content: string): ParsedPlanReview {
     evidence,
     decision,
     decisionOutcome: parseReviewDecisionOutcome(decision),
+    reviewRound,
     reviewedSpecHash,
     reviewedPlanHash,
     hasMetadata: PLAN_REVIEW_STATUS_LABELS.some((label) => {
@@ -725,6 +773,7 @@ function buildPlanReviewTarget(
       ...PLAN_REVIEW_STATUS_LABELS,
       ...PLAN_REVIEW_EVIDENCE_LABELS,
       ...PLAN_REVIEW_DECISION_LABELS,
+      ...PLAN_REVIEW_ROUND_LABELS,
       ...PLAN_REVIEWED_SPEC_HASH_LABELS,
       ...PLAN_REVIEWED_PLAN_HASH_LABELS,
     ]),
@@ -1583,6 +1632,8 @@ function buildAction(
   agent?: AgentReviewerConfig | AgentExecutorConfig,
   actionContext?: {
     reviewScope?: 'plan' | 'task' | 'feature';
+    reviewRound?: number;
+    maxReviewRounds?: number;
     taskId?: string;
     taskIdSource?: 'document' | 'synthetic';
     taskTitle?: string;
@@ -2093,32 +2144,70 @@ function resolvePlanReviewPayload(
   const targetMatches =
     review.reviewedSpecHash === target.specHash &&
     review.reviewedPlanHash === target.planHash;
+  const maxReviewRounds = resolveMaxReviewRounds(config);
+  const reviewRound = review.reviewRound || 1;
+  const nextReviewRound =
+    !targetMatches && review.decisionOutcome ? reviewRound + 1 : reviewRound;
   const actionContext = {
     reviewScope: 'plan' as const,
+    reviewRound: nextReviewRound,
+    maxReviewRounds,
     specHash: target.specHash,
     planHash: target.planHash,
     docsDirectory: config.docsDir,
   };
 
-  if (targetMatches && review.decisionOutcome === 'changes_requested') {
-    return {
-      status: 'ok',
-      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-      docsDir: config.docsDir,
-      featureRef: buildFeatureRef(feature),
-      stage: 'plan_review_fix',
-      nextAction: buildAction(
-        'plan_review_fix',
-        'Address the independent Plan review findings in spec.md or plan.md, keep implementation blocked, and request a fresh review for the resulting document hashes.',
-        false,
-        null,
-        undefined,
-        actionContext
-      ),
-      approvalRequired: false,
-      implementationAllowed: false,
-      blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
-    };
+  if (review.decisionOutcome === 'changes_requested') {
+    if (reviewRound > maxReviewRounds) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'review_escalation',
+        nextAction: buildAction(
+          'review_escalation',
+          `Plan review requested more changes after ${maxReviewRounds} automatic remediation round(s) were used. Ask the user whether to revise again, request a different reviewer, accept the documented risk, change scope, or hold the Feature.`,
+          true,
+          null,
+          undefined,
+          { ...actionContext, reviewRound }
+        ),
+        approvalRequired: true,
+        implementationAllowed: false,
+        primaryActionLabel: 'A',
+        actionOptions: [
+          buildStageOption(
+            'A',
+            'A',
+            'review_retry',
+            'Increase workflow.agentReview.maxRounds, then revise the Plan and run one more fresh review round.'
+          ),
+          buildStageOption('B', 'B', 'hold', 'Hold the Feature for user resolution.'),
+        ],
+        blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
+      };
+    }
+    if (targetMatches) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'plan_review_fix',
+        nextAction: buildAction(
+          'plan_review_fix',
+          `Address the independent Plan review findings in spec.md or plan.md, record review round ${reviewRound + 1}, keep implementation blocked, and request a fresh review for the resulting document hashes.`,
+          false,
+          null,
+          undefined,
+          { ...actionContext, reviewRound }
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
+      };
+    }
   }
 
   if (targetMatches && review.decisionOutcome === 'blocked') {
@@ -2134,7 +2223,7 @@ function resolvePlanReviewPayload(
         false,
         null,
         undefined,
-        actionContext
+        { ...actionContext, reviewRound }
       ),
       approvalRequired: false,
       implementationAllowed: false,
@@ -2150,7 +2239,7 @@ function resolvePlanReviewPayload(
     stage: 'plan_review',
     nextAction: buildAction(
       'plan_review',
-      'Delegate a fresh read-only review of spec.md and plan.md. Verify the Verification Contract, NONE/UPDATE/ADD decisions, requirement coverage, independent oracles, stable observation boundaries, realistic failure/rollback cases, exclusions, and focused/full verification scope. Record Plan Review status, evidence, decision, reviewer metadata, Reviewed Spec Hash, and Reviewed Plan Hash without modifying the documents.',
+      `Delegate fresh read-only Plan review round ${nextReviewRound} of spec.md and plan.md. Verify the Verification Contract, NONE/UPDATE/ADD decisions, requirement coverage, independent oracles, stable observation boundaries, realistic failure/rollback cases, exclusions, and focused/full verification scope. Record Plan Review Round, status, evidence, decision, reviewer metadata, Reviewed Spec Hash, and Reviewed Plan Hash without modifying the documents.`,
       false,
       null,
       resolveAgentReviewer(config, 'plan'),
@@ -2515,6 +2604,8 @@ export async function collectWorkflowStage(
     }
     const reviewContext = {
       reviewScope: 'task' as const,
+      reviewRound: reviewTask.reviewRound || 1,
+      maxReviewRounds: resolveMaxReviewRounds(config),
       ...(reviewTask.taskId ? { taskId: reviewTask.taskId } : {}),
       ...reviewTarget,
     };
@@ -2522,28 +2613,52 @@ export async function collectWorkflowStage(
       reviewTask.reviewedHead === reviewTarget.targetSha &&
       reviewTask.reviewedTree === reviewTarget.targetTree;
 
-    if (
-      evidenceMatchesTarget &&
-      reviewTask.reviewDecisionOutcome === 'changes_requested'
-    ) {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'task_review_fix',
-        nextAction: buildAction(
-          'task_review_fix',
-          `Address the independent review findings for ${reviewTask.taskId || reviewTask.title}, return the task to REVIEW, commit the new code tip, and request a fresh review.`,
-          false,
-          null,
-          undefined,
-          reviewContext
-        ),
-        approvalRequired: false,
-        implementationAllowed: true,
-        blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
-      };
+    if (reviewTask.reviewDecisionOutcome === 'changes_requested') {
+      if (reviewContext.reviewRound > reviewContext.maxReviewRounds) {
+        return {
+          status: 'ok',
+          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+          docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature),
+          stage: 'review_escalation',
+          nextAction: buildAction(
+            'review_escalation',
+            `Task review for ${reviewTask.taskId || reviewTask.title} requested more changes after ${reviewContext.maxReviewRounds} automatic remediation round(s) were used. Ask the user whether to authorize another remediation round or hold the Feature.`,
+            true,
+            null,
+            undefined,
+            reviewContext
+          ),
+          approvalRequired: true,
+          implementationAllowed: false,
+          primaryActionLabel: 'A',
+          actionOptions: [
+            buildStageOption('A', 'A', 'review_retry', 'Increase workflow.agentReview.maxRounds, then run one more task remediation and fresh review round.'),
+            buildStageOption('B', 'B', 'hold', 'Hold the Feature for user resolution.'),
+          ],
+          blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+        };
+      }
+      if (evidenceMatchesTarget) {
+        return {
+          status: 'ok',
+          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+          docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature),
+          stage: 'task_review_fix',
+          nextAction: buildAction(
+            'task_review_fix',
+            `Address the independent review findings for ${reviewTask.taskId || reviewTask.title}, return the task to REVIEW, commit the new code tip, and request fresh review round ${reviewContext.reviewRound + 1}.`,
+            false,
+            null,
+            undefined,
+            reviewContext
+          ),
+          approvalRequired: false,
+          implementationAllowed: true,
+          blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+        };
+      }
     }
 
     if (
@@ -2603,11 +2718,17 @@ export async function collectWorkflowStage(
       stage: 'task_review',
       nextAction: buildAction(
         'task_review',
-        `Delegate a fresh read-only review of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
+        `Delegate fresh read-only review round ${evidenceMatchesTarget ? reviewContext.reviewRound : reviewTask.reviewDecisionOutcome ? reviewContext.reviewRound + 1 : reviewContext.reviewRound} of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
         false,
         null,
         resolveAgentReviewer(config, 'task'),
-        reviewContext
+        {
+          ...reviewContext,
+          reviewRound:
+            !evidenceMatchesTarget && reviewTask.reviewDecisionOutcome
+              ? reviewContext.reviewRound + 1
+              : reviewContext.reviewRound,
+        }
       ),
       approvalRequired: false,
       implementationAllowed: false,
@@ -2749,7 +2870,12 @@ export async function collectWorkflowStage(
       'feature'
     );
     const reviewContext = reviewTarget
-      ? { reviewScope: 'feature' as const, ...reviewTarget }
+      ? {
+          reviewScope: 'feature' as const,
+          reviewRound: tasks.prePrReviewRound || 1,
+          maxReviewRounds: resolveMaxReviewRounds(config),
+          ...reviewTarget,
+        }
       : null;
     const evidenceMatchesTarget =
       !!reviewTarget &&
@@ -2758,27 +2884,53 @@ export async function collectWorkflowStage(
 
     if (
       reviewContext &&
-      evidenceMatchesTarget &&
       tasks.prePrDecisionOutcome === 'changes_requested'
     ) {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'feature_review_fix',
-        nextAction: buildAction(
-          'feature_review_fix',
-          'Address the Feature review findings, commit the remediation, and request a fresh review of the new code tree before implementation approval.',
-          false,
-          null,
-          undefined,
-          reviewContext
-        ),
-        approvalRequired: false,
-        implementationAllowed: true,
-        blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
-      };
+      if (reviewContext.reviewRound > reviewContext.maxReviewRounds) {
+        return {
+          status: 'ok',
+          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+          docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature),
+          stage: 'review_escalation',
+          nextAction: buildAction(
+            'review_escalation',
+            `Feature review requested more changes after ${reviewContext.maxReviewRounds} automatic remediation round(s) were used. Ask the user whether to authorize another remediation round, accept the documented risk, change scope, or hold the Feature.`,
+            true,
+            null,
+            undefined,
+            reviewContext
+          ),
+          approvalRequired: true,
+          implementationAllowed: false,
+          primaryActionLabel: 'A',
+          actionOptions: [
+            buildStageOption('A', 'A', 'review_retry', 'Increase workflow.agentReview.maxRounds, then run one more Feature remediation and fresh review round.'),
+            buildStageOption('B', 'B', 'hold', 'Hold the Feature for user resolution.'),
+          ],
+          blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
+        };
+      }
+      if (evidenceMatchesTarget) {
+        return {
+          status: 'ok',
+          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+          docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature),
+          stage: 'feature_review_fix',
+          nextAction: buildAction(
+            'feature_review_fix',
+            `Address the Feature review findings, commit the remediation, record review round ${reviewContext.reviewRound + 1}, and request a fresh review of the new code tree before implementation approval.`,
+            false,
+            null,
+            undefined,
+            reviewContext
+          ),
+          approvalRequired: false,
+          implementationAllowed: true,
+          blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
+        };
+      }
     }
 
     if (
@@ -2807,6 +2959,12 @@ export async function collectWorkflowStage(
     }
 
     if (!featureReviewSatisfied(config, feature, tasks, reviewTarget)) {
+      const requestedRound =
+        reviewContext &&
+        !evidenceMatchesTarget &&
+        tasks.prePrDecisionOutcome
+          ? reviewContext.reviewRound + 1
+          : reviewContext?.reviewRound;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2816,12 +2974,14 @@ export async function collectWorkflowStage(
         nextAction: buildAction(
           'pre_pr_review',
           reviewTarget
-            ? `Delegate an independent read-only Feature review to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
+            ? `Delegate independent read-only Feature review round ${requestedRound} to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
             : 'Create a project commit before requesting the independent Feature review.',
           false,
           null,
           reviewTarget ? resolveAgentReviewer(config, 'feature') : undefined,
-          reviewContext || undefined
+          reviewContext
+            ? { ...reviewContext, reviewRound: requestedRound }
+            : undefined
         ),
         approvalRequired: false,
         implementationAllowed: false,

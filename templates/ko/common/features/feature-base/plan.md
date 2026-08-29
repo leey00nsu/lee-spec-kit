@@ -18,6 +18,8 @@
   - 예: `docs/features/F001-foo/decisions.md` 또는 docs 루트 아래의 실제 리뷰 산출물
 - **Plan 검수 Decision**: -
   - 형식: `결정: approve|changes_requested|blocked ...` 또는 `decision: ...`
+- **Plan 검수 Round**: -
+  - `workflow-stage --json`이 반환한 양의 정수이며 첫 리뷰는 `1`
 - **Plan 검수 Spec Hash**: -
   - `workflow-stage --json`이 반환한 정확한 `specHash`
 - **Plan 검수 Plan Hash**: -
