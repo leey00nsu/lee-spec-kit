@@ -141,7 +141,7 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
   - `onUnavailable`: 지정 모델을 사용할 수 없을 때 `inherit | error`
   - `workflow-stage`는 안정적인 태스크 ID, 작업/docs 경로, machine-readable `workerContract`를 반환합니다. worker는 `workflow-stage` 재호출이나 재위임 없이 직접 실행합니다.
   - 구현 서브에이전트는 프로젝트 코드와 태스크 범위 검사를 담당하고, 메인 에이전트는 문서, 태스크 상태, 커밋, 승인, 원격 작업을 유지합니다. 공식 hook은 `task_execute` 중 커밋을 거부합니다.
-- `workflow.agentReview.maxRounds` (양의 정수): Plan/태스크/Feature 리뷰에 공통 적용되는 리뷰 지적 자동 반영 최대 횟수. 최초 리뷰는 세지 않으며 기본값은 `1`
+- `workflow.agentReview.maxRounds` (양의 정수): Plan/태스크/Feature 리뷰에 공통 적용되는 리뷰 지적 자동 반영 최대 횟수. 한도 뒤 남은 `changes_requested` finding은 잔여 위험으로 보존하고 리뷰 게이트를 자동 완료합니다. 최초 리뷰는 세지 않으며 기본값은 `1`
 - `workflow.agentReview.plan` / `workflow.agentReview.task` / `workflow.agentReview.feature` (object): Plan/태스크/Feature 독립 리뷰 설정
   - `enabled`: 해당 리뷰 게이트 활성화 여부. 새 프로젝트는 Plan과 Feature `true`, task `false`
   - `evidenceMode`: `path_required | any`
@@ -241,7 +241,7 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
 }
 ```
 
-새 프로젝트와 업데이트된 프로젝트는 기본적으로 태스크 구현을 위임하고 Plan 검수를 활성화합니다. 직접 구현하거나 Plan 검수를 끄려면 각각 `workflow.agentExecution.task.enabled` 또는 `workflow.agentReview.plan.enabled`를 `false`로 설정하세요. 새 local 프로젝트는 `local-ff`와 Feature agent review를 사용합니다. 태스크마다 리뷰하려면 `workflow.agentReview.task.enabled`를 `true`로 켜세요. 리뷰 지적 자동 반영 기본값은 `1`입니다. 즉 첫 리뷰 지적은 한 번 반영하고 다시 리뷰하며, 또 `changes_requested`가 나오면 `review_escalation`으로 전환합니다. 추가 반영과 fresh 리뷰를 허용하려면 먼저 `workflow.agentReview.maxRounds`를 늘리세요. base branch에 하나의 commit만 남기려면 `local-squash`를 선택하세요. 이때 task checkpoint 증거를 위해 원본 Feature tip을 내부 `refs/lee-spec-kit/integrations/*` ref로 보존합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff` 또는 `local-squash`로 명시적으로 전환하세요.
+새 프로젝트와 업데이트된 프로젝트는 기본적으로 태스크 구현을 위임하고 Plan 검수를 활성화합니다. 직접 구현하거나 Plan 검수를 끄려면 각각 `workflow.agentExecution.task.enabled` 또는 `workflow.agentReview.plan.enabled`를 `false`로 설정하세요. 새 local 프로젝트는 `local-ff`와 Feature agent review를 사용합니다. 태스크마다 리뷰하려면 `workflow.agentReview.task.enabled`를 `true`로 켜세요. 리뷰 지적 자동 반영 기본값은 `1`입니다. 즉 첫 리뷰 지적은 한 번 반영하고 다시 리뷰합니다. 다음 리뷰도 `changes_requested`이면 finding을 잔여 위험으로 보존하고 사용자 승인 없이 리뷰 게이트를 자동 완료합니다. `blocked`는 자동 완료하지 않습니다. base branch에 하나의 commit만 남기려면 `local-squash`를 선택하세요. 이때 task checkpoint 증거를 위해 원본 Feature tip을 내부 `refs/lee-spec-kit/integrations/*` ref로 보존합니다. 기존 local 프로젝트에 명시적 `completionStrategy`가 없으면 `update`가 `none`을 넣어 업그레이드 도중 현재 브랜치를 갑자기 병합하지 않습니다. 준비가 끝난 뒤 `local-ff` 또는 `local-squash`로 명시적으로 전환하세요.
 
 ```json
 {

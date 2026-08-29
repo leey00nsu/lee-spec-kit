@@ -87,7 +87,7 @@ export const enCli = {
   'init.choice.taskAgent.off': 'Off - implement tasks in the main agent',
   'init.prompt.reviews': 'Select independent review gates:',
   'init.prompt.maxReviewRounds':
-    'Maximum automatic review finding remediation rounds before asking the user:',
+    'Maximum automatic finding remediation rounds before continuing with residual risks:',
   'init.choice.review.plan': 'Plan',
   'init.choice.review.task': 'Task',
   'init.choice.review.feature': 'Feature',

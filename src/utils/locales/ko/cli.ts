@@ -87,7 +87,7 @@ export const koCli = {
   'init.choice.taskAgent.off': '사용 안 함 - 메인 에이전트가 직접 구현',
   'init.prompt.reviews': '독립 검수 단계를 선택하세요:',
   'init.prompt.maxReviewRounds':
-    '사용자에게 판단을 요청하기 전 리뷰 지적 자동 반영 최대 횟수:',
+    '잔여 위험을 기록하고 계속하기 전 리뷰 지적 자동 반영 최대 횟수:',
   'init.choice.review.plan': 'Plan',
   'init.choice.review.task': 'Task',
   'init.choice.review.feature': 'Feature',

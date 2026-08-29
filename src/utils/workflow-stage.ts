@@ -46,7 +46,6 @@ export type WorkflowStageId =
   | 'plan'
   | 'plan_review'
   | 'plan_review_fix'
-  | 'review_escalation'
   | 'tasks'
   | 'issue'
   | 'branch'
@@ -75,7 +74,6 @@ export interface WorkflowStageAction {
     | 'plan_write'
     | 'plan_review'
     | 'plan_review_fix'
-    | 'review_escalation'
     | 'plan_approve'
     | 'tasks_write'
     | 'tasks_approve'
@@ -159,7 +157,6 @@ export interface WorkflowStageOption {
     | 'remote_execute'
     | 'review_wait'
     | 'review_fix'
-    | 'review_retry'
     | 'review_sync_approved'
     | 'pr_merge'
     | 'hold';
@@ -489,6 +486,17 @@ function resolveMaxReviewRounds(config: ProjectConfig): number {
     configured > 0
     ? configured
     : 1;
+}
+
+function reviewRemediationLimitReached(
+  config: ProjectConfig,
+  reviewRound: number | null,
+  decisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null
+): boolean {
+  return (
+    decisionOutcome === 'changes_requested' &&
+    (reviewRound || 1) > resolveMaxReviewRounds(config)
+  );
 }
 
 function parseWorkflowTaskLine(
@@ -1511,7 +1519,12 @@ function planReviewSatisfied(
   return (
     review.status === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'plan', review.evidence) &&
-    review.decisionOutcome === 'approve' &&
+    (review.decisionOutcome === 'approve' ||
+      reviewRemediationLimitReached(
+        config,
+        review.reviewRound,
+        review.decisionOutcome
+      )) &&
     review.reviewedSpecHash === target.specHash &&
     review.reviewedPlanHash === target.planHash
   );
@@ -1528,7 +1541,12 @@ function featureReviewSatisfied(
     tasks.prePrReviewStatus === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'feature', tasks.prePrEvidence) &&
     !!tasks.prePrDecision &&
-    tasks.prePrDecisionOutcome === 'approve' &&
+    (tasks.prePrDecisionOutcome === 'approve' ||
+      reviewRemediationLimitReached(
+        config,
+        tasks.prePrReviewRound,
+        tasks.prePrDecisionOutcome
+      )) &&
     tasks.prePrReviewedHead === target.targetSha &&
     tasks.prePrReviewedTree === target.targetTree
   );
@@ -1543,7 +1561,12 @@ function taskReviewEvidenceSatisfied(
   return (
     !!target &&
     reviewEvidenceSatisfied(config, feature, 'task', task.reviewEvidence) &&
-    task.reviewDecisionOutcome === 'approve' &&
+    (task.reviewDecisionOutcome === 'approve' ||
+      reviewRemediationLimitReached(
+        config,
+        task.reviewRound,
+        task.reviewDecisionOutcome
+      )) &&
     task.reviewedHead === target.targetSha &&
     task.reviewedTree === target.targetTree
   );
@@ -1560,7 +1583,12 @@ function recordedTaskReviewSatisfied(
     !currentTargetSha ||
     !task.reviewedHead ||
     !task.reviewedTree ||
-    task.reviewDecisionOutcome !== 'approve' ||
+    (task.reviewDecisionOutcome !== 'approve' &&
+      !reviewRemediationLimitReached(
+        config,
+        task.reviewRound,
+        task.reviewDecisionOutcome
+      )) ||
     !reviewEvidenceSatisfied(config, feature, 'task', task.reviewEvidence)
   ) {
     return false;
@@ -2158,36 +2186,6 @@ function resolvePlanReviewPayload(
   };
 
   if (review.decisionOutcome === 'changes_requested') {
-    if (reviewRound > maxReviewRounds) {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'review_escalation',
-        nextAction: buildAction(
-          'review_escalation',
-          `Plan review requested more changes after ${maxReviewRounds} automatic remediation round(s) were used. Ask the user whether to revise again, request a different reviewer, accept the documented risk, change scope, or hold the Feature.`,
-          true,
-          null,
-          undefined,
-          { ...actionContext, reviewRound }
-        ),
-        approvalRequired: true,
-        implementationAllowed: false,
-        primaryActionLabel: 'A',
-        actionOptions: [
-          buildStageOption(
-            'A',
-            'A',
-            'review_retry',
-            'Increase workflow.agentReview.maxRounds, then revise the Plan and run one more fresh review round.'
-          ),
-          buildStageOption('B', 'B', 'hold', 'Hold the Feature for user resolution.'),
-        ],
-        blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
-      };
-    }
     if (targetMatches) {
       return {
         status: 'ok',
@@ -2298,6 +2296,16 @@ export async function collectWorkflowStage(
     specContent || '',
     planContent || ''
   );
+  const planReviewAutoCompleted =
+    planReview.status === 'done' &&
+    reviewEvidenceSatisfied(config, feature, 'plan', planReview.evidence) &&
+    reviewRemediationLimitReached(
+      config,
+      planReview.reviewRound,
+      planReview.decisionOutcome
+    ) &&
+    planReview.reviewedSpecHash === planReviewTarget.specHash &&
+    planReview.reviewedPlanHash === planReviewTarget.planHash;
   const enforcePlanReview =
     requirements.planReviewEnabled &&
     (tasks.docStatus !== 'approved' || planReview.hasMetadata);
@@ -2360,7 +2368,7 @@ export async function collectWorkflowStage(
         planReviewTarget
       );
     }
-    const approvalRequired = isReviewStage
+    const approvalRequired = isReviewStage && !planReviewAutoCompleted
       ? resolveActionApprovalRequired(config, 'plan_approve', true)
       : false;
     const actionOptions = approvalRequired
@@ -2378,7 +2386,9 @@ export async function collectWorkflowStage(
       nextAction: buildAction(
         isReviewStage ? 'plan_approve' : 'plan_write',
         isReviewStage
-          ? approvalRequired
+          ? planReviewAutoCompleted
+            ? 'The Plan review remediation limit was reached. Preserve the remaining findings as residual risks, promote plan.md from Review to Approved, and continue automatically without asking the user for review approval.'
+          : approvalRequired
             ? 'Get user approval and update plan.md status to Approved.'
             : 'Promote plan.md from Review to Approved and continue automatically.'
           : 'Write or refine plan.md until it is ready for approval.',
@@ -2614,32 +2624,10 @@ export async function collectWorkflowStage(
       reviewTask.reviewedTree === reviewTarget.targetTree;
 
     if (reviewTask.reviewDecisionOutcome === 'changes_requested') {
-      if (reviewContext.reviewRound > reviewContext.maxReviewRounds) {
-        return {
-          status: 'ok',
-          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-          docsDir: config.docsDir,
-          featureRef: buildFeatureRef(feature),
-          stage: 'review_escalation',
-          nextAction: buildAction(
-            'review_escalation',
-            `Task review for ${reviewTask.taskId || reviewTask.title} requested more changes after ${reviewContext.maxReviewRounds} automatic remediation round(s) were used. Ask the user whether to authorize another remediation round or hold the Feature.`,
-            true,
-            null,
-            undefined,
-            reviewContext
-          ),
-          approvalRequired: true,
-          implementationAllowed: false,
-          primaryActionLabel: 'A',
-          actionOptions: [
-            buildStageOption('A', 'A', 'review_retry', 'Increase workflow.agentReview.maxRounds, then run one more task remediation and fresh review round.'),
-            buildStageOption('B', 'B', 'hold', 'Hold the Feature for user resolution.'),
-          ],
-          blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
-        };
-      }
-      if (evidenceMatchesTarget) {
+      if (
+        evidenceMatchesTarget &&
+        reviewContext.reviewRound <= reviewContext.maxReviewRounds
+      ) {
         return {
           status: 'ok',
           reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2687,9 +2675,13 @@ export async function collectWorkflowStage(
 
     if (taskReviewEvidenceSatisfied(config, feature, reviewTask, reviewTarget)) {
       const completionSummary =
-        reviewTask.status === 'DONE'
-          ? `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Commit the review evidence before continuing.`
-          : `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Mark the task DONE and commit the review evidence before starting another task.`;
+        reviewTask.reviewDecisionOutcome === 'approve'
+          ? reviewTask.status === 'DONE'
+            ? `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Commit the review evidence before continuing.`
+            : `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Mark the task DONE and commit the review evidence before starting another task.`
+          : reviewTask.status === 'DONE'
+            ? `The review remediation limit was reached for ${reviewTask.taskId || reviewTask.title}. Keep the remaining findings as residual risks and commit the review evidence before continuing automatically.`
+            : `The review remediation limit was reached for ${reviewTask.taskId || reviewTask.title}. Keep the remaining findings as residual risks, mark the task DONE, and commit the review evidence before continuing automatically.`;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2886,32 +2878,10 @@ export async function collectWorkflowStage(
       reviewContext &&
       tasks.prePrDecisionOutcome === 'changes_requested'
     ) {
-      if (reviewContext.reviewRound > reviewContext.maxReviewRounds) {
-        return {
-          status: 'ok',
-          reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-          docsDir: config.docsDir,
-          featureRef: buildFeatureRef(feature),
-          stage: 'review_escalation',
-          nextAction: buildAction(
-            'review_escalation',
-            `Feature review requested more changes after ${reviewContext.maxReviewRounds} automatic remediation round(s) were used. Ask the user whether to authorize another remediation round, accept the documented risk, change scope, or hold the Feature.`,
-            true,
-            null,
-            undefined,
-            reviewContext
-          ),
-          approvalRequired: true,
-          implementationAllowed: false,
-          primaryActionLabel: 'A',
-          actionOptions: [
-            buildStageOption('A', 'A', 'review_retry', 'Increase workflow.agentReview.maxRounds, then run one more Feature remediation and fresh review round.'),
-            buildStageOption('B', 'B', 'hold', 'Hold the Feature for user resolution.'),
-          ],
-          blockedReasonCode: 'PRE_PR_REVIEW_NOT_APPROVED',
-        };
-      }
-      if (evidenceMatchesTarget) {
+      if (
+        evidenceMatchesTarget &&
+        reviewContext.reviewRound <= reviewContext.maxReviewRounds
+      ) {
         return {
           status: 'ok',
           reasonCode: 'WORKFLOW_STAGE_RESOLVED',

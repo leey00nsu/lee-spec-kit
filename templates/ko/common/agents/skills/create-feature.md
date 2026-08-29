@@ -25,7 +25,7 @@
   - `issue.md`, `pr.md`는 GitHub 단계에 들어가면 stage gate의 일부로 사용합니다
 - `tasks.md`가 있다고 바로 구현하지 않습니다. 구현은 `workflow-stage --json`가 허용할 때만 시작합니다.
 - Plan 검수가 활성화되어 있으면 `plan.md`를 Review로 바꾸고 반환된 fresh 읽기 전용 `plan_review`를 위임한 뒤 `reviewRound`, evidence, decision, reviewer metadata, `specHash`, `planHash`를 기록합니다. 현재 hash에 대한 approve 검수만 Plan 승인으로 이어질 수 있습니다. reviewer는 문서를 수정하지 않고 NONE/UPDATE/ADD 결정, 요구사항 커버리지, 독립적인 Oracle, 안정적인 관찰 경계, 현실적인 실패/롤백, 제외 범위, focused/full 검증 범위를 점검합니다.
-- `workflow.agentReview.maxRounds`는 최초 Plan 리뷰가 아니라 지적 자동 반영 횟수입니다. `workflow-stage`가 `review_escalation`을 반환하면 Plan 자동 수정을 멈추고 정확한 선택지를 사용자에게 제시합니다. 추가 반영은 먼저 설정값을 늘려야 합니다.
+- `workflow.agentReview.maxRounds`는 최초 Plan 리뷰가 아니라 지적 자동 반영 횟수입니다. 한도 뒤 남은 `changes_requested` finding은 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 Plan을 자동 승격합니다. `blocked`는 자동 완료하지 않습니다.
 - 범위나 동작이 바뀌면 같은 턴 안에서 활성 feature 문서를 같이 업데이트합니다.
 - 사용자 승인은 문서화된 review checkpoint와 원격/파괴적 작업 전에만 요청합니다.
 - docs 경로 검사가 중요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.

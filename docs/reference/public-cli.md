@@ -22,7 +22,8 @@ non-interactive setup. Recommended defaults enable the task implementation
 subagent plus Plan and Feature review, while Task review remains disabled. The
 shared finding-remediation limit defaults to `1`. This means the first review's
 findings are applied once and reviewed again; another `changes_requested`
-decision then escalates to the user instead of starting a second automatic fix.
+decision is preserved as residual risk and the review gate completes
+automatically instead of starting a second fix or requesting user approval.
 
 ### `idea`
 

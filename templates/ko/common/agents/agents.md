@@ -59,7 +59,7 @@
 - `nextAction.category`가 `task_review`이고 `executor`가 `subagent`이면 반환된 task ID와 SHA/tree 범위를 fresh context의 읽기 전용 서브에이전트가 리뷰하고 반환된 `reviewRound`를 기록합니다.
 - `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면 반환된 모델·추론도·`reviewRound`·SHA/tree 범위로 fresh context의 읽기 전용 Feature 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
 - 리뷰 서브에이전트는 finding만 반환하고 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata, reviewed scope, evidence, decision, 정확한 hash/SHA/tree target metadata를 기록합니다.
-- `workflow.agentReview.maxRounds`는 최초 리뷰 횟수가 아니라 리뷰 지적 자동 반영 횟수입니다. `nextAction.category`가 `review_escalation`이면 그 횟수를 모두 사용한 상태입니다. 자동 수정이나 추가 리뷰 위임을 하지 말고 구현을 차단한 채 반환된 선택지를 그대로 제시합니다. 추가 반영은 먼저 `maxRounds`를 늘려야 합니다.
+- `workflow.agentReview.maxRounds`는 최초 리뷰 횟수가 아니라 리뷰 지적 자동 반영 횟수입니다. 그 횟수를 모두 사용하면 최신 `changes_requested` finding을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 Plan/task/Feature 리뷰 게이트를 자동 완료합니다. `blocked` 결정은 자동 완료하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
 - standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.

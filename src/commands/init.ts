@@ -253,7 +253,7 @@ export function initCommand(program: Command): void {
     )
     .option(
       '--max-review-rounds <count>',
-      'Automatic review finding remediation rounds before user escalation (default: 1)'
+      'Automatic review finding remediation rounds before continuing with residual risks (default: 1)'
     )
     .option(
       '--completion-strategy <strategy>',

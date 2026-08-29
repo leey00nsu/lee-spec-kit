@@ -11,7 +11,7 @@
   - Ask for approval before changing task state only when the task crosses a documented review checkpoint or before remote/destructive actions.
   - Do not invent a standalone `OK` approval step when the workflow does not require one.
   - Do not mark `[DONE]` while any item in that task's `Checklist` remains unchecked.
-  - `workflow.agentReview.maxRounds` counts automatic finding-remediation passes, not the initial review. Stop at `review_escalation` after those passes are exhausted; another remediation requires increasing the setting first.
+  - `workflow.agentReview.maxRounds` counts automatic finding-remediation passes, not the initial review. After those passes are exhausted, preserve remaining `changes_requested` findings as residual risks and auto-complete the review gate without user approval. Never auto-complete `blocked`.
 - **PRD mapping (recommended)**: add an existing PRD requirement ID tag like `[PRD-FR-001]` or `[PRD-SCOPE-V1-DESKTOP-EDITOR]` to each task line, or tag non-PRD tasks as `[NON-PRD]`.
   - Do not invent PRD IDs in `tasks.md`. Only reference IDs that already exist in `docs/prd` or the upstream requirements doc.
   - If this is a legacy feature without PRD IDs yet, backfill IDs in the source requirements doc first, then align `spec.md` `PRD Refs` and task tags together.
