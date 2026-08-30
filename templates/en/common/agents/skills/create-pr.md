@@ -33,8 +33,8 @@ When `workflow-stage --json` returns `nextAction.executor: subagent`, delegate t
 10. `Pre-PR Decision` must use `decision: approve|changes_requested|blocked ...` (or `결정: ...`).
 11. Record `Pre-PR Review Round` from the returned `reviewRound`.
 12. Confirm `Pre-PR Reviewed Head` and `Pre-PR Reviewed Tree` match the `targetSha` and `targetTree` returned by `workflow-stage`.
-13. `workflow.agentReview.maxRounds` counts Feature finding-remediation passes, not the initial review. After the limit, preserve remaining `changes_requested` findings as residual risks and auto-complete the Feature review gate without a user review-approval token. Never auto-complete `blocked`.
-14. Ensure the final decision is `approve` before moving to PR creation.
+13. `workflow.agentReview.maxRounds` is the maximum number of fresh Feature reviews. On `changes_requested` at the final allowed round, apply the findings once, preserve remaining findings and the resulting target change as residual risks, and auto-complete the Feature review gate without another review or a user review-approval token. With `maxRounds=1`, there is no round 2. Never auto-complete `blocked`.
+14. Move to PR creation after an `approve` decision or after the exhausted `changes_requested` path above auto-completes the gate.
 
 The review artifact must record the actual `executor`, `model`, `reasoningEffort`, reviewed commit/diff scope, target SHA/tree, findings, and final decision. The review subagent must not modify code; the main agent owns finding remediation and documentation updates.
 

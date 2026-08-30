@@ -33,8 +33,8 @@ Pre-PR 리뷰에서 서브에이전트가 항상 수행하는 최소 기준입�
 10. `PR 전 리뷰 Decision`은 `결정: approve|changes_requested|blocked ...` (또는 `decision: ...`) 형식을 사용합니다.
 11. 반환된 `reviewRound`를 `PR 전 리뷰 Round`에 기록합니다.
 12. `PR 전 리뷰 Head`와 `PR 전 리뷰 Tree`가 `workflow-stage`의 `targetSha`와 `targetTree`와 일치하는지 확인합니다.
-13. `workflow.agentReview.maxRounds`는 최초 Feature 리뷰가 아니라 지적 자동 반영 횟수입니다. 한도 뒤 남은 `changes_requested` finding은 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 Feature 리뷰 게이트를 자동 완료합니다. `blocked`는 자동 완료하지 않습니다.
-14. PR 생성 단계로 이동하기 전 최종 Decision이 `approve`인지 확인합니다.
+13. `workflow.agentReview.maxRounds`는 fresh Feature 리뷰의 최대 실행 횟수입니다. 마지막 허용 Round가 `changes_requested`이면 지적을 한 번 반영하고 남은 finding과 그 결과의 target 변경을 잔여 위험으로 보존한 뒤, 추가 리뷰나 사용자 리뷰 승인 토큰 없이 Feature 리뷰 게이트를 자동 완료합니다. `maxRounds=1`이면 Round 2는 없습니다. `blocked`는 자동 완료하지 않습니다.
+14. 최종 Decision이 `approve`이거나 위의 한도 소진 `changes_requested` 경로가 게이트를 자동 완료한 뒤 PR 생성 단계로 이동합니다.
 
 리뷰 산출물에는 실제 사용한 `executor`, `model`, `reasoningEffort`, 검토한 commit/diff 범위, target SHA/tree, finding과 최종 decision을 기록합니다. 리뷰 서브에이전트는 코드를 수정하지 않으며, finding 반영과 문서 갱신은 메인 에이전트가 담당합니다.
 

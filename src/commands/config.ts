@@ -112,7 +112,7 @@ export function configCommand(program: Command): void {
     )
     .option(
       '--max-review-rounds <count>',
-      'Automatic review finding remediation rounds before continuing with residual risks'
+      'Maximum fresh review rounds before continuing with residual risks'
     )
     .option(
       '--completion-strategy <strategy>',

@@ -24,8 +24,8 @@
   - `tasks.md`는 실제 실행 순서를 정의합니다
   - `issue.md`, `pr.md`는 GitHub 단계에 들어가면 stage gate의 일부로 사용합니다
 - `tasks.md`가 있다고 바로 구현하지 않습니다. 구현은 `workflow-stage --json`가 허용할 때만 시작합니다.
-- Plan 검수가 활성화되어 있으면 `plan.md`를 Review로 바꾸고 반환된 fresh 읽기 전용 `plan_review`를 위임한 뒤 `reviewRound`, evidence, decision, reviewer metadata, `specHash`, `planHash`를 기록합니다. 현재 hash에 대한 approve 검수만 Plan 승인으로 이어질 수 있습니다. reviewer는 문서를 수정하지 않고 NONE/UPDATE/ADD 결정, 요구사항 커버리지, 독립적인 Oracle, 안정적인 관찰 경계, 현실적인 실패/롤백, 제외 범위, focused/full 검증 범위를 점검합니다.
-- `workflow.agentReview.maxRounds`는 최초 Plan 리뷰가 아니라 지적 자동 반영 횟수입니다. 한도 뒤 남은 `changes_requested` finding은 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 Plan을 자동 승격합니다. `blocked`는 자동 완료하지 않습니다.
+- Plan 검수가 활성화되어 있으면 `plan.md`를 Review로 바꾸고 반환된 fresh 읽기 전용 `plan_review`를 위임한 뒤 `reviewRound`, evidence, decision, reviewer metadata, `specHash`, `planHash`를 기록합니다. approve 검수는 현재 hash와 일치해야 하며, 한도를 소진한 `changes_requested`는 아래의 잔여 위험 자동 완료 경로를 따릅니다. reviewer는 문서를 수정하지 않고 NONE/UPDATE/ADD 결정, 요구사항 커버리지, 독립적인 Oracle, 안정적인 관찰 경계, 현실적인 실패/롤백, 제외 범위, focused/full 검증 범위를 점검합니다.
+- `workflow.agentReview.maxRounds`는 fresh Plan 리뷰의 최대 실행 횟수입니다. 마지막 허용 Round가 `changes_requested`이면 지적을 한 번 반영하고 남은 finding과 그 결과의 hash 변경을 잔여 위험으로 보존한 뒤, 추가 리뷰나 사용자 리뷰 승인 토큰 없이 Plan을 자동 승격합니다. `maxRounds=1`이면 Round 2는 없습니다. `blocked`는 자동 완료하지 않습니다.
 - 범위나 동작이 바뀌면 같은 턴 안에서 활성 feature 문서를 같이 업데이트합니다.
 - 사용자 승인은 문서화된 review checkpoint와 원격/파괴적 작업 전에만 요청합니다.
 - docs 경로 검사가 중요하면 `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다.

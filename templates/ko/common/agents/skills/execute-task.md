@@ -25,8 +25,8 @@
 - `tasks.md`를 현실과 맞게 유지합니다:
   - 실제 완료/검증 없이 `[DONE]`로 바꾸지 않습니다
   - `workflow.agentReview.task.enabled=true`이면 구현/검증 완료 후 `[DONE]` 대신 `[REVIEW]`로 바꾸고 checkpoint commit을 만든 뒤 독립 리뷰를 진행합니다
-  - 반환된 `reviewRound`를 기록하고, task review가 현재 SHA/tree를 `approve`한 뒤에만 `[REVIEW]`를 `[DONE]`으로 바꿉니다
-  - `workflow.agentReview.maxRounds`는 최초 task 리뷰가 아니라 지적 자동 반영 횟수입니다. 한도 뒤 남은 `changes_requested` finding은 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 task를 DONE으로 전환합니다. `blocked`는 자동 완료하지 않습니다
+  - 반환된 `reviewRound`를 기록하고, task review가 현재 SHA/tree를 `approve`하거나 아래의 한도 소진 `changes_requested` 경로가 자동 완료된 뒤 `[REVIEW]`를 `[DONE]`으로 바꿉니다
+  - `workflow.agentReview.maxRounds`는 fresh task 리뷰의 최대 실행 횟수입니다. 마지막 허용 Round가 `changes_requested`이면 지적을 한 번 반영하고 남은 finding과 그 결과의 target 변경을 잔여 위험으로 보존한 뒤, 추가 리뷰나 사용자 리뷰 승인 토큰 없이 task를 DONE으로 전환합니다. `maxRounds=1`이면 Round 2는 없습니다. `blocked`는 자동 완료하지 않습니다
   - 태스크를 닫을 때는 같은 수정에서 `Acceptance`와 `Checklist`도 함께 갱신합니다
   - 완료된 태스크에 후속 작업이 생기면 히스토리를 고치지 말고 새 태스크를 추가합니다
 - 새 태스크를 추가해야 한다면 `tasks.md`에 구체적인 제목, `Acceptance`, `Checklist`, 그리고 `NON-PRD` 또는 기존 `PRD-*` 태그가 있는 완전한 태스크 블록을 추가하세요.

@@ -793,10 +793,52 @@ test('workflow-stage routes current Plan review findings to plan_review_fix', as
     assert.equal(fix.nextAction.planHash, review.nextAction.planHash);
     assert.equal(fix.implementationAllowed, false);
     assert.equal(fix.blockedReasonCode, 'PLAN_REVIEW_NOT_APPROVED');
+
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    const plan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      plan.replace(
+        '(Component structure, data flow)',
+        'Addressed the first review findings.'
+      ),
+      'utf-8'
+    );
+
+    const secondReview = await readStage(dir);
+    assert.equal(secondReview.stage, 'plan_review');
+    assert.equal(secondReview.nextAction.executor, 'subagent');
+    assert.equal(secondReview.nextAction.reviewRound, 2);
+
+    await recordPlanReview(
+      dir,
+      secondReview.nextAction,
+      'changes_requested',
+      'Done',
+      2
+    );
+    const finalFix = await readStage(dir);
+    assert.equal(finalFix.stage, 'plan_review_fix');
+    assert.equal(finalFix.nextAction.executor, undefined);
+    assert.equal(finalFix.nextAction.reviewRound, 2);
+    assert.match(finalFix.nextAction.summary, /do not request another review/);
+
+    const secondPlan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      secondPlan.replace(
+        'Addressed the first review findings.',
+        'Addressed both allowed review rounds.'
+      ),
+      'utf-8'
+    );
+    const completed = await readStage(dir);
+    assert.equal(completed.nextAction.category, 'plan_approve');
+    assert.equal(completed.nextAction.executor, undefined);
   });
 });
 
-test('workflow-stage auto-completes Plan review after the default remediation limit', async () => {
+test('workflow-stage auto-completes Plan review after remediating the final allowed round', async () => {
   await withTempDir('lsk-workflow-stage-plan-review-auto-complete-', async (dir) => {
     await initRepo(dir, { planReviewEnabled: true });
     await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
@@ -823,20 +865,11 @@ test('workflow-stage auto-completes Plan review after the default remediation li
       'utf-8'
     );
 
-    const secondReview = await readStage(dir);
-    assert.equal(secondReview.stage, 'plan_review');
-    assert.equal(secondReview.nextAction.reviewRound, 2);
-    await recordPlanReview(
-      dir,
-      secondReview.nextAction,
-      'changes_requested',
-      'Done',
-      2
-    );
-
     const autoComplete = await readStage(dir);
     assert.equal(autoComplete.stage, 'plan');
     assert.equal(autoComplete.nextAction.category, 'plan_approve');
+    assert.notEqual(autoComplete.nextAction.category, 'plan_review');
+    assert.equal(autoComplete.nextAction.executor, undefined);
     assert.match(autoComplete.nextAction.summary, /residual risks/);
     assert.equal(autoComplete.approvalRequired, false);
     assert.equal(autoComplete.implementationAllowed, false);
@@ -1560,37 +1593,16 @@ test('workflow-stage gates REVIEW tasks on a fresh subagent decision bound to th
     assert.equal(fix.implementationAllowed, true);
 
     await commitTaskProject(dir, 'fix(F001): implement alpha shell guard', 'guard.ts');
-    const secondReview = await readStage(dir);
-    assert.equal(secondReview.stage, 'task_review');
-    assert.equal(secondReview.nextAction.executor, 'subagent');
-    assert.equal(secondReview.nextAction.reviewRound, 2);
-    assert.notEqual(secondReview.nextAction.targetSha, initial.nextAction.targetSha);
-
-    tasks = await fs.readFile(tasksPath, 'utf-8');
-    tasks = tasks.replace(
-      /^ {2}- Review Decision:.*$/m,
-      '  - Review Decision: decision: changes_requested - add a second guard'
-    );
-    tasks = tasks.replace(
-      /^ {2}- Review Round:.*$/m,
-      '  - Review Round: 2'
-    );
-    tasks = tasks.replace(
-      /^ {2}- Reviewed Head:.*$/m,
-      `  - Reviewed Head: ${secondReview.nextAction.targetSha}`
-    );
-    tasks = tasks.replace(
-      /^ {2}- Reviewed Tree:.*$/m,
-      `  - Reviewed Tree: ${secondReview.nextAction.targetTree}`
-    );
-    await fs.writeFile(tasksPath, tasks, 'utf-8');
-    await commitFeatureDocs(dir, 'docs(F001): record second task review findings');
 
     const autoComplete = await readStage(dir);
     assert.equal(autoComplete.stage, 'task_review');
     assert.equal(autoComplete.nextAction.category, 'task_review_complete');
-    assert.equal(autoComplete.nextAction.reviewRound, 2);
+    assert.equal(autoComplete.nextAction.reviewRound, 1);
     assert.match(autoComplete.nextAction.summary, /residual risks/);
+    assert.match(
+      autoComplete.nextAction.summary,
+      /post-review unreviewed target changes/
+    );
     assert.equal(autoComplete.nextAction.executor, undefined);
     assert.equal(autoComplete.approvalRequired, false);
     assert.equal(autoComplete.implementationAllowed, false);
@@ -1933,7 +1945,7 @@ test('local workflow runs configured Feature review before implementation approv
   });
 });
 
-test('workflow-stage auto-completes Feature review after the default remediation limit', async () => {
+test('workflow-stage auto-completes Feature review after remediating the final allowed round', async () => {
   await withTempDir('lsk-workflow-stage-feature-review-auto-complete-', async (dir) => {
     await prepareCompletedLocalFeature(dir, {
       autoVerify: false,
@@ -1986,29 +1998,6 @@ test('workflow-stage auto-completes Feature review after the default remediation
       'fix(F001): address Feature review guard',
       'feature-guard.ts'
     );
-    const secondReview = await readStage(dir);
-    assert.equal(secondReview.stage, 'pre_pr_review');
-    assert.equal(secondReview.nextAction.reviewRound, 2);
-
-    tasks = await fs.readFile(tasksPath, 'utf-8');
-    tasks = tasks.replace(
-      /^- \*\*Feature Review Decision\*\*:.*$/m,
-      '- **Feature Review Decision**: decision: changes_requested - add another guard'
-    );
-    tasks = tasks.replace(
-      /^- \*\*Feature Review Round\*\*:.*$/m,
-      '- **Feature Review Round**: 2'
-    );
-    tasks = tasks.replace(
-      /^- \*\*Feature Reviewed Head\*\*:.*$/m,
-      `- **Feature Reviewed Head**: ${secondReview.nextAction.targetSha}`
-    );
-    tasks = tasks.replace(
-      /^- \*\*Feature Reviewed Tree\*\*:.*$/m,
-      `- **Feature Reviewed Tree**: ${secondReview.nextAction.targetTree}`
-    );
-    await fs.writeFile(tasksPath, tasks, 'utf-8');
-    await commitFeatureDocs(dir, 'docs(F001): record second Feature review findings');
 
     const continued = await readStage(dir);
     assert.equal(continued.stage, 'implementation_approve');

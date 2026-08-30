@@ -62,7 +62,7 @@
 - 서브에이전트에게 위임한 뒤에는 완료, 명시적 실패, 취소, 또는 조치가 필요한 승인·사용자 입력 요청 중 하나의 종결 상태를 반환할 때까지 기다립니다.
 - 서브에이전트가 실행 중이면 가급적 긴 bounded wait를 반복합니다. 한 번의 대기가 새 소식 없이 끝난 것, 상태 메시지가 없는 것, 파일 변경이 없는 것은 아직 실행 중이라는 뜻일 뿐 실패나 정체의 증거가 아닙니다. 읽기 전용 리뷰 서브에이전트는 파일을 변경하지 않는 것이 정상입니다.
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 서브에이전트를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.
-- `workflow.agentReview.maxRounds`는 최초 리뷰 횟수가 아니라 리뷰 지적 자동 반영 횟수입니다. 그 횟수를 모두 사용하면 최신 `changes_requested` finding을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 Plan/task/Feature 리뷰 게이트를 자동 완료합니다. `blocked` 결정은 자동 완료하지 않습니다.
+- `workflow.agentReview.maxRounds`는 Plan/task/Feature 게이트별 fresh 리뷰의 최대 실행 횟수입니다. 마지막 허용 리뷰가 `changes_requested`이면 지적을 한 번 반영하지만 변경된 target을 다시 리뷰하지 않으며, 남은 finding과 리뷰 이후 target 변경을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 게이트를 자동 완료합니다. 예를 들어 `maxRounds=1`이면 Round 1 리뷰와 지적 반영 후 Round 2 없이 계속합니다. `blocked` 결정은 자동 완료하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
 - standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.

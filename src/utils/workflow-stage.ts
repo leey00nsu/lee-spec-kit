@@ -498,14 +498,14 @@ function resolveMaxReviewRounds(config: ProjectConfig): number {
     : 1;
 }
 
-function reviewRemediationLimitReached(
+function reviewRoundLimitReached(
   config: ProjectConfig,
   reviewRound: number | null,
   decisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null
 ): boolean {
   return (
     decisionOutcome === 'changes_requested' &&
-    (reviewRound || 1) > resolveMaxReviewRounds(config)
+    (reviewRound || 1) >= resolveMaxReviewRounds(config)
   );
 }
 
@@ -1526,17 +1526,19 @@ function planReviewSatisfied(
   review: ParsedPlanReview,
   target: { specHash: string; planHash: string }
 ): boolean {
+  const reviewLimitReached = reviewRoundLimitReached(
+    config,
+    review.reviewRound,
+    review.decisionOutcome
+  );
+  const targetMatches =
+    review.reviewedSpecHash === target.specHash &&
+    review.reviewedPlanHash === target.planHash;
   return (
     review.status === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'plan', review.evidence) &&
-    (review.decisionOutcome === 'approve' ||
-      reviewRemediationLimitReached(
-        config,
-        review.reviewRound,
-        review.decisionOutcome
-      )) &&
-    review.reviewedSpecHash === target.specHash &&
-    review.reviewedPlanHash === target.planHash
+    ((review.decisionOutcome === 'approve' && targetMatches) ||
+      (reviewLimitReached && !targetMatches))
   );
 }
 
@@ -1546,19 +1548,22 @@ function featureReviewSatisfied(
   tasks: ParsedTasks,
   target: ReviewTarget | null
 ): boolean {
+  const reviewLimitReached = reviewRoundLimitReached(
+    config,
+    tasks.prePrReviewRound,
+    tasks.prePrDecisionOutcome
+  );
+  const targetMatches =
+    !!target &&
+    tasks.prePrReviewedHead === target.targetSha &&
+    tasks.prePrReviewedTree === target.targetTree;
   return (
     !!target &&
     tasks.prePrReviewStatus === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'feature', tasks.prePrEvidence) &&
     !!tasks.prePrDecision &&
-    (tasks.prePrDecisionOutcome === 'approve' ||
-      reviewRemediationLimitReached(
-        config,
-        tasks.prePrReviewRound,
-        tasks.prePrDecisionOutcome
-      )) &&
-    tasks.prePrReviewedHead === target.targetSha &&
-    tasks.prePrReviewedTree === target.targetTree
+    ((tasks.prePrDecisionOutcome === 'approve' && targetMatches) ||
+      (reviewLimitReached && !targetMatches))
   );
 }
 
@@ -1568,17 +1573,20 @@ function taskReviewEvidenceSatisfied(
   task: ParsedTasks['tasks'][number],
   target: ReviewTarget | null
 ): boolean {
+  const reviewLimitReached = reviewRoundLimitReached(
+    config,
+    task.reviewRound,
+    task.reviewDecisionOutcome
+  );
+  const targetMatches =
+    !!target &&
+    task.reviewedHead === target.targetSha &&
+    task.reviewedTree === target.targetTree;
   return (
     !!target &&
     reviewEvidenceSatisfied(config, feature, 'task', task.reviewEvidence) &&
-    (task.reviewDecisionOutcome === 'approve' ||
-      reviewRemediationLimitReached(
-        config,
-        task.reviewRound,
-        task.reviewDecisionOutcome
-      )) &&
-    task.reviewedHead === target.targetSha &&
-    task.reviewedTree === target.targetTree
+    ((task.reviewDecisionOutcome === 'approve' && targetMatches) ||
+      (reviewLimitReached && !targetMatches))
   );
 }
 
@@ -1594,7 +1602,7 @@ function recordedTaskReviewSatisfied(
     !task.reviewedHead ||
     !task.reviewedTree ||
     (task.reviewDecisionOutcome !== 'approve' &&
-      !reviewRemediationLimitReached(
+      !reviewRoundLimitReached(
         config,
         task.reviewRound,
         task.reviewDecisionOutcome
@@ -1611,7 +1619,9 @@ function recordedTaskReviewSatisfied(
     ) || '';
   return (
     actualTree === task.reviewedTree &&
-    isAncestor(projectGitCwd, task.reviewedHead, currentTargetSha)
+    isAncestor(projectGitCwd, task.reviewedHead, currentTargetSha) &&
+    (task.reviewDecisionOutcome === 'approve' ||
+      task.reviewedHead !== currentTargetSha)
   );
 }
 
@@ -2184,8 +2194,9 @@ function resolvePlanReviewPayload(
     review.reviewedPlanHash === target.planHash;
   const maxReviewRounds = resolveMaxReviewRounds(config);
   const reviewRound = review.reviewRound || 1;
-  const nextReviewRound =
+  const requestedReviewRound =
     !targetMatches && review.decisionOutcome ? reviewRound + 1 : reviewRound;
+  const nextReviewRound = Math.min(requestedReviewRound, maxReviewRounds);
   const actionContext = {
     reviewScope: 'plan' as const,
     reviewRound: nextReviewRound,
@@ -2196,7 +2207,8 @@ function resolvePlanReviewPayload(
   };
 
   if (review.decisionOutcome === 'changes_requested') {
-    if (targetMatches) {
+    if (targetMatches && reviewRound <= maxReviewRounds) {
+      const finalReviewRound = reviewRound >= maxReviewRounds;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2205,7 +2217,9 @@ function resolvePlanReviewPayload(
         stage: 'plan_review_fix',
         nextAction: buildAction(
           'plan_review_fix',
-          `Address the independent Plan review findings in spec.md or plan.md, record review round ${reviewRound + 1}, keep implementation blocked, and request a fresh review for the resulting document hashes.`,
+          finalReviewRound
+            ? `Address the independent Plan review findings in spec.md or plan.md, keep review round ${reviewRound}, and do not request another review. The resulting document hash changes will be preserved with the remaining findings as residual risks before automatic Plan promotion.`
+            : `Address the independent Plan review findings in spec.md or plan.md, record review round ${reviewRound + 1}, keep implementation blocked, and request a fresh review for the resulting document hashes.`,
           false,
           null,
           undefined,
@@ -2216,6 +2230,30 @@ function resolvePlanReviewPayload(
         blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
       };
     }
+  }
+
+  if (
+    review.decisionOutcome === 'changes_requested' &&
+    reviewRound >= maxReviewRounds
+  ) {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'plan_review',
+      nextAction: buildAction(
+        'plan_review',
+        `The Plan review round limit was reached at round ${reviewRound}. Do not delegate another review. Repair or record the final-round evidence if needed, preserve the remaining findings and any post-review hash changes as residual risks, and continue through automatic Plan promotion.`,
+        false,
+        null,
+        undefined,
+        { ...actionContext, reviewRound: maxReviewRounds }
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'PLAN_REVIEW_NOT_APPROVED',
+    };
   }
 
   if (targetMatches && review.decisionOutcome === 'blocked') {
@@ -2309,13 +2347,13 @@ export async function collectWorkflowStage(
   const planReviewAutoCompleted =
     planReview.status === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'plan', planReview.evidence) &&
-    reviewRemediationLimitReached(
+    reviewRoundLimitReached(
       config,
       planReview.reviewRound,
       planReview.decisionOutcome
     ) &&
-    planReview.reviewedSpecHash === planReviewTarget.specHash &&
-    planReview.reviewedPlanHash === planReviewTarget.planHash;
+    (planReview.reviewedSpecHash !== planReviewTarget.specHash ||
+      planReview.reviewedPlanHash !== planReviewTarget.planHash);
   const enforcePlanReview =
     requirements.planReviewEnabled &&
     (tasks.docStatus !== 'approved' || planReview.hasMetadata);
@@ -2397,7 +2435,7 @@ export async function collectWorkflowStage(
         isReviewStage ? 'plan_approve' : 'plan_write',
         isReviewStage
           ? planReviewAutoCompleted
-            ? 'The Plan review remediation limit was reached. Preserve the remaining findings as residual risks, promote plan.md from Review to Approved, and continue automatically without asking the user for review approval.'
+            ? 'The Plan review round limit was reached. Preserve the remaining findings and post-review hash changes as residual risks, promote plan.md from Review to Approved, and continue automatically without asking the user for review approval.'
           : approvalRequired
             ? 'Get user approval and update plan.md status to Approved.'
             : 'Promote plan.md from Review to Approved and continue automatically.'
@@ -2638,6 +2676,8 @@ export async function collectWorkflowStage(
         evidenceMatchesTarget &&
         reviewContext.reviewRound <= reviewContext.maxReviewRounds
       ) {
+        const finalReviewRound =
+          reviewContext.reviewRound >= reviewContext.maxReviewRounds;
         return {
           status: 'ok',
           reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2646,7 +2686,9 @@ export async function collectWorkflowStage(
           stage: 'task_review_fix',
           nextAction: buildAction(
             'task_review_fix',
-            `Address the independent review findings for ${reviewTask.taskId || reviewTask.title}, return the task to REVIEW, commit the new code tip, and request fresh review round ${reviewContext.reviewRound + 1}.`,
+            finalReviewRound
+              ? `Address the independent review findings for ${reviewTask.taskId || reviewTask.title}, return the task to REVIEW, and commit the new code tip without requesting another review. Preserve any remaining findings and the post-review target change as residual risks before automatic task completion.`
+              : `Address the independent review findings for ${reviewTask.taskId || reviewTask.title}, return the task to REVIEW, commit the new code tip, and request fresh review round ${reviewContext.reviewRound + 1}.`,
             false,
             null,
             undefined,
@@ -2690,8 +2732,8 @@ export async function collectWorkflowStage(
             ? `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Commit the review evidence before continuing.`
             : `The independent review approved ${reviewTask.taskId || reviewTask.title} at the current code tree. Mark the task DONE and commit the review evidence before starting another task.`
           : reviewTask.status === 'DONE'
-            ? `The review remediation limit was reached for ${reviewTask.taskId || reviewTask.title}. Keep the remaining findings as residual risks and commit the review evidence before continuing automatically.`
-            : `The review remediation limit was reached for ${reviewTask.taskId || reviewTask.title}. Keep the remaining findings as residual risks, mark the task DONE, and commit the review evidence before continuing automatically.`;
+            ? `The review round limit was reached for ${reviewTask.taskId || reviewTask.title}. Keep the remaining findings${evidenceMatchesTarget ? '' : ' and any post-review unreviewed target changes'} as residual risks and commit the review evidence before continuing automatically.`
+            : `The review round limit was reached for ${reviewTask.taskId || reviewTask.title}. Keep the remaining findings${evidenceMatchesTarget ? '' : ' and any post-review unreviewed target changes'} as residual risks, mark the task DONE, and commit the review evidence before continuing automatically.`;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2712,6 +2754,30 @@ export async function collectWorkflowStage(
       };
     }
 
+    if (
+      reviewTask.reviewDecisionOutcome === 'changes_requested' &&
+      reviewContext.reviewRound >= reviewContext.maxReviewRounds
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_review',
+        nextAction: buildAction(
+          'task_review',
+          `The review round limit was reached for ${reviewTask.taskId || reviewTask.title} at round ${reviewContext.reviewRound}. Do not delegate another review. Repair or record the final-round evidence if needed and preserve the remaining findings and any post-review target changes as residual risks before completing the task automatically.`,
+          false,
+          null,
+          undefined,
+          reviewContext
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_REVIEW_NOT_APPROVED',
+      };
+    }
+
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2720,7 +2786,7 @@ export async function collectWorkflowStage(
       stage: 'task_review',
       nextAction: buildAction(
         'task_review',
-        `Delegate fresh read-only review round ${evidenceMatchesTarget ? reviewContext.reviewRound : reviewTask.reviewDecisionOutcome ? reviewContext.reviewRound + 1 : reviewContext.reviewRound} of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
+        `Delegate fresh read-only review round ${evidenceMatchesTarget ? reviewContext.reviewRound : reviewTask.reviewDecisionOutcome ? Math.min(reviewContext.reviewRound + 1, reviewContext.maxReviewRounds) : reviewContext.reviewRound} of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
         false,
         null,
         resolveAgentReviewer(config, 'task'),
@@ -2728,7 +2794,10 @@ export async function collectWorkflowStage(
           ...reviewContext,
           reviewRound:
             !evidenceMatchesTarget && reviewTask.reviewDecisionOutcome
-              ? reviewContext.reviewRound + 1
+              ? Math.min(
+                  reviewContext.reviewRound + 1,
+                  reviewContext.maxReviewRounds
+                )
               : reviewContext.reviewRound,
         }
       ),
@@ -2892,6 +2961,8 @@ export async function collectWorkflowStage(
         evidenceMatchesTarget &&
         reviewContext.reviewRound <= reviewContext.maxReviewRounds
       ) {
+        const finalReviewRound =
+          reviewContext.reviewRound >= reviewContext.maxReviewRounds;
         return {
           status: 'ok',
           reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2900,7 +2971,9 @@ export async function collectWorkflowStage(
           stage: 'feature_review_fix',
           nextAction: buildAction(
             'feature_review_fix',
-            `Address the Feature review findings, commit the remediation, record review round ${reviewContext.reviewRound + 1}, and request a fresh review of the new code tree before implementation approval.`,
+            finalReviewRound
+              ? `Address the Feature review findings and commit the remediation without requesting another review. Preserve any remaining findings and the post-review target change as residual risks before continuing automatically.`
+              : `Address the Feature review findings, commit the remediation, record review round ${reviewContext.reviewRound + 1}, and request a fresh review of the new code tree before implementation approval.`,
             false,
             null,
             undefined,
@@ -2939,12 +3012,23 @@ export async function collectWorkflowStage(
     }
 
     if (!featureReviewSatisfied(config, feature, tasks, reviewTarget)) {
-      const requestedRound =
+      const rawRequestedRound =
         reviewContext &&
         !evidenceMatchesTarget &&
         tasks.prePrDecisionOutcome
           ? reviewContext.reviewRound + 1
           : reviewContext?.reviewRound;
+      const requestedRound =
+        reviewContext && typeof rawRequestedRound === 'number'
+          ? Math.min(
+              rawRequestedRound,
+              reviewContext.maxReviewRounds
+            )
+          : rawRequestedRound;
+      const reviewLimitExhausted =
+        !!reviewContext &&
+        tasks.prePrDecisionOutcome === 'changes_requested' &&
+        reviewContext.reviewRound >= reviewContext.maxReviewRounds;
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -2953,12 +3037,16 @@ export async function collectWorkflowStage(
         stage: 'pre_pr_review',
         nextAction: buildAction(
           'pre_pr_review',
-          reviewTarget
+          reviewLimitExhausted
+            ? `The Feature review round limit was reached at round ${reviewContext.reviewRound}. Do not delegate another review. Repair or record the final-round evidence if needed and preserve the remaining findings and any post-review target changes as residual risks before continuing automatically.`
+            : reviewTarget
             ? `Delegate independent read-only Feature review round ${requestedRound} to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
             : 'Create a project commit before requesting the independent Feature review.',
           false,
           null,
-          reviewTarget ? resolveAgentReviewer(config, 'feature') : undefined,
+          reviewTarget && !reviewLimitExhausted
+            ? resolveAgentReviewer(config, 'feature')
+            : undefined,
           reviewContext
             ? { ...reviewContext, reviewRound: requestedRound }
             : undefined

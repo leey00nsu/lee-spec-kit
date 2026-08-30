@@ -20,10 +20,10 @@ Interactive init offers recommended defaults or custom workflow automation. Use
 `--completion-strategy local-ff|local-squash|none` for reproducible
 non-interactive setup. Recommended defaults enable the task implementation
 subagent plus Plan and Feature review, while Task review remains disabled. The
-shared finding-remediation limit defaults to `1`. This means the first review's
-findings are applied once and reviewed again; another `changes_requested`
-decision is preserved as residual risk and the review gate completes
-automatically instead of starting a second fix or requesting user approval.
+shared fresh-review limit defaults to `1`. This means the first review's
+findings are applied once, then remaining findings and the resulting target
+change are preserved as residual risks and the review gate completes
+automatically without round 2 or a user approval request.
 
 ### `config`
 

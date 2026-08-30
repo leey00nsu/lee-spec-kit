@@ -199,7 +199,7 @@ test('init applies explicit task agent, review, and local completion options', a
     assert.match(result.stdout, /Configuration summary/);
     assert.match(result.stdout, /Task implementation: main agent/);
     assert.match(result.stdout, /Reviews: Plan, Task/);
-    assert.match(result.stdout, /Review remediation rounds: 3/);
+    assert.match(result.stdout, /Maximum fresh review rounds: 3/);
     assert.match(result.stdout, /Local integration: local-squash/);
   });
 });

@@ -90,7 +90,7 @@ export const enCli = {
   'init.choice.taskAgent.off': 'Off - implement tasks in the main agent',
   'init.prompt.reviews': 'Select independent review gates:',
   'init.prompt.maxReviewRounds':
-    'Maximum automatic finding remediation rounds before continuing with residual risks:',
+    'Maximum fresh review rounds before continuing with residual risks:',
   'init.choice.review.plan': 'Plan',
   'init.choice.review.task': 'Task',
   'init.choice.review.feature': 'Feature',
@@ -120,7 +120,7 @@ export const enCli = {
   'init.log.workflowLabel': 'Workflow',
   'init.log.taskAgentLabel': 'Task implementation',
   'init.log.reviewsLabel': 'Reviews',
-  'init.log.maxReviewRoundsLabel': 'Review remediation rounds',
+  'init.log.maxReviewRoundsLabel': 'Maximum fresh review rounds',
   'init.log.completionStrategyLabel': 'Local integration',
   'init.summary.taskAgent.on': 'subagent',
   'init.summary.taskAgent.off': 'main agent',
