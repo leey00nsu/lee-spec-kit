@@ -87,3 +87,23 @@ test('current docs and templates do not reference retired lee-spec-kit commands'
 
   assert.deepEqual(violations, []);
 });
+
+test('Korean subagent policy waits for terminal outcomes without file-change heuristics', async () => {
+  const agents = await fs.readFile(
+    path.join(repoRoot, 'templates/ko/common/agents/agents.md'),
+    'utf-8'
+  );
+  const executeTask = await fs.readFile(
+    path.join(repoRoot, 'templates/ko/common/agents/skills/execute-task.md'),
+    'utf-8'
+  );
+
+  for (const content of [agents, executeTask]) {
+    assert.match(content, /bounded wait/);
+    assert.match(
+      content,
+      /파일 변경이 없는 것은.*실패나 정체의 증거가 아닙니다/
+    );
+    assert.match(content, /중단·교체·포기하지 않습니다/);
+  }
+});

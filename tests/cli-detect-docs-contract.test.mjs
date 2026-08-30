@@ -1,6 +1,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { runCli, withTempDir } from './helpers/cli-contract-helpers.mjs';
+import {
+  fs,
+  path,
+  runCli,
+  withTempDir,
+} from './helpers/cli-contract-helpers.mjs';
 
 async function initRepo(dir) {
   const initResult = await runCli(dir, [
@@ -88,12 +93,46 @@ test('docs get agents --json returns the builtin agent contract and followups', 
     assert.match(String(payload.doc.source || ''), /^builtin:\/\//);
     assert.equal(typeof payload.doc.hash, 'string');
     assert.equal(typeof payload.doc.content, 'string');
+    assert.match(payload.doc.content, /repeated bounded waits/i);
+    assert.match(
+      payload.doc.content,
+      /lack of status messages, or a lack of file changes.*none is evidence of failure or stalled work/i
+    );
     assert.equal(Array.isArray(payload.requiredDocs), true);
     assert.equal(
       payload.requiredDocs.every(
-        (entry) => typeof entry.id === 'string' && typeof entry.command === 'string'
+        (entry) =>
+          typeof entry.id === 'string' && typeof entry.command === 'string'
       ),
       true
+    );
+
+    const workspaceAgents = await fs.readFile(
+      path.join(dir, 'AGENTS.md'),
+      'utf-8'
+    );
+    assert.match(workspaceAgents, /repeated bounded waits/i);
+    assert.match(
+      workspaceAgents,
+      /Do not interrupt, replace, or abandon a running subagent solely because it has been quiet or has not changed files/i
+    );
+
+    const executeTaskResult = await runCli(dir, [
+      'docs',
+      'get',
+      'execute-task',
+      '--json',
+    ]);
+    assert.equal(
+      executeTaskResult.code,
+      0,
+      executeTaskResult.stderr || executeTaskResult.stdout
+    );
+    const executeTaskPayload = JSON.parse(executeTaskResult.stdout.trim());
+    assert.match(executeTaskPayload.doc.content, /repeated bounded waits/i);
+    assert.match(
+      executeTaskPayload.doc.content,
+      /no update, no status message, or no file change is not evidence of failure or stalled work/i
     );
   });
 });
