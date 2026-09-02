@@ -87,6 +87,7 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 - `integrations codex`: install/remove the optional global `[features].hooks` setting
 - `commit-audit --json`
 - `workflow-audit --json`
+- `knowledge doctor|sync|audit <feature-ref> --json`: prepare, synchronize, and verify the experimental OpenWiki onboarding layer
 - `local verify <feature-ref> --json`: run checks in the local Feature worktree and bind the result to its exact tip/tree
 - `local merge <feature-ref> --json`: integrate a verified local Feature using its configured fast-forward or squash strategy
 - `local cleanup <feature-ref> --json`: remove the managed worktree and optionally delete the integrated Feature branch
@@ -95,6 +96,16 @@ Supported modes:
 
 - `embedded`: keep `docs/` inside the project repository.
 - `standalone`: keep the docs repo and project repo separate under a shared workspace root.
+
+Enable the experimental OpenWiki Knowledge layer with one flag:
+
+```bash
+npx lee-spec-kit config --openwiki true
+```
+
+When enabled, OpenWiki synchronization and a dedicated Knowledge commit are required after task commits and before Feature review. SDD remains normative for requirements and decisions, curated project-wide docs describe current state, and `openwiki/` is derived onboarding evidence that must be checked against source. Install and configure OpenWiki CLI `>=0.5.0 <1.0.0` under Node.js 22+ explicitly; lee-spec-kit never installs it. `false` or an absent flag adds no OpenWiki stage or gate.
+
+OpenWiki is an external agent with access to the project working directory and configured provider credentials. lee-spec-kit validates changed paths, protected files, and high-confidence secret patterns in output, but it is not an OS sandbox. Enable it only for trusted repositories in an appropriately isolated runtime; operators remain responsible for local and ignored secrets.
 
 ## Docs
 

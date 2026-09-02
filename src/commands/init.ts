@@ -165,6 +165,7 @@ interface InitOptions {
   reviews?: string;
   maxReviewRounds?: string;
   completionStrategy?: 'local-ff' | 'local-squash' | 'none';
+  openwiki?: string;
   dir?: string;
   docsRepo?: 'embedded' | 'standalone';
   projectRoot?: string;
@@ -229,6 +230,16 @@ function assertValidInitWorkflowOptions(options: InitOptions): void {
       );
     }
   }
+  if (
+    options.openwiki !== undefined &&
+    options.openwiki !== 'true' &&
+    options.openwiki !== 'false'
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--openwiki` must be `true` or `false`.'
+    );
+  }
 }
 
 export function initCommand(program: Command): void {
@@ -258,6 +269,10 @@ export function initCommand(program: Command): void {
     .option(
       '--completion-strategy <strategy>',
       'Local completion: local-ff | local-squash | none'
+    )
+    .option(
+      '--openwiki <boolean>',
+      'Experimental required OpenWiki knowledge layer: true | false'
     )
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('--docs-repo <mode>', 'Docs repository mode: embedded | standalone')
@@ -1109,6 +1124,9 @@ async function runInit(options: InitOptions): Promise<void> {
         lang,
         createdAt: getLocalDateString(),
         docsRepo,
+        experimental: {
+          openwiki: options.openwiki === 'true',
+        },
         workflow: {
           mode: workflowMode,
           requireWorktree: docsRepo === 'standalone',

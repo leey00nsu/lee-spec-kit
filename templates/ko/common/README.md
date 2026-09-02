@@ -54,6 +54,18 @@ npx lee-spec-kit docs get agents --json
 
 제품 로드맵은 `prd/`에 두지만 구현 순서와 작업 계획은 활성 Feature의 `plan.md`와 `tasks.md`에서 관리합니다. `designs/`는 UX와 시각 디자인 전용이며 기술 설계 문서를 두지 않습니다.
 
+### Knowledge Architecture와 권한
+
+1. Feature SDD(`spec.md`, `plan.md`, `tasks.md`, `decisions.md`)는 요구사항, 범위, 결정, 인수 조건의 규범입니다.
+2. 사람이 관리하는 PRD, 아키텍처, 온보딩, 운영 문서는 프로젝트 전체의 curated 현재 상태입니다.
+3. `openwiki/`는 파생된 온보딩·코드 탐색 계층입니다. 그 내용은 tracked 소스, 테스트, 스키마, curated 문서로 다시 검증합니다.
+
+모든 Plan은 명시적인 `NONE`까지 포함해 `Curated Documentation Impact`를 완료해야 합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 목록에 연결하고 완료 전에 활성 Feature scope로 커밋합니다. 이 전파 규칙은 OpenWiki 활성화 여부와 무관하게 적용됩니다.
+
+`experimental.openwiki`가 `true`이면 task checkpoint 뒤에 Knowledge 준비·동기화·커밋 stage와 Feature 리뷰가 필수로 붙습니다. 누락 또는 `false`면 이 stage들은 전혀 추가되지 않습니다. `lee-spec-kit knowledge sync`만 사용하고 생성 페이지를 손으로 수정하거나 workflow에서 OpenWiki를 직접 호출하지 않습니다.
+
+OpenWiki는 sandboxed renderer가 아니라 외부 에이전트입니다. 신뢰할 수 있는 저장소와 적절히 격리한 실행 환경에서만 활성화하고, 로컬·ignored secret이 접근 가능한 환경에 남지 않도록 관리합니다.
+
 ---
 
 ## SSOT 관계 (PRD / Ideas / Features)
@@ -123,6 +135,8 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
 기존 프로젝트도 `lee-spec-kit config --interactive` 또는 같은 config 플래그로
 이 설정을 변경할 수 있습니다.
 
+OpenWiki 실험 기능은 별도의 단일 옵션 `--openwiki true|false`로 제어합니다.
+
 - `lee-spec-kit feature`, `config`, `update`, `detect`, workflow validator에서 문서 위치/프로젝트 타입/언어를 해석하는 용도로 사용됩니다.
 - `docsRepo`, `pushDocs`, `docsRemote`는 CLI 관리 **Docs Push 정책**을 위한 메타데이터입니다. (자동 push는 하지 않습니다)
 
@@ -135,6 +149,7 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
+- `experimental.openwiki` (boolean): 완전한 필수 OpenWiki Knowledge 흐름을 켜는 단일 스위치. 누락/`false`면 비활성화되고, `true`면 Node.js 22+, OpenWiki `>=0.5.0 <1.0.0`, Knowledge 동기화·receipt·커밋·Feature 리뷰를 요구
 - `workflow.agentExecution.task` (object): 태스크 구현 위임 설정
   - `enabled`: 각 `task_execute`를 서브에이전트에게 위임할지 여부. 새 프로젝트의 기본값은 `true`이며, 이 설정이 생기기 전 프로젝트는 명시적으로 켜기 전까지 꺼진 상태를 유지
   - `type`: 현재 `"subagent"`만 지원
@@ -183,6 +198,9 @@ Local 통합 방식을 직접 선택할 수 있습니다. 비대화형 실행에
   "lang": "ko",
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
+  "experimental": {
+    "openwiki": false
+  },
   "workflow": {
     "mode": "local",
     "agentAutomationConfigured": true,

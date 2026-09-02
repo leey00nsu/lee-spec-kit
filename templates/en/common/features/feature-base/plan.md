@@ -49,6 +49,27 @@ src/
 
 ---
 
+## Curated Documentation Impact
+
+> Complete this assessment even when every decision is `NONE`. `NONE` means the surface was reviewed and no human-owned project document needs to change. Generated OpenWiki synchronization is evaluated separately.
+
+- **Assessment**: Pending
+  - Values: Pending | Complete
+- **Product requirements**: -
+  - Values: NONE | UPDATE | ADD
+- **System architecture**: -
+  - Values: NONE | UPDATE | ADD
+- **Onboarding entrypoint**: -
+  - Values: NONE | UPDATE | ADD
+- **Operational/runtime contract**: -
+  - Values: NONE | UPDATE | ADD
+- **Reason**: -
+- **Targets**: -
+  - Use comma-separated `docs:<path>` and `project:<path>` targets when any decision is UPDATE or ADD.
+  - Every target must be linked from a task `Docs` list and committed with the active Feature scope before Knowledge sync or Feature review.
+
+---
+
 ## Verification Contract
 
 ### Change Classification

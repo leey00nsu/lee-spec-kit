@@ -87,6 +87,7 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 - `integrations codex`: 선택적 전역 `[features].hooks` 설정 설치/제거
 - `commit-audit --json`: hooks용 commit-time docs path + canonical commit subject validator
 - `workflow-audit --json`: hooks용 docs sync validator
+- `knowledge doctor|sync|audit <feature-ref> --json`: 실험적 OpenWiki 온보딩 계층 준비·동기화·검증
 - `local verify <feature-ref> --json`: local Feature worktree에서 검사를 실행하고 결과를 정확한 tip/tree에 결속
 - `local merge <feature-ref> --json`: 검증된 local Feature를 설정된 fast-forward 또는 squash 전략으로 base branch에 통합
 - `local cleanup <feature-ref> --json`: managed worktree 제거 및 설정에 따른 통합 완료 Feature 브랜치 삭제
@@ -95,6 +96,16 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 
 - `embedded`: 프로젝트 안에 `docs/`를 함께 둡니다.
 - `standalone`: workspace root 아래에서 docs repo와 project repo를 따로 관리합니다.
+
+실험적 OpenWiki Knowledge 계층은 단일 플래그로 활성화합니다.
+
+```bash
+npx lee-spec-kit config --openwiki true
+```
+
+활성화하면 task 커밋 이후 Feature 리뷰 전에 OpenWiki 동기화와 전용 Knowledge 커밋이 필수가 됩니다. SDD 문서는 요구사항과 결정의 규범이고, 사람이 관리하는 상위 문서는 프로젝트 현재 상태이며, `openwiki/`는 코드로 다시 검증해야 하는 파생 온보딩 자료입니다. OpenWiki CLI `>=0.5.0 <1.0.0`과 Node.js 22 이상은 사용자가 명시적으로 설치·설정해야 하며 lee-spec-kit이 자동 설치하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+
+OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에 접근하는 외부 에이전트입니다. lee-spec-kit은 변경 경로·보호 파일·출력 내 고신뢰 secret 패턴을 검증하지만 OS sandbox는 제공하지 않으므로, 신뢰할 수 있는 저장소와 격리된 실행 환경에서만 활성화하고 로컬·ignored secret 관리는 운영자가 책임져야 합니다.
 
 ## Docs
 

@@ -167,11 +167,33 @@ async function insertEnglishTaskBlock(tasksPath, status = 'TODO') {
 
 async function setStatus(filePath, label, value) {
   const current = await fs.readFile(filePath, 'utf-8');
-  const next = current.replace(
+  let next = current.replace(
     new RegExp(`- \\*\\*${label}\\*\\*: .*`, 'u'),
     `- **${label}**: ${value}`
   );
+  if (
+    path.basename(filePath) === 'plan.md' &&
+    /^(Review|Approved|검토 요청|승인)$/u.test(value)
+  ) {
+    next = completeNoImpactAssessment(next);
+  }
   await fs.writeFile(filePath, next, 'utf-8');
+}
+
+function completeNoImpactAssessment(content) {
+  let next = content.replace('- **Assessment**: Pending', '- **Assessment**: Complete');
+  for (const label of [
+    'Product requirements',
+    'System architecture',
+    'Onboarding entrypoint',
+    'Operational/runtime contract',
+  ]) {
+    next = next.replace(`- **${label}**: -`, `- **${label}**: NONE`);
+  }
+  return next.replace(
+    '- **Reason**: -',
+    '- **Reason**: This fixture has no project-wide documentation impact.'
+  );
 }
 
 async function recordPlanReview(
@@ -716,6 +738,151 @@ test('workflow-stage moves to plan_approve when plan.md is in review', async () 
     assert.equal(payload.nextAction.category, 'plan_approve');
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.blockedReasonCode, 'PLAN_NOT_APPROVED');
+  });
+});
+
+test('workflow-stage requires an explicit Curated Documentation Impact decision before Plan approval', async () => {
+  await withTempDir('lsk-workflow-stage-doc-impact-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    await setStatus(planPath, 'Status', 'Review');
+    const plan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      plan.replace('- **Assessment**: Complete', '- **Assessment**: Pending'),
+      'utf-8'
+    );
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'plan');
+    assert.equal(payload.nextAction.category, 'plan_write');
+    assert.match(payload.nextAction.summary, /Assessment must be Complete/i);
+  });
+});
+
+test('workflow-stage rejects contradictory or derived curated documentation targets', async () => {
+  await withTempDir('lsk-workflow-stage-doc-impact-authority-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    await setStatus(planPath, 'Status', 'Review');
+
+    let plan = await fs.readFile(planPath, 'utf-8');
+    await fs.writeFile(
+      planPath,
+      plan.replace('- **Targets**: -', '- **Targets**: project:README.md'),
+      'utf-8'
+    );
+    let payload = await readStage(dir);
+    assert.equal(payload.nextAction.category, 'plan_write');
+    assert.match(payload.nextAction.summary, /Targets must be empty/i);
+
+    plan = await fs.readFile(planPath, 'utf-8');
+    plan = plan
+      .replace('- **System architecture**: NONE', '- **System architecture**: UPDATE')
+      .replace('project:README.md', 'project:openwiki/index.md');
+    await fs.writeFile(planPath, plan, 'utf-8');
+    payload = await readStage(dir);
+    assert.equal(payload.nextAction.category, 'plan_write');
+    assert.match(payload.nextAction.summary, /Invalid documentation targets/i);
+  });
+});
+
+test('workflow-stage requires every curated UPDATE target to be linked from a task Docs list', async () => {
+  await withTempDir('lsk-workflow-stage-doc-targets-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    await setStatus(planPath, 'Status', 'Approved');
+    let plan = await fs.readFile(planPath, 'utf-8');
+    plan = plan
+      .replace('- **System architecture**: NONE', '- **System architecture**: UPDATE')
+      .replace('- **Targets**: -', '- **Targets**: project:README.md');
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    await setStatus(tasksPath, 'Doc Status', 'Review');
+    let payload = await readStage(dir);
+    assert.equal(payload.stage, 'tasks');
+    assert.equal(payload.nextAction.category, 'tasks_write');
+    assert.match(payload.nextAction.summary, /project:README\.md/);
+
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '## Completion Criteria',
+      `- [TODO][NON-PRD] T-F001-alpha-01 update onboarding entrypoint
+  - Date: 2026-09-02
+  - Acceptance:
+    - README reflects current architecture
+  - Docs:
+    - project:README.md
+  - Checklist:
+    - [ ] update README
+
+## Completion Criteria`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    payload = await readStage(dir);
+    assert.equal(payload.stage, 'tasks');
+    assert.equal(payload.nextAction.category, 'tasks_approve');
+  });
+});
+
+test('workflow-stage requires completed curated targets to have a Feature-scoped commit', async () => {
+  await withTempDir('lsk-workflow-stage-doc-target-evidence-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    await fs.writeFile(path.join(dir, 'README.md'), '# Demo\n', 'utf-8');
+    let result = await runCommand(dir, 'git', ['add', 'README.md']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(dir, 'git', ['commit', '-m', 'add project readme']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    await setStatus(path.join(featureDir(dir), 'spec.md'), 'Status', 'Approved');
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    await setStatus(planPath, 'Status', 'Approved');
+    let plan = await fs.readFile(planPath, 'utf-8');
+    plan = plan
+      .replace('- **System architecture**: NONE', '- **System architecture**: UPDATE')
+      .replace('- **Targets**: -', '- **Targets**: project:README.md');
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    await setStatus(tasksPath, 'Doc Status', 'Approved');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks.replace(
+      '## Completion Criteria',
+      `- [DONE][NON-PRD] T-F001-alpha-01 update architecture guide
+  - Date: 2026-09-02
+  - Acceptance:
+    - README reflects current architecture
+  - Docs:
+    - project:README.md
+  - Checklist:
+    - [x] update README
+
+## Completion Criteria`
+    );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): record architecture documentation task');
+
+    let payload = await readStage(dir);
+    assert.equal(payload.stage, 'task_commit');
+    assert.equal(payload.nextAction.category, 'task_commit');
+    assert.match(payload.nextAction.summary, /project:README\.md.*scope F001/i);
+
+    await fs.appendFile(path.join(dir, 'README.md'), '\nCurrent architecture entrypoint.\n');
+    result = await runCommand(dir, 'git', ['add', 'README.md']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs(F001): update project architecture entrypoint',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    payload = await readStage(dir);
+    assert.doesNotMatch(payload.nextAction.summary, /project:README\.md.*scope F001/i);
   });
 });
 
@@ -1408,6 +1575,39 @@ test('workflow-stage uses managed worktree creation for standalone projects', as
     );
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
+  });
+});
+
+test('workflow-stage restores a missing standalone worktree before completed Feature Knowledge gates', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-complete-openwiki-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeGhCli(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.experimental.openwiki = true;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks
+      .replace('- **Issue**: #', '- **Issue**: #123')
+      .replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha')
+      .replace(
+        '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+        '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell'
+      )
+      .replace('- [ ] add UI', '- [x] add UI');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
+    assert.match(payload.nextAction.summary, /Knowledge/u);
+    assert.match(payload.nextAction.command || '', /worktree add/u);
+    assert.match(payload.nextAction.command || '', new RegExp(path.basename(projectRoot)));
   });
 });
 

@@ -9,6 +9,7 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { detectSchemaProject } from '../adapters/schema/index.js';
+import { assertValidExperimentalConfig } from '../config/load.js';
 
 interface DetectOptions {
   dir?: string;
@@ -27,8 +28,14 @@ export function detectCommand(program: Command): void {
       try {
         await runDetect(options);
       } catch (error) {
-        const config = await getConfig(process.cwd());
-        const lang = config?.lang ?? DEFAULT_LANG;
+        let lang = DEFAULT_LANG;
+        try {
+          const config = await getConfig(process.cwd());
+          lang = config?.lang ?? DEFAULT_LANG;
+        } catch {
+          // Invalid config is the original detection error; keep error reporting
+          // fail-closed without attempting to parse the same config twice.
+        }
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
         if (options.json) {
@@ -58,6 +65,7 @@ async function runDetect(options: DetectOptions): Promise<void> {
   const targetCwd = options.dir ? path.resolve(cwd, options.dir) : cwd;
   const detection = await detectSchemaProject(targetCwd);
   const config = detection.config;
+  if (config) assertValidExperimentalConfig(config);
 
   const detected = !!config;
   const reasonCode: DetectionReasonCode = detected
@@ -80,6 +88,7 @@ async function runDetect(options: DetectOptions): Promise<void> {
             projectType: null,
             lang: null,
             projectName: null,
+            experimentalOpenwiki: false,
           },
           null,
           2
@@ -102,6 +111,7 @@ async function runDetect(options: DetectOptions): Promise<void> {
           projectType: config.projectType,
           lang: config.lang,
           projectName: config.projectName ?? null,
+          experimentalOpenwiki: config.experimental?.openwiki === true,
         },
         null,
         2

@@ -54,6 +54,18 @@ npx lee-spec-kit docs get agents --json
 
 Keep product roadmaps in `prd/`, but manage implementation sequencing and work plans in the active Feature's `plan.md` and `tasks.md`. The `designs/` directory is reserved for UX and visual design, not technical design.
 
+### Knowledge Architecture and authority
+
+1. Feature SDD (`spec.md`, `plan.md`, `tasks.md`, `decisions.md`) is normative for requirements, scope, decisions, and acceptance.
+2. Human-owned PRD, architecture, onboarding, and operations documents are the curated project-wide current state.
+3. `openwiki/` is a derived onboarding and code-navigation layer. Verify its claims against tracked source, tests, schemas, and curated docs.
+
+Every Plan must complete `Curated Documentation Impact`, including explicit `NONE` decisions. Every `UPDATE` or `ADD` target must be attached to at least one task through its `Docs` list and committed with the active Feature scope before completion. This propagation rule applies whether OpenWiki is enabled or not.
+
+When `experimental.openwiki` is `true`, task checkpoints are followed by required Knowledge setup/sync/commit stages and a Feature review. Missing or `false` adds none of those stages. Use `lee-spec-kit knowledge sync`; never hand-edit generated pages or invoke OpenWiki directly from the workflow.
+
+OpenWiki is an external agent, not a sandboxed renderer. Enable it only for trusted repositories in an appropriately isolated runtime, and keep local or ignored secrets outside its accessible environment.
+
 ---
 
 ## SSOT Relationship (PRD / Ideas / Features)
@@ -124,6 +136,8 @@ Non-interactive setup exposes the same choices through `--task-agent`,
 Existing projects can change the same settings with `lee-spec-kit config
 --interactive` or the corresponding non-interactive flags.
 
+The OpenWiki experiment is controlled separately with the single `--openwiki true|false` option.
+
 - Used by `lee-spec-kit feature`, `config`, `update`, `detect`, and workflow validators to resolve docs location / project type / language.
 - `docsRepo`, `pushDocs`, `docsRemote` are metadata for the CLI-managed **Docs Push policy** (the CLI does not auto-push).
 
@@ -136,6 +150,7 @@ Existing projects can change the same settings with `lee-spec-kit config
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
+- `experimental.openwiki` (boolean): one switch for the complete required OpenWiki Knowledge flow; missing/`false` disables it, and `true` requires Node.js 22+, OpenWiki `>=0.5.0 <1.0.0`, Knowledge sync/receipt/commit, and Feature review
 - `workflow.agentExecution.task` (object): task implementation delegation settings
   - `enabled`: delegates each `task_execute` action to a subagent; new projects default to `true`, while projects created before this setting existed keep it disabled until explicitly enabled
   - `type`: currently only `"subagent"` is supported
@@ -184,6 +199,9 @@ Existing projects can change the same settings with `lee-spec-kit config
   "lang": "en",
   "createdAt": "{{date}}",
   "docsRepo": "embedded",
+  "experimental": {
+    "openwiki": false
+  },
   "workflow": {
     "mode": "local",
     "agentAutomationConfigured": true,

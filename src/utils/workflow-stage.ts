@@ -41,6 +41,16 @@ import {
   resolveLocalCompletionStrategy,
   resolveLocalIntegrationContext,
 } from './local-integration.js';
+import {
+  parseCuratedDocumentationImpact,
+  parseTaskDocumentationTargets,
+} from './documentation-impact.js';
+import {
+  areChangesOpenWikiOnly,
+  inspectOpenWikiKnowledge,
+  isOpenWikiEnabled,
+  OPENWIKI_RECEIPT_PATH,
+} from './openwiki-knowledge.js';
 
 export type WorkflowStageId =
   | 'spec'
@@ -54,6 +64,9 @@ export type WorkflowStageId =
   | 'task_commit'
   | 'task_review'
   | 'task_review_fix'
+  | 'knowledge_setup'
+  | 'knowledge_sync'
+  | 'knowledge_commit'
   | 'implementation_approve'
   | 'feature_verify'
   | 'feature_remediation'
@@ -86,6 +99,9 @@ export interface WorkflowStageAction {
     | 'task_review'
     | 'task_review_complete'
     | 'task_review_fix'
+    | 'knowledge_setup'
+    | 'knowledge_sync'
+    | 'knowledge_commit'
     | 'implementation_approve'
     | 'feature_verify'
     | 'feature_remediation'
@@ -225,6 +241,9 @@ export interface WorkflowStagePayload {
     | 'BRANCH_NOT_READY'
     | 'TASK_COMMIT_REQUIRED'
     | 'TASK_REVIEW_NOT_APPROVED'
+    | 'KNOWLEDGE_SETUP_REQUIRED'
+    | 'KNOWLEDGE_SYNC_REQUIRED'
+    | 'KNOWLEDGE_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
     | 'FEATURE_VERIFICATION_REQUIRED'
     | 'FEATURE_REMEDIATION_REQUIRED'
@@ -275,6 +294,7 @@ type ParsedTasks = {
     title: string;
     instructions: string;
     acceptanceCriteria: string[];
+    documentationTargets: string[];
     reviewEvidence: string | null;
     reviewDecision: string | null;
     reviewDecisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
@@ -438,9 +458,10 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
       : workflow.agentReview?.plan?.enabled ?? false,
     taskReviewEnabled: workflow.agentReview?.task?.enabled ?? false,
     featureReviewEnabled:
-      workflow.agentReview?.feature?.enabled ??
-      workflow.prePrReview?.enabled ??
-      !isLocalWorkflow,
+      isOpenWikiEnabled(config) ||
+      (workflow.agentReview?.feature?.enabled ??
+        workflow.prePrReview?.enabled ??
+        !isLocalWorkflow),
     taskExecutionEnabled: legacyBackfilledAgentAutomation.taskExecution
       ? false
       : workflow.agentExecution?.task?.enabled ?? false,
@@ -698,6 +719,7 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
       title: parsed.title,
       instructions: extractTaskInstructions(nonCodeLines, index),
       acceptanceCriteria: extractTaskAcceptanceCriteria(nonCodeLines, index),
+      documentationTargets: parseTaskDocumentationTargets(nonCodeLines, index),
       reviewEvidence: extractTaskReviewValue(
         nonCodeLines,
         index,
@@ -1062,6 +1084,79 @@ function getLastDoneTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] | nul
   return null;
 }
 
+async function collectDocumentationTargetEvidenceErrors(input: {
+  config: ProjectConfig;
+  feature: ResolvedFeature;
+  tasks: ParsedTasks;
+  projectGitCwd: string;
+  targets: string[];
+}): Promise<string[]> {
+  const scope = resolveFeatureCommitScope({
+    issueNumber: input.tasks.issueNumber,
+    featureId: input.feature.id,
+    workflowMode: input.config.workflow?.mode,
+  });
+  if (!scope) {
+    return ['The active Feature commit scope could not be resolved.'];
+  }
+  const escapedScope = scope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const scopedSubject = new RegExp(`\\(${escapedScope}\\)`, 'u');
+  const errors: string[] = [];
+
+  for (const target of input.targets) {
+    const separator = target.indexOf(':');
+    const namespace = target.slice(0, separator);
+    const relativeTarget = target.slice(separator + 1);
+    const namespaceRoot =
+      namespace === 'docs'
+        ? input.config.docsDir
+        : resolveProjectRootFromGitCwd(input.projectGitCwd);
+    const absoluteTarget = path.resolve(namespaceRoot, relativeTarget);
+    const containment = path.relative(namespaceRoot, absoluteTarget);
+    if (
+      !relativeTarget ||
+      containment === '..' ||
+      containment.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(containment)
+    ) {
+      errors.push(`${target} escapes its declared documentation namespace.`);
+      continue;
+    }
+    let isRegularFile = false;
+    try {
+      const stat = await fs.lstat(absoluteTarget);
+      isRegularFile = stat.isFile() && !stat.isSymbolicLink();
+    } catch {
+      errors.push(`${target} does not exist.`);
+      continue;
+    }
+    if (!isRegularFile) {
+      errors.push(`${target} must resolve to a regular file.`);
+      continue;
+    }
+    const gitRoot =
+      runGitCapture(['rev-parse', '--show-toplevel'], namespaceRoot) || '';
+    if (!gitRoot) {
+      errors.push(`${target} is not inside a Git repository.`);
+      continue;
+    }
+    const gitRelativeTarget = normalizeGitRelativePath(
+      path.relative(gitRoot, absoluteTarget)
+    );
+    const latestSubject =
+      runGitCapture(
+        ['log', '-n', '1', '--pretty=%s', '--', gitRelativeTarget],
+        gitRoot
+      ) || '';
+    if (!scopedSubject.test(latestSubject)) {
+      errors.push(
+        `${target} has no committed update using the active scope ${scope}.`
+      );
+    }
+  }
+  return errors;
+}
+
 function hasOpenTask(tasks: ParsedTasks): boolean {
   return tasks.tasks.some(
     (task) => task.status === 'DOING' || task.status === 'REVIEW'
@@ -1119,6 +1214,12 @@ function checkTaskCommitGate(
   ) {
     args.push(`:(exclude)${normalizedDocsDir}/**`);
   }
+  args.push(
+    ':(exclude)openwiki/**',
+    `:(exclude)${OPENWIKI_RECEIPT_PATH}`,
+    ':(exclude)AGENTS.md',
+    ':(exclude)CLAUDE.md'
+  );
 
   const latestProjectSubject = runGitCapture(args, effectiveProjectGitCwd);
   if (latestProjectSubject === undefined) {
@@ -1934,21 +2035,53 @@ function createFeatureReviewDelegationContext(
   config: ProjectConfig,
   feature: ResolvedFeature,
   workingDirectory: string,
-  reviewTarget: { baseSha: string; targetSha: string; targetTree: string }
+  reviewTarget: { baseSha: string; targetSha: string; targetTree: string },
+  curatedDocumentationTargets: string[]
 ): WorkflowDelegationContext {
   const paths = getFeatureDocPaths(feature);
+  const requiredDocuments = [
+    createDelegationDocument(paths.specPath, 'Review Feature requirements.'),
+    createDelegationDocument(paths.planPath, 'Review the implementation plan and Verification Contract.'),
+    createDelegationDocument(paths.tasksPath, 'Review completed task acceptance and verification evidence.'),
+    createDelegationDocument(paths.decisionsPath, 'Review recorded decisions, trade-offs, and residual risks.'),
+  ];
+  for (const target of curatedDocumentationTargets) {
+    const separator = target.indexOf(':');
+    const namespace = target.slice(0, separator);
+    const relativeTarget = target.slice(separator + 1);
+    const targetPath = path.resolve(
+      namespace === 'docs' ? config.docsDir : workingDirectory,
+      relativeTarget
+    );
+    if (requiredDocuments.some((document) => document.path === targetPath)) {
+      continue;
+    }
+    requiredDocuments.push(
+      createDelegationDocument(
+        targetPath,
+        `Review the human-owned curated documentation target declared by the Plan (${target}) and compare it with the implementation and generated Knowledge.`
+      )
+    );
+  }
+  if (isOpenWikiEnabled(config)) {
+    requiredDocuments.push(
+      createDelegationDocument(
+        path.join(workingDirectory, 'openwiki', 'index.md'),
+        'Review the generated onboarding map as derived, untrusted evidence and verify its material facts against tracked sources.'
+      ),
+      createDelegationDocument(
+        path.join(workingDirectory, OPENWIKI_RECEIPT_PATH),
+        'Verify the Knowledge source fingerprint, output hash, OpenWiki version, and base freshness receipt.'
+      )
+    );
+  }
   return {
     version: 1,
     role: 'feature_reviewer',
     featureRef: buildFeatureRef(feature),
     docsDirectory: config.docsDir,
     workingDirectory,
-    requiredDocuments: [
-      createDelegationDocument(paths.specPath, 'Review Feature requirements.'),
-      createDelegationDocument(paths.planPath, 'Review the implementation plan and Verification Contract.'),
-      createDelegationDocument(paths.tasksPath, 'Review completed task acceptance and verification evidence.'),
-      createDelegationDocument(paths.decisionsPath, 'Review recorded decisions, trade-offs, and residual risks.'),
-    ],
+    requiredDocuments,
     reviewTarget,
   };
 }
@@ -2521,6 +2654,9 @@ export async function collectWorkflowStage(
     specContent || '',
     planContent || ''
   );
+  const curatedDocumentationImpact = parseCuratedDocumentationImpact(
+    planContent || ''
+  );
   const planReviewAutoCompleted =
     planReview.status === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'plan', planReview.evidence) &&
@@ -2579,6 +2715,27 @@ export async function collectWorkflowStage(
     };
   }
 
+  if (
+    (planStatus === 'review' || planStatus === 'approved') &&
+    !curatedDocumentationImpact.valid
+  ) {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'plan',
+      nextAction: buildAction(
+        'plan_write',
+        `Complete the Curated Documentation Impact assessment before Plan review or approval. ${curatedDocumentationImpact.errors.join(' ')}`,
+        false
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'PLAN_NOT_APPROVED',
+    };
+  }
+
   if (planStatus !== 'approved') {
     const isReviewStage = planStatus === 'review';
     if (
@@ -2634,7 +2791,21 @@ export async function collectWorkflowStage(
     return resolvePlanReviewPayload(config, feature, planReview, planReviewTarget);
   }
 
-  if (tasks.tasks.length === 0 || tasks.docStatus !== 'approved') {
+  const taskDocumentationTargets = new Set(
+    tasks.tasks.flatMap((task) => task.documentationTargets)
+  );
+  const uncoveredDocumentationTargets = curatedDocumentationImpact.targets.filter(
+    (target) => !taskDocumentationTargets.has(target)
+  );
+  const curatedTargetCoverageMissing =
+    uncoveredDocumentationTargets.length > 0 &&
+    (tasks.docStatus === 'review' || tasks.docStatus === 'approved');
+
+  if (
+    tasks.tasks.length === 0 ||
+    tasks.docStatus !== 'approved' ||
+    curatedTargetCoverageMissing
+  ) {
     const isReviewStage = tasks.docStatus === 'review';
     const approvalRequired = isReviewStage
       ? resolveActionApprovalRequired(config, 'tasks_approve', true)
@@ -2652,8 +2823,14 @@ export async function collectWorkflowStage(
       featureRef: buildFeatureRef(feature),
       stage: 'tasks',
       nextAction: buildAction(
-        isReviewStage ? 'tasks_approve' : 'tasks_write',
-        isReviewStage
+        curatedTargetCoverageMissing
+          ? 'tasks_write'
+          : isReviewStage
+            ? 'tasks_approve'
+            : 'tasks_write',
+        curatedTargetCoverageMissing
+          ? `Link every Curated Documentation Impact target from a task Docs section. Missing: ${uncoveredDocumentationTargets.join(', ')}`
+          : isReviewStage
           ? approvalRequired
             ? 'Get user approval and update tasks.md Doc Status to Approved.'
             : 'Promote tasks.md Doc Status from Review to Approved and continue automatically.'
@@ -2728,7 +2905,36 @@ export async function collectWorkflowStage(
     }
   }
 
-  if (requirements.requireBranch && !allTasksDone(tasks)) {
+  let resolvedLocalState: Awaited<
+    ReturnType<typeof resolveLocalIntegrationContext>
+  > | null = null;
+  if (
+    allTasksDone(tasks) &&
+    config.workflow?.mode === 'local' &&
+    resolveLocalCompletionStrategy(config) !== 'none'
+  ) {
+    resolvedLocalState = await resolveLocalIntegrationContext(config, feature);
+  }
+
+  const remoteReviewAlreadyComplete =
+    currentReviewState === 'merged' &&
+    tasks.prStatus === 'approved' &&
+    prDraft.prStatus === 'approved';
+  const localIntegrationReachedBase =
+    resolvedLocalState?.state?.status === 'merged' ||
+    resolvedLocalState?.state?.status === 'verified' ||
+    resolvedLocalState?.state?.status === 'cleaned';
+  const completedKnowledgeStillOnFeatureBranch =
+    allTasksDone(tasks) &&
+    isOpenWikiEnabled(config) &&
+    !resolvedLocalState?.integrationComplete &&
+    !localIntegrationReachedBase &&
+    !remoteReviewAlreadyComplete;
+
+  if (
+    requirements.requireBranch &&
+    (!allTasksDone(tasks) || completedKnowledgeStillOnFeatureBranch)
+  ) {
     const expectedBranch = resolveExpectedBranch(feature, tasks);
     const currentBranch =
       runGitCapture(['branch', '--show-current'], effectiveProjectGitCwd) ||
@@ -2750,8 +2956,8 @@ export async function collectWorkflowStage(
         nextAction: buildAction(
           'branch_create',
           requirements.requireWorktree
-            ? `Create or reuse the managed worktree for ${expectedBranch} before implementation starts.`
-            : `Switch the project repo to ${expectedBranch} before implementation starts.`,
+            ? `Create or reuse the managed worktree for ${expectedBranch} before ${allTasksDone(tasks) ? 'the completed Feature Knowledge gate' : 'implementation starts'}.`
+            : `Switch the project repo to ${expectedBranch} before ${allTasksDone(tasks) ? 'the completed Feature Knowledge gate' : 'implementation starts'}.`,
           false,
           branchCommand
         ),
@@ -2994,10 +3200,15 @@ export async function collectWorkflowStage(
   }
 
   const pendingDoneTransitions = countPendingDoneTransitions(feature) || 0;
+  const knowledgeOnlyDirty =
+    isOpenWikiEnabled(config) &&
+    allTasksDone(tasks) &&
+    areChangesOpenWikiOnly(effectiveProjectGitCwd);
+  const taskProjectDirty = projectDirty && !knowledgeOnlyDirty;
   const taskCommitCheckpointRequired =
     !activeTaskOpen &&
     !!lastDoneTask &&
-    (projectDirty || pendingDoneTransitions > 0);
+    (taskProjectDirty || pendingDoneTransitions > 0);
 
   if (taskCommitCheckpointRequired) {
     const pendingReason =
@@ -3017,7 +3228,7 @@ export async function collectWorkflowStage(
           tasks,
           effectiveProjectGitCwd,
           docsDirty,
-          projectDirty,
+          projectDirty: taskProjectDirty,
           gateFailureReason: pendingReason,
         }),
         false
@@ -3061,21 +3272,123 @@ export async function collectWorkflowStage(
     };
   }
 
-  let resolvedLocalState: Awaited<
-    ReturnType<typeof resolveLocalIntegrationContext>
-  > | null = null;
-  if (
-    allTasksDone(tasks) &&
-    config.workflow?.mode === 'local' &&
-    resolveLocalCompletionStrategy(config) !== 'none'
-  ) {
-    resolvedLocalState = await resolveLocalIntegrationContext(config, feature);
+  if (allTasksDone(tasks) && curatedDocumentationImpact.targets.length > 0) {
+    const documentationEvidenceErrors = await collectDocumentationTargetEvidenceErrors({
+      config,
+      feature,
+      tasks,
+      projectGitCwd: effectiveProjectGitCwd,
+      targets: curatedDocumentationImpact.targets,
+    });
+    if (documentationEvidenceErrors.length > 0) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_commit',
+        nextAction: buildAction(
+          'task_commit',
+          `Complete and commit every curated documentation target with the active Feature scope before Knowledge sync or Feature review. ${documentationEvidenceErrors.join(' ')}`,
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+      };
+    }
   }
 
-  const remoteReviewAlreadyComplete =
-    currentReviewState === 'merged' &&
-    tasks.prStatus === 'approved' &&
-    prDraft.prStatus === 'approved';
+  if (allTasksDone(tasks) && isOpenWikiEnabled(config)) {
+    const knowledgeState = await inspectOpenWikiKnowledge({
+      config,
+      featureRef: feature.folderName,
+      component: feature.type,
+      projectCwd: effectiveProjectGitCwd,
+    });
+    const knowledgeCommand = `npx lee-spec-kit knowledge sync ${buildFeatureArgs(feature)} --json`;
+
+    if (knowledgeState.status === 'setup_required') {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'knowledge_setup',
+        nextAction: buildAction(
+          'knowledge_setup',
+          `${knowledgeState.detail || 'Prepare a supported OpenWiki runtime.'} Run the doctor again after setup; lee-spec-kit will not install OpenWiki implicitly.`,
+          false,
+          `npx lee-spec-kit knowledge doctor ${buildFeatureArgs(feature)} --json`
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'KNOWLEDGE_SETUP_REQUIRED',
+      };
+    }
+
+    if (knowledgeState.status === 'sync_required') {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'knowledge_sync',
+        nextAction: buildAction(
+          'knowledge_sync',
+          `Synchronize the required OpenWiki layer in ${knowledgeState.projectRoot}. Current state: ${knowledgeState.reasonCode}.`,
+          false,
+          knowledgeCommand
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
+      };
+    }
+
+    if (knowledgeState.status === 'commit_required') {
+      const scope =
+        resolveFeatureCommitScope({
+          issueNumber: tasks.issueNumber,
+          featureId: feature.id,
+          workflowMode: config.workflow?.mode,
+        }) || feature.id;
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'knowledge_commit',
+        nextAction: buildAction(
+          'knowledge_commit',
+          `Commit only the verified Knowledge paths (${knowledgeState.changedPaths.join(', ')}) with subject "chore(${scope}): refresh OpenWiki knowledge layer".`,
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'KNOWLEDGE_COMMIT_REQUIRED',
+      };
+    }
+
+    if (knowledgeState.status === 'blocked') {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'knowledge_sync',
+        nextAction: buildAction(
+          'knowledge_sync',
+          `Resolve the Knowledge blocker before continuing: ${knowledgeState.detail || knowledgeState.reasonCode}`,
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
+      };
+    }
+  }
+
   const featureReviewNeededForLifecycle =
     allTasksDone(tasks) &&
     requirements.featureReviewEnabled &&
@@ -3136,7 +3449,8 @@ export async function collectWorkflowStage(
             config,
             feature,
             effectiveProjectGitCwd,
-            reviewTarget
+            reviewTarget,
+            curatedDocumentationImpact.targets
           ),
         }
       : null;

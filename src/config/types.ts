@@ -67,6 +67,10 @@ export interface ProjectConfig {
   docsRemote?: string;
   projectRoot?: string | Record<string, string>;
   allowedDocsEntries?: AllowedDocsEntriesConfig;
+  experimental?: {
+    /** Enables the required OpenWiki knowledge synchronization lifecycle. */
+    openwiki?: boolean;
+  };
   pr?: {
     screenshots?: {
       upload?: boolean;

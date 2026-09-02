@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getConfig } from '../utils/config.js';
@@ -19,6 +20,13 @@ import {
   matchesProjectCommitConvention,
   resolveFeatureCommitScope,
 } from '../utils/commit-conventions.js';
+import {
+  collectGitChangedPaths,
+  isOpenWikiEnabled,
+  isOpenWikiKnowledgePath,
+  inspectOpenWikiKnowledge,
+  OPENWIKI_RECEIPT_PATH,
+} from '../utils/openwiki-knowledge.js';
 
 interface CommitAuditOptions {
   json?: boolean;
@@ -36,6 +44,7 @@ type CommitAuditReasonCode =
   | 'CANONICAL_FEATURE_DOC_DELETION'
   | 'DOCS_COMMIT_POLICY_VIOLATION'
   | 'COMMIT_MESSAGE_POLICY_VIOLATION'
+  | 'KNOWLEDGE_COMMIT_POLICY_VIOLATION'
   | 'NO_GIT_REPOSITORY'
   | 'CONFIG_NOT_FOUND'
   | 'UNEXPECTED_ERROR';
@@ -47,6 +56,7 @@ interface CommitAuditViolation {
     | 'non_canonical_feature_doc'
     | 'canonical_feature_doc_deletion'
     | 'unsupported_git_target'
+    | 'knowledge_output_scope'
     | 'commit_message_policy';
   detail: string;
 }
@@ -200,6 +210,14 @@ async function collectCommitAudit(
     config.docsDir,
     stagedEntries,
     config.allowedDocsEntries
+  );
+  violations.push(
+    ...(await collectKnowledgeCommitViolations(
+      config,
+      stagedEntries,
+      cwd,
+      repoRoot
+    ))
   );
   const commitMessageViolation = await collectCommitMessageViolation(
     cwd,
@@ -428,6 +446,9 @@ function resolveReasonCode(violations: CommitAuditViolation[]): CommitAuditReaso
   if (kinds.has('commit_message_policy')) {
     return 'COMMIT_MESSAGE_POLICY_VIOLATION';
   }
+  if (kinds.has('knowledge_output_scope')) {
+    return 'KNOWLEDGE_COMMIT_POLICY_VIOLATION';
+  }
   if (kinds.has('unsupported_git_target')) return 'UNSUPPORTED_GIT_TARGET';
   if (kinds.has('unmanaged_docs_entry')) return 'UNMANAGED_DOCS_COMMIT';
   if (kinds.has('canonical_feature_doc_deletion')) {
@@ -461,6 +482,15 @@ async function collectCommitMessageViolation(
   if (!scope) {
     return null;
   }
+  if (isOpenWikiEnabled(config) && isKnowledgeCommit(stagedEntries)) {
+    const expected = `chore(${scope}): refresh OpenWiki knowledge layer`;
+    if (normalizedMessage === expected) return null;
+    return {
+      path: '(commit message)',
+      kind: 'commit_message_policy',
+      detail: `Knowledge commit subject must be exactly "${expected}".`,
+    };
+  }
   const docsRepoRoot = runGitCapture(['rev-parse', '--show-toplevel'], config.docsDir);
   const normalizedRepoRoot = path.resolve(repoRoot);
   const normalizedDocsRepoRoot = docsRepoRoot ? path.resolve(docsRepoRoot) : null;
@@ -490,6 +520,110 @@ async function collectCommitMessageViolation(
     kind: 'commit_message_policy',
     detail: `Commit subject must follow the canonical feature-scoped convention. Expected ${expected}, received "${normalizedMessage}".`,
   };
+}
+
+async function collectKnowledgeCommitViolations(
+  config: NonNullable<Awaited<ReturnType<typeof getConfig>>>,
+  stagedEntries: StagedPathEntry[],
+  cwd: string,
+  repoRoot: string
+): Promise<CommitAuditViolation[]> {
+  if (!isOpenWikiEnabled(config) || !isKnowledgeCommit(stagedEntries)) return [];
+  const violations: CommitAuditViolation[] = [];
+  const stagedPaths = new Set(stagedEntries.map((entry) => entry.path));
+  const changedKnowledgePaths = collectGitChangedPaths(repoRoot).filter(
+    isOpenWikiKnowledgePath
+  );
+  for (const changedPath of changedKnowledgePaths) {
+    if (stagedPaths.has(changedPath)) continue;
+    violations.push({
+      path: changedPath,
+      kind: 'knowledge_output_scope',
+      detail:
+        'A Knowledge commit must stage the complete current Knowledge change set.',
+    });
+  }
+  for (const changedPath of collectUnstagedKnowledgePaths(repoRoot)) {
+    violations.push({
+      path: changedPath,
+      kind: 'knowledge_output_scope',
+      detail:
+        'A Knowledge commit cannot leave unstaged or untracked changes on a Knowledge path.',
+    });
+  }
+  if (!stagedPaths.has(OPENWIKI_RECEIPT_PATH)) {
+    violations.push({
+      path: OPENWIKI_RECEIPT_PATH,
+      kind: 'knowledge_output_scope',
+      detail: 'A Knowledge commit must include the lee-spec-kit verification receipt.',
+    });
+  }
+  for (const entry of stagedEntries) {
+    if (isOpenWikiKnowledgePath(entry.path)) continue;
+    violations.push({
+      path: entry.path,
+      kind: 'knowledge_output_scope',
+      detail:
+        'Knowledge commits may contain only openwiki/**, the receipt, and OpenWiki-managed AGENTS.md/CLAUDE.md changes.',
+    });
+  }
+  const selection = await resolveFeatureSelection(cwd);
+  if (selection.status !== 'selected' || !selection.matchedFeature) {
+    violations.push({
+      path: OPENWIKI_RECEIPT_PATH,
+      kind: 'knowledge_output_scope',
+      detail: 'A Knowledge commit must resolve exactly one active Feature.',
+    });
+    return violations;
+  }
+  const knowledgeState = await inspectOpenWikiKnowledge({
+    config,
+    featureRef: selection.matchedFeature.folderName,
+    component: selection.matchedFeature.type,
+    projectCwd: repoRoot,
+  });
+  if (knowledgeState.status !== 'commit_required') {
+    violations.push({
+      path: OPENWIKI_RECEIPT_PATH,
+      kind: 'knowledge_output_scope',
+      detail: `Knowledge audit must report commit_required before commit; received ${knowledgeState.status} (${knowledgeState.reasonCode}).`,
+    });
+  }
+  return violations;
+}
+
+function isKnowledgeCommit(stagedEntries: StagedPathEntry[]): boolean {
+  return stagedEntries.some(
+    (entry) =>
+      entry.path === OPENWIKI_RECEIPT_PATH ||
+      entry.path === '.openwikiignore' ||
+      entry.path === 'AGENTS.md' ||
+      entry.path === 'CLAUDE.md' ||
+      entry.path === 'openwiki' ||
+      entry.path.startsWith('openwiki/')
+  );
+}
+
+function collectUnstagedKnowledgePaths(repoRoot: string): string[] {
+  const paths = new Set<string>();
+  const collect = (args: string[]) => {
+    const output = String(
+      execFileSync('git', args, {
+        cwd: repoRoot,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }) || ''
+    );
+    for (const entry of output.split('\0')) {
+      const normalized = normalizeSlashes(entry.trim());
+      if (normalized && isOpenWikiKnowledgePath(normalized)) {
+        paths.add(normalized);
+      }
+    }
+  };
+  collect(['diff', '--name-only', '-z']);
+  collect(['ls-files', '--others', '--exclude-standard', '-z']);
+  return [...paths].sort();
 }
 
 function normalizeEntryName(value: string): string {

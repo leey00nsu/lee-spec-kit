@@ -11,6 +11,9 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `task add`
 - `decision add`
 - `workflow-stage`
+- `knowledge doctor`
+- `knowledge sync`
+- `knowledge audit`
 - `workflow-audit`
 - `commit-audit`
 - `integrations`

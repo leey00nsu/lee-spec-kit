@@ -67,6 +67,8 @@
     - (verification condition)
   - Checklist:
     - [ ] (subtask)
+  - Docs:
+    - (use a `docs:<path>` or `project:<path>` target, or omit this section)
   - Review Evidence: -
   - Review Decision: -
   - Review Round: -
@@ -83,10 +85,17 @@
 
 > Add tasks below. **At least 1 task is required.**
 > Keep tasks as one ordered list. The list order itself is the execution priority.
-> Prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD --acceptance "..." --check "..."` for appending new tasks.
+> Prefer `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD --acceptance "..." --check "..." --doc "docs:prd/system-architecture.md"` for appending new tasks.
 > To add a new task, append a complete task block below the last existing task. Use an existing PRD key such as `PRD-FR-001` or `PRD-SCOPE-V1-DESKTOP-EDITOR`, or `[NON-PRD]` for internal work.
 > Do not leave placeholder `Acceptance` / `Checklist` content in place; implementation should not start until those items are concrete.
 > If you must edit manually, append it below the last existing task block in `Task List` instead of inserting it near the current task or right before `Completion Criteria`.
+
+---
+
+## Knowledge Sync
+
+- **Policy**: Derived from `.lee-spec-kit.json` `experimental.openwiki`
+- **Receipt**: `.lee-spec-kit/openwiki-sync.json`
 
 ---
 

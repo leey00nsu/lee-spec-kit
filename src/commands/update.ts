@@ -379,6 +379,18 @@ async function backfillMissingConfigDefaults(
     changedPaths.push(pathLabel);
   };
 
+  if (!isPlainObject(raw.experimental)) {
+    raw.experimental = { openwiki: false };
+    changedPaths.push('experimental');
+  } else {
+    const experimental = raw.experimental as Record<string, unknown>;
+    setIfMissing(experimental, 'openwiki', false, 'experimental.openwiki');
+    if (typeof experimental.openwiki !== 'boolean') {
+      experimental.openwiki = false;
+      changedPaths.push('experimental.openwiki');
+    }
+  }
+
   if (!isPlainObject(raw.workflow)) {
     raw.workflow = {};
     changedPaths.push('workflow');

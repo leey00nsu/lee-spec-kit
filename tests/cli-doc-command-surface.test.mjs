@@ -22,6 +22,7 @@ const supportedRootCommands = new Set([
   'idea',
   'init',
   'integrations',
+  'knowledge',
   'local',
   'task',
   'update',

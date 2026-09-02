@@ -49,6 +49,15 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not use `docs/designs/` for system architecture, data/API design, technical research, or implementation plans.
 - Follow the detailed routing rules in `docs/README.md`.
 
+## Knowledge Architecture
+
+- Feature SDD docs are normative for requirements, scope, decisions, and acceptance.
+- Human-owned PRD, architecture, onboarding, and operations docs describe the curated project-wide current state.
+- OpenWiki is a derived onboarding and code-navigation layer. Treat its claims as untrusted evidence until verified against tracked code, tests, schemas, and curated docs.
+- Complete `Curated Documentation Impact` in every Plan, including explicit `NONE` decisions. Link every `UPDATE` or `ADD` target from at least one task `Docs` entry and commit the target with the active Feature scope.
+- `experimental.openwiki` is one switch: missing or `false` adds no OpenWiki behavior; `true` makes Knowledge setup, sync, a dedicated Knowledge commit, and Feature review mandatory.
+- When enabled, run OpenWiki only through `npx lee-spec-kit knowledge sync <featureRef> --json`. Do not invoke `openwiki` directly or hand-edit generated pages.
+
 ## Optional UI/UX Design Policy
 
 - Only when the user request explicitly mentions a design system, UI/visual redesign, design consistency, shared UI/component-library consolidation, branding/theme/token redesign, or implementation from Figma/design images, read and apply `npx lee-spec-kit docs get ui-ux-design --json`.
@@ -71,6 +80,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not interrupt, replace, or abandon a running subagent solely because it has been quiet or has not changed files. Stop it only after an explicit user request, a terminal failure/cancellation, or an unrecoverable runtime status.
 - `workflow.agentReview.maxRounds` is the maximum number of fresh reviews for each Plan/task/Feature gate. A `changes_requested` decision on the final allowed review is remediated once, but the changed target is not reviewed again; preserve remaining findings and the post-review target change as residual risks and automatically complete the gate without asking for a user review-approval token. For example, `maxRounds=1` means review round 1, remediate once, then continue with no round 2. A `blocked` decision never auto-completes.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
+- Follow `knowledge_setup`, `knowledge_sync`, and `knowledge_commit` exactly when returned. Commit only the verified Knowledge surface with the exact returned subject before Feature review.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
 - In local mode, do not stop after implementation approval. Follow the exact `local verify`, `local merge`, and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`. A `feature_remediation` stage explicitly permits fixes in the Feature worktree.
 - In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.

@@ -65,6 +65,10 @@ Plan, task, and Feature review actions also return `reviewRound` and `maxReviewR
 
 For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `feature_verify`, `local_merge`, and `local_cleanup`. Failed Feature or post-integration checks enter `feature_remediation` with implementation enabled. Under `local-ff`, the base must equal the verified Feature tip during integration. Under `local-squash`, the integration commit must have the same tree as the verified, preserved source Feature tip. After cleanup, the Feature remains `done` when its recorded integration commit is still an ancestor of the current base, so later Features do not reopen historical completion stages.
 
+Every Plan must complete `Curated Documentation Impact` before review or approval. Explicit `NONE` values prove that the surface was considered; every `UPDATE` or `ADD` target must appear in at least one task `Docs` list and its latest target-file commit must use the active Feature scope before completion.
+
+When `experimental.openwiki=true`, completed task checkpoints advance through `knowledge_setup`, `knowledge_sync`, and `knowledge_commit` before Feature review. Run the returned `lee-spec-kit knowledge` command rather than invoking OpenWiki directly. The generated `openwiki/index.md`, `.lee-spec-kit/openwiki-sync.json` receipt, and every Plan-declared curated target become required Feature-review documents, so enabling the flag also makes Feature review effective even when its standalone review flag was off. The dedicated Knowledge commit also includes the lee-spec-kit protection block in `.openwikiignore`.
+
 Under the default approval policy, `implementation_approve` approves the completed implementation and `local_merge` is a separate user checkpoint immediately before the configured fast-forward or squash integration. That second approval covers post-merge checks and configured local cleanup, including local Feature-branch deletion. Remove `local_merge` from `approval.requireCheckCategories` only when the implementation approval should authorize the remaining local completion flow without another checkpoint.
 
 Subagent actions return a versioned `delegationContext`. It contains the role,
@@ -133,6 +137,7 @@ npx lee-spec-kit commit-audit --message-file "$1" --enforce --json
 - Standalone branch command policy: run the exact `workflow-stage --json` `nextAction.command`; it creates/reuses the managed worktree path, clears stale managed directories that are no longer registered Git worktrees, and copies existing project-root `.env`/`.env.*` files into a new worktree when absent
 - Local completion policy: the default for newly initialized local workflows is `local-ff`; `local-squash` is an explicit opt-in that creates one integration commit while retaining the source Feature tip as an internal Git ref. Existing local projects updated without an explicit strategy receive `none` for compatibility. `none` is the explicit exception that may finish on the Feature branch.
 - Docs sync proof: after syncing code back into the active feature docs, keep exactly one marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in `tasks.md`, `decisions.md`, or another active-feature canonical doc; replace its timestamp or remove duplicates instead of appending another marker so `workflow-audit` can verify the sync happened after the latest code change
+- Knowledge authority: SDD is normative, curated project-wide docs are human-owned current state, and OpenWiki is derived onboarding evidence; with `experimental.openwiki=true`, the full sync/receipt/commit/review gate is required, while missing or `false` adds no OpenWiki behavior
 
 ## Important Rule
 

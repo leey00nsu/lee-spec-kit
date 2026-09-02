@@ -20,6 +20,7 @@ interface ConfigFile {
   docsRemote?: string;
   projectRoot?: string | Record<string, string>;
   allowedDocsEntries?: ProjectConfig['allowedDocsEntries'];
+  experimental?: ProjectConfig['experimental'];
   pr?: ProjectConfig['pr'];
   workflow?: ProjectConfig['workflow'];
   approval?: ProjectConfig['approval'];
@@ -112,6 +113,7 @@ function toProjectConfig(
     docsRemote: configFile.docsRemote,
     projectRoot: configFile.projectRoot,
     allowedDocsEntries: configFile.allowedDocsEntries,
+    experimental: configFile.experimental,
     pr: configFile.pr,
     workflow: configFile.workflow,
     approval: configFile.approval,

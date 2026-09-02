@@ -48,6 +48,10 @@ test('task add appends a complete task block to tasks.md', async () => {
       'add command handler',
       '--check',
       'cover CLI output',
+      '--doc',
+      'project:README.md',
+      '--doc',
+      'docs:prd/system-architecture.md',
       '--json',
     ]);
 
@@ -57,6 +61,10 @@ test('task add appends a complete task block to tasks.md', async () => {
     assert.equal(payload.reasonCode, 'TASK_ADDED');
     assert.equal(payload.feature, 'F001-alpha');
     assert.equal(payload.taskId, 'T-F001-alpha-01');
+    assert.deepEqual(payload.docTargets, [
+      'project:README.md',
+      'docs:prd/system-architecture.md',
+    ]);
     assert.equal(payload.tasksUpdated, true);
 
     const tasks = await fs.readFile(path.join(featureDir, 'tasks.md'), 'utf-8');
@@ -65,6 +73,10 @@ test('task add appends a complete task block to tasks.md', async () => {
       /- \[TODO\]\[NON-PRD\] T-F001-alpha-01 implement alpha shell\n {2}- Date: \d{4}-\d{2}-\d{2}\n {2}- Acceptance:\n {4}- alpha command renders expected output\n {2}- Checklist:\n {4}- \[ \] add command handler\n {4}- \[ \] cover CLI output/
     );
     assert.match(tasks, / {2}- Review Evidence: -/);
+    assert.match(
+      tasks,
+      / {2}- Docs:\n {4}- project:README\.md\n {4}- docs:prd\/system-architecture\.md/
+    );
     assert.match(tasks, / {2}- Review Decision: -/);
     assert.match(tasks, / {2}- Reviewed Head: -/);
     assert.match(tasks, / {2}- Reviewed Tree: -/);
@@ -72,6 +84,59 @@ test('task add appends a complete task block to tasks.md', async () => {
       tasks.indexOf('T-F001-alpha-01 implement alpha shell') <
         tasks.indexOf('## Completion Criteria')
     );
+  });
+});
+
+test('task add rejects generated Knowledge and Feature-local curated doc targets', async () => {
+  await withTempDir('lsk-task-add-curated-targets-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    for (const target of [
+      'project:openwiki/index.md',
+      'project:.lee-spec-kit/openwiki-sync.json',
+      'docs:features/F001-alpha/plan.md',
+    ]) {
+      const result = await runCli(dir, [
+        'task',
+        'add',
+        'F001-alpha',
+        '--title',
+        'invalid curated target',
+        '--ref',
+        'NON-PRD',
+        '--acceptance',
+        'target is rejected',
+        '--check',
+        'run validation',
+        '--doc',
+        target,
+        '--json',
+      ]);
+      assert.notEqual(result.code, 0, target);
+      assert.match(result.stdout || result.stderr, /docs:<path>|project:<path>/u);
+    }
   });
 });
 

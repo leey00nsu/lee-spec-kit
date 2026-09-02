@@ -67,6 +67,8 @@
     - (검증 조건)
   - Checklist:
     - [ ] (서브 태스크)
+  - Docs:
+    - (`docs:<path>` 또는 `project:<path>` 대상을 사용하거나 이 섹션을 생략)
   - Review Evidence: -
   - Review Decision: -
   - Review Round: -
@@ -83,10 +85,17 @@
 
 > 아래에 태스크를 추가하세요. **최소 1개가 필요**합니다.
 > 태스크는 하나의 순차 리스트로 유지하고, 위에서 아래 순서 자체를 실행 우선순위로 취급하세요.
-> 새 태스크 append에는 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD --acceptance "..." --check "..."` 사용을 우선하세요.
+> 새 태스크 append에는 `npx lee-spec-kit task add <feature-ref> --title "..." --ref NON-PRD --acceptance "..." --check "..." --doc "docs:prd/system-architecture.md"` 사용을 우선하세요.
 > 새 태스크는 마지막 기존 태스크 아래에 완전한 태스크 블록으로 추가하세요. `PRD-FR-001`이나 `PRD-SCOPE-V1-DESKTOP-EDITOR`처럼 이미 정의된 PRD key를 사용하거나, 내부 작업이면 `[NON-PRD]`를 사용합니다.
 > placeholder 상태의 `Acceptance` / `Checklist`를 그대로 두지 마세요. 구체 항목이 아니면 구현을 시작하지 않습니다.
 > 수동 편집이 필요하면 현재 태스크 근처가 아니라 `태스크 목록`의 마지막 기존 태스크 block 아래에만 append 하세요.
+
+---
+
+## Knowledge Sync
+
+- **Policy**: `.lee-spec-kit.json`의 `experimental.openwiki`에서 파생
+- **Receipt**: `.lee-spec-kit/openwiki-sync.json`
 
 ---
 

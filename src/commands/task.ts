@@ -21,6 +21,10 @@ import {
   normalizeRequiredText,
   resolveFeatureDocTarget,
 } from '../utils/doc-mutation.js';
+import {
+  isValidDocumentationTarget,
+  normalizeDocumentationTarget,
+} from '../utils/documentation-impact.js';
 
 interface TaskAddOptions {
   component?: string;
@@ -28,6 +32,7 @@ interface TaskAddOptions {
   ref: string;
   acceptance?: string[];
   check?: string[];
+  doc?: string[];
   json?: boolean;
 }
 
@@ -50,6 +55,7 @@ function formatTaskBlock(input: {
   date: string;
   acceptanceItems: string[];
   checklistItems: string[];
+  docTargets: string[];
 }): string[] {
   return [
     `- [TODO][${input.ref}] ${input.taskId} ${input.title}`,
@@ -58,6 +64,9 @@ function formatTaskBlock(input: {
     ...input.acceptanceItems.map((item) => `    - ${item}`),
     '  - Checklist:',
     ...input.checklistItems.map((item) => `    - [ ] ${item}`),
+    ...(input.docTargets.length > 0
+      ? ['  - Docs:', ...input.docTargets.map((item) => `    - ${item}`)]
+      : []),
     '  - Review Evidence: -',
     '  - Review Decision: -',
     '  - Reviewed Head: -',
@@ -79,6 +88,19 @@ async function runTaskAdd(
   const ref = normalizeTaskRef(options.ref);
   const acceptanceItems = normalizeRequiredItems(options.acceptance, '--acceptance');
   const checklistItems = normalizeRequiredItems(options.check, '--check');
+  const docTargets = (options.doc || [])
+    .map((value) => normalizeRequiredText(value, '--doc'))
+    .map(normalizeDocumentationTarget)
+    .filter(Boolean);
+  const invalidDocTargets = docTargets.filter(
+    (target) => !isValidDocumentationTarget(target)
+  );
+  if (invalidDocTargets.length > 0) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      `\`--doc\` targets must use \`docs:<path>\` or \`project:<path>\`: ${invalidDocTargets.join(', ')}`
+    );
+  }
 
   const docsDir = target.feature.git.docsGitCwd;
   return withFileLock(
@@ -110,6 +132,7 @@ async function runTaskAdd(
         date: recordedAt,
         acceptanceItems,
         checklistItems,
+        docTargets,
       });
 
       const shouldPrefixBlank =
@@ -133,6 +156,7 @@ async function runTaskAdd(
         taskId,
         title,
         ref,
+        docTargets,
         tasksUpdated: true,
         tasksPath: target.path,
         recordedAt,
@@ -169,6 +193,12 @@ export function taskCommand(program: Command): void {
     .option(
       '--check <text>',
       'Concrete checklist item. Repeat to add more than one.',
+      collectRepeatableOption,
+      []
+    )
+    .option(
+      '--doc <target>',
+      'Curated docs target: docs:<path> or project:<path>. Repeat for more than one.',
       collectRepeatableOption,
       []
     )

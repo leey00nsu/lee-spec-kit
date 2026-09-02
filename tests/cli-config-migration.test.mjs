@@ -36,6 +36,58 @@ async function runConfigUpdate(dir) {
   );
 }
 
+test('update backfills the OpenWiki experiment to false without enabling behavior', async () => {
+  await withTempDir('lsk-config-openwiki-backfill-', async (dir) => {
+    await writeProjectConfig(dir, { workflow: { mode: 'local' } });
+
+    const updated = await runConfigUpdate(dir);
+
+    assert.deepEqual(updated.experimental, { openwiki: false });
+  });
+});
+
+test('config controls OpenWiki with one strict boolean flag', async () => {
+  await withTempDir('lsk-config-openwiki-toggle-', async (dir) => {
+    await writeProjectConfig(dir, {
+      experimental: {},
+      workflow: { mode: 'local' },
+    });
+
+    let result = await runCli(dir, ['config', '--openwiki', 'true']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    let config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.deepEqual(config.experimental, { openwiki: true });
+
+    result = await runCli(dir, ['config', '--openwiki', 'warn']);
+    assert.notEqual(result.code, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /true.*false/u);
+
+    result = await runCli(dir, ['config', '--openwiki', 'false']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    config = JSON.parse(
+      await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf-8')
+    );
+    assert.deepEqual(config.experimental, { openwiki: false });
+  });
+});
+
+test('detect rejects a malformed OpenWiki experiment instead of treating it as false', async () => {
+  await withTempDir('lsk-config-openwiki-invalid-detect-', async (dir) => {
+    await writeProjectConfig(dir, {
+      experimental: { openwiki: 'true' },
+      workflow: { mode: 'local' },
+    });
+
+    const result = await runCli(dir, ['detect', '--json']);
+    assert.notEqual(result.code, 0);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.reasonCode, 'INVALID_CONFIG');
+  });
+});
+
 const workflowMigrationCases = [
   {
     name: 'preset-only local remains local',

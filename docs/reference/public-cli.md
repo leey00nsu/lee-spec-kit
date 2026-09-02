@@ -12,6 +12,7 @@ Initialize the current docs schema and seed the workspace-scoped `AGENTS.md` ent
 npx lee-spec-kit init
 npx lee-spec-kit init --name my-project --type multi
 npx lee-spec-kit init --workflow local --task-agent off --reviews plan,task,feature --max-review-rounds 2 --completion-strategy local-squash
+npx lee-spec-kit init --openwiki true --non-interactive
 ```
 
 Interactive init offers recommended defaults or custom workflow automation. Use
@@ -35,7 +36,10 @@ npx lee-spec-kit config
 npx lee-spec-kit config --interactive
 npx lee-spec-kit config --task-agent on --reviews plan,feature --max-review-rounds 1
 npx lee-spec-kit config --completion-strategy local-squash
+npx lee-spec-kit config --openwiki true
 ```
+
+`experimental.openwiki` is deliberately one boolean. Missing or `false` means no OpenWiki stages or gates. `true` enables the complete required Knowledge flow; there are no warn-only or partial modes.
 
 Projects created before task delegation and Plan/Task review settings existed
 keep those newly introduced policies disabled during runtime and `update` unless
@@ -118,6 +122,22 @@ npx lee-spec-kit local cleanup F001-alpha --json
 ```
 
 `local verify` runs `workflow.featureChecks` in the Feature worktree and records diagnostics against its exact commit and tree. A failure enters `feature_remediation`. `local merge` then uses `workflow.completionStrategy`: `local-ff` moves the base to the verified SHA, while `local-squash` creates one commit whose tree matches the verified source and preserves that source under `refs/lee-spec-kit/integrations/*`. Optional `workflow.postMergeChecks` run only after integration; a failure rolls the base back before remediation. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when configured.
+
+### `knowledge`
+
+Manage the optional OpenWiki onboarding layer for one active Feature.
+
+```bash
+npx lee-spec-kit knowledge doctor F001-alpha --json
+npx lee-spec-kit knowledge sync F001-alpha --json
+npx lee-spec-kit knowledge audit F001-alpha --enforce --json
+```
+
+When `experimental.openwiki` is `true`, `workflow-stage` inserts `knowledge_setup`, `knowledge_sync`, and `knowledge_commit` after completed task checkpoints and before Feature review. The adapter requires Node.js 22+ and OpenWiki `>=0.5.0 <1.0.0`, runs the code-mode update path without implicitly creating a scheduled CI workflow, validates generated links, symlinks, high-confidence secret patterns, managed `AGENTS.md`/`CLAUDE.md` blocks, source/base freshness, and writes `.lee-spec-kit/openwiki-sync.json`. It also maintains a final lee-spec-kit block in `.openwikiignore` for common environment, key, certificate, credential, and secret paths; user-authored ignore rules before that block are preserved. lee-spec-kit never installs OpenWiki or provider credentials.
+
+This validation is a workflow integrity boundary, not an OS sandbox. OpenWiki runs as an external agent in the project working directory with its configured provider credentials. Use a trusted repository and an isolated runtime appropriate to the project's secret model; local and ignored secret exposure remains an operator responsibility.
+
+The authority order is intentional: Feature SDD is normative, human-owned project-wide documentation is curated current state, and OpenWiki is derived onboarding evidence. Every curated target declared by the Plan is included in the Feature review contract, including absolute cross-repository paths in standalone mode. The generated Knowledge surface must be committed separately with the exact subject returned by `workflow-stage`.
 
 ## Integration Commands
 

@@ -49,6 +49,15 @@
 - `docs/designs/`를 시스템 아키텍처, 데이터/API 설계, 기술 조사, 구현 계획의 목적지로 사용하지 않습니다.
 - 세부 설명은 `docs/README.md`의 문서 라우팅 규칙을 따릅니다.
 
+## Knowledge Architecture
+
+- Feature SDD 문서는 요구사항, 범위, 결정, 인수 조건의 규범입니다.
+- 사람이 관리하는 PRD, 아키텍처, 온보딩, 운영 문서는 프로젝트 전체의 현재 상태를 설명합니다.
+- OpenWiki는 파생된 온보딩·코드 탐색 계층입니다. 그 내용은 tracked 코드, 테스트, 스키마, curated 문서로 검증하기 전까지 신뢰하지 않는 evidence로 취급합니다.
+- 모든 Plan에서 명시적인 `NONE`을 포함해 `Curated Documentation Impact` 판정을 완료합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 항목에서 연결하고 활성 Feature scope로 커밋합니다.
+- `experimental.openwiki`는 단일 스위치입니다. 누락 또는 `false`면 OpenWiki 동작이 없고, `true`면 Knowledge 준비·동기화·전용 커밋·Feature 리뷰가 모두 필수입니다.
+- 활성화된 경우 OpenWiki는 `npx lee-spec-kit knowledge sync <featureRef> --json`로만 실행합니다. `openwiki`를 직접 호출하거나 생성 페이지를 손으로 수정하지 않습니다.
+
 ## 선택적 UI/UX 디자인 정책
 
 - 사용자 요청에 design system, UI/visual redesign, 디자인 일관성, 공통 UI/component library 정리, branding/theme/token 재설계, Figma/디자인 이미지 기반 구현이 명시된 경우에만 `npx lee-spec-kit docs get ui-ux-design --json`을 읽고 적용합니다.
@@ -71,6 +80,7 @@
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 서브에이전트를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.
 - `workflow.agentReview.maxRounds`는 Plan/task/Feature 게이트별 fresh 리뷰의 최대 실행 횟수입니다. 마지막 허용 리뷰가 `changes_requested`이면 지적을 한 번 반영하지만 변경된 target을 다시 리뷰하지 않으며, 남은 finding과 리뷰 이후 target 변경을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 게이트를 자동 완료합니다. 예를 들어 `maxRounds=1`이면 Round 1 리뷰와 지적 반영 후 Round 2 없이 계속합니다. `blocked` 결정은 자동 완료하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
+- `knowledge_setup`, `knowledge_sync`, `knowledge_commit`이 반환되면 그대로 수행합니다. Feature 리뷰 전에 검증된 Knowledge surface만 반환된 정확한 subject로 커밋합니다.
 - standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.
 - `local-ff` 또는 `local-squash` workflow에서 `local_merge` 승인이 필요하면 구현 승인과 local merge 승인을 구분합니다. 첫 번째 승인은 구현 결과를 수락하고, 두 번째 승인은 설정된 통합 전략, post-merge 검사, local cleanup을 허가합니다.

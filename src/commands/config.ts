@@ -31,6 +31,7 @@ interface ConfigOptions {
   reviews?: string;
   maxReviewRounds?: string;
   completionStrategy?: 'local-ff' | 'local-squash' | 'none';
+  openwiki?: string;
   interactive?: boolean;
   nonInteractive?: boolean;
 }
@@ -96,6 +97,16 @@ function validateWorkflowOptions(options: ConfigOptions): void {
   }
   parseReviews(options.reviews);
   parseMaxReviewRounds(options.maxReviewRounds);
+  if (
+    options.openwiki !== undefined &&
+    options.openwiki !== 'true' &&
+    options.openwiki !== 'false'
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      '`--openwiki` must be `true` or `false`.'
+    );
+  }
 }
 
 export function configCommand(program: Command): void {
@@ -117,6 +128,10 @@ export function configCommand(program: Command): void {
     .option(
       '--completion-strategy <strategy>',
       'Local completion: local-ff | local-squash | none'
+    )
+    .option(
+      '--openwiki <boolean>',
+      'Experimental required OpenWiki knowledge layer: true | false'
     )
     .option('--interactive', 'Configure workflow options interactively')
     .option('--non-interactive', 'Fail instead of prompting for input')
@@ -165,9 +180,10 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     typeof options.maxReviewRounds !== 'undefined' ||
     typeof options.completionStrategy !== 'undefined' ||
     !!options.interactive;
+  const hasExperimentalOptions = typeof options.openwiki !== 'undefined';
 
   // 옵션 없이 실행: 현재 설정 출력
-  if (!options.projectRoot && !hasWorkflowOptions) {
+  if (!options.projectRoot && !hasWorkflowOptions && !hasExperimentalOptions) {
     console.log();
     console.log(chalk.blue(tr(config.lang, 'cli', 'config.currentTitle')));
     console.log();
@@ -200,6 +216,14 @@ async function runConfig(options: ConfigOptions): Promise<void> {
       }
       if (hasWorkflowOptions) {
         await updateWorkflowConfig(configFile, options, config.lang);
+      }
+      if (hasExperimentalOptions) {
+        configFile.experimental = {
+          ...(isPlainObject(configFile.experimental)
+            ? configFile.experimental
+            : {}),
+          openwiki: options.openwiki === 'true',
+        };
       }
 
       await fs.writeJson(configPath, configFile, { spaces: 2 });

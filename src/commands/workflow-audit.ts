@@ -17,6 +17,10 @@ import { getTemplatesDir } from '../utils/paths.js';
 import { applyLocalWorkflowTemplateToContent } from '../utils/local-workflow-template.js';
 import { applyReplacements } from '../utils/template.js';
 import type { ProjectConfig } from '../config/types.js';
+import {
+  isOpenWikiEnabled,
+  isOpenWikiKnowledgePath,
+} from '../utils/openwiki-knowledge.js';
 
 interface WorkflowAuditOptions {
   json?: boolean;
@@ -145,7 +149,7 @@ async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> 
   }
 
   const changedCodePaths = collectChangedRecords(codeRoots, config.docsDir).filter(
-    isCodeChange
+    (record) => isCodeChange(record, config)
   );
   const outOfScopeStandaloneCodePaths = collectOutOfScopeStandaloneCodeChanges(
     config,
@@ -332,9 +336,15 @@ function featureRefFromDocPath(relativeToDocs: string | null): string | null {
   return match?.[1] ?? null;
 }
 
-function isCodeChange(record: ChangedPathRecord): boolean {
+function isCodeChange(
+  record: ChangedPathRecord,
+  config?: ProjectConfig
+): boolean {
   if (record.relativeToDocs) return false;
   const normalized = record.relativeToRepo;
+  if (config && isOpenWikiEnabled(config) && isOpenWikiKnowledgePath(normalized)) {
+    return false;
+  }
   if (
     normalized.startsWith('.git/') ||
     normalized.startsWith('.codex/') ||
@@ -629,7 +639,7 @@ function collectOutOfScopeStandaloneCodeChanges(
   }
 
   return collectChangedRecords([...new Set(extraRoots)], config.docsDir).filter(
-    isCodeChange
+    (record) => isCodeChange(record, config)
   );
 }
 

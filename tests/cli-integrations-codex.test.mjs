@@ -11,6 +11,19 @@ import {
   withTempDir,
 } from './helpers/cli-contract-helpers.mjs';
 
+function completeNoImpactAssessment(content) {
+  let next = content.replace('- **Assessment**: Pending', '- **Assessment**: Complete');
+  for (const field of [
+    'Product requirements',
+    'System architecture',
+    'Onboarding entrypoint',
+    'Operational/runtime contract',
+  ]) {
+    next = next.replace(`- **${field}**: -`, `- **${field}**: NONE`);
+  }
+  return next.replace('- **Reason**: -', '- **Reason**: Test fixture has no curated documentation impact.');
+}
+
 test('integrations codex-bootstrap creates managed Codex hooks flag in CODEX_HOME config.toml', async () => {
   await withTempDir('lsk-setup-codex-bootstrap-', async (dir) => {
     const homeDir = path.join(dir, 'home');
@@ -672,6 +685,80 @@ test('generated pre-tool hook blocks commit when staged docs paths violate commi
   });
 });
 
+test('generated pre-tool hook blocks direct OpenWiki only when the single experiment flag is true', async () => {
+  await withTempDir('lsk-codex-hook-openwiki-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--openwiki',
+      'true',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    const fakeNpx = await setupFakeNpxCli(dir);
+    const hookPath = path.join(
+      dir,
+      '.codex',
+      'hooks',
+      'pre_tool_use_policy.mjs'
+    );
+    const invoke = (command) =>
+      runCommand(dir, process.execPath, [hookPath], {
+        env: fakeNpx.env,
+        input: JSON.stringify({
+          cwd: dir,
+          tool_input: { command },
+        }),
+      });
+
+    let hookResult = await invoke('npx -y openwiki code --update --print');
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    let payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.decision, 'block');
+    assert.match(payload.reason, /lee-spec-kit knowledge sync/);
+
+    for (const command of [
+      'npx --yes openwiki@0.5.0 code --update --print',
+      'pnpm dlx openwiki code --update --print',
+      'npm exec -- openwiki code --update --print',
+      'bash -c "openwiki code --update --print"',
+      'sudo openwiki code --update --print',
+      'corepack pnpm dlx openwiki code --update --print',
+      'npm run openwiki -- --update',
+      'bash -c openwiki code --update --print',
+    ]) {
+      hookResult = await invoke(command);
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      payload = JSON.parse(hookResult.stdout.trim());
+      assert.equal(payload.decision, 'block', command);
+      assert.match(payload.reason, /lee-spec-kit knowledge sync/);
+    }
+
+    hookResult = await invoke('ls openwiki');
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    assert.equal(hookResult.stdout.trim(), '');
+
+    const disable = await runCli(dir, ['config', '--openwiki', 'false']);
+    assert.equal(disable.code, 0, disable.stderr || disable.stdout);
+    hookResult = await invoke('openwiki code --update --print');
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    assert.equal(hookResult.stdout.trim(), '');
+  });
+});
+
 test('generated pre-tool hook blocks commits while task implementation is active', async () => {
   await withTempDir('lsk-codex-hook-task-worker-commit-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);
@@ -711,7 +798,11 @@ test('generated pre-tool hook blocks commits while task implementation is active
       const content = await fs.readFile(filePath, 'utf-8');
       await fs.writeFile(
         filePath,
-        content.replace(/- \*\*Status\*\*: .*/, '- **Status**: Approved'),
+        fileName === 'plan.md'
+          ? completeNoImpactAssessment(
+              content.replace(/- \*\*Status\*\*: .*/, '- **Status**: Approved')
+            )
+          : content.replace(/- \*\*Status\*\*: .*/, '- **Status**: Approved'),
         'utf-8'
       );
     }
@@ -1289,7 +1380,11 @@ test('generated pre-tool hook allows exact standalone branch_create nextAction c
       const content = await fs.readFile(filePath, 'utf-8');
       await fs.writeFile(
         filePath,
-        content.replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved'),
+        fileName === 'plan.md'
+          ? completeNoImpactAssessment(
+              content.replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved')
+            )
+          : content.replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved'),
         'utf-8'
       );
     }

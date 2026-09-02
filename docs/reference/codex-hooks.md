@@ -75,6 +75,7 @@ The hook installer warns when a target `AGENTS.md` does not contain the current 
 - Uses `workflow-audit --json` before allowing risky remote or destructive commands
 - In `standalone`, commit-time docs validation follows the actual `git -C <repo>` target while workflow sync checks `projectRoot` against the active feature docs and only writes/install files through the configured `workspaceRoot`
 - In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so docs stay on the docs branch, while the exact branch-stage `nextAction.command` is allowed and points at the shared workspace `.worktrees/` root instead of the main project checkout
+- When `experimental.openwiki=true`, direct `openwiki` shell commands are blocked so generation cannot bypass `knowledge sync` scope, receipt, and freshness validation. Missing or `false` adds no OpenWiki-specific hook behavior.
 
 `PreToolUse` is a workflow guardrail, not a complete security boundary. Current Codex releases do not intercept every `unified_exec` shell path, web tool, or equivalent side-effect path. For Git-native commit-message enforcement, a `commit-msg` hook can call `npx lee-spec-kit commit-audit --message-file "$1" --enforce --json`; keep irreversible policy enforcement in Git hooks, CI, repository permissions, or managed Codex policy.
 
@@ -83,6 +84,7 @@ The hook installer warns when a target `AGENTS.md` does not contain the current 
 - Runs `workflow-audit --json`
 - `workflow-audit` now expects exactly one explicit marker such as `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in the active feature docs after code/doc sync; replace the marker timestamp or remove duplicates instead of appending another marker
 - If docs are not synced with code changes, it continues Codex for one more pass instead of letting the turn stop early
+- When OpenWiki is enabled, it also continues while `knowledge_setup`, `knowledge_sync`, or `knowledge_commit` is still pending
 
 ## Optional Global Bootstrap
 
