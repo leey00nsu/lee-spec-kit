@@ -735,6 +735,18 @@ test('workflow-stage delegates Plan review before approval and invalidates evide
     assert.equal(review.nextAction.model, 'inherit');
     assert.equal(review.nextAction.reasoningEffort, 'high');
     assert.equal(review.nextAction.onUnavailable, 'inherit');
+    assert.equal(review.nextAction.delegationContext.version, 1);
+    assert.equal(review.nextAction.delegationContext.role, 'plan_reviewer');
+    assert.deepEqual(
+      review.nextAction.delegationContext.requiredDocuments.map(
+        (document) => document.path
+      ),
+      ['features/F001-alpha/spec.md', 'features/F001-alpha/plan.md']
+    );
+    assert.equal(
+      review.nextAction.delegationContext.reviewTarget.specHash,
+      review.nextAction.specHash
+    );
     assert.equal(review.implementationAllowed, false);
     assert.equal(review.blockedReasonCode, 'PLAN_REVIEW_NOT_APPROVED');
 
@@ -1042,6 +1054,42 @@ test('workflow-stage allows implementation only after issue creation and expecte
       requestApproval: false,
       remoteActions: false,
     });
+    assert.equal(payload.nextAction.delegationContext.version, 1);
+    assert.equal(
+      payload.nextAction.delegationContext.role,
+      'task_implementation_worker'
+    );
+    assert.equal(
+      payload.nextAction.delegationContext.task.id,
+      'T-F001-alpha-01'
+    );
+    assert.deepEqual(
+      payload.nextAction.delegationContext.task.acceptanceCriteria,
+      ['alpha shell renders']
+    );
+    assert.match(
+      payload.nextAction.delegationContext.task.instructions,
+      /Checklist:[\s\S]*add UI/
+    );
+    assert.match(
+      payload.nextAction.delegationContext.verificationContract,
+      /^## Verification Contract/m
+    );
+    assert.deepEqual(
+      payload.nextAction.delegationContext.requiredDocuments.map(
+        (document) => document.path
+      ),
+      ['features/F001-alpha/tasks.md', 'features/F001-alpha/plan.md']
+    );
+    assert.deepEqual(
+      payload.nextAction.delegationContext.referenceDocuments.map(
+        (document) => document.path
+      ),
+      [
+        'features/F001-alpha/spec.md',
+        'features/F001-alpha/decisions.md',
+      ]
+    );
     assert.match(payload.nextAction.summary, /delegate implementation/i);
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, true);
@@ -1504,6 +1552,21 @@ test('workflow-stage runs Feature review before implementation approval', async 
     assert.equal(payload.nextAction.category, 'pre_pr_review');
     assert.equal(payload.nextAction.executor, 'subagent');
     assert.equal(payload.nextAction.reviewScope, 'feature');
+    assert.equal(
+      payload.nextAction.delegationContext.role,
+      'feature_reviewer'
+    );
+    assert.deepEqual(
+      payload.nextAction.delegationContext.requiredDocuments.map(
+        (document) => document.path
+      ),
+      [
+        'features/F001-alpha/spec.md',
+        'features/F001-alpha/plan.md',
+        'features/F001-alpha/tasks.md',
+        'features/F001-alpha/decisions.md',
+      ]
+    );
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'PRE_PR_REVIEW_NOT_APPROVED');
@@ -1558,9 +1621,19 @@ test('workflow-stage gates REVIEW tasks on a fresh subagent decision bound to th
     assert.equal(initial.nextAction.onUnavailable, 'error');
     assert.equal(initial.nextAction.reviewScope, 'task');
     assert.equal(initial.nextAction.taskId, 'T-F001-alpha-01');
+    assert.equal(initial.nextAction.delegationContext.role, 'task_reviewer');
+    assert.equal(
+      initial.nextAction.delegationContext.task.id,
+      initial.nextAction.taskId
+    );
     assert.ok(initial.nextAction.baseSha);
     assert.ok(initial.nextAction.targetSha);
     assert.ok(initial.nextAction.targetTree);
+    assert.deepEqual(initial.nextAction.delegationContext.reviewTarget, {
+      baseSha: initial.nextAction.baseSha,
+      targetSha: initial.nextAction.targetSha,
+      targetTree: initial.nextAction.targetTree,
+    });
 
     const evidencePath = path.join(featureDir(dir), 'review-trace.json');
     await fs.writeFile(evidencePath, '{"taskReviews":{}}\n', 'utf-8');

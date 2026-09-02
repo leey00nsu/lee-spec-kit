@@ -18,6 +18,7 @@ This scaffolds project-local files under `.codex/`:
 - `.codex/hooks.json`
 - `.codex/hooks/_lee_spec_kit_hook_utils.mjs`
 - `.codex/hooks/session_start_lee_spec_kit.mjs`
+- `.codex/hooks/subagent_start_lee_spec_kit.mjs`
 - `.codex/hooks/user_prompt_submit_lee_spec_kit.mjs`
 - `.codex/hooks/pre_tool_use_policy.mjs`
 - `.codex/hooks/stop_workflow_audit.mjs`
@@ -42,9 +43,26 @@ After installation, run `/hooks` in Codex and review and trust each generated pr
 ### `SessionStart`
 
 - Detects whether the workspace is a lee-spec-kit project
-- Injects workflow context into Codex developer instructions
-- Tells Codex to resolve the next allowed stage through `workflow-stage --json`
+- Injects primary-agent workflow context into Codex developer instructions
+- Tells primary agents to resolve the next allowed stage through `workflow-stage --json`
 - Re-runs on `startup`, `resume`, `clear`, and post-compaction session starts
+
+### `SubagentStart`
+
+- Uses Codex's native subagent lifecycle event and exposes the reported `agent_type`
+- Tells delegated subagents to skip primary-agent detection, built-in-doc startup, and `workflow-stage`
+- Directs them to follow the exact `delegationContext` and `workerContract` supplied by the primary agent
+- Allows role-specific `requiredDocuments` and conditional `referenceDocuments`, while excluding built-in policy docs, unrelated Features, and unlisted Feature docs
+- Directs the subagent to ask the parent agent before expanding a missing or insufficient contract
+
+Install current agent instructions before refreshing hooks in an existing project:
+
+```bash
+npx lee-spec-kit update --agents-md
+npx lee-spec-kit integrations codex-hooks
+```
+
+The hook installer warns when a target `AGENTS.md` does not contain the current delegation-context contract marker.
 
 ### `UserPromptSubmit`
 

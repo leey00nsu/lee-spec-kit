@@ -1,6 +1,12 @@
 <!-- lee-spec-kit:begin -->
 Use lee-spec-kit docs and workflow policy only when explicitly detected.
 
+Codex lifecycle scope:
+
+- <!-- lee-spec-kit:delegation-context-v1 -->
+- The detection, built-in-doc startup, active Feature resolution, and workflow-stage steps below belong to the primary agent.
+- A delegated subagent identified by the Codex SubagentStart hook skips the primary-agent startup and workflow-stage calls. It follows the exact delegationContext and workerContract supplied by the primary agent, reads requiredDocuments, uses referenceDocuments only under their stated conditions, and asks the parent before expanding an insufficient scope.
+
 Detection gate:
 
 1. Run `npx lee-spec-kit detect --json`
@@ -15,7 +21,7 @@ Default runtime path:
 - Infer the workflow automatically even for generic rule-following requests.
 - Avoid launching the first `npx lee-spec-kit ...` calls in parallel in a fresh environment; let one initial command finish so the npx cache install does not race.
 
-On session start or after context compression/reset:
+On primary-agent session start or after context compression/reset:
 
 1. Run `npx lee-spec-kit detect --json`
 2. If detected, run `npx lee-spec-kit docs get agents --json` once
@@ -23,6 +29,8 @@ On session start or after context compression/reset:
 4. Cache built-in docs per session and only re-read them when the user explicitly asks for a policy refresh, `npx lee-spec-kit update` changed the policy, or the session restarted
 
 Before taking the next workflow step:
+
+These orchestration steps belong to the primary agent unless an explicit delegation contract says otherwise.
 
 1. Confirm the active feature from the request, docs tree, issue/PR context, or the most recently active feature folder
 2. Read the active feature docs as the SSOT: `spec.md`, `plan.md`, `tasks.md`, and `decisions.md`
@@ -40,11 +48,11 @@ Before taking the next workflow step:
 10. In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env` / `.env.*` copy step stay consistent
 11. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
 12. When docs are synced to code, keep exactly one explicit marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in a single active feature doc (prefer `tasks.md` or `decisions.md`): replace an existing marker timestamp or remove duplicates instead of appending another marker, so `workflow-audit` can prove the sync happened after the latest code change
-13. When `workflow-stage --json` returns `nextAction.category === "plan_review"` with `executor === "subagent"`, delegate a fresh read-only review of `spec.md` and `plan.md` using the returned model settings and exact `specHash` / `planHash`; the main agent records the returned `reviewRound`, evidence, decision, reviewer metadata, and both hashes, and any later spec/plan content change requires a fresh review
-14. When `workflow-stage --json` returns `nextAction.category === "task_execute"` with `executor === "subagent"`, mark exactly the returned `taskId` as active and delegate its implementation plus task-scoped verification to a fresh subagent in the returned `workingDirectory`, using the returned `model`, `reasoningEffort`, `onUnavailable`, and exact `workerContract`; no named execution skill is required
+13. When `workflow-stage --json` returns `nextAction.category === "plan_review"` with `executor === "subagent"`, delegate a fresh read-only review using the returned model settings, exact `specHash` / `planHash`, and exact `delegationContext`; the main agent records the returned `reviewRound`, evidence, decision, reviewer metadata, and both hashes, and any later spec/plan content change requires a fresh review
+14. When `workflow-stage --json` returns `nextAction.category === "task_execute"` with `executor === "subagent"`, mark exactly the returned `taskId` as active and delegate its implementation plus task-scoped verification to a fresh subagent in the returned `workingDirectory`, using the returned `model`, `reasoningEffort`, `onUnavailable`, exact `workerContract`, and exact `delegationContext`; do not reconstruct, omit, or broaden the returned context, and no named execution skill is required
 15. The task implementation worker executes directly: it must follow the approved Verification Contract, must not add unplanned durable tests, and must not run `workflow-stage`, spawn another subagent, edit lee-spec-kit docs, change task state, commit, request approvals, or perform remote/destructive actions. It may modify project code and run task-scoped checks only. The main agent inspects the result, synchronizes docs and task state, and owns every commit and workflow transition; official hooks block commits while `task_execute` is still active
-16. When `workflow-stage --json` returns `nextAction.category === "task_review"` with `executor === "subagent"`, delegate a fresh read-only review for the returned `taskId`, `baseSha`, `targetSha`, and `targetTree`; the main agent records the returned `reviewRound` and evidence and moves the task from `REVIEW` to `DONE` only after an approve decision
-17. When `workflow-stage --json` returns `nextAction.category === "pre_pr_review"` and `nextAction.executor === "subagent"`, delegate a fresh read-only Feature review using the returned `model`, `reasoningEffort`, `onUnavailable`, `reviewRound`, and review target metadata; do not select or require a named review skill
+16. When `workflow-stage --json` returns `nextAction.category === "task_review"` with `executor === "subagent"`, delegate a fresh read-only review using the exact returned `delegationContext`, `taskId`, `baseSha`, `targetSha`, and `targetTree`; the main agent records the returned `reviewRound` and evidence and moves the task from `REVIEW` to `DONE` only after an approve decision
+17. When `workflow-stage --json` returns `nextAction.category === "pre_pr_review"` and `nextAction.executor === "subagent"`, delegate a fresh read-only Feature review using the returned `model`, `reasoningEffort`, `onUnavailable`, `reviewRound`, review target metadata, and exact `delegationContext`; do not select or require a named review skill
 18. Review subagents return findings without modifying code; the main agent remediates findings and records the actual reviewer metadata, reviewed scope, evidence, decision, and exact hash/SHA/tree target metadata
 19. `workflow.agentReview.maxRounds` counts automatic finding-remediation passes, not the initial review. After those passes are exhausted, keep the latest `changes_requested` findings as residual risks and automatically complete that Plan/task/Feature review gate without asking the user for a review-approval token; `blocked` decisions never auto-complete
 20. For a local workflow, do not report completion directly after implementation approval; follow the exact returned `local verify` / `local merge` / `local cleanup` commands until `workflow-stage` proves verification, integration, and cleanup and returns `done`; review-fix and `feature_remediation` stages explicitly permit scoped fixes

@@ -63,7 +63,7 @@ Plan 검수가 활성화되면 계획 단계는 `plan Review → fresh 읽기 �
 
 Feature agent review가 활성화된 local workflow의 완료 흐름은 `feature review → implementation_approve → feature_verify → local_merge → local_cleanup → done`입니다. 태스크 리뷰가 활성화되면 각 태스크는 `DOING → REVIEW → task review → DONE`을 거칩니다. 검사 실패 시 구현이 허용된 `feature_remediation`으로 이동합니다. `local-ff`는 검증된 Feature SHA만 옮기고, `local-squash`는 통합 tree가 검증된 Feature tree와 같아야 합니다. 둘 다 cleanup 후에만 `done`입니다. cleanup이 끝난 Feature는 기록된 통합 커밋이 현재 base의 조상으로 남아 있는 한 후속 Feature가 base를 전진시켜도 `done`을 유지합니다.
 
-`workflow.agentExecution.task.enabled=true`이면 각 `task_execute`가 설정된 서브에이전트 모델·추론도·안정적인 태스크 ID·구현 작업 경로·machine-readable `workerContract`를 반환합니다. worker는 `workflow-stage`를 재호출하거나 다시 위임하지 않고 직접 실행합니다. 승인된 Verification Contract를 따르고 계획되지 않은 영구 테스트를 추가하지 않으며 프로젝트 코드와 태스크 범위 검사만 담당합니다. 메인 에이전트가 문서 동기화, 태스크 전환, 커밋, 승인, 원격 작업을 소유하고 공식 hook은 메인 에이전트가 workflow를 `task_commit`으로 전진시키기 전까지 커밋을 차단합니다.
+`workflow.agentExecution.task.enabled=true`이면 각 `task_execute`가 설정된 서브에이전트 모델·추론도·안정적인 태스크 ID·구현 작업 경로·machine-readable `workerContract`와 versioned `delegationContext`를 반환합니다. 이 컨텍스트에는 정확한 태스크 블록, Acceptance, Verification Contract, 필수 Feature 문서와 조건부 참조가 들어 있으며 worker에게 변경 없이 전달합니다. worker는 `workflow-stage`를 재호출하거나 다시 위임하지 않고 직접 실행합니다. 계획되지 않은 영구 테스트를 추가하지 않으며 프로젝트 코드와 태스크 범위 검사만 담당합니다. 메인 에이전트가 문서 동기화, 태스크 전환, 커밋, 승인, 원격 작업을 소유하고 공식 hook은 메인 에이전트가 workflow를 `task_commit`으로 전진시키기 전까지 커밋을 차단합니다.
 
 remediation 커밋이 추가되면 기존 검증과 local merge 승인은 무효입니다. Pre-PR review가 활성화되어 있다면 변경된 diff의 review evidence를 갱신하고 새 tip을 검증한 뒤 local merge 승인을 다시 받습니다.
 

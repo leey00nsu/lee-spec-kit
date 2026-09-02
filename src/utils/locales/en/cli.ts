@@ -134,8 +134,7 @@ export const enCli = {
     '  3. Install workspace-local Codex hooks for the lee-spec-kit workflow: npx lee-spec-kit integrations codex-hooks',
   'init.log.nextSteps4':
     '  4. If you need the optional global Codex hooks bootstrap flag too: npx lee-spec-kit integrations codex',
-  'init.log.nextSteps5':
-    '',
+  'init.log.nextSteps5': '',
   'init.log.gitRepoDetectedCommit': '📦 Git repo detected, committing docs...',
   'init.log.gitInit': '📦 Initializing Git...',
   'init.warn.stagedChangesSkip':
@@ -157,7 +156,8 @@ export const enCli = {
   'idea.created': '✅ Idea document created: {path}',
   'idea.nextStepsTitle': 'Next steps:',
   'idea.nextSteps1': '  1. Fill scope, PRD refs, and promotion notes',
-  'idea.nextSteps2': '  2. Promote it with: npx lee-spec-kit feature <name> --idea {ideaId}',
+  'idea.nextSteps2':
+    '  2. Promote it with: npx lee-spec-kit feature <name> --idea {ideaId}',
   'idea.nextSteps3': '  3. Mark it dropped if it should not become a feature',
 
   'integrations.codexBootstrapInstalled':
@@ -172,12 +172,13 @@ export const enCli = {
     '✅ Repo-local Codex hooks installed: {path}',
   'integrations.codexHooksAlreadyInstalled':
     '✅ Repo-local Codex hooks already installed: {path}',
-  'integrations.codexHooksRemoved':
-    '✅ Repo-local Codex hooks removed: {path}',
+  'integrations.codexHooksRemoved': '✅ Repo-local Codex hooks removed: {path}',
   'integrations.codexHooksAlreadyAbsent':
     '✅ Repo-local Codex hooks are already absent: {path}',
   'integrations.codexHooksTrustRequired':
     'Review and trust the installed project hooks with /hooks in Codex. Changed hook definitions require review again.',
+  'integrations.codexHooksAgentsMdUpdateRequired':
+    'AGENTS.md is missing the current delegated-subagent context contract: {path}. Run `npx lee-spec-kit update --agents-md`, then rerun `npx lee-spec-kit integrations codex-hooks`.',
 
   'github.cmdGithubDescription':
     'GitHub workflow helpers (issue/pr templates, validation, merge retry)',

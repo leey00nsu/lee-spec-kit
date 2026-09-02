@@ -5,6 +5,12 @@
 
 ---
 
+## Codex lifecycle 범위
+
+- <!-- lee-spec-kit:delegation-context-v1 -->
+- 감지, built-in 문서 부트스트랩, 활성 Feature 결정, `workflow-stage`는 메인 에이전트의 책임입니다.
+- Codex `SubagentStart`가 식별한 위임 서브에이전트는 메인 에이전트 부트스트랩과 `workflow-stage`를 생략합니다. 메인 에이전트가 전달한 정확한 `delegationContext`와 `workerContract`를 따르고, `requiredDocuments`를 읽으며, `referenceDocuments`는 명시된 조건에서만 사용하고, 범위가 부족하면 확장 전에 메인 에이전트에 요청합니다.
+
 ## 감지 게이트
 
 - 항상 먼저 `npx lee-spec-kit detect --json`를 실행합니다.
@@ -19,7 +25,8 @@
 
 ## 문서가 SSOT
 
-- 세션 시작 시점이나 context 리셋 직후 `npx lee-spec-kit docs get agents --json`를 1회 읽습니다.
+- 아래 시작 및 orchestration 규칙은 명시적인 위임 계약이 없는 한 메인 에이전트에 적용합니다.
+- 메인 에이전트 세션 시작 시점이나 context 리셋 직후 `npx lee-spec-kit docs get agents --json`를 1회 읽습니다.
 - 응답의 `requiredDocs[*].command` 중 아직 읽지 않은 문서를 모두 확인합니다.
 - 활성 feature를 정한 뒤에는 해당 feature 폴더를 작업 SSOT로 사용합니다.
 - 최소 기준 문서는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`입니다.
@@ -53,11 +60,11 @@
 - lee-spec-kit은 문서 구조, workflow 단계, validator를 담당합니다.
 - Codex는 실행 루프, 도구 사용, hook lifecycle을 담당합니다.
 - `implementationAllowed === true`일 때만 구현 코드를 수정합니다. 일반 태스크 구현은 `stage === "implementation"`에서, 리뷰 수정은 `task_review_fix` 또는 `feature_review_fix`에서, 검증 수정은 `feature_remediation`에서만 수행합니다.
-- `nextAction.category`가 `plan_review`이고 `executor`가 `subagent`이면 반환된 `specHash`와 `planHash`를 대상으로 fresh 읽기 전용 서브에이전트가 `spec.md`와 `plan.md`를 검수합니다. 메인 에이전트가 반환된 `reviewRound`, Plan 검수 evidence, decision, reviewer metadata와 두 hash를 기록하며 이후 spec/plan 내용 변경은 기존 검수를 무효화합니다.
-- `nextAction.category`가 `task_execute`이고 `executor`가 `subagent`이면 해당 태스크 하나를 활성화한 뒤, 반환된 `workingDirectory`에서 fresh 서브에이전트에게 반환된 모델·추론도·unavailability 정책과 정확한 `workerContract`로 구현과 태스크 범위 검증을 위임합니다. 특정 이름의 실행 스킬은 요구하지 않습니다.
+- `nextAction.category`가 `plan_review`이고 `executor`가 `subagent`이면 정확히 반환된 `delegationContext`, `specHash`, `planHash`로 fresh 읽기 전용 서브에이전트에게 검수를 위임합니다. 메인 에이전트가 반환된 `reviewRound`, Plan 검수 evidence, decision, reviewer metadata와 두 hash를 기록하며 이후 spec/plan 내용 변경은 기존 검수를 무효화합니다.
+- `nextAction.category`가 `task_execute`이고 `executor`가 `subagent`이면 해당 태스크 하나를 활성화한 뒤, 반환된 `workingDirectory`에서 fresh 서브에이전트에게 반환된 모델·추론도·unavailability 정책, 정확한 `workerContract`, 정확한 `delegationContext`로 구현과 태스크 범위 검증을 위임합니다. 컨텍스트를 재구성하거나 누락하거나 넓히지 않습니다. 특정 이름의 실행 스킬은 요구하지 않습니다.
 - 구현 worker는 승인된 Verification Contract를 따르고 계획되지 않은 영구 테스트를 추가하지 않으며 직접 실행합니다. `workflow-stage`를 호출하거나 다른 서브에이전트를 생성하지 않습니다. 프로젝트 코드 수정과 범위 내 검사는 수행할 수 있지만 lee-spec-kit 문서 수정, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 메인 에이전트가 결과를 확인하고 문서 동기화, 태스크 전환, 커밋, 후속 workflow를 소유하며, 공식 hook은 `task_execute`가 활성화된 동안 커밋을 차단합니다.
-- `nextAction.category`가 `task_review`이고 `executor`가 `subagent`이면 반환된 task ID와 SHA/tree 범위를 fresh context의 읽기 전용 서브에이전트가 리뷰하고 반환된 `reviewRound`를 기록합니다.
-- `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면 반환된 모델·추론도·`reviewRound`·SHA/tree 범위로 fresh context의 읽기 전용 Feature 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
+- `nextAction.category`가 `task_review`이고 `executor`가 `subagent`이면 정확히 반환된 `delegationContext`, task ID, SHA/tree 범위로 fresh context의 읽기 전용 리뷰를 위임하고 반환된 `reviewRound`를 기록합니다.
+- `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면 정확히 반환된 `delegationContext`, 모델·추론도·`reviewRound`·SHA/tree 범위로 fresh context의 읽기 전용 Feature 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
 - 리뷰 서브에이전트는 finding만 반환하고 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata, reviewed scope, evidence, decision, 정확한 hash/SHA/tree target metadata를 기록합니다.
 - 서브에이전트에게 위임한 뒤에는 완료, 명시적 실패, 취소, 또는 조치가 필요한 승인·사용자 입력 요청 중 하나의 종결 상태를 반환할 때까지 기다립니다.
 - 서브에이전트가 실행 중이면 가급적 긴 bounded wait를 반복합니다. 한 번의 대기가 새 소식 없이 끝난 것, 상태 메시지가 없는 것, 파일 변경이 없는 것은 아직 실행 중이라는 뜻일 뿐 실패나 정체의 증거가 아닙니다. 읽기 전용 리뷰 서브에이전트는 파일을 변경하지 않는 것이 정상입니다.

@@ -13,7 +13,7 @@
   - 이미 `[DOING]`인 태스크가 하나 있으면 그것을 이어서 수행하고
   - 없으면 가장 우선순위가 높은 `[TODO]` 태스크를 `[DOING]`으로 바꿉니다
 - 한 번에 하나의 태스크만 진행합니다.
-- `nextAction.executor === "subagent"`이면 반환된 `workingDirectory`에서 해당 태스크의 구현과 태스크 범위 검증을 fresh 서브에이전트에게 반환된 `model`, `reasoningEffort`, `onUnavailable` 설정과 정확한 `workerContract`로 위임합니다. 지정 모델을 사용할 수 없을 때 `inherit`은 현재 모델을 상속해 다시 위임하고, `error`는 중단 후 실패를 보고한다는 뜻입니다.
+- `nextAction.executor === "subagent"`이면 반환된 `workingDirectory`에서 해당 태스크의 구현과 태스크 범위 검증을 fresh 서브에이전트에게 반환된 `model`, `reasoningEffort`, `onUnavailable` 설정, 정확한 `workerContract`, 정확한 `delegationContext`로 위임합니다. 컨텍스트를 재구성하거나 누락하거나 넓히지 않습니다. 지정 모델을 사용할 수 없을 때 `inherit`은 현재 모델을 상속해 다시 위임하고, `error`는 중단 후 실패를 보고한다는 뜻입니다.
 - 구현 worker는 할당된 태스크를 직접 실행합니다. `workflow-stage` 재호출, 재위임, lee-spec-kit 문서 수정, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 프로젝트 코드 수정과 태스크 범위 검사만 수행합니다.
 - 위임한 뒤 메인 에이전트는 worker의 종결 상태를 기다립니다. worker가 실행 중이면 가급적 긴 bounded wait를 반복하며, 한 번의 대기가 새 소식 없이 끝난 것, 상태 메시지가 없는 것, 파일 변경이 없는 것은 실패나 정체의 증거가 아닙니다.
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 worker를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.

@@ -5,6 +5,12 @@ This document defines workflow policy, not a custom runtime loop.
 
 ---
 
+## Codex Lifecycle Scope
+
+- <!-- lee-spec-kit:delegation-context-v1 -->
+- Detection, built-in-doc startup, active Feature resolution, and `workflow-stage` are primary-agent responsibilities.
+- A delegated subagent identified by Codex `SubagentStart` skips the primary-agent bootstrap and `workflow-stage`. It follows the exact `delegationContext` and `workerContract` supplied by the primary agent, reads `requiredDocuments`, uses `referenceDocuments` only under their stated conditions, and asks the parent before expanding an insufficient scope.
+
 ## Detection Gate
 
 - Run `npx lee-spec-kit detect --json` first.
@@ -19,7 +25,8 @@ This document defines workflow policy, not a custom runtime loop.
 
 ## Docs Are SSOT
 
-- Read `npx lee-spec-kit docs get agents --json` once at session start or right after context reset.
+- The following startup and orchestration rules apply to the primary agent unless an explicit delegation contract says otherwise.
+- Read `npx lee-spec-kit docs get agents --json` once at primary-agent session start or right after context reset.
 - Read every unread `requiredDocs[*].command` from that response.
 - Resolve the active feature, then use that feature folder as the working SSOT.
 - Minimum active feature docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
@@ -53,11 +60,11 @@ This document defines workflow policy, not a custom runtime loop.
 - lee-spec-kit owns docs structure, workflow stages, and validators.
 - Codex owns the execution loop, tool usage, and hook lifecycle.
 - Modify implementation code only when `implementationAllowed === true`. Normal task work uses `stage === "implementation"`; review fixes use `task_review_fix` or `feature_review_fix`, and verification fixes use `feature_remediation`.
-- When `nextAction.category` is `plan_review` with `executor: subagent`, delegate a fresh read-only review of `spec.md` and `plan.md` for the returned `specHash` and `planHash`. The main agent records the returned `reviewRound`, Plan Review evidence, decision, reviewer metadata, and both hashes. Any later spec/plan content change invalidates that review.
-- When `nextAction.category` is `task_execute` with `executor: subagent`, mark that one task active, then delegate its implementation and task-scoped checks to a fresh subagent in the returned `workingDirectory` with the returned model, reasoning effort, unavailability policy, and exact `workerContract`. No named execution skill is required.
+- When `nextAction.category` is `plan_review` with `executor: subagent`, delegate a fresh read-only review using the exact returned `delegationContext`, `specHash`, and `planHash`. The main agent records the returned `reviewRound`, Plan Review evidence, decision, reviewer metadata, and both hashes. Any later spec/plan content change invalidates that review.
+- When `nextAction.category` is `task_execute` with `executor: subagent`, mark that one task active, then delegate its implementation and task-scoped checks to a fresh subagent in the returned `workingDirectory` with the returned model, reasoning effort, unavailability policy, exact `workerContract`, and exact `delegationContext`. Do not reconstruct, omit, or broaden that context. No named execution skill is required.
 - The implementation worker executes directly, follows the approved Verification Contract, and does not add unplanned durable tests. It must not run `workflow-stage` or spawn another subagent. It may edit project code and run scoped checks, but it must not edit lee-spec-kit docs, change task state, commit, request approvals, or perform remote/destructive actions. The main agent inspects the result and owns docs synchronization, task transitions, commits, and workflow continuation; official hooks block commits while `task_execute` remains active.
-- When `nextAction.category` is `task_review` with `executor: subagent`, delegate a fresh read-only review for the returned task ID and SHA/tree range, then record the returned `reviewRound`.
-- When `nextAction.category` is `pre_pr_review` with `executor: subagent`, run a fresh read-only Feature review using the returned model, reasoning effort, `reviewRound`, and SHA/tree range. Do not select or require a named review skill.
+- When `nextAction.category` is `task_review` with `executor: subagent`, delegate a fresh read-only review using the exact returned `delegationContext`, task ID, and SHA/tree range, then record the returned `reviewRound`.
+- When `nextAction.category` is `pre_pr_review` with `executor: subagent`, run a fresh read-only Feature review using the exact returned `delegationContext`, model, reasoning effort, `reviewRound`, and SHA/tree range. Do not select or require a named review skill.
 - Review subagents return findings without modifying code. The main agent remediates findings and records reviewer metadata, reviewed scope, evidence, decision, and exact hash/SHA/tree target metadata.
 - After delegating to a subagent, wait until it returns a terminal outcome: completed, explicit failure, cancellation, or an approval/user-input request that requires action.
 - While the subagent remains running, use repeated bounded waits, preferably longer waits. A bounded wait that returns no update, a lack of status messages, or a lack of file changes means only that the subagent is still pending; none is evidence of failure or stalled work. Read-only review subagents are expected not to modify files.

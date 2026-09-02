@@ -76,6 +76,7 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
     const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
     const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
     assert.equal(Array.isArray(hooksJson.hooks?.SessionStart), true);
+    assert.equal(Array.isArray(hooksJson.hooks?.SubagentStart), true);
     assert.equal(Array.isArray(hooksJson.hooks?.PreToolUse), true);
     assert.equal(Array.isArray(hooksJson.hooks?.Stop), true);
     assert.equal(
@@ -99,6 +100,10 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
       sessionStartScriptPath,
       'utf-8'
     );
+    const subagentStartScript = await fs.readFile(
+      path.join(hooksDir, 'subagent_start_lee_spec_kit.mjs'),
+      'utf-8'
+    );
     const stopScript = await fs.readFile(
       path.join(hooksDir, 'stop_workflow_audit.mjs'),
       'utf-8'
@@ -114,6 +119,13 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
       /Prefer Codex native execution with workspace-scoped AGENTS\.md plus official hooks/
     );
     assert.match(sessionStartScript, /workflow-stage --json/);
+    assert.match(sessionStartScript, /Delegated subagents skip the primary-agent bootstrap/);
+    assert.match(subagentStartScript, /lee-spec-kit delegated subagent detected/);
+    assert.match(subagentStartScript, /input\.agent_type/);
+    assert.match(subagentStartScript, /do not run detect, docs get agents/);
+    assert.match(subagentStartScript, /exact delegationContext and workerContract/i);
+    assert.match(subagentStartScript, /requiredDocuments/i);
+    assert.match(subagentStartScript, /unrelated Features/i);
     assert.match(stopScript, /workflow-audit --json/);
     const preToolScript = await fs.readFile(
       path.join(hooksDir, 'pre_tool_use_policy.mjs'),
@@ -123,6 +135,26 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
     assert.match(preToolScript, /getGitSubcommand/);
     assert.match(preToolScript, /getGitCommitMessage/);
     assert.match(preToolScript, /--message/);
+  });
+});
+
+test('integrations codex-hooks warns when AGENTS.md lacks the current delegation contract', async () => {
+  await withTempDir('lsk-codex-hooks-stale-agents-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
+      '--lang', 'en', '--workflow', 'local', '--dir', './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    await fs.writeFile(
+      path.join(dir, 'AGENTS.md'),
+      '<!-- lee-spec-kit:begin -->\nlegacy instructions\n<!-- lee-spec-kit:end -->\n',
+      'utf-8'
+    );
+
+    const result = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /update --agents-md/);
+    assert.match(result.stdout, /integrations codex-hooks/);
   });
 });
 
@@ -169,6 +201,7 @@ test('integrations codex-hooks --remove removes managed hook files but keeps cus
     assert.equal(await fs.readFile(customPath, 'utf-8'), 'keep me\n');
     const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
     assert.equal(hooksJson.hooks?.SessionStart, undefined);
+    assert.equal(hooksJson.hooks?.SubagentStart, undefined);
     assert.equal(hooksJson.hooks?.PreToolUse, undefined);
     assert.equal(hooksJson.hooks?.Stop, undefined);
   });
@@ -434,6 +467,17 @@ test('integrations codex-hooks --remove preserves custom hooks in a mixed group'
         ],
       },
     ];
+    hooksJson.hooks.SubagentStart = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'node ./custom-subagent-hook.mjs',
+          },
+          ...hooksJson.hooks.SubagentStart[0].hooks,
+        ],
+      },
+    ];
     await fs.writeFile(hooksJsonPath, `${JSON.stringify(hooksJson, null, 2)}\n`, 'utf-8');
 
     const removeResult = await runCli(dir, ['integrations', 'codex-hooks', '--remove']);
@@ -447,6 +491,16 @@ test('integrations codex-hooks --remove preserves custom hooks in a mixed group'
           {
             type: 'command',
             command: 'node ./custom-hook.mjs',
+          },
+        ],
+      },
+    ]);
+    assert.deepEqual(after.hooks.SubagentStart, [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: 'node ./custom-subagent-hook.mjs',
           },
         ],
       },
@@ -532,7 +586,7 @@ test('integrations codex-hooks --remove still prunes managed hooks when the reco
 
     const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
     const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
-    for (const eventName of ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'Stop']) {
+    for (const eventName of ['SessionStart', 'SubagentStart', 'UserPromptSubmit', 'PreToolUse', 'Stop']) {
       for (const group of hooksJson.hooks[eventName] || []) {
         for (const hook of group.hooks || []) {
           if (typeof hook.command === 'string' && hook.command.includes(' -e ')) {
@@ -551,6 +605,7 @@ test('integrations codex-hooks --remove still prunes managed hooks when the reco
 
     const after = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
     assert.equal(after.hooks?.SessionStart, undefined);
+    assert.equal(after.hooks?.SubagentStart, undefined);
     assert.equal(after.hooks?.UserPromptSubmit, undefined);
     assert.equal(after.hooks?.PreToolUse, undefined);
     assert.equal(after.hooks?.Stop, undefined);
@@ -943,7 +998,9 @@ test('integrations codex-hooks --remove removes standalone hooks from workspace 
       await fs.readFile(path.join(projectRoot, '.codex', 'hooks.json'), 'utf-8')
     );
     assert.equal(workspaceHooks.hooks?.SessionStart, undefined);
+    assert.equal(workspaceHooks.hooks?.SubagentStart, undefined);
     assert.equal(projectHooks.hooks?.SessionStart, undefined);
+    assert.equal(projectHooks.hooks?.SubagentStart, undefined);
   });
 });
 
@@ -1693,6 +1750,73 @@ test('generated session-start hook injects workflow context when project is dete
     assert.match(payload.hookSpecificOutput.additionalContext, /lee-spec-kit project detected/);
     assert.match(payload.hookSpecificOutput.additionalContext, /Docs dir:/);
     assert.match(payload.hookSpecificOutput.additionalContext, /workflow-stage --json/);
+  });
+});
+
+test('generated subagent-start hook injects scoped context and sanitizes the Codex agent type', async () => {
+  await withTempDir('lsk-codex-hook-subagent-start-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
+      '--lang', 'en', '--workflow', 'local', '--dir', './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+
+    const fakeNpx = await setupFakeNpxCli(dir);
+    const hookResult = await runCommand(
+      dir,
+      process.execPath,
+      [path.join(dir, '.codex', 'hooks', 'subagent_start_lee_spec_kit.mjs')],
+      {
+        env: fakeNpx.env,
+        input: JSON.stringify({
+          cwd: dir,
+          hook_event_name: 'SubagentStart',
+          agent_id: 'agent-123',
+          agent_type: 'worker\ninjected',
+        }),
+      }
+    );
+    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+    const payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.hookSpecificOutput.hookEventName, 'SubagentStart');
+    assert.match(payload.hookSpecificOutput.additionalContext, /delegated subagent detected/i);
+    assert.match(payload.hookSpecificOutput.additionalContext, /agent type\/profile: worker injected/i);
+    assert.match(payload.hookSpecificOutput.additionalContext, /do not run detect, docs get agents/i);
+    assert.match(payload.hookSpecificOutput.additionalContext, /exact delegationContext and workerContract/i);
+    assert.match(payload.hookSpecificOutput.additionalContext, /requiredDocuments/i);
+  });
+});
+
+test('generated subagent-start hook fails open on malformed input or an undetected project', async () => {
+  await withTempDir('lsk-codex-hook-subagent-fail-open-', async (dir) => {
+    const initResult = await runCli(dir, [
+      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
+      '--lang', 'en', '--workflow', 'local', '--dir', './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    const hookPath = path.join(
+      dir,
+      '.codex',
+      'hooks',
+      'subagent_start_lee_spec_kit.mjs'
+    );
+
+    const malformed = await runCommand(dir, process.execPath, [hookPath], {
+      input: '{not-json',
+    });
+    assert.equal(malformed.code, 0, malformed.stderr || malformed.stdout);
+    assert.equal(malformed.stdout, '');
+
+    await fs.rm(path.join(dir, 'docs'), { recursive: true, force: true });
+    const undetected = await runCommand(dir, process.execPath, [hookPath], {
+      input: JSON.stringify({ cwd: dir, agent_type: 'worker' }),
+    });
+    assert.equal(undetected.code, 0, undetected.stderr || undetected.stdout);
+    assert.equal(undetected.stdout, '');
   });
 });
 

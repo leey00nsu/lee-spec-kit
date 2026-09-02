@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import path from 'node:path';
 import { DEFAULT_LANG, tr } from '../utils/i18n.js';
 import { getConfig } from '../utils/config.js';
 import {
@@ -12,6 +13,7 @@ import {
   resolveConfiguredStandaloneWorkspaceRoot,
   resolveStandaloneProjectRoots,
 } from '../utils/standalone-workspace.js';
+import { hasCurrentLeeSpecKitDelegationContext } from '../utils/agents-md.js';
 
 interface CodexOptions {
   remove?: boolean;
@@ -111,6 +113,20 @@ function registerCodexHooksIntegration(parent: Command): void {
             ? [workflowRoot, ...resolveStandaloneProjectRoots(config)]
             : [workflowRoot];
         const uniqueRepoRoots = [...new Set(repoRoots)];
+        const staleAgentsMdPaths = options.remove
+          ? []
+          : (
+              await Promise.all(
+                uniqueRepoRoots.map(async (repoRoot) => {
+                  const agentsMdPath = path.join(repoRoot, 'AGENTS.md');
+                  return (await hasCurrentLeeSpecKitDelegationContext(
+                    agentsMdPath
+                  ))
+                    ? null
+                    : agentsMdPath;
+                })
+              )
+            ).filter((value): value is string => value !== null);
         const filePaths = uniqueRepoRoots.map((repoRoot) =>
           getRepoHooksConfigPath(repoRoot)
         );
@@ -138,10 +154,17 @@ function registerCodexHooksIntegration(parent: Command): void {
           : 'integrations.codexHooksInstalled';
         console.log(chalk.green(tr(lang, 'cli', key, { path: displayPath })));
         console.log(
-          chalk.yellow(
-            tr(lang, 'cli', 'integrations.codexHooksTrustRequired')
-          )
+          chalk.yellow(tr(lang, 'cli', 'integrations.codexHooksTrustRequired'))
         );
+        if (staleAgentsMdPaths.length > 0) {
+          console.log(
+            chalk.yellow(
+              tr(lang, 'cli', 'integrations.codexHooksAgentsMdUpdateRequired', {
+                path: staleAgentsMdPaths.join(', '),
+              })
+            )
+          );
+        }
       } catch (error) {
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);

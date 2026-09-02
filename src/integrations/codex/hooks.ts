@@ -6,6 +6,7 @@ import { runGitCapture } from '../../utils/git-run.js';
 const MANAGED_HOOK_FILENAMES = [
   '_lee_spec_kit_hook_utils.mjs',
   'session_start_lee_spec_kit.mjs',
+  'subagent_start_lee_spec_kit.mjs',
   'user_prompt_submit_lee_spec_kit.mjs',
   'pre_tool_use_policy.mjs',
   'stop_workflow_audit.mjs',
@@ -14,6 +15,7 @@ const MANAGED_HOOK_FILENAMES = [
 type ManagedHookFileName = (typeof MANAGED_HOOK_FILENAMES)[number];
 type HookEventName =
   | 'SessionStart'
+  | 'SubagentStart'
   | 'UserPromptSubmit'
   | 'PreToolUse'
   | 'Stop';
@@ -179,8 +181,9 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
     'If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.',
     'infer the workflow automatically even for generic rule-following requests.',
     \`Docs dir: \${docsDir}\`,
-    'Start by reading npx lee-spec-kit docs get agents --json and the active feature docs.',
-    'Run npx lee-spec-kit workflow-stage --json before the next stage and only follow its nextAction.',
+    'Primary agents start by reading npx lee-spec-kit docs get agents --json and the active feature docs.',
+    'Delegated subagents skip the primary-agent bootstrap and follow the exact delegationContext and workerContract returned by workflow-stage.',
+    'Primary agents run npx lee-spec-kit workflow-stage --json before the next stage and only follow its nextAction.',
     'Keep docs as the SSOT and treat workflow-audit as the end-of-turn sync guard.',
   ];
   if (stageResult.ok && stageResult.data?.status === 'ok') {
@@ -207,6 +210,36 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
   printAdditionalContext('SessionStart', lines.join('\\n'));
 }
 `;
+    case 'subagent_start_lee_spec_kit.mjs':
+      return `#!/usr/bin/env node
+import { getWorkflowCwd, printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+
+const inputResult = readHookInput();
+if (!inputResult.ok) {
+  process.exit(0);
+}
+const input = inputResult.value;
+const cwd = getWorkflowCwd();
+const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
+const detected = detectedResult.ok ? detectedResult.data : null;
+
+if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
+  const agentType =
+    typeof input.agent_type === 'string' && input.agent_type.trim()
+      ? input.agent_type.trim().replace(/[\u0000-\u001f\u007f]/g, ' ')
+      : 'unknown';
+  const lines = [
+    'lee-spec-kit delegated subagent detected.',
+    \`Codex agent type/profile: \${agentType}\`,
+    'Skip the primary-agent startup bootstrap: do not run detect, docs get agents, load every requiredDocs entry, or run workflow-stage.',
+    'Follow the exact delegationContext and workerContract supplied by the parent agent. Read the requiredDocuments in that contract and use referenceDocuments only under their stated conditions.',
+    'Do not load built-in requiredDocs, unrelated Features, or additional Feature documents outside the delegationContext. Ask the parent agent if the contract is missing or insufficient before expanding scope.',
+    'The agent type/profile is informative; delegationContext, the delegation prompt, and workerContract define the exact implementation or review role and its permissions.',
+    'Continue to follow applicable repository safety instructions and the explicit delegation boundaries.',
+  ];
+  printAdditionalContext('SubagentStart', lines.join('\\n'));
+}
+`;
     case 'user_prompt_submit_lee_spec_kit.mjs':
       return `#!/usr/bin/env node
 import { getWorkflowCwd, printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
@@ -225,8 +258,9 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
   const lines = [
     'This prompt is inside a lee-spec-kit workspace.',
     'Interpret generic rule-following requests through the lee-spec-kit docs workflow automatically.',
-    'Prefer docs get plus feature-local docs as the primary context source.',
-    'Use workflow-stage --json to determine the next allowed stage before implementation.',
+    'Primary agents prefer docs get plus feature-local docs as the primary context source.',
+    'Delegated subagents follow the exact delegationContext and workerContract instead of running the primary-agent bootstrap.',
+    'Primary agents use workflow-stage --json to determine the next allowed stage before implementation.',
   ];
   if (stageResult.ok && stageResult.data?.status === 'ok') {
     lines.push(
@@ -1199,6 +1233,17 @@ function getManagedHooksConfig(): Record<HookEventName, HookMatcherGroup[]> {
         ],
       },
     ],
+    SubagentStart: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: commandFor('subagent_start_lee_spec_kit.mjs'),
+            statusMessage: 'Loading scoped lee-spec-kit subagent context',
+          },
+        ],
+      },
+    ],
     UserPromptSubmit: [
       {
         hooks: [
@@ -1305,6 +1350,7 @@ function removeManagedGroups(current: HooksConfigFile): HooksConfigFile {
 
   for (const eventName of [
     'SessionStart',
+    'SubagentStart',
     'UserPromptSubmit',
     'PreToolUse',
     'Stop',

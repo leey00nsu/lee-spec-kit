@@ -333,6 +333,7 @@ export function getFeatureDocPaths(feature: ResolvedFeature): {
   specPath: string;
   planPath: string;
   tasksPath: string;
+  decisionsPath: string;
   issuePath: string;
   prPath: string;
 } {
@@ -342,6 +343,7 @@ export function getFeatureDocPaths(feature: ResolvedFeature): {
     specPath: `${featurePathFromDocs}/spec.md`,
     planPath: `${featurePathFromDocs}/plan.md`,
     tasksPath: `${featurePathFromDocs}/tasks.md`,
+    decisionsPath: `${featurePathFromDocs}/decisions.md`,
     issuePath: `${featurePathFromDocs}/issue.md`,
     prPath: `${featurePathFromDocs}/pr.md`,
   };

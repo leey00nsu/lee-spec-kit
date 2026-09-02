@@ -133,8 +133,7 @@ export const koCli = {
     '  3. lee-spec-kit 워크플로우용 workspace-local Codex hooks 설치: npx lee-spec-kit integrations codex-hooks',
   'init.log.nextSteps4':
     '  4. 필요하면 전역 Codex hooks bootstrap flag도 설치: npx lee-spec-kit integrations codex',
-  'init.log.nextSteps5':
-    '',
+  'init.log.nextSteps5': '',
   'init.log.gitRepoDetectedCommit': '📦 Git 레포지토리 감지, docs 커밋 중...',
   'init.log.gitInit': '📦 Git 초기화 중...',
   'init.warn.stagedChangesSkip':
@@ -169,14 +168,18 @@ export const koCli = {
     '✅ 선택적 Codex bootstrap 제거 완료: {path}',
   'integrations.codexBootstrapAlreadyAbsent':
     '✅ 선택적 Codex bootstrap 이 이미 없습니다: {path}',
-  'integrations.codexHooksInstalled': '✅ Repo-local Codex hooks 설치 완료: {path}',
+  'integrations.codexHooksInstalled':
+    '✅ Repo-local Codex hooks 설치 완료: {path}',
   'integrations.codexHooksAlreadyInstalled':
     '✅ Repo-local Codex hooks 가 이미 설치되어 있습니다: {path}',
-  'integrations.codexHooksRemoved': '✅ Repo-local Codex hooks 제거 완료: {path}',
+  'integrations.codexHooksRemoved':
+    '✅ Repo-local Codex hooks 제거 완료: {path}',
   'integrations.codexHooksAlreadyAbsent':
     '✅ Repo-local Codex hooks 가 이미 없습니다: {path}',
   'integrations.codexHooksTrustRequired':
     'Codex에서 /hooks를 실행해 설치된 프로젝트 훅을 검토하고 신뢰하세요. 훅 정의가 변경되면 다시 검토해야 합니다.',
+  'integrations.codexHooksAgentsMdUpdateRequired':
+    'AGENTS.md에 현재 delegated-subagent context contract가 없습니다: {path}. `npx lee-spec-kit update --agents-md` 실행 후 `npx lee-spec-kit integrations codex-hooks`를 다시 실행하세요.',
 
   'github.cmdGithubDescription':
     'GitHub 워크플로우 도우미 (issue/pr 본문 템플릿 생성, 검증, merge 재시도)',

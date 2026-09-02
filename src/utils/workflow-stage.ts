@@ -120,6 +120,41 @@ export interface WorkflowStageAction {
   workingDirectory?: string;
   docsDirectory?: string;
   workerContract?: WorkflowTaskWorkerContract;
+  delegationContext?: WorkflowDelegationContext;
+}
+
+export interface WorkflowDelegationDocument {
+  path: string;
+  purpose: string;
+  hash?: string;
+}
+
+export interface WorkflowDelegationContext {
+  version: 1;
+  role:
+    | 'plan_reviewer'
+    | 'task_implementation_worker'
+    | 'task_reviewer'
+    | 'feature_reviewer';
+  featureRef: string;
+  docsDirectory: string;
+  workingDirectory?: string;
+  requiredDocuments: WorkflowDelegationDocument[];
+  referenceDocuments?: WorkflowDelegationDocument[];
+  task?: {
+    id: string;
+    title: string;
+    instructions: string;
+    acceptanceCriteria: string[];
+  };
+  verificationContract?: string;
+  reviewTarget?: {
+    baseSha?: string;
+    targetSha?: string;
+    targetTree?: string;
+    specHash?: string;
+    planHash?: string;
+  };
 }
 
 export interface WorkflowTaskWorkerContract {
@@ -238,6 +273,8 @@ type ParsedTasks = {
     taskId: string;
     taskIdSource: 'document' | 'synthetic';
     title: string;
+    instructions: string;
+    acceptanceCriteria: string[];
     reviewEvidence: string | null;
     reviewDecision: string | null;
     reviewDecisionOutcome: 'approve' | 'changes_requested' | 'blocked' | null;
@@ -571,6 +608,41 @@ function extractTaskReviewValue(
   return null;
 }
 
+function extractTaskInstructions(lines: string[], startIndex: number): string {
+  let endIndex = lines.length;
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    if (parseWorkflowTaskLine(lines[index]) || /^\s*##\s+/.test(lines[index])) {
+      endIndex = index;
+      break;
+    }
+  }
+  return lines.slice(startIndex, endIndex).join('\n').trim();
+}
+
+function extractTaskAcceptanceCriteria(
+  lines: string[],
+  startIndex: number
+): string[] {
+  const instructions = extractTaskInstructions(lines, startIndex).split('\n');
+  const acceptance: string[] = [];
+  let inAcceptance = false;
+
+  for (const line of instructions.slice(1)) {
+    if (/^\s{2,}-\s+(?:\*\*)?Acceptance(?:\*\*)?:\s*$/i.test(line)) {
+      inAcceptance = true;
+      continue;
+    }
+    if (inAcceptance && /^\s{2,}-\s+(?:\*\*)?[A-Za-z][^:]*:\s*/.test(line)) {
+      break;
+    }
+    if (!inAcceptance) continue;
+    const match = line.match(/^\s{4,}-\s+(?:\[[ xX]\]\s*)?(.+?)\s*$/);
+    if (match) acceptance.push(match[1]);
+  }
+
+  return acceptance;
+}
+
 function buildSyntheticTaskId(
   feature: ResolvedFeature,
   title: string,
@@ -624,6 +696,8 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
       taskId,
       taskIdSource: parsed.taskId ? 'document' : 'synthetic',
       title: parsed.title,
+      instructions: extractTaskInstructions(nonCodeLines, index),
+      acceptanceCriteria: extractTaskAcceptanceCriteria(nonCodeLines, index),
       reviewEvidence: extractTaskReviewValue(
         nonCodeLines,
         index,
@@ -796,6 +870,22 @@ function buildPlanReviewTarget(
       ...PLAN_REVIEWED_PLAN_HASH_LABELS,
     ]),
   };
+}
+
+function extractMarkdownSection(content: string, heading: string): string {
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const startIndex = lines.findIndex(
+    (line) => line.trim().toLowerCase() === `## ${heading}`.toLowerCase()
+  );
+  if (startIndex < 0) return '';
+  let endIndex = lines.length;
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    if (/^##\s+/.test(lines[index])) {
+      endIndex = index;
+      break;
+    }
+  }
+  return lines.slice(startIndex, endIndex).join('\n').trim();
 }
 
 function normalizeCommitTopicText(value: string): string {
@@ -1693,6 +1783,7 @@ function buildAction(
     workingDirectory?: string;
     docsDirectory?: string;
     workerContract?: WorkflowTaskWorkerContract;
+    delegationContext?: WorkflowDelegationContext;
   }
 ): WorkflowStageAction {
   return {
@@ -1774,6 +1865,91 @@ function createTaskWorkerContract(): WorkflowTaskWorkerContract {
     commit: false,
     requestApproval: false,
     remoteActions: false,
+  };
+}
+
+function createDelegationDocument(
+  pathValue: string,
+  purpose: string,
+  hash?: string
+): WorkflowDelegationDocument {
+  return { path: pathValue, purpose, ...(hash ? { hash } : {}) };
+}
+
+function createPlanReviewDelegationContext(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  target: { specHash: string; planHash: string }
+): WorkflowDelegationContext {
+  const paths = getFeatureDocPaths(feature);
+  return {
+    version: 1,
+    role: 'plan_reviewer',
+    featureRef: buildFeatureRef(feature),
+    docsDirectory: config.docsDir,
+    requiredDocuments: [
+      createDelegationDocument(paths.specPath, 'Review the approved requirements and acceptance boundaries.', target.specHash),
+      createDelegationDocument(paths.planPath, 'Review the implementation plan and Verification Contract.', target.planHash),
+    ],
+    reviewTarget: { specHash: target.specHash, planHash: target.planHash },
+  };
+}
+
+function createTaskDelegationContext(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  task: ParsedTasks['tasks'][number],
+  workingDirectory: string,
+  planContent: string,
+  role: 'task_implementation_worker' | 'task_reviewer',
+  reviewTarget?: { baseSha: string; targetSha: string; targetTree: string }
+): WorkflowDelegationContext {
+  const paths = getFeatureDocPaths(feature);
+  return {
+    version: 1,
+    role,
+    featureRef: buildFeatureRef(feature),
+    docsDirectory: config.docsDir,
+    workingDirectory,
+    requiredDocuments: [
+      createDelegationDocument(paths.tasksPath, `Use only the ${task.taskId} task block as the implementation and acceptance scope.`),
+      createDelegationDocument(paths.planPath, 'Use the approved Verification Contract and implementation constraints.'),
+    ],
+    referenceDocuments: [
+      createDelegationDocument(paths.specPath, 'Read only when the delegated task or Verification Contract references a requirement that needs clarification.'),
+      createDelegationDocument(paths.decisionsPath, 'Read only when the delegated task or Verification Contract references a recorded technical decision.'),
+    ],
+    task: {
+      id: task.taskId,
+      title: task.title,
+      instructions: task.instructions,
+      acceptanceCriteria: task.acceptanceCriteria,
+    },
+    verificationContract: extractMarkdownSection(planContent, 'Verification Contract'),
+    ...(reviewTarget ? { reviewTarget } : {}),
+  };
+}
+
+function createFeatureReviewDelegationContext(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  workingDirectory: string,
+  reviewTarget: { baseSha: string; targetSha: string; targetTree: string }
+): WorkflowDelegationContext {
+  const paths = getFeatureDocPaths(feature);
+  return {
+    version: 1,
+    role: 'feature_reviewer',
+    featureRef: buildFeatureRef(feature),
+    docsDirectory: config.docsDir,
+    workingDirectory,
+    requiredDocuments: [
+      createDelegationDocument(paths.specPath, 'Review Feature requirements.'),
+      createDelegationDocument(paths.planPath, 'Review the implementation plan and Verification Contract.'),
+      createDelegationDocument(paths.tasksPath, 'Review completed task acceptance and verification evidence.'),
+      createDelegationDocument(paths.decisionsPath, 'Review recorded decisions, trade-offs, and residual risks.'),
+    ],
+    reviewTarget,
   };
 }
 
@@ -2204,6 +2380,7 @@ function resolvePlanReviewPayload(
     specHash: target.specHash,
     planHash: target.planHash,
     docsDirectory: config.docsDir,
+    delegationContext: createPlanReviewDelegationContext(config, feature, target),
   };
 
   if (review.decisionOutcome === 'changes_requested') {
@@ -2666,6 +2843,15 @@ export async function collectWorkflowStage(
       maxReviewRounds: resolveMaxReviewRounds(config),
       ...(reviewTask.taskId ? { taskId: reviewTask.taskId } : {}),
       ...reviewTarget,
+      delegationContext: createTaskDelegationContext(
+        config,
+        feature,
+        reviewTask,
+        effectiveProjectGitCwd,
+        planContent || '',
+        'task_reviewer',
+        reviewTarget
+      ),
     };
     const evidenceMatchesTarget =
       reviewTask.reviewedHead === reviewTarget.targetSha &&
@@ -2946,6 +3132,12 @@ export async function collectWorkflowStage(
           reviewRound: tasks.prePrReviewRound || 1,
           maxReviewRounds: resolveMaxReviewRounds(config),
           ...reviewTarget,
+          delegationContext: createFeatureReviewDelegationContext(
+            config,
+            feature,
+            effectiveProjectGitCwd,
+            reviewTarget
+          ),
         }
       : null;
     const evidenceMatchesTarget =
@@ -3115,6 +3307,14 @@ export async function collectWorkflowStage(
             ? {
                 docsDirectory: config.docsDir,
                 workerContract: createTaskWorkerContract(),
+                delegationContext: createTaskDelegationContext(
+                  config,
+                  feature,
+                  currentTask,
+                  effectiveProjectGitCwd,
+                  planContent || '',
+                  'task_implementation_worker'
+                ),
               }
             : {}),
         }
