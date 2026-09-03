@@ -760,6 +760,74 @@ test('OpenWiki root files alone are classified as a Knowledge commit', async () 
   });
 });
 
+test('Knowledge commit resolves its Feature from the receipt on a multi-Feature main branch', async () => {
+  await withTempDir('lsk-openwiki-main-commit-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const secondFeature = await runCli(dir, [
+      'feature',
+      'beta',
+      '--id',
+      'F002',
+      '--non-interactive',
+    ]);
+    assert.equal(
+      secondFeature.code,
+      0,
+      secondFeature.stderr || secondFeature.stdout
+    );
+    await git(dir, ['add', 'docs/features/F002-beta']);
+    await git(dir, ['commit', '-m', 'docs(F002): add beta feature']);
+    await git(dir, ['branch', '-D', 'main']);
+    await git(dir, ['branch', '-m', 'main']);
+
+    const fake = await setupFakeOpenWiki(dir);
+    const sync = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(sync.status, 'ok', sync.error);
+    await git(dir, [
+      'add',
+      'openwiki',
+      '.lee-spec-kit/openwiki-sync.json',
+      '.openwikiignore',
+      'AGENTS.md',
+      'CLAUDE.md',
+    ]);
+
+    const wrongSubjectAudit = json(
+      await runCli(dir, [
+        'commit-audit',
+        '--message',
+        'chore(F002): refresh OpenWiki knowledge layer',
+        '--enforce',
+        '--json',
+      ])
+    );
+    assert.equal(wrongSubjectAudit.status, 'blocked');
+    assert.equal(
+      wrongSubjectAudit.reasonCode,
+      'COMMIT_MESSAGE_POLICY_VIOLATION'
+    );
+
+    const audit = json(
+      await runCli(dir, [
+        'commit-audit',
+        '--message',
+        'chore(F001): refresh OpenWiki knowledge layer',
+        '--enforce',
+        '--json',
+      ])
+    );
+    assert.equal(audit.status, 'ok');
+    assert.equal(audit.reasonCode, 'COMMIT_ALLOWED');
+  });
+});
+
 test('OpenWiki sync rejects a symlinked output root before external writes', async () => {
   if (process.platform === 'win32') return;
   await withTempDir('lsk-openwiki-root-symlink-', async (dir) => {

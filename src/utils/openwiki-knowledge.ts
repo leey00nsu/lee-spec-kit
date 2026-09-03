@@ -2032,7 +2032,7 @@ function isSourceFingerprintExcluded(
   return false;
 }
 
-async function readOpenWikiReceipt(
+export async function readOpenWikiReceipt(
   projectRoot: string
 ): Promise<OpenWikiReceipt | null> {
   const receiptPath = path.join(projectRoot, OPENWIKI_RECEIPT_PATH);

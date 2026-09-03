@@ -27,6 +27,7 @@ import {
   inspectOpenWikiKnowledge,
   OPENWIKI_RECEIPT_PATH,
   OPENWIKI_RUN_OWNER_PATH,
+  readOpenWikiReceipt,
 } from '../utils/openwiki-knowledge.js';
 
 interface CommitAuditOptions {
@@ -511,7 +512,11 @@ async function collectCommitMessageViolation(
     return null;
   }
 
-  const selection = await resolveFeatureSelection(cwd);
+  const selection = await resolveCommitFeatureSelection(
+    cwd,
+    repoRoot,
+    stagedEntries
+  );
   if (selection.status !== 'selected' || !selection.matchedFeature) {
     return null;
   }
@@ -622,7 +627,11 @@ async function collectKnowledgeCommitViolations(
         'Knowledge commits may contain only openwiki/**, the receipt, and OpenWiki-managed AGENTS.md/CLAUDE.md changes.',
     });
   }
-  const selection = await resolveFeatureSelection(cwd);
+  const selection = await resolveCommitFeatureSelection(
+    cwd,
+    repoRoot,
+    stagedEntries
+  );
   if (selection.status !== 'selected' || !selection.matchedFeature) {
     violations.push({
       path: OPENWIKI_RECEIPT_PATH,
@@ -645,6 +654,24 @@ async function collectKnowledgeCommitViolations(
     });
   }
   return violations;
+}
+
+async function resolveCommitFeatureSelection(
+  cwd: string,
+  repoRoot: string,
+  stagedEntries: StagedPathEntry[]
+): Promise<Awaited<ReturnType<typeof resolveFeatureSelection>>> {
+  if (isKnowledgeCommit(stagedEntries)) {
+    const receipt = await readOpenWikiReceipt(repoRoot);
+    if (receipt) {
+      return resolveFeatureSelection(
+        cwd,
+        receipt.triggerFeatureRef,
+        receipt.triggerComponent
+      );
+    }
+  }
+  return resolveFeatureSelection(cwd);
 }
 
 function isKnowledgeCommit(stagedEntries: StagedPathEntry[]): boolean {
