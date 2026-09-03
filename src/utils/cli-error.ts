@@ -17,14 +17,21 @@ export type CliReasonCode =
   | 'OPENWIKI_DISABLED'
   | 'OPENWIKI_NODE_22_REQUIRED'
   | 'OPENWIKI_CLI_NOT_FOUND'
+  | 'OPENWIKI_VERSION_PROBE_FAILED'
   | 'OPENWIKI_VERSION_UNSUPPORTED'
+  | 'OPENWIKI_RUNTIME_NOT_READY'
   | 'OPENWIKI_PROJECT_NOT_CLEAN'
   | 'OPENWIKI_GIT_STATE_UNAVAILABLE'
   | 'OPENWIKI_BASE_STALE'
+  | 'OPENWIKI_SOURCE_STALE'
   | 'OPENWIKI_SYNC_FAILED'
+  | 'OPENWIKI_IDLE_TIMEOUT'
+  | 'OPENWIKI_ABSOLUTE_TIMEOUT'
+  | 'OPENWIKI_SYNC_INTERRUPTED'
   | 'OPENWIKI_OUTPUT_SCOPE_VIOLATION'
   | 'OPENWIKI_OUTPUT_INVALID'
   | 'OPENWIKI_RUN_INCOMPLETE'
+  | 'OPENWIKI_RUN_OWNER_MISMATCH'
   | 'OPENWIKI_PROTECTED_CONTENT_CHANGED'
   | 'OPENWIKI_SECRET_DETECTED'
   | 'UNKNOWN_ERROR';
@@ -37,11 +44,16 @@ export interface CliSuggestion {
 
 export class CliError extends Error {
   readonly code: CliReasonCode;
+  readonly details?: Record<string, unknown>;
 
   constructor(
     code: CliReasonCode,
     message: string,
-    options?: { cause?: unknown; stack?: string }
+    options?: {
+      cause?: unknown;
+      stack?: string;
+      details?: Record<string, unknown>;
+    }
   ) {
     super(
       message,
@@ -49,12 +61,17 @@ export class CliError extends Error {
     );
     this.name = 'CliError';
     this.code = code;
+    this.details = options?.details;
     if (options?.stack) this.stack = options.stack;
   }
 }
 
-export function createCliError(code: CliReasonCode, message: string): CliError {
-  return new CliError(code, message);
+export function createCliError(
+  code: CliReasonCode,
+  message: string,
+  details?: Record<string, unknown>
+): CliError {
+  return new CliError(code, message, { details });
 }
 
 export function toCliError(
@@ -168,7 +185,10 @@ const SUGGESTION_MAP: Partial<Record<CliReasonCode, SuggestionSeed[]>> = {
   ],
   UNKNOWN_ERROR: [
     { titleKey: 'unknown.rerunAndCaptureLogs' },
-    { titleKey: 'unknown.inspectWorkspaceState', command: 'npx lee-spec-kit detect --json' },
+    {
+      titleKey: 'unknown.inspectWorkspaceState',
+      command: 'npx lee-spec-kit detect --json',
+    },
     { titleKey: 'unknown.reportReasonCode' },
   ],
 };

@@ -26,6 +26,7 @@ import {
   isOpenWikiKnowledgePath,
   inspectOpenWikiKnowledge,
   OPENWIKI_RECEIPT_PATH,
+  OPENWIKI_RUN_OWNER_PATH,
 } from '../utils/openwiki-knowledge.js';
 
 interface CommitAuditOptions {
@@ -84,15 +85,29 @@ const FEATURE_DOC_CANDIDATE_PATTERN =
 export function commitAuditCommand(program: Command): void {
   program
     .command('commit-audit')
-    .description('Validate staged docs paths and canonical commit subjects before commit')
+    .description(
+      'Validate staged docs paths and canonical commit subjects before commit'
+    )
     .option('--json', 'Output JSON for hooks and agents')
-    .option('--git-root <path>', 'Override the git root used for staged-path inspection')
-    .option('--message <message>', 'Validate a commit subject against the current workflow convention')
-    .option('--message-file <path>', 'Read and validate the commit subject from a commit message file')
+    .option(
+      '--git-root <path>',
+      'Override the git root used for staged-path inspection'
+    )
+    .option(
+      '--message <message>',
+      'Validate a commit subject against the current workflow convention'
+    )
+    .option(
+      '--message-file <path>',
+      'Read and validate the commit subject from a commit message file'
+    )
     .option('--enforce', 'Exit non-zero when commit-audit blocks the commit')
     .action(async (options: CommitAuditOptions) => {
       try {
-        const commitMessage = await resolveCommitMessageInput(process.cwd(), options);
+        const commitMessage = await resolveCommitMessageInput(
+          process.cwd(),
+          options
+        );
         const payload = await collectCommitAudit(
           process.cwd(),
           options.gitRoot,
@@ -110,9 +125,10 @@ export function commitAuditCommand(program: Command): void {
         const cliError = toCliError(error);
         const payload: CommitAuditPayload = {
           status: 'error',
-          reasonCode: cliError.code === 'CONFIG_NOT_FOUND'
-            ? 'CONFIG_NOT_FOUND'
-            : 'UNEXPECTED_ERROR',
+          reasonCode:
+            cliError.code === 'CONFIG_NOT_FOUND'
+              ? 'CONFIG_NOT_FOUND'
+              : 'UNEXPECTED_ERROR',
           docsDir: null,
           stagedPaths: [],
           blockedPaths: [],
@@ -151,7 +167,10 @@ async function resolveCommitMessageInput(
   if (options.message) return options.message;
   if (!options.messageFile) return undefined;
 
-  const content = await fs.readFile(path.resolve(cwd, options.messageFile), 'utf-8');
+  const content = await fs.readFile(
+    path.resolve(cwd, options.messageFile),
+    'utf-8'
+  );
   return content
     .split(/\r?\n/u)
     .map((line) => line.trim())
@@ -165,7 +184,10 @@ async function collectCommitAudit(
 ): Promise<CommitAuditPayload> {
   const config = await getConfig(cwd);
   if (!config) {
-    throw createCliError('CONFIG_NOT_FOUND', 'Config file not found. Run `init` first.');
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      'Config file not found. Run `init` first.'
+    );
   }
 
   const overrideRoot = gitRootOverride
@@ -187,7 +209,10 @@ async function collectCommitAudit(
   }
 
   const stagedOutput =
-    runGitCapture(['diff', '--cached', '--name-status', '--diff-filter=ACMRD'], repoRoot) || '';
+    runGitCapture(
+      ['diff', '--cached', '--name-status', '--diff-filter=ACMRD'],
+      repoRoot
+    ) || '';
   const stagedEntries = parseStagedPaths(stagedOutput);
   const stagedPaths = [...new Set(stagedEntries.map((entry) => entry.path))];
   const targetRepoViolation = collectUnsupportedTargetRepoViolation(
@@ -274,7 +299,10 @@ function collectAllowedCommitRepoRoots(
   cwd: string
 ): Set<string> {
   const allowed = new Set<string>();
-  const docsRepoRoot = runGitCapture(['rev-parse', '--show-toplevel'], config.docsDir);
+  const docsRepoRoot = runGitCapture(
+    ['rev-parse', '--show-toplevel'],
+    config.docsDir
+  );
   if (docsRepoRoot) {
     allowed.add(path.resolve(docsRepoRoot));
   }
@@ -282,11 +310,17 @@ function collectAllowedCommitRepoRoots(
   if (config.docsRepo === 'standalone') {
     const scopedProjectRoots = resolveStandaloneProjectRoots(config);
     for (const projectRoot of scopedProjectRoots) {
-      const projectRepoRoot = runGitCapture(['rev-parse', '--show-toplevel'], projectRoot);
+      const projectRepoRoot = runGitCapture(
+        ['rev-parse', '--show-toplevel'],
+        projectRoot
+      );
       if (projectRepoRoot) {
         allowed.add(path.resolve(projectRepoRoot));
       }
-      for (const worktreeRepoRoot of collectManagedWorktreeRepoRoots(config, projectRoot)) {
+      for (const worktreeRepoRoot of collectManagedWorktreeRepoRoots(
+        config,
+        projectRoot
+      )) {
         allowed.add(path.resolve(worktreeRepoRoot));
       }
     }
@@ -309,7 +343,8 @@ function collectManagedWorktreeRepoRoots(
     return [];
   }
 
-  const output = runGitCapture(['worktree', 'list', '--porcelain'], projectRoot) || '';
+  const output =
+    runGitCapture(['worktree', 'list', '--porcelain'], projectRoot) || '';
   const roots = new Set<string>();
 
   for (const rawLine of output.split('\n')) {
@@ -339,7 +374,10 @@ function parseStagedPaths(output: string): StagedPathEntry[] {
   for (const rawLine of output.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
-    const parts = line.split('\t').map((entry) => entry.trim()).filter(Boolean);
+    const parts = line
+      .split('\t')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
     if (parts.length < 2) continue;
 
     const status = parts[0];
@@ -376,7 +414,9 @@ function collectCommitViolations(
   for (const stagedEntry of stagedEntries) {
     const stagedPath = stagedEntry.path;
     const absolutePath = path.resolve(repoRoot, stagedPath);
-    const relativeToDocs = normalizeSlashes(path.relative(docsDir, absolutePath));
+    const relativeToDocs = normalizeSlashes(
+      path.relative(docsDir, absolutePath)
+    );
     if (
       !relativeToDocs ||
       relativeToDocs === '' ||
@@ -440,7 +480,9 @@ function collectCommitViolations(
   return [...violations.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
 
-function resolveReasonCode(violations: CommitAuditViolation[]): CommitAuditReasonCode {
+function resolveReasonCode(
+  violations: CommitAuditViolation[]
+): CommitAuditReasonCode {
   const kinds = new Set(violations.map((entry) => entry.kind));
   if (kinds.size > 1) return 'DOCS_COMMIT_POLICY_VIOLATION';
   if (kinds.has('commit_message_policy')) {
@@ -491,15 +533,26 @@ async function collectCommitMessageViolation(
       detail: `Knowledge commit subject must be exactly "${expected}".`,
     };
   }
-  const docsRepoRoot = runGitCapture(['rev-parse', '--show-toplevel'], config.docsDir);
+  const docsRepoRoot = runGitCapture(
+    ['rev-parse', '--show-toplevel'],
+    config.docsDir
+  );
   const normalizedRepoRoot = path.resolve(repoRoot);
-  const normalizedDocsRepoRoot = docsRepoRoot ? path.resolve(docsRepoRoot) : null;
+  const normalizedDocsRepoRoot = docsRepoRoot
+    ? path.resolve(docsRepoRoot)
+    : null;
   const docsOnlyCommit =
     stagedEntries.length > 0 &&
     stagedEntries.every((entry) => {
       const absolutePath = path.resolve(repoRoot, entry.path);
-      const relativeToDocs = normalizeSlashes(path.relative(config.docsDir, absolutePath));
-      return !!relativeToDocs && relativeToDocs !== '' && !relativeToDocs.startsWith('..');
+      const relativeToDocs = normalizeSlashes(
+        path.relative(config.docsDir, absolutePath)
+      );
+      return (
+        !!relativeToDocs &&
+        relativeToDocs !== '' &&
+        !relativeToDocs.startsWith('..')
+      );
     });
   const isDocsCommit =
     !!normalizedDocsRepoRoot &&
@@ -528,7 +581,8 @@ async function collectKnowledgeCommitViolations(
   cwd: string,
   repoRoot: string
 ): Promise<CommitAuditViolation[]> {
-  if (!isOpenWikiEnabled(config) || !isKnowledgeCommit(stagedEntries)) return [];
+  if (!isOpenWikiEnabled(config) || !isKnowledgeCommit(stagedEntries))
+    return [];
   const violations: CommitAuditViolation[] = [];
   const stagedPaths = new Set(stagedEntries.map((entry) => entry.path));
   const changedKnowledgePaths = collectGitChangedPaths(repoRoot).filter(
@@ -555,7 +609,8 @@ async function collectKnowledgeCommitViolations(
     violations.push({
       path: OPENWIKI_RECEIPT_PATH,
       kind: 'knowledge_output_scope',
-      detail: 'A Knowledge commit must include the lee-spec-kit verification receipt.',
+      detail:
+        'A Knowledge commit must include the lee-spec-kit verification receipt.',
     });
   }
   for (const entry of stagedEntries) {
@@ -596,6 +651,7 @@ function isKnowledgeCommit(stagedEntries: StagedPathEntry[]): boolean {
   return stagedEntries.some(
     (entry) =>
       entry.path === OPENWIKI_RECEIPT_PATH ||
+      entry.path === OPENWIKI_RUN_OWNER_PATH ||
       entry.path === '.openwikiignore' ||
       entry.path === 'AGENTS.md' ||
       entry.path === 'CLAUDE.md' ||
@@ -630,7 +686,10 @@ function normalizeEntryName(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function toAllowedSet(values: readonly string[], extras?: string[]): Set<string> {
+function toAllowedSet(
+  values: readonly string[],
+  extras?: string[]
+): Set<string> {
   return new Set(
     [...values, ...(extras || [])]
       .map((entry) => normalizeEntryName(entry))

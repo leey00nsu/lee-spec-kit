@@ -12,7 +12,10 @@ import {
 } from './helpers/cli-contract-helpers.mjs';
 
 function completeNoImpactAssessment(content) {
-  let next = content.replace('- **Assessment**: Pending', '- **Assessment**: Complete');
+  let next = content.replace(
+    '- **Assessment**: Pending',
+    '- **Assessment**: Complete'
+  );
   for (const field of [
     'Product requirements',
     'System architecture',
@@ -21,7 +24,10 @@ function completeNoImpactAssessment(content) {
   ]) {
     next = next.replace(`- **${field}**: -`, `- **${field}**: NONE`);
   }
-  return next.replace('- **Reason**: -', '- **Reason**: Test fixture has no curated documentation impact.');
+  return next.replace(
+    '- **Reason**: -',
+    '- **Reason**: Test fixture has no curated documentation impact.'
+  );
 }
 
 test('integrations codex-bootstrap creates managed Codex hooks flag in CODEX_HOME config.toml', async () => {
@@ -98,7 +104,10 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
     );
 
     const hooksDir = path.join(dir, '.codex', 'hooks');
-    const sessionStartScriptPath = path.join(hooksDir, 'session_start_lee_spec_kit.mjs');
+    const sessionStartScriptPath = path.join(
+      hooksDir,
+      'session_start_lee_spec_kit.mjs'
+    );
     assert.equal(
       hooksJson.hooks.SessionStart[0].hooks[0].command.startsWith(
         `${JSON.stringify(process.execPath)} -e `
@@ -132,11 +141,20 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
       /Prefer Codex native execution with workspace-scoped AGENTS\.md plus official hooks/
     );
     assert.match(sessionStartScript, /workflow-stage --json/);
-    assert.match(sessionStartScript, /Delegated subagents skip the primary-agent bootstrap/);
-    assert.match(subagentStartScript, /lee-spec-kit delegated subagent detected/);
+    assert.match(
+      sessionStartScript,
+      /Delegated subagents skip the primary-agent bootstrap/
+    );
+    assert.match(
+      subagentStartScript,
+      /lee-spec-kit delegated subagent detected/
+    );
     assert.match(subagentStartScript, /input\.agent_type/);
     assert.match(subagentStartScript, /do not run detect, docs get agents/);
-    assert.match(subagentStartScript, /exact delegationContext and workerContract/i);
+    assert.match(
+      subagentStartScript,
+      /exact delegationContext and workerContract/i
+    );
     assert.match(subagentStartScript, /requiredDocuments/i);
     assert.match(subagentStartScript, /unrelated Features/i);
     assert.match(stopScript, /workflow-audit --json/);
@@ -154,8 +172,18 @@ test('integrations codex-hooks scaffolds repo-local Codex hooks for lee-spec-kit
 test('integrations codex-hooks warns when AGENTS.md lacks the current delegation contract', async () => {
   await withTempDir('lsk-codex-hooks-stale-agents-', async (dir) => {
     const initResult = await runCli(dir, [
-      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
-      '--lang', 'en', '--workflow', 'local', '--dir', './docs',
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
     await fs.writeFile(
@@ -232,7 +260,9 @@ test('integrations codex rejects conflicting table-style codex_hooks settings', 
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.notEqual(result.code, 0);
     assert.match(result.stderr, /Codex config already defines/);
   });
@@ -250,46 +280,68 @@ test('integrations codex rejects canonical hooks=false in the features table', a
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.notEqual(result.code, 0);
     assert.match(result.stderr, /Codex config already defines hooks/i);
   });
 });
 
 test('integrations codex rejects conflicting table-style codex_hooks settings with commented table header', async () => {
-  await withTempDir('lsk-integrations-codex-commented-table-conflict-', async (dir) => {
-    const homeDir = path.join(dir, 'home');
-    const codexDir = path.join(homeDir, '.codex');
-    const configPath = path.join(codexDir, 'config.toml');
-    await fs.mkdir(codexDir, { recursive: true });
-    await fs.writeFile(
-      configPath,
-      ['[features] # keep local override', 'codex_hooks = false', ''].join('\n'),
-      'utf-8'
-    );
+  await withTempDir(
+    'lsk-integrations-codex-commented-table-conflict-',
+    async (dir) => {
+      const homeDir = path.join(dir, 'home');
+      const codexDir = path.join(homeDir, '.codex');
+      const configPath = path.join(codexDir, 'config.toml');
+      await fs.mkdir(codexDir, { recursive: true });
+      await fs.writeFile(
+        configPath,
+        ['[features] # keep local override', 'codex_hooks = false', ''].join(
+          '\n'
+        ),
+        'utf-8'
+      );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
-    assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
-  });
+      const result = await runCli(dir, ['integrations', 'codex'], {
+        HOME: homeDir,
+      });
+      assert.notEqual(result.code, 0);
+      assert.match(
+        result.stderr,
+        /Codex config already defines hooks outside lee-spec-kit managed block/
+      );
+    }
+  );
 });
 
 test('integrations codex rejects conflicting table-style codex_hooks settings with tight commented table header', async () => {
-  await withTempDir('lsk-integrations-codex-tight-commented-table-conflict-', async (dir) => {
-    const homeDir = path.join(dir, 'home');
-    const codexDir = path.join(homeDir, '.codex');
-    const configPath = path.join(codexDir, 'config.toml');
-    await fs.mkdir(codexDir, { recursive: true });
-    await fs.writeFile(
-      configPath,
-      ['[features]#keep local override', 'codex_hooks = false', ''].join('\n'),
-      'utf-8'
-    );
+  await withTempDir(
+    'lsk-integrations-codex-tight-commented-table-conflict-',
+    async (dir) => {
+      const homeDir = path.join(dir, 'home');
+      const codexDir = path.join(homeDir, '.codex');
+      const configPath = path.join(codexDir, 'config.toml');
+      await fs.mkdir(codexDir, { recursive: true });
+      await fs.writeFile(
+        configPath,
+        ['[features]#keep local override', 'codex_hooks = false', ''].join(
+          '\n'
+        ),
+        'utf-8'
+      );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
-    assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
-  });
+      const result = await runCli(dir, ['integrations', 'codex'], {
+        HOME: homeDir,
+      });
+      assert.notEqual(result.code, 0);
+      assert.match(
+        result.stderr,
+        /Codex config already defines hooks outside lee-spec-kit managed block/
+      );
+    }
+  );
 });
 
 test('integrations codex rejects conflicting inline-table codex_hooks settings', async () => {
@@ -304,9 +356,14 @@ test('integrations codex rejects conflicting inline-table codex_hooks settings',
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
+    assert.match(
+      result.stderr,
+      /Codex config already defines hooks outside lee-spec-kit managed block/
+    );
   });
 });
 
@@ -326,7 +383,9 @@ test('integrations codex preserves existing compact prompt and fallback settings
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const config = await fs.readFile(configPath, 'utf-8');
@@ -351,7 +410,9 @@ test('integrations codex does not treat commented codex_hooks text as an install
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const config = await fs.readFile(configPath, 'utf-8');
@@ -371,16 +432,13 @@ test('integrations codex ignores codex_hooks text that only appears inside multi
     await fs.mkdir(codexDir, { recursive: true });
     await fs.writeFile(
       configPath,
-      [
-        'description = """',
-        'codex_hooks = true',
-        '"""',
-        '',
-      ].join('\n'),
+      ['description = """', 'codex_hooks = true', '"""', ''].join('\n'),
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const config = await fs.readFile(configPath, 'utf-8');
@@ -412,9 +470,14 @@ test('integrations codex rejects conflicting codex_hooks settings outside an exi
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Codex config already defines hooks outside lee-spec-kit managed block/);
+    assert.match(
+      result.stderr,
+      /Codex config already defines hooks outside lee-spec-kit managed block/
+    );
   });
 });
 
@@ -435,7 +498,9 @@ test('integrations codex migrates a legacy managed codex_hooks block to canonica
       'utf-8'
     );
 
-    const result = await runCli(dir, ['integrations', 'codex'], { HOME: homeDir });
+    const result = await runCli(dir, ['integrations', 'codex'], {
+      HOME: homeDir,
+    });
     assert.equal(result.code, 0, result.stderr || result.stdout);
 
     const config = await fs.readFile(configPath, 'utf-8');
@@ -446,134 +511,172 @@ test('integrations codex migrates a legacy managed codex_hooks block to canonica
 });
 
 test('integrations codex-hooks --remove preserves custom hooks in a mixed group', async () => {
-  await withTempDir('lsk-integrations-codex-hooks-mixed-remove-', async (dir) => {
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+  await withTempDir(
+    'lsk-integrations-codex-hooks-mixed-remove-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
-    const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
-    hooksJson.hooks.PreToolUse = [
-      {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: 'node ./custom-hook.mjs',
-          },
-          ...hooksJson.hooks.PreToolUse[0].hooks,
-        ],
-      },
-    ];
-    hooksJson.hooks.SubagentStart = [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: 'node ./custom-subagent-hook.mjs',
-          },
-          ...hooksJson.hooks.SubagentStart[0].hooks,
-        ],
-      },
-    ];
-    await fs.writeFile(hooksJsonPath, `${JSON.stringify(hooksJson, null, 2)}\n`, 'utf-8');
+      const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
+      const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
+      hooksJson.hooks.PreToolUse = [
+        {
+          matcher: 'Bash',
+          hooks: [
+            {
+              type: 'command',
+              command: 'node ./custom-hook.mjs',
+            },
+            ...hooksJson.hooks.PreToolUse[0].hooks,
+          ],
+        },
+      ];
+      hooksJson.hooks.SubagentStart = [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: 'node ./custom-subagent-hook.mjs',
+            },
+            ...hooksJson.hooks.SubagentStart[0].hooks,
+          ],
+        },
+      ];
+      await fs.writeFile(
+        hooksJsonPath,
+        `${JSON.stringify(hooksJson, null, 2)}\n`,
+        'utf-8'
+      );
 
-    const removeResult = await runCli(dir, ['integrations', 'codex-hooks', '--remove']);
-    assert.equal(removeResult.code, 0, removeResult.stderr || removeResult.stdout);
+      const removeResult = await runCli(dir, [
+        'integrations',
+        'codex-hooks',
+        '--remove',
+      ]);
+      assert.equal(
+        removeResult.code,
+        0,
+        removeResult.stderr || removeResult.stdout
+      );
 
-    const after = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
-    assert.deepEqual(after.hooks.PreToolUse, [
-      {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: 'node ./custom-hook.mjs',
-          },
-        ],
-      },
-    ]);
-    assert.deepEqual(after.hooks.SubagentStart, [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: 'node ./custom-subagent-hook.mjs',
-          },
-        ],
-      },
-    ]);
-  });
+      const after = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
+      assert.deepEqual(after.hooks.PreToolUse, [
+        {
+          matcher: 'Bash',
+          hooks: [
+            {
+              type: 'command',
+              command: 'node ./custom-hook.mjs',
+            },
+          ],
+        },
+      ]);
+      assert.deepEqual(after.hooks.SubagentStart, [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: 'node ./custom-subagent-hook.mjs',
+            },
+          ],
+        },
+      ]);
+    }
+  );
 });
 
 test('integrations codex-hooks --remove keeps custom hooks that only mention managed filenames in text', async () => {
-  await withTempDir('lsk-integrations-codex-hooks-custom-text-', async (dir) => {
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+  await withTempDir(
+    'lsk-integrations-codex-hooks-custom-text-',
+    async (dir) => {
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
-    const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
-    hooksJson.hooks.PreToolUse = [
-      {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: 'echo ".codex/hooks/pre_tool_use_policy.mjs.backup"',
-          },
-          ...hooksJson.hooks.PreToolUse[0].hooks,
-        ],
-      },
-    ];
-    await fs.writeFile(hooksJsonPath, `${JSON.stringify(hooksJson, null, 2)}\n`, 'utf-8');
+      const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
+      const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
+      hooksJson.hooks.PreToolUse = [
+        {
+          matcher: 'Bash',
+          hooks: [
+            {
+              type: 'command',
+              command: 'echo ".codex/hooks/pre_tool_use_policy.mjs.backup"',
+            },
+            ...hooksJson.hooks.PreToolUse[0].hooks,
+          ],
+        },
+      ];
+      await fs.writeFile(
+        hooksJsonPath,
+        `${JSON.stringify(hooksJson, null, 2)}\n`,
+        'utf-8'
+      );
 
-    const removeResult = await runCli(dir, ['integrations', 'codex-hooks', '--remove']);
-    assert.equal(removeResult.code, 0, removeResult.stderr || removeResult.stdout);
+      const removeResult = await runCli(dir, [
+        'integrations',
+        'codex-hooks',
+        '--remove',
+      ]);
+      assert.equal(
+        removeResult.code,
+        0,
+        removeResult.stderr || removeResult.stdout
+      );
 
-    const after = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
-    assert.deepEqual(after.hooks.PreToolUse, [
-      {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: 'echo ".codex/hooks/pre_tool_use_policy.mjs.backup"',
-          },
-        ],
-      },
-    ]);
-  });
+      const after = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
+      assert.deepEqual(after.hooks.PreToolUse, [
+        {
+          matcher: 'Bash',
+          hooks: [
+            {
+              type: 'command',
+              command: 'echo ".codex/hooks/pre_tool_use_policy.mjs.backup"',
+            },
+          ],
+        },
+      ]);
+    }
+  );
 });
 
 test('integrations codex-hooks --remove still prunes managed hooks when the recorded node path differs', async () => {
@@ -595,14 +698,27 @@ test('integrations codex-hooks --remove still prunes managed hooks when the reco
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const hooksJsonPath = path.join(dir, '.codex', 'hooks.json');
     const hooksJson = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
-    for (const eventName of ['SessionStart', 'SubagentStart', 'UserPromptSubmit', 'PreToolUse', 'Stop']) {
+    for (const eventName of [
+      'SessionStart',
+      'SubagentStart',
+      'UserPromptSubmit',
+      'PreToolUse',
+      'Stop',
+    ]) {
       for (const group of hooksJson.hooks[eventName] || []) {
         for (const hook of group.hooks || []) {
-          if (typeof hook.command === 'string' && hook.command.includes(' -e ')) {
+          if (
+            typeof hook.command === 'string' &&
+            hook.command.includes(' -e ')
+          ) {
             hook.command = hook.command.replace(
               /^"[^"]+"(?= -e )/,
               '"/opt/custom/node"'
@@ -611,10 +727,22 @@ test('integrations codex-hooks --remove still prunes managed hooks when the reco
         }
       }
     }
-    await fs.writeFile(hooksJsonPath, `${JSON.stringify(hooksJson, null, 2)}\n`, 'utf-8');
+    await fs.writeFile(
+      hooksJsonPath,
+      `${JSON.stringify(hooksJson, null, 2)}\n`,
+      'utf-8'
+    );
 
-    const removeResult = await runCli(dir, ['integrations', 'codex-hooks', '--remove']);
-    assert.equal(removeResult.code, 0, removeResult.stderr || removeResult.stdout);
+    const removeResult = await runCli(dir, [
+      'integrations',
+      'codex-hooks',
+      '--remove',
+    ]);
+    assert.equal(
+      removeResult.code,
+      0,
+      removeResult.stderr || removeResult.stdout
+    );
 
     const after = JSON.parse(await fs.readFile(hooksJsonPath, 'utf-8'));
     assert.equal(after.hooks?.SessionStart, undefined);
@@ -653,14 +781,29 @@ test('generated pre-tool hook blocks commit when staged docs paths violate commi
       'F001',
       '--non-interactive',
     ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     await fs.mkdir(path.join(dir, 'docs', 'plans'), { recursive: true });
-    await fs.writeFile(path.join(dir, 'docs', 'plans', 'external-plan.md'), '# External\n', 'utf-8');
-    const addResult = await runCommand(dir, 'git', ['add', 'docs/plans/external-plan.md']);
+    await fs.writeFile(
+      path.join(dir, 'docs', 'plans', 'external-plan.md'),
+      '# External\n',
+      'utf-8'
+    );
+    const addResult = await runCommand(dir, 'git', [
+      'add',
+      'docs/plans/external-plan.md',
+    ]);
     assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
 
     const fakeNpx = await setupFakeNpxCli(dir);
@@ -681,7 +824,10 @@ test('generated pre-tool hook blocks commit when staged docs paths violate commi
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /Normalize or allowlist non-canonical docs paths before committing/);
+    assert.match(
+      payload.reason,
+      /Normalize or allowlist non-canonical docs paths before committing/
+    );
   });
 });
 
@@ -707,7 +853,11 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
     const fakeNpx = await setupFakeNpxCli(dir);
     const hookPath = path.join(
       dir,
@@ -739,12 +889,31 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
       'corepack pnpm dlx openwiki code --update --print',
       'npm run openwiki -- --update',
       'bash -c openwiki code --update --print',
+      'echo "$(openwiki code --update --print)"',
+      'eval "openwiki code --update --print"',
+      'xargs openwiki code --update --print',
+      'find . -exec openwiki code --update --print \\;',
+      'X=openwiki; "$X" code --update --print',
+      'cmd /c openwiki code --update --print',
+      'powershell -Command "openwiki code --update --print"',
+      'npx --package attacker openwiki code --update --print',
     ]) {
       hookResult = await invoke(command);
       assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
       payload = JSON.parse(hookResult.stdout.trim());
       assert.equal(payload.decision, 'block', command);
       assert.match(payload.reason, /lee-spec-kit knowledge sync/);
+    }
+
+    for (const command of [
+      'openwiki --help',
+      'openwiki auth',
+      'openwiki auth configure',
+      'npx --yes openwiki@0.5.0 auth tools',
+    ]) {
+      hookResult = await invoke(command);
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      assert.equal(hookResult.stdout.trim(), '', command);
     }
 
     hookResult = await invoke('ls openwiki');
@@ -790,7 +959,11 @@ test('generated pre-tool hook blocks commits while task implementation is active
       'F001',
       '--non-interactive',
     ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
 
     const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
     for (const fileName of ['spec.md', 'plan.md']) {
@@ -827,15 +1000,31 @@ test('generated pre-tool hook blocks commits while task implementation is active
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.workflow.requireBranch = false;
     config.workflow.agentReview.plan.enabled = false;
-    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
 
     const addResult = await runCommand(dir, 'git', ['add', '.']);
     assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
-    const commitResult = await runCommand(dir, 'git', ['commit', '-m', 'baseline']);
-    assert.equal(commitResult.code, 0, commitResult.stderr || commitResult.stdout);
+    const commitResult = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'baseline',
+    ]);
+    assert.equal(
+      commitResult.code,
+      0,
+      commitResult.stderr || commitResult.stdout
+    );
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const hookResult = await runCommand(
       dir,
@@ -853,7 +1042,10 @@ test('generated pre-tool hook blocks commits while task implementation is active
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /Commits are not allowed while task_execute is active/i);
+    assert.match(
+      payload.reason,
+      /Commits are not allowed while task_execute is active/i
+    );
   });
 });
 
@@ -879,9 +1071,17 @@ test('generated pre-tool hook blocks wrapped and windows-style git commit comman
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
-    await fs.writeFile(path.join(dir, 'docs', 'random.md'), '# stray\n', 'utf-8');
+    await fs.writeFile(
+      path.join(dir, 'docs', 'random.md'),
+      '# stray\n',
+      'utf-8'
+    );
     const gitAdd = await runCommand(dir, 'git', ['add', 'docs/random.md']);
     assert.equal(gitAdd.code, 0, gitAdd.stderr || gitAdd.stdout);
     await fs.writeFile(
@@ -896,7 +1096,7 @@ test('generated pre-tool hook blocks wrapped and windows-style git commit comman
     );
     await fs.writeFile(
       path.join(dir, 'dangerous-shell.sh'),
-      "#!/usr/bin/env bash\ngit push\n",
+      '#!/usr/bin/env bash\ngit push\n',
       'utf-8'
     );
     await fs.writeFile(
@@ -905,7 +1105,12 @@ test('generated pre-tool hook blocks wrapped and windows-style git commit comman
       'utf-8'
     );
 
-    const hookPath = path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs');
+    const hookPath = path.join(
+      dir,
+      '.codex',
+      'hooks',
+      'pre_tool_use_policy.mjs'
+    );
     for (const command of [
       'sh -c "git commit -m test"',
       "bash -c './dangerous-shell.sh'",
@@ -967,7 +1172,11 @@ test('generated pre-tool hook blocks git commit commands that target another wor
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const hookResult = await runCommand(
       dir,
@@ -993,58 +1202,90 @@ test('generated pre-tool hook blocks git commit commands that target another wor
 });
 
 test('integrations codex-hooks in standalone installs hooks at the workspace and configured project roots', async () => {
-  await withTempDir('lsk-codex-hooks-standalone-docs-root-install-', async (dir) => {
-    const projectRoot = path.join(dir, 'project');
-    await fs.mkdir(projectRoot, { recursive: true });
+  await withTempDir(
+    'lsk-codex-hooks-standalone-docs-root-install-',
+    async (dir) => {
+      const projectRoot = path.join(dir, 'project');
+      await fs.mkdir(projectRoot, { recursive: true });
 
-    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+      const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+      assert.equal(
+        projectGitInit.code,
+        0,
+        projectGitInit.stderr || projectGitInit.stdout
+      );
 
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--docs-repo',
-      'standalone',
-      '--project-root',
-      './project',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--docs-repo',
+        'standalone',
+        '--project-root',
+        './project',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(path.join(dir, 'docs'), ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(path.join(dir, 'docs'), [
+        'integrations',
+        'codex-hooks',
+      ]);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    assert.equal(await pathExists(path.join(dir, '.codex', 'hooks.json')), true);
-    assert.equal(await pathExists(path.join(dir, 'docs', '.codex', 'hooks.json')), false);
-    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), true);
-    assert.match(installResult.stdout, /\/hooks/);
+      assert.equal(
+        await pathExists(path.join(dir, '.codex', 'hooks.json')),
+        true
+      );
+      assert.equal(
+        await pathExists(path.join(dir, 'docs', '.codex', 'hooks.json')),
+        false
+      );
+      assert.equal(
+        await pathExists(path.join(projectRoot, '.codex', 'hooks.json')),
+        true
+      );
+      assert.match(installResult.stdout, /\/hooks/);
 
-    const projectSessionHook = await runCommand(
-      projectRoot,
-      process.execPath,
-      [path.join(projectRoot, '.codex', 'hooks', 'session_start_lee_spec_kit.mjs')],
-      { input: JSON.stringify({ cwd: projectRoot }) }
-    );
-    assert.equal(
-      projectSessionHook.code,
-      0,
-      projectSessionHook.stderr || projectSessionHook.stdout
-    );
-    const projectSessionPayload = JSON.parse(projectSessionHook.stdout.trim());
-    assert.equal(
-      projectSessionPayload.hookSpecificOutput.hookEventName,
-      'SessionStart'
-    );
-  });
+      const projectSessionHook = await runCommand(
+        projectRoot,
+        process.execPath,
+        [
+          path.join(
+            projectRoot,
+            '.codex',
+            'hooks',
+            'session_start_lee_spec_kit.mjs'
+          ),
+        ],
+        { input: JSON.stringify({ cwd: projectRoot }) }
+      );
+      assert.equal(
+        projectSessionHook.code,
+        0,
+        projectSessionHook.stderr || projectSessionHook.stdout
+      );
+      const projectSessionPayload = JSON.parse(
+        projectSessionHook.stdout.trim()
+      );
+      assert.equal(
+        projectSessionPayload.hookSpecificOutput.hookEventName,
+        'SessionStart'
+      );
+    }
+  );
 });
 
 test('integrations codex-hooks --remove removes standalone hooks from workspace and project roots', async () => {
@@ -1052,7 +1293,11 @@ test('integrations codex-hooks --remove removes standalone hooks from workspace 
     const projectRoot = path.join(dir, 'project');
     await fs.mkdir(projectRoot, { recursive: true });
     const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    assert.equal(
+      projectGitInit.code,
+      0,
+      projectGitInit.stderr || projectGitInit.stdout
+    );
 
     const initResult = await runCli(dir, [
       'init',
@@ -1075,12 +1320,30 @@ test('integrations codex-hooks --remove removes standalone hooks from workspace 
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
-    const removeResult = await runCli(dir, ['integrations', 'codex-hooks', '--remove']);
-    assert.equal(removeResult.code, 0, removeResult.stderr || removeResult.stdout);
-    assert.equal(await pathExists(path.join(dir, '.codex', 'hooks.json')), true);
-    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), true);
+    const removeResult = await runCli(dir, [
+      'integrations',
+      'codex-hooks',
+      '--remove',
+    ]);
+    assert.equal(
+      removeResult.code,
+      0,
+      removeResult.stderr || removeResult.stdout
+    );
+    assert.equal(
+      await pathExists(path.join(dir, '.codex', 'hooks.json')),
+      true
+    );
+    assert.equal(
+      await pathExists(path.join(projectRoot, '.codex', 'hooks.json')),
+      true
+    );
 
     const workspaceHooks = JSON.parse(
       await fs.readFile(path.join(dir, '.codex', 'hooks.json'), 'utf-8')
@@ -1102,7 +1365,11 @@ test('integrations codex-hooks refuses installation from an unrelated project re
     await fs.mkdir(projectRoot, { recursive: true });
 
     const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    assert.equal(
+      projectGitInit.code,
+      0,
+      projectGitInit.stderr || projectGitInit.stdout
+    );
 
     const initResult = await runCli(workspaceRoot, [
       'init',
@@ -1124,10 +1391,19 @@ test('integrations codex-hooks refuses installation from an unrelated project re
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(projectRoot, ['integrations', 'codex-hooks']);
+    const installResult = await runCli(projectRoot, [
+      'integrations',
+      'codex-hooks',
+    ]);
     assert.notEqual(installResult.code, 0);
-    assert.match(installResult.stderr, /docs were not detected from the current directory/i);
-    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), false);
+    assert.match(
+      installResult.stderr,
+      /docs were not detected from the current directory/i
+    );
+    assert.equal(
+      await pathExists(path.join(projectRoot, '.codex', 'hooks.json')),
+      false
+    );
   });
 });
 
@@ -1137,7 +1413,11 @@ test('integrations codex-hooks refuses installation when standalone workspaceRoo
     await fs.mkdir(projectRoot, { recursive: true });
 
     const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    assert.equal(
+      projectGitInit.code,
+      0,
+      projectGitInit.stderr || projectGitInit.stdout
+    );
 
     const initResult = await runCli(dir, [
       'init',
@@ -1162,12 +1442,22 @@ test('integrations codex-hooks refuses installation when standalone workspaceRoo
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.workspaceRoot = '../project';
-    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
 
-    const installResult = await runCli(path.join(dir, 'docs'), ['integrations', 'codex-hooks']);
+    const installResult = await runCli(path.join(dir, 'docs'), [
+      'integrations',
+      'codex-hooks',
+    ]);
     assert.notEqual(installResult.code, 0);
     assert.match(installResult.stderr, /workspaceRoot is missing or invalid/i);
-    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), false);
+    assert.equal(
+      await pathExists(path.join(projectRoot, '.codex', 'hooks.json')),
+      false
+    );
   });
 });
 
@@ -1177,7 +1467,11 @@ test('integrations codex-hooks refuses installation when standalone projectRoot 
     await fs.mkdir(projectRoot, { recursive: true });
 
     const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    assert.equal(
+      projectGitInit.code,
+      0,
+      projectGitInit.stderr || projectGitInit.stdout
+    );
 
     const initResult = await runCli(dir, [
       'init',
@@ -1202,12 +1496,22 @@ test('integrations codex-hooks refuses installation when standalone projectRoot 
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     delete config.projectRoot;
-    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
 
-    const installResult = await runCli(path.join(dir, 'docs'), ['integrations', 'codex-hooks']);
+    const installResult = await runCli(path.join(dir, 'docs'), [
+      'integrations',
+      'codex-hooks',
+    ]);
     assert.notEqual(installResult.code, 0);
     assert.match(installResult.stderr, /workspaceRoot is missing or invalid/i);
-    assert.equal(await pathExists(path.join(projectRoot, '.codex', 'hooks.json')), false);
+    assert.equal(
+      await pathExists(path.join(projectRoot, '.codex', 'hooks.json')),
+      false
+    );
   });
 });
 
@@ -1217,7 +1521,11 @@ test('generated pre-tool hook blocks docs-repo commit from workspace root in sta
     await fs.mkdir(projectRoot, { recursive: true });
 
     const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+    assert.equal(
+      projectGitInit.code,
+      0,
+      projectGitInit.stderr || projectGitInit.stdout
+    );
 
     const initResult = await runCli(dir, [
       'init',
@@ -1246,14 +1554,29 @@ test('generated pre-tool hook blocks docs-repo commit from workspace root in sta
       'F001',
       '--non-interactive',
     ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     await fs.mkdir(path.join(dir, 'docs', 'plans'), { recursive: true });
-    await fs.writeFile(path.join(dir, 'docs', 'plans', 'external-plan.md'), '# External\n', 'utf-8');
-    const addResult = await runCommand(path.join(dir, 'docs'), 'git', ['add', 'plans/external-plan.md']);
+    await fs.writeFile(
+      path.join(dir, 'docs', 'plans', 'external-plan.md'),
+      '# External\n',
+      'utf-8'
+    );
+    const addResult = await runCommand(path.join(dir, 'docs'), 'git', [
+      'add',
+      'plans/external-plan.md',
+    ]);
     assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
 
     const hookResult = await runCommand(
@@ -1272,125 +1595,171 @@ test('generated pre-tool hook blocks docs-repo commit from workspace root in sta
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /Normalize or allowlist non-canonical docs paths before committing/);
+    assert.match(
+      payload.reason,
+      /Normalize or allowlist non-canonical docs paths before committing/
+    );
   });
 });
 
 test('generated pre-tool hook blocks docs-repo branch or worktree commands in standalone mode', async () => {
-  await withTempDir('lsk-codex-hook-pre-tool-standalone-docs-branch-', async (dir) => {
-    const projectRoot = path.join(dir, 'project');
-    await fs.mkdir(projectRoot, { recursive: true });
+  await withTempDir(
+    'lsk-codex-hook-pre-tool-standalone-docs-branch-',
+    async (dir) => {
+      const projectRoot = path.join(dir, 'project');
+      await fs.mkdir(projectRoot, { recursive: true });
 
-    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+      const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+      assert.equal(
+        projectGitInit.code,
+        0,
+        projectGitInit.stderr || projectGitInit.stdout
+      );
 
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--docs-repo',
-      'standalone',
-      '--project-root',
-      './project',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--docs-repo',
+        'standalone',
+        '--project-root',
+        './project',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    const hookResult = await runCommand(
-      dir,
-      process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
-      {
-        input: JSON.stringify({
-          cwd: dir,
-          tool_input: {
-            command: 'git -C docs checkout -b feat/123-alpha',
-          },
-        }),
-      }
-    );
-    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
-    const payload = JSON.parse(hookResult.stdout.trim());
-    assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /docs repos stay on their docs branch/i);
-  });
+      const hookResult = await runCommand(
+        dir,
+        process.execPath,
+        [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+        {
+          input: JSON.stringify({
+            cwd: dir,
+            tool_input: {
+              command: 'git -C docs checkout -b feat/123-alpha',
+            },
+          }),
+        }
+      );
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      const payload = JSON.parse(hookResult.stdout.trim());
+      assert.equal(payload.decision, 'block');
+      assert.match(payload.reason, /docs repos stay on their docs branch/i);
+    }
+  );
 });
 
 test('generated pre-tool hook allows exact standalone branch_create nextAction command', async () => {
-  await withTempDir('lsk-codex-hook-pre-tool-standalone-branch-next-action-', async (dir) => {
-    const projectRoot = path.join(dir, 'project');
-    await fs.mkdir(projectRoot, { recursive: true });
+  await withTempDir(
+    'lsk-codex-hook-pre-tool-standalone-branch-next-action-',
+    async (dir) => {
+      const projectRoot = path.join(dir, 'project');
+      await fs.mkdir(projectRoot, { recursive: true });
 
-    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
-    await fs.writeFile(path.join(projectRoot, 'README.md'), '# demo\n', 'utf-8');
-    const projectAdd = await runCommand(projectRoot, 'git', ['add', '.']);
-    assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
-    const projectCommit = await runCommand(projectRoot, 'git', ['commit', '-m', 'baseline']);
-    assert.equal(projectCommit.code, 0, projectCommit.stderr || projectCommit.stdout);
-
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'github',
-      '--docs-repo',
-      'standalone',
-      '--project-root',
-      './project',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
-
-    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
-    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    config.workflow.agentReview.plan.enabled = false;
-    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
-
-    const featureResult = await runCli(dir, [
-      'feature',
-      'alpha',
-      '--id',
-      'F001',
-      '--non-interactive',
-    ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
-
-    const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
-    for (const fileName of ['spec.md', 'plan.md']) {
-      const filePath = path.join(featureDir, fileName);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+      assert.equal(
+        projectGitInit.code,
+        0,
+        projectGitInit.stderr || projectGitInit.stdout
+      );
       await fs.writeFile(
-        filePath,
-        fileName === 'plan.md'
-          ? completeNoImpactAssessment(
-              content.replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved')
-            )
-          : content.replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved'),
+        path.join(projectRoot, 'README.md'),
+        '# demo\n',
         'utf-8'
       );
-    }
-    await fs.writeFile(
-      path.join(featureDir, 'issue.md'),
-      `# Issue Draft: alpha
+      const projectAdd = await runCommand(projectRoot, 'git', ['add', '.']);
+      assert.equal(projectAdd.code, 0, projectAdd.stderr || projectAdd.stdout);
+      const projectCommit = await runCommand(projectRoot, 'git', [
+        'commit',
+        '-m',
+        'baseline',
+      ]);
+      assert.equal(
+        projectCommit.code,
+        0,
+        projectCommit.stderr || projectCommit.stdout
+      );
+
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'github',
+        '--docs-repo',
+        'standalone',
+        '--project-root',
+        './project',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      config.workflow.agentReview.plan.enabled = false;
+      await fs.writeFile(
+        configPath,
+        `${JSON.stringify(config, null, 2)}\n`,
+        'utf-8'
+      );
+
+      const featureResult = await runCli(dir, [
+        'feature',
+        'alpha',
+        '--id',
+        'F001',
+        '--non-interactive',
+      ]);
+      assert.equal(
+        featureResult.code,
+        0,
+        featureResult.stderr || featureResult.stdout
+      );
+
+      const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+      for (const fileName of ['spec.md', 'plan.md']) {
+        const filePath = path.join(featureDir, fileName);
+        const content = await fs.readFile(filePath, 'utf-8');
+        await fs.writeFile(
+          filePath,
+          fileName === 'plan.md'
+            ? completeNoImpactAssessment(
+                content.replace(
+                  /- \*\*Status\*\*: .*/u,
+                  '- **Status**: Approved'
+                )
+              )
+            : content.replace(
+                /- \*\*Status\*\*: .*/u,
+                '- **Status**: Approved'
+              ),
+          'utf-8'
+        );
+      }
+      await fs.writeFile(
+        path.join(featureDir, 'issue.md'),
+        `# Issue Draft: alpha
 
 - **Status**: Ready
 - **Title**: alpha
@@ -1401,11 +1770,11 @@ test('generated pre-tool hook allows exact standalone branch_create nextAction c
 
 Alpha issue draft.
 `,
-      'utf-8'
-    );
-    await fs.writeFile(
-      path.join(featureDir, 'tasks.md'),
-      `# Tasks: alpha
+        'utf-8'
+      );
+      await fs.writeFile(
+        path.join(featureDir, 'tasks.md'),
+        `# Tasks: alpha
 
 ## GitHub Issue
 
@@ -1428,155 +1797,204 @@ Alpha issue draft.
 
 - [ ] All tasks are \`[DONE]\`
 `,
-      'utf-8'
-    );
+        'utf-8'
+      );
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    const fakeGh = await setupFakeGhCli(dir);
-    const stageResult = await runCli(
-      dir,
-      ['workflow-stage', 'F001-alpha', '--json'],
-      fakeGh.env
-    );
-    assert.equal(stageResult.code, 0, stageResult.stderr || stageResult.stdout);
-    const stage = JSON.parse(stageResult.stdout.trim());
-    assert.equal(stage.nextAction.category, 'branch_create');
+      const fakeGh = await setupFakeGhCli(dir);
+      const stageResult = await runCli(
+        dir,
+        ['workflow-stage', 'F001-alpha', '--json'],
+        fakeGh.env
+      );
+      assert.equal(
+        stageResult.code,
+        0,
+        stageResult.stderr || stageResult.stdout
+      );
+      const stage = JSON.parse(stageResult.stdout.trim());
+      assert.equal(stage.nextAction.category, 'branch_create');
 
-    const hookResult = await runCommand(
-      dir,
-      process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
-      {
-        env: fakeGh.env,
-        input: JSON.stringify({
-          cwd: dir,
-          tool_input: {
-            command: stage.nextAction.command,
-          },
-        }),
-      }
-    );
-    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
-    assert.equal(hookResult.stdout.trim(), '');
-  });
+      const hookResult = await runCommand(
+        dir,
+        process.execPath,
+        [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+        {
+          env: fakeGh.env,
+          input: JSON.stringify({
+            cwd: dir,
+            tool_input: {
+              command: stage.nextAction.command,
+            },
+          }),
+        }
+      );
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      assert.equal(hookResult.stdout.trim(), '');
+    }
+  );
 });
 
 test('generated pre-tool hook blocks project commit from workspace root when standalone docs are not synced', async () => {
-  await withTempDir('lsk-codex-hook-pre-tool-standalone-project-', async (dir) => {
-    const projectRoot = path.join(dir, 'project');
-    await fs.mkdir(projectRoot, { recursive: true });
+  await withTempDir(
+    'lsk-codex-hook-pre-tool-standalone-project-',
+    async (dir) => {
+      const projectRoot = path.join(dir, 'project');
+      await fs.mkdir(projectRoot, { recursive: true });
 
-    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+      const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+      assert.equal(
+        projectGitInit.code,
+        0,
+        projectGitInit.stderr || projectGitInit.stdout
+      );
 
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--docs-repo',
-      'standalone',
-      '--project-root',
-      './project',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--docs-repo',
+        'standalone',
+        '--project-root',
+        './project',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const featureResult = await runCli(dir, [
-      'feature',
-      'alpha',
-      '--id',
-      'F001',
-      '--non-interactive',
-    ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+      const featureResult = await runCli(dir, [
+        'feature',
+        'alpha',
+        '--id',
+        'F001',
+        '--non-interactive',
+      ]);
+      assert.equal(
+        featureResult.code,
+        0,
+        featureResult.stderr || featureResult.stdout
+      );
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    await fs.mkdir(path.join(projectRoot, 'src'), { recursive: true });
-    await fs.writeFile(path.join(projectRoot, 'src', 'demo.ts'), 'export const demo = 1;\n', 'utf-8');
-    const addResult = await runCommand(projectRoot, 'git', ['add', 'src/demo.ts']);
-    assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
+      await fs.mkdir(path.join(projectRoot, 'src'), { recursive: true });
+      await fs.writeFile(
+        path.join(projectRoot, 'src', 'demo.ts'),
+        'export const demo = 1;\n',
+        'utf-8'
+      );
+      const addResult = await runCommand(projectRoot, 'git', [
+        'add',
+        'src/demo.ts',
+      ]);
+      assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
 
-    const hookResult = await runCommand(
-      dir,
-      process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
-      {
-        input: JSON.stringify({
-          cwd: dir,
-          tool_input: {
-            command: 'git -C project commit -m "test(F001): verify docs sync guard"',
-          },
-        }),
-      }
-    );
-    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
-    const payload = JSON.parse(hookResult.stdout.trim());
-    assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /Sync the active feature docs before running remote or destructive commands/);
-  });
+      const hookResult = await runCommand(
+        dir,
+        process.execPath,
+        [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+        {
+          input: JSON.stringify({
+            cwd: dir,
+            tool_input: {
+              command:
+                'git -C project commit -m "test(F001): verify docs sync guard"',
+            },
+          }),
+        }
+      );
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      const payload = JSON.parse(hookResult.stdout.trim());
+      assert.equal(payload.decision, 'block');
+      assert.match(
+        payload.reason,
+        /Sync the active feature docs before running remote or destructive commands/
+      );
+    }
+  );
 });
 
 test('generated pre-tool hook blocks dangerous git -C commands unless they are commits', async () => {
-  await withTempDir('lsk-codex-hook-pre-tool-standalone-project-push-', async (dir) => {
-    const projectRoot = path.join(dir, 'project');
-    await fs.mkdir(projectRoot, { recursive: true });
+  await withTempDir(
+    'lsk-codex-hook-pre-tool-standalone-project-push-',
+    async (dir) => {
+      const projectRoot = path.join(dir, 'project');
+      await fs.mkdir(projectRoot, { recursive: true });
 
-    const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
-    assert.equal(projectGitInit.code, 0, projectGitInit.stderr || projectGitInit.stdout);
+      const projectGitInit = await runCommand(projectRoot, 'git', ['init']);
+      assert.equal(
+        projectGitInit.code,
+        0,
+        projectGitInit.stderr || projectGitInit.stdout
+      );
 
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--docs-repo',
-      'standalone',
-      '--project-root',
-      './project',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--docs-repo',
+        'standalone',
+        '--project-root',
+        './project',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    const hookResult = await runCommand(
-      dir,
-      process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
-      {
-        input: JSON.stringify({
-          cwd: dir,
-          tool_input: {
-            command: 'git -C project push origin main',
-          },
-        }),
-      }
-    );
-    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
-    const payload = JSON.parse(hookResult.stdout.trim());
-    assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /targeting another repo via -C are only supported for git commit/i);
-  });
+      const hookResult = await runCommand(
+        dir,
+        process.execPath,
+        [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+        {
+          input: JSON.stringify({
+            cwd: dir,
+            tool_input: {
+              command: 'git -C project push origin main',
+            },
+          }),
+        }
+      );
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      const payload = JSON.parse(hookResult.stdout.trim());
+      assert.equal(payload.decision, 'block');
+      assert.match(
+        payload.reason,
+        /targeting another repo via -C are only supported for git commit/i
+      );
+    }
+  );
 });
 
 test('generated pre-tool hook allows the exact merge_cleanup command returned by workflow-stage', async () => {
@@ -1608,74 +2026,103 @@ test('generated pre-tool hook allows the exact merge_cleanup command returned by
       'F001',
       '--non-interactive',
     ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const preToolScript = await fs.readFile(
       path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs'),
       'utf-8'
     );
     assert.match(preToolScript, /isExactMergeCleanupCommand/);
-    assert.match(preToolScript, /stage\?\.nextAction\?\.category === 'merge_cleanup'/);
-    assert.match(preToolScript, /normalizeCommandText\(stage\?\.nextAction\?\.command\) === normalizeCommandText\(command\)/);
+    assert.match(
+      preToolScript,
+      /stage\?\.nextAction\?\.category === 'merge_cleanup'/
+    );
+    assert.match(
+      preToolScript,
+      /normalizeCommandText\(stage\?\.nextAction\?\.command\) === normalizeCommandText\(command\)/
+    );
   });
 });
 
 test('generated pre-tool hook blocks git commit commands targeting repos outside the current topology', async () => {
-  await withTempDir('lsk-codex-hook-pre-tool-cross-repo-commit-', async (dir) => {
-    const gitInit = await runCommand(dir, 'git', ['init']);
-    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+  await withTempDir(
+    'lsk-codex-hook-pre-tool-cross-repo-commit-',
+    async (dir) => {
+      const gitInit = await runCommand(dir, 'git', ['init']);
+      assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
 
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'single',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    const otherRepo = path.join(dir, 'other-repo');
-    await fs.mkdir(otherRepo, { recursive: true });
-    const otherGitInit = await runCommand(otherRepo, 'git', ['init']);
-    assert.equal(otherGitInit.code, 0, otherGitInit.stderr || otherGitInit.stdout);
-    await fs.writeFile(path.join(otherRepo, 'README.md'), '# other\n', 'utf-8');
-    const otherAdd = await runCommand(otherRepo, 'git', ['add', 'README.md']);
-    assert.equal(otherAdd.code, 0, otherAdd.stderr || otherAdd.stdout);
+      const otherRepo = path.join(dir, 'other-repo');
+      await fs.mkdir(otherRepo, { recursive: true });
+      const otherGitInit = await runCommand(otherRepo, 'git', ['init']);
+      assert.equal(
+        otherGitInit.code,
+        0,
+        otherGitInit.stderr || otherGitInit.stdout
+      );
+      await fs.writeFile(
+        path.join(otherRepo, 'README.md'),
+        '# other\n',
+        'utf-8'
+      );
+      const otherAdd = await runCommand(otherRepo, 'git', ['add', 'README.md']);
+      assert.equal(otherAdd.code, 0, otherAdd.stderr || otherAdd.stdout);
 
-    const hookResult = await runCommand(
-      dir,
-      process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
-      {
-        input: JSON.stringify({
-          cwd: dir,
-          tool_input: {
-            command: 'git -C other-repo commit -m "test"',
-          },
-        }),
-      }
-    );
-    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
-    const payload = JSON.parse(hookResult.stdout.trim());
-    assert.equal(payload.decision, 'block');
-    assert.match(
-      payload.reason,
-      /outside the current lee-spec-kit project topology/i
-    );
-  });
+      const hookResult = await runCommand(
+        dir,
+        process.execPath,
+        [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+        {
+          input: JSON.stringify({
+            cwd: dir,
+            tool_input: {
+              command: 'git -C other-repo commit -m "test"',
+            },
+          }),
+        }
+      );
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      const payload = JSON.parse(hookResult.stdout.trim());
+      assert.equal(payload.decision, 'block');
+      assert.match(
+        payload.reason,
+        /outside the current lee-spec-kit project topology/i
+      );
+    }
+  );
 });
 
 test('generated pre-tool hook blocks destructive gh repo delete commands', async () => {
@@ -1700,7 +2147,11 @@ test('generated pre-tool hook blocks destructive gh repo delete commands', async
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     for (const command of [
       'gh repo delete acme/demo --yes',
@@ -1734,78 +2185,94 @@ test('generated pre-tool hook blocks destructive gh repo delete commands', async
 });
 
 test('generated pre-tool hook blocks standalone multi commits that target a different component repo than the active feature', async () => {
-  await withTempDir('lsk-codex-hook-pre-tool-standalone-multi-component-mismatch-', async (dir) => {
-    const apiRoot = path.join(dir, 'api');
-    const webRoot = path.join(dir, 'web');
-    await fs.mkdir(apiRoot, { recursive: true });
-    await fs.mkdir(webRoot, { recursive: true });
+  await withTempDir(
+    'lsk-codex-hook-pre-tool-standalone-multi-component-mismatch-',
+    async (dir) => {
+      const apiRoot = path.join(dir, 'api');
+      const webRoot = path.join(dir, 'web');
+      await fs.mkdir(apiRoot, { recursive: true });
+      await fs.mkdir(webRoot, { recursive: true });
 
-    const apiGitInit = await runCommand(apiRoot, 'git', ['init']);
-    assert.equal(apiGitInit.code, 0, apiGitInit.stderr || apiGitInit.stdout);
-    const webGitInit = await runCommand(webRoot, 'git', ['init']);
-    assert.equal(webGitInit.code, 0, webGitInit.stderr || webGitInit.stdout);
+      const apiGitInit = await runCommand(apiRoot, 'git', ['init']);
+      assert.equal(apiGitInit.code, 0, apiGitInit.stderr || apiGitInit.stdout);
+      const webGitInit = await runCommand(webRoot, 'git', ['init']);
+      assert.equal(webGitInit.code, 0, webGitInit.stderr || webGitInit.stdout);
 
-    const initResult = await runCli(dir, [
-      'init',
-      '--non-interactive',
-      '--name',
-      'demo',
-      '--type',
-      'multi',
-      '--components',
-      'api,web',
-      '--lang',
-      'en',
-      '--workflow',
-      'local',
-      '--docs-repo',
-      'standalone',
-      '--component-project-roots',
-      'api=./api,web=./web',
-      '--dir',
-      './docs',
-    ]);
-    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+      const initResult = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'multi',
+        '--components',
+        'api,web',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--docs-repo',
+        'standalone',
+        '--component-project-roots',
+        'api=./api,web=./web',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
-    const featureResult = await runCli(dir, [
-      'feature',
-      'alpha',
-      '--id',
-      'F001',
-      '--component',
-      'api',
-      '--non-interactive',
-    ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+      const featureResult = await runCli(dir, [
+        'feature',
+        'alpha',
+        '--id',
+        'F001',
+        '--component',
+        'api',
+        '--non-interactive',
+      ]);
+      assert.equal(
+        featureResult.code,
+        0,
+        featureResult.stderr || featureResult.stdout
+      );
 
-    const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+      const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
+      assert.equal(
+        installResult.code,
+        0,
+        installResult.stderr || installResult.stdout
+      );
 
-    await fs.writeFile(path.join(webRoot, 'index.ts'), 'export const web = 1;\n', 'utf-8');
-    const webAdd = await runCommand(webRoot, 'git', ['add', 'index.ts']);
-    assert.equal(webAdd.code, 0, webAdd.stderr || webAdd.stdout);
+      await fs.writeFile(
+        path.join(webRoot, 'index.ts'),
+        'export const web = 1;\n',
+        'utf-8'
+      );
+      const webAdd = await runCommand(webRoot, 'git', ['add', 'index.ts']);
+      assert.equal(webAdd.code, 0, webAdd.stderr || webAdd.stdout);
 
-    const hookResult = await runCommand(
-      dir,
-      process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
-      {
-        input: JSON.stringify({
-          cwd: dir,
-          tool_input: {
-            command: 'git -C web commit -m "test(F001): verify component scope guard"',
-          },
-        }),
-      }
-    );
-    assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
-    const payload = JSON.parse(hookResult.stdout.trim());
-    assert.equal(payload.decision, 'block');
-    assert.match(
-      payload.reason,
-      /Sync the active feature docs before running remote or destructive commands/i
-    );
-  });
+      const hookResult = await runCommand(
+        dir,
+        process.execPath,
+        [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')],
+        {
+          input: JSON.stringify({
+            cwd: dir,
+            tool_input: {
+              command:
+                'git -C web commit -m "test(F001): verify component scope guard"',
+            },
+          }),
+        }
+      );
+      assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
+      const payload = JSON.parse(hookResult.stdout.trim());
+      assert.equal(payload.decision, 'block');
+      assert.match(
+        payload.reason,
+        /Sync the active feature docs before running remote or destructive commands/i
+      );
+    }
+  );
 });
 
 test('generated session-start hook injects workflow context when project is detected', async () => {
@@ -1827,7 +2294,11 @@ test('generated session-start hook injects workflow context when project is dete
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const fakeNpx = await setupFakeNpxCli(dir);
     const hookResult = await runCommand(
@@ -1842,21 +2313,41 @@ test('generated session-start hook injects workflow context when project is dete
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.hookSpecificOutput.hookEventName, 'SessionStart');
-    assert.match(payload.hookSpecificOutput.additionalContext, /lee-spec-kit project detected/);
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /lee-spec-kit project detected/
+    );
     assert.match(payload.hookSpecificOutput.additionalContext, /Docs dir:/);
-    assert.match(payload.hookSpecificOutput.additionalContext, /workflow-stage --json/);
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /workflow-stage --json/
+    );
   });
 });
 
 test('generated subagent-start hook injects scoped context and sanitizes the Codex agent type', async () => {
   await withTempDir('lsk-codex-hook-subagent-start-', async (dir) => {
     const initResult = await runCli(dir, [
-      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
-      '--lang', 'en', '--workflow', 'local', '--dir', './docs',
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const fakeNpx = await setupFakeNpxCli(dir);
     const hookResult = await runCommand(
@@ -1876,23 +2367,52 @@ test('generated subagent-start hook injects scoped context and sanitizes the Cod
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.hookSpecificOutput.hookEventName, 'SubagentStart');
-    assert.match(payload.hookSpecificOutput.additionalContext, /delegated subagent detected/i);
-    assert.match(payload.hookSpecificOutput.additionalContext, /agent type\/profile: worker injected/i);
-    assert.match(payload.hookSpecificOutput.additionalContext, /do not run detect, docs get agents/i);
-    assert.match(payload.hookSpecificOutput.additionalContext, /exact delegationContext and workerContract/i);
-    assert.match(payload.hookSpecificOutput.additionalContext, /requiredDocuments/i);
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /delegated subagent detected/i
+    );
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /agent type\/profile: worker injected/i
+    );
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /do not run detect, docs get agents/i
+    );
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /exact delegationContext and workerContract/i
+    );
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /requiredDocuments/i
+    );
   });
 });
 
 test('generated subagent-start hook fails open on malformed input or an undetected project', async () => {
   await withTempDir('lsk-codex-hook-subagent-fail-open-', async (dir) => {
     const initResult = await runCli(dir, [
-      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
-      '--lang', 'en', '--workflow', 'local', '--dir', './docs',
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
     ]);
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
     const hookPath = path.join(
       dir,
       '.codex',
@@ -1934,23 +2454,43 @@ test('generated user-prompt hook injects workflow context for generic requests',
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const fakeNpx = await setupFakeNpxCli(dir);
     const hookResult = await runCommand(
       dir,
       process.execPath,
-      [path.join(dir, '.codex', 'hooks', 'user_prompt_submit_lee_spec_kit.mjs')],
+      [
+        path.join(
+          dir,
+          '.codex',
+          'hooks',
+          'user_prompt_submit_lee_spec_kit.mjs'
+        ),
+      ],
       {
         env: fakeNpx.env,
-        input: JSON.stringify({ cwd: dir, prompt: 'continue the next feature according to the rules' }),
+        input: JSON.stringify({
+          cwd: dir,
+          prompt: 'continue the next feature according to the rules',
+        }),
       }
     );
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
-    assert.match(payload.hookSpecificOutput.additionalContext, /generic rule-following requests/);
-    assert.match(payload.hookSpecificOutput.additionalContext, /workflow-stage --json/);
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /generic rule-following requests/
+    );
+    assert.match(
+      payload.hookSpecificOutput.additionalContext,
+      /workflow-stage --json/
+    );
   });
 });
 
@@ -1973,9 +2513,18 @@ test('generated session-start hook stays quiet when detect fails', async () => {
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
-    const hookUtilsPath = path.join(dir, '.codex', 'hooks', '_lee_spec_kit_hook_utils.mjs');
+    const hookUtilsPath = path.join(
+      dir,
+      '.codex',
+      'hooks',
+      '_lee_spec_kit_hook_utils.mjs'
+    );
     const hookUtils = await fs.readFile(hookUtilsPath, 'utf-8');
     await fs.writeFile(
       hookUtilsPath,
@@ -2026,13 +2575,25 @@ test('generated stop hook blocks when workflow-audit still needs docs sync', asy
       'F001',
       '--non-interactive',
     ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     await fs.mkdir(path.join(dir, 'src'), { recursive: true });
-    await fs.writeFile(path.join(dir, 'src', 'demo.ts'), 'export const demo = 1;\n', 'utf-8');
+    await fs.writeFile(
+      path.join(dir, 'src', 'demo.ts'),
+      'export const demo = 1;\n',
+      'utf-8'
+    );
 
     const fakeNpx = await setupFakeNpxCli(dir);
     const hookResult = await runCommand(
@@ -2047,7 +2608,10 @@ test('generated stop hook blocks when workflow-audit still needs docs sync', asy
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     const payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /Run one more pass and sync the active feature docs before stopping/);
+    assert.match(
+      payload.reason,
+      /Run one more pass and sync the active feature docs before stopping/
+    );
   });
 }, 15_000);
 
@@ -2079,12 +2643,25 @@ test('generated pre-tool hook fails closed when commit-audit returns invalid JSO
       'F001',
       '--non-interactive',
     ]);
-    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    assert.equal(
+      featureResult.code,
+      0,
+      featureResult.stderr || featureResult.stdout
+    );
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
-    const hookUtilsPath = path.join(dir, '.codex', 'hooks', '_lee_spec_kit_hook_utils.mjs');
+    const hookUtilsPath = path.join(
+      dir,
+      '.codex',
+      'hooks',
+      '_lee_spec_kit_hook_utils.mjs'
+    );
     const hookUtils = await fs.readFile(hookUtilsPath, 'utf-8');
     await fs.writeFile(
       hookUtilsPath,
@@ -2141,7 +2718,11 @@ test('generated pre-tool hook fails closed when hook stdin payload is malformed'
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const hookResult = await runCommand(
       dir,
@@ -2178,10 +2759,16 @@ test('integrations codex-hooks generated commands survive repo moves', async () 
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
 
     const installResult = await runCli(dir, ['integrations', 'codex-hooks']);
-    assert.equal(installResult.code, 0, installResult.stderr || installResult.stdout);
+    assert.equal(
+      installResult.code,
+      0,
+      installResult.stderr || installResult.stdout
+    );
 
     const originalHooksJsonPath = path.join(dir, '.codex', 'hooks.json');
-    const hooksJson = JSON.parse(await fs.readFile(originalHooksJsonPath, 'utf-8'));
+    const hooksJson = JSON.parse(
+      await fs.readFile(originalHooksJsonPath, 'utf-8')
+    );
     const command = hooksJson.hooks.SessionStart[0].hooks[0].command;
     const renamedDir = `${dir}-renamed`;
     await fs.rename(dir, renamedDir);
@@ -2224,11 +2811,9 @@ test('integrations codex-bootstrap preserves custom global instructions and upda
       'utf-8'
     );
 
-    const result = await runCli(
-      dir,
-      ['integrations', 'codex-bootstrap'],
-      { HOME: homeDir }
-    );
+    const result = await runCli(dir, ['integrations', 'codex-bootstrap'], {
+      HOME: homeDir,
+    });
 
     assert.equal(result.code, 0, result.stderr || result.stdout);
 

@@ -88,6 +88,7 @@ The overall approach is influenced by [spec-kit](https://github.com/github/spec-
 - `commit-audit --json`
 - `workflow-audit --json`
 - `knowledge doctor|sync|audit <feature-ref> --json`: prepare, synchronize, and verify the experimental OpenWiki onboarding layer
+- `knowledge migrate [--apply] --json`: dry-run or explicitly grandfather safe completed Features at the policy cutover
 - `local verify <feature-ref> --json`: run checks in the local Feature worktree and bind the result to its exact tip/tree
 - `local merge <feature-ref> --json`: integrate a verified local Feature using its configured fast-forward or squash strategy
 - `local cleanup <feature-ref> --json`: remove the managed worktree and optionally delete the integrated Feature branch
@@ -103,7 +104,9 @@ Enable the experimental OpenWiki Knowledge layer with one flag:
 npx lee-spec-kit config --openwiki true
 ```
 
-When enabled, OpenWiki synchronization and a dedicated Knowledge commit are required after task commits and before Feature review. SDD remains normative for requirements and decisions, curated project-wide docs describe current state, and `openwiki/` is derived onboarding evidence that must be checked against source. Install and configure OpenWiki CLI `>=0.5.0 <1.0.0` under Node.js 22+ explicitly; lee-spec-kit never installs it. `false` or an absent flag adds no OpenWiki stage or gate.
+When enabled, OpenWiki synchronization and a dedicated Knowledge commit are required after task commits and before Feature review. SDD remains normative for requirements and decisions, curated project-wide docs describe current state, and `openwiki/` is derived onboarding evidence that must be checked against source. The current contract is OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, and Node.js 22+. `knowledge doctor` checks the OpenWiki-owned provider, model, and required credential-field presence from the process environment and `~/.openwiki/.env` (or `OPENWIKI_CONFIG_DIR/.env`) without returning secret values. lee-spec-kit never installs OpenWiki or copies credentials. `false` or an absent flag adds no OpenWiki stage or gate.
+
+Synchronization preserves OpenWiki's durable `.run.json` and observes progress. Defaults are 30 seconds for lock acquisition, 10 minutes without observable progress, 90 minutes absolute for bootstrap, and 30 minutes absolute for updates. A single run can override them with `knowledge sync --lock-timeout-ms`, `--idle-timeout-ms`, and `--absolute-timeout-ms`; the project config remains the single `experimental.openwiki` boolean.
 
 OpenWiki is an external agent with access to the project working directory and configured provider credentials. lee-spec-kit validates changed paths, protected files, and high-confidence secret patterns in output, but it is not an OS sandbox. Enable it only for trusted repositories in an appropriately isolated runtime; operators remain responsible for local and ignored secrets.
 

@@ -1,11 +1,14 @@
 import path from 'node:path';
 
 export const CURATED_IMPACT_HEADING = 'Curated Documentation Impact';
+export const CURATED_IMPACT_GRANDFATHER_MARKER =
+  '<!-- lee-spec-kit:curated-impact-grandfathered v0.9.10 -->';
 
 export type DocumentationImpactDecision = 'NONE' | 'UPDATE' | 'ADD';
 
 export interface CuratedDocumentationImpact {
   present: boolean;
+  grandfathered: boolean;
   complete: boolean;
   decisions: {
     productRequirements: DocumentationImpactDecision | null;
@@ -24,14 +27,18 @@ export function parseCuratedDocumentationImpact(
 ): CuratedDocumentationImpact {
   const section = extractSecondLevelSection(content, CURATED_IMPACT_HEADING);
   if (!section) {
+    const grandfathered = content.includes(CURATED_IMPACT_GRANDFATHER_MARKER);
     return {
       present: false,
-      complete: false,
+      grandfathered,
+      complete: grandfathered,
       decisions: emptyDecisions(),
       reason: null,
       targets: [],
-      valid: false,
-      errors: [`Missing \`## ${CURATED_IMPACT_HEADING}\` section.`],
+      valid: grandfathered,
+      errors: grandfathered
+        ? []
+        : [`Missing \`## ${CURATED_IMPACT_HEADING}\` section.`],
     };
   }
 
@@ -47,7 +54,14 @@ export function parseCuratedDocumentationImpact(
   const reason = cleanValue(field(section, 'Reason'));
   const rawTargets = cleanValue(field(section, 'Targets'));
   const targets = rawTargets
-    ? [...new Set(rawTargets.split(',').map(normalizeDocumentationTarget).filter(Boolean))]
+    ? [
+        ...new Set(
+          rawTargets
+            .split(',')
+            .map(normalizeDocumentationTarget)
+            .filter(Boolean)
+        ),
+      ]
     : [];
   const errors: string[] = [];
   if (assessment !== 'complete') {
@@ -59,7 +73,9 @@ export function parseCuratedDocumentationImpact(
   if (!reason || isPlaceholder(reason)) {
     errors.push('Reason must explain the project-wide documentation decision.');
   }
-  const invalidTargets = targets.filter((target) => !isValidDocumentationTarget(target));
+  const invalidTargets = targets.filter(
+    (target) => !isValidDocumentationTarget(target)
+  );
   if (invalidTargets.length > 0) {
     errors.push(`Invalid documentation targets: ${invalidTargets.join(', ')}`);
   }
@@ -67,14 +83,19 @@ export function parseCuratedDocumentationImpact(
     (value) => value === 'UPDATE' || value === 'ADD'
   );
   if (requiresTargets && targets.length === 0) {
-    errors.push('UPDATE or ADD decisions require at least one namespaced target.');
+    errors.push(
+      'UPDATE or ADD decisions require at least one namespaced target.'
+    );
   }
   if (!requiresTargets && targets.length > 0) {
-    errors.push('Targets must be empty when every documentation decision is NONE.');
+    errors.push(
+      'Targets must be empty when every documentation decision is NONE.'
+    );
   }
 
   return {
     present: true,
+    grandfathered: false,
     complete: assessment === 'complete',
     decisions,
     reason,
@@ -90,7 +111,10 @@ export function parseTaskDocumentationTargets(
 ): string[] {
   let endIndex = lines.length;
   for (let index = taskLineIndex + 1; index < lines.length; index += 1) {
-    if (/^\s*-\s*\[(?:TODO|DOING|DONE|REVIEW)\]/i.test(lines[index]) || /^\s*##\s+/.test(lines[index])) {
+    if (
+      /^\s*-\s*\[(?:TODO|DOING|DONE|REVIEW)\]/i.test(lines[index]) ||
+      /^\s*##\s+/.test(lines[index])
+    ) {
       endIndex = index;
       break;
     }
@@ -160,7 +184,9 @@ export function isValidDocumentationTarget(value: string): boolean {
 function extractSecondLevelSection(content: string, heading: string): string {
   const lines = content.replace(/\r\n/g, '\n').split('\n');
   const expected = `## ${heading}`.toLowerCase();
-  const start = lines.findIndex((line) => line.trim().toLowerCase() === expected);
+  const start = lines.findIndex(
+    (line) => line.trim().toLowerCase() === expected
+  );
   if (start < 0) return '';
   let end = lines.length;
   for (let index = start + 1; index < lines.length; index += 1) {
@@ -182,7 +208,9 @@ function field(content: string, label: string): string | null {
 
 function decision(value: string | null): DocumentationImpactDecision | null {
   const normalized = cleanValue(value)?.toUpperCase();
-  return normalized === 'NONE' || normalized === 'UPDATE' || normalized === 'ADD'
+  return normalized === 'NONE' ||
+    normalized === 'UPDATE' ||
+    normalized === 'ADD'
     ? normalized
     : null;
 }
@@ -193,7 +221,10 @@ function cleanValue(value: string | null): string | null {
 }
 
 function isPlaceholder(value: string): boolean {
-  return /^(todo|tbd|pending|reason|이유)$/i.test(value.trim()) || /^\(.+\)$/.test(value.trim());
+  return (
+    /^(todo|tbd|pending|reason|이유)$/i.test(value.trim()) ||
+    /^\(.+\)$/.test(value.trim())
+  );
 }
 
 function emptyDecisions(): CuratedDocumentationImpact['decisions'] {

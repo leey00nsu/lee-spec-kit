@@ -1,0 +1,37 @@
+{
+  "source": "openwiki@0.5.0 npm tarball",
+  "tarball": "https://registry.npmjs.org/openwiki/-/openwiki-0.5.0.tgz",
+  "integrity": "sha512-fP2o81onR6siU/tPA+FSqeby5I6GFxflk9uOOw0BUKTp6cBJcDGw/s3o9k4Yl1sRHpbVUc6PZ2xGL7Dg8aKJ3g==",
+  "package": {
+    "name": "openwiki",
+    "version": "0.5.0",
+    "node": ">=22",
+    "bin": "./dist/cli/cli.js"
+  },
+  "cli": {
+    "versionFlagSupported": false,
+    "helpBanner": "OpenWiki v0.5.0",
+    "nonInteractiveUpdateArgs": ["code", "--update", "--print"],
+    "updateBootstrapsMissingWiki": true,
+    "interruptedRunResumes": true
+  },
+  "configuration": {
+    "envPath": "~/.openwiki/.env",
+    "providerEnv": "OPENWIKI_PROVIDER",
+    "modelEnv": "OPENWIKI_MODEL_ID",
+    "chatgptOAuthRequired": [
+      "OPENAI_CHATGPT_ACCESS_TOKEN",
+      "OPENAI_CHATGPT_REFRESH_TOKEN",
+      "OPENAI_CHATGPT_EXPIRES_AT",
+      "OPENAI_CHATGPT_ACCOUNT_ID"
+    ],
+    "chatgptAuthOnlyCommand": null,
+    "chatgptLoginCommand": "OPENWIKI_PROVIDER=openai-chatgpt openwiki code --init"
+  },
+  "output": {
+    "okfVersion": "0.2",
+    "runStateSchemaVersion": 1,
+    "rootAbsoluteLinksUseVirtualRepositoryRoot": true,
+    "completeLastUpdateStatus": "complete"
+  }
+}

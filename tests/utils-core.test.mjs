@@ -41,6 +41,32 @@ test('withFileLock enforces mutual exclusion', async () => {
   });
 });
 
+test('withFileLock never removes a replacement lock owned by another process', async () => {
+  await withTempDir('lsk-unit-lock-owner-', async (dir) => {
+    const lockPath = path.join(dir, '.runtime.lock');
+    await withFileLock(
+      lockPath,
+      async () => {
+        const acquired = JSON.parse(await fs.readFile(lockPath, 'utf-8'));
+        assert.equal(typeof acquired.nonce, 'string');
+        await fs.rm(lockPath);
+        await fs.writeFile(
+          lockPath,
+          JSON.stringify({
+            pid: process.pid,
+            nonce: 'replacement-owner',
+            owner: 'other',
+          }),
+          'utf-8'
+        );
+      },
+      { owner: 'original' }
+    );
+    const replacement = JSON.parse(await fs.readFile(lockPath, 'utf-8'));
+    assert.equal(replacement.nonce, 'replacement-owner');
+  });
+});
+
 test('getConfig resolves docs config via explicit docs env path', async () => {
   await withTempDir('lsk-unit-config-', async (dir) => {
     const docsDir = path.join(dir, 'nested', 'docs');
@@ -143,7 +169,11 @@ test('pre-pr path evidence supports standalone docs directories', async () => {
     const docsDir = path.join(dir, 'spec-repository');
     const featureDir = path.join(docsDir, 'features', 'F001-alpha');
     await fs.mkdir(featureDir, { recursive: true });
-    await fs.writeFile(path.join(featureDir, 'decisions.md'), '# Decisions\n', 'utf-8');
+    await fs.writeFile(
+      path.join(featureDir, 'decisions.md'),
+      '# Decisions\n',
+      'utf-8'
+    );
 
     assert.equal(
       isPrePrEvidenceSatisfied({

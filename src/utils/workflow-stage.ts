@@ -427,7 +427,9 @@ const COMPLETION_MARKERS = {
   finalOutcome: 'lee-spec-kit:completion:final-outcome',
 } as const;
 
-function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirements {
+function resolveWorkflowRequirements(
+  config: ProjectConfig
+): WorkflowRequirements {
   const workflow = config.workflow || {};
   const legacyBackfilledAgentAutomation =
     resolveLegacyBackfilledAgentAutomation(config);
@@ -444,9 +446,10 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
   return {
     requireIssue: workflow.requireIssue ?? !isLocalWorkflow,
     requireBranch: workflow.requireBranch ?? true,
-    requireWorktree: config.docsRepo === 'standalone'
-      ? true
-      : workflow.requireWorktree ?? legacyStrictRequiresWorktree,
+    requireWorktree:
+      config.docsRepo === 'standalone'
+        ? true
+        : (workflow.requireWorktree ?? legacyStrictRequiresWorktree),
     requirePr: workflow.requirePr ?? !isLocalWorkflow,
     requireReview: workflow.requireReview ?? !isLocalWorkflow,
     requireMerge: workflow.requireMerge ?? !isLocalWorkflow,
@@ -455,7 +458,7 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
     // behavior; new projects opt in explicitly through init.
     planReviewEnabled: legacyBackfilledAgentAutomation.planReview
       ? false
-      : workflow.agentReview?.plan?.enabled ?? false,
+      : (workflow.agentReview?.plan?.enabled ?? false),
     taskReviewEnabled: workflow.agentReview?.task?.enabled ?? false,
     featureReviewEnabled:
       isOpenWikiEnabled(config) ||
@@ -464,7 +467,7 @@ function resolveWorkflowRequirements(config: ProjectConfig): WorkflowRequirement
         !isLocalWorkflow),
     taskExecutionEnabled: legacyBackfilledAgentAutomation.taskExecution
       ? false
-      : workflow.agentExecution?.task?.enabled ?? false,
+      : (workflow.agentExecution?.task?.enabled ?? false),
   };
 }
 
@@ -524,7 +527,9 @@ function parseCompletionCheckbox(
   const markedLines = lines.filter((line) => line.includes(markerToken));
 
   if (markedLines.length > 0) {
-    return markedLines.length === 1 && parseMarkdownCheckbox(markedLines[0]) === true;
+    return (
+      markedLines.length === 1 && parseMarkdownCheckbox(markedLines[0]) === true
+    );
   }
 
   return lines.some(
@@ -693,11 +698,11 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
     const line = nonCodeLines[index];
     const parsed = parseWorkflowTaskLine(line, index);
     if (!parsed) continue;
-    const reviewDecision = extractTaskReviewValue(
-      nonCodeLines,
-      index,
-      ['Review Decision', 'Task Review Decision', '태스크 리뷰 Decision']
-    );
+    const reviewDecision = extractTaskReviewValue(nonCodeLines, index, [
+      'Review Decision',
+      'Task Review Decision',
+      '태스크 리뷰 Decision',
+    ]);
     const reviewRound = parseReviewRound(
       extractTaskReviewValue(nonCodeLines, index, [
         'Review Round',
@@ -706,7 +711,8 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
       ])
     );
     const legacyTitleKey = normalizeCommitTopicText(parsed.title).toLowerCase();
-    const sameTitleOccurrence = (legacyTitleOccurrences.get(legacyTitleKey) || 0) + 1;
+    const sameTitleOccurrence =
+      (legacyTitleOccurrences.get(legacyTitleKey) || 0) + 1;
     legacyTitleOccurrences.set(legacyTitleKey, sameTitleOccurrence);
     const taskId =
       parsed.taskId ||
@@ -720,24 +726,24 @@ function parseTasksDoc(content: string, feature: ResolvedFeature): ParsedTasks {
       instructions: extractTaskInstructions(nonCodeLines, index),
       acceptanceCriteria: extractTaskAcceptanceCriteria(nonCodeLines, index),
       documentationTargets: parseTaskDocumentationTargets(nonCodeLines, index),
-      reviewEvidence: extractTaskReviewValue(
-        nonCodeLines,
-        index,
-        ['Review Evidence', 'Task Review Evidence', '태스크 리뷰 Evidence']
-      ),
+      reviewEvidence: extractTaskReviewValue(nonCodeLines, index, [
+        'Review Evidence',
+        'Task Review Evidence',
+        '태스크 리뷰 Evidence',
+      ]),
       reviewDecision,
       reviewDecisionOutcome: parseReviewDecisionOutcome(reviewDecision),
       reviewRound,
-      reviewedHead: extractTaskReviewValue(
-        nonCodeLines,
-        index,
-        ['Reviewed Head', 'Task Reviewed Head', '태스크 리뷰 Head']
-      ),
-      reviewedTree: extractTaskReviewValue(
-        nonCodeLines,
-        index,
-        ['Reviewed Tree', 'Task Reviewed Tree', '태스크 리뷰 Tree']
-      ),
+      reviewedHead: extractTaskReviewValue(nonCodeLines, index, [
+        'Reviewed Head',
+        'Task Reviewed Head',
+        '태스크 리뷰 Head',
+      ]),
+      reviewedTree: extractTaskReviewValue(nonCodeLines, index, [
+        'Reviewed Tree',
+        'Task Reviewed Tree',
+        '태스크 리뷰 Tree',
+      ]),
     });
   }
 
@@ -853,7 +859,9 @@ function parsePlanReview(content: string): ParsedPlanReview {
     reviewedPlanHash,
     hasMetadata: PLAN_REVIEW_STATUS_LABELS.some((label) => {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`^\\s*-\\s*\\*\\*${escaped}\\*\\*:`, 'mi').test(content);
+      return new RegExp(`^\\s*-\\s*\\*\\*${escaped}\\*\\*:`, 'mi').test(
+        content
+      );
     }),
   };
 }
@@ -1013,9 +1021,7 @@ function parseDoneTransitionsFromDiff(diff: string): number {
 function parseDoneTaskTopicCounts(content: string): Map<string, number> {
   const counts = new Map<string, number>();
   for (const line of withoutFencedCodeBlocks(content)) {
-    const match = line.match(
-      /^\s*-\s*\[(DONE)\](?:\[[^\]]+\])*\s+(.+?)\s*$/i
-    );
+    const match = line.match(/^\s*-\s*\[(DONE)\](?:\[[^\]]+\])*\s+(.+?)\s*$/i);
     if (!match) continue;
     const topic = normalizeTaskTopic(match[2] || '');
     if (!topic) continue;
@@ -1039,14 +1045,20 @@ function countDoneTransitionsInLatestTasksCommit(
   ).trim();
   if (!latestTasksCommit) return undefined;
 
-  const repoTasksPath = toRepoRelativePath(docsGitCwd, tasksRelativePathFromDocs);
+  const repoTasksPath = toRepoRelativePath(
+    docsGitCwd,
+    tasksRelativePathFromDocs
+  );
   const currentContent = runGitCapture(
     ['show', `${latestTasksCommit}:${repoTasksPath}`],
     docsGitCwd
   );
   if (currentContent === undefined) return undefined;
   const previousContent =
-    runGitCapture(['show', `${latestTasksCommit}^:${repoTasksPath}`], docsGitCwd) || '';
+    runGitCapture(
+      ['show', `${latestTasksCommit}^:${repoTasksPath}`],
+      docsGitCwd
+    ) || '';
   const currentDone = parseDoneTaskTopicCounts(currentContent);
   const previousDone = parseDoneTaskTopicCounts(previousContent);
 
@@ -1077,7 +1089,9 @@ function countPendingDoneTransitions(
   return parseDoneTransitionsFromDiff(diff);
 }
 
-function getLastDoneTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] | null {
+function getLastDoneTask(
+  tasks: ParsedTasks
+): ParsedTasks['tasks'][number] | null {
   for (let index = tasks.tasks.length - 1; index >= 0; index -= 1) {
     if (tasks.tasks[index].status === 'DONE') return tasks.tasks[index];
   }
@@ -1173,7 +1187,9 @@ function hasUncommittedChanges(gitCwd: string | null | undefined): boolean {
   return status.trim().length > 0;
 }
 
-function resolveTaskCommitGatePolicy(config: ProjectConfig): TaskCommitGatePolicy {
+function resolveTaskCommitGatePolicy(
+  config: ProjectConfig
+): TaskCommitGatePolicy {
   const raw = config.workflow?.taskCommitGate;
   return raw === 'off' || raw === 'strict' ? raw : 'warn';
 }
@@ -1230,16 +1246,16 @@ function checkTaskCommitGate(
     return { pass: false, reason: 'NO_PROJECT_COMMIT' };
   }
 
-  if (!normalizedSubject.includes(normalizeTaskTopic(lastDoneTopic).toLowerCase())) {
+  if (
+    !normalizedSubject.includes(normalizeTaskTopic(lastDoneTopic).toLowerCase())
+  ) {
     return { pass: false, reason: 'MISMATCH_LAST_DONE' };
   }
 
   return { pass: true };
 }
 
-function describeTaskCommitGateFailure(
-  check: TaskCommitGateCheck
-): string {
+function describeTaskCommitGateFailure(check: TaskCommitGateCheck): string {
   switch (check.reason) {
     case 'DONE_TRANSITIONS_COUNT':
       return `latest tasks.md commit includes ${check.doneTransitions || 0} DONE transitions`;
@@ -1280,12 +1296,20 @@ function buildTaskCommitSummary(input: {
   projectDirty: boolean;
   gateFailureReason?: string | null;
 }): string {
-  const { feature, tasks, effectiveProjectGitCwd, docsDirty, projectDirty, gateFailureReason } = input;
-  const scope = resolveFeatureCommitScope({
-    issueNumber: tasks.issueNumber,
-    featureId: feature.id,
-    workflowMode: tasks.issueNumber ? 'github' : 'local',
-  }) || feature.id;
+  const {
+    feature,
+    tasks,
+    effectiveProjectGitCwd,
+    docsDirty,
+    projectDirty,
+    gateFailureReason,
+  } = input;
+  const scope =
+    resolveFeatureCommitScope({
+      issueNumber: tasks.issueNumber,
+      featureId: feature.id,
+      workflowMode: tasks.issueNumber ? 'github' : 'local',
+    }) || feature.id;
   const docsMessage = `git -C "${feature.git.docsGitCwd}" add "${feature.docs.featurePathFromDocs}" && git -C "${feature.git.docsGitCwd}" commit -m "docs(${scope}): ${feature.folderName} 문서 업데이트"`;
   const projectMessage = `Stage only the files touched by the just-finished task in "${effectiveProjectGitCwd}", then commit with: git -C "${effectiveProjectGitCwd}" commit -m "feat(${scope}): ${resolveProjectCommitTopic(feature, tasks)}"`;
 
@@ -1300,12 +1324,16 @@ function buildTaskCommitSummary(input: {
     lines.push(`Project commit: ${projectMessage}`);
   }
   if (!docsDirty && !projectDirty) {
-    lines.push(`Re-check the last task commits. Docs commit should contain exactly one DONE transition, and the latest project commit should match "${normalizeTaskTopic(getLastDoneTask(tasks)?.title || '')}".`);
+    lines.push(
+      `Re-check the last task commits. Docs commit should contain exactly one DONE transition, and the latest project commit should match "${normalizeTaskTopic(getLastDoneTask(tasks)?.title || '')}".`
+    );
   }
   return lines.join('\n');
 }
 
-function parseWorkflowDraftMetadataExtended(content: string): ParsedWorkflowDraft {
+function parseWorkflowDraftMetadataExtended(
+  content: string
+): ParsedWorkflowDraft {
   const metadata = parseWorkflowDraftMetadata(content);
   const prStatusRaw = extractFieldValue(content, PR_STATUS_LABELS);
   const normalizedPrStatus = (prStatusRaw || '').trim().toLowerCase();
@@ -1337,7 +1365,10 @@ function buildFeatureArgs(feature: ResolvedFeature): string {
     : buildFeatureRef(feature);
 }
 
-function resolveExpectedBranch(feature: ResolvedFeature, tasks: ParsedTasks): string | null {
+function resolveExpectedBranch(
+  feature: ResolvedFeature,
+  tasks: ParsedTasks
+): string | null {
   if (tasks.branch) return tasks.branch;
   if (!tasks.issueNumber) return null;
   return `feat/${tasks.issueNumber}-${feature.slug}`;
@@ -1365,7 +1396,10 @@ function buildExpectedBranchCommand(
 }
 
 function resolveProjectRootFromGitCwd(projectGitCwd: string): string {
-  return runGitCapture(['rev-parse', '--show-toplevel'], projectGitCwd) || path.resolve(projectGitCwd);
+  return (
+    runGitCapture(['rev-parse', '--show-toplevel'], projectGitCwd) ||
+    path.resolve(projectGitCwd)
+  );
 }
 
 function resolveProjectRootGitCwd(
@@ -1413,13 +1447,20 @@ function buildManagedWorktreeCreateCommand(
   branchName: string
 ): string {
   const projectRoot = resolveProjectRootFromGitCwd(projectGitCwd);
-  const worktreePath = getExpectedWorktreePath(config, projectGitCwd, branchName);
+  const worktreePath = getExpectedWorktreePath(
+    config,
+    projectGitCwd,
+    branchName
+  );
   const worktreeParent = path.dirname(worktreePath);
   const staleCleanupCommand = buildManagedWorktreeStaleCleanupCommand(
     projectRoot,
     worktreePath
   );
-  const envCopyCommand = buildManagedWorktreeEnvCopyCommand(projectRoot, worktreePath);
+  const envCopyCommand = buildManagedWorktreeEnvCopyCommand(
+    projectRoot,
+    worktreePath
+  );
   return `${staleCleanupCommand} && mkdir -p "${worktreeParent}" && (git -C "${projectRoot}" worktree add "${worktreePath}" "${branchName}" || git -C "${projectRoot}" worktree add -b "${branchName}" "${worktreePath}") && ${envCopyCommand}`;
 }
 
@@ -1438,7 +1479,10 @@ function resolveRemotePrMergeMeta(
   }
 
   try {
-    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<string, unknown>;
+    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<
+      string,
+      unknown
+    >;
     return {
       headRefName: sanitizeMetadataValue(String(parsed.headRefName || '')),
       baseRefName: sanitizeMetadataValue(String(parsed.baseRefName || '')),
@@ -1450,20 +1494,24 @@ function resolveRemotePrMergeMeta(
 
 function localBranchExists(cwd: string, branchName: string | null): boolean {
   if (!branchName) return false;
-  return runProcess(
-    'git',
-    ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
-    cwd
-  ).code === 0;
+  return (
+    runProcess(
+      'git',
+      ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
+      cwd
+    ).code === 0
+  );
 }
 
 function remoteBranchExists(cwd: string, branchName: string | null): boolean {
   if (!branchName) return false;
-  return runProcess(
-    'git',
-    ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${branchName}`],
-    cwd
-  ).code === 0;
+  return (
+    runProcess(
+      'git',
+      ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${branchName}`],
+      cwd
+    ).code === 0
+  );
 }
 
 function resolvePostMergeCleanupState(
@@ -1474,15 +1522,12 @@ function resolvePostMergeCleanupState(
   const projectRootGitCwd = resolveProjectRootGitCwd(config, feature);
   const prMeta = resolveRemotePrMergeMeta(tasks.prLink, projectRootGitCwd);
   const baseBranch = (prMeta?.baseRefName || 'main').trim() || 'main';
-  const headBranch = (
-    prMeta?.headRefName ||
-    resolveExpectedBranch(feature, tasks)
-  )?.trim() || null;
-  const hasOriginRemote = runProcess(
-    'git',
-    ['remote', 'get-url', 'origin'],
-    projectRootGitCwd
-  ).code === 0;
+  const headBranch =
+    (prMeta?.headRefName || resolveExpectedBranch(feature, tasks))?.trim() ||
+    null;
+  const hasOriginRemote =
+    runProcess('git', ['remote', 'get-url', 'origin'], projectRootGitCwd)
+      .code === 0;
   if (hasOriginRemote) {
     runProcess('git', ['fetch', '--prune', 'origin'], projectRootGitCwd);
   }
@@ -1491,17 +1536,21 @@ function resolvePostMergeCleanupState(
     runGitCapture(['branch', '--show-current'], projectRootGitCwd) ||
     runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], projectRootGitCwd) ||
     '';
-  const localBaseSha = runGitCapture(['rev-parse', baseBranch], projectRootGitCwd) || '';
-  const remoteBaseSha =
-    hasOriginRemote
-      ? runGitCapture(['rev-parse', `origin/${baseBranch}`], projectRootGitCwd) || ''
-      : '';
+  const localBaseSha =
+    runGitCapture(['rev-parse', baseBranch], projectRootGitCwd) || '';
+  const remoteBaseSha = hasOriginRemote
+    ? runGitCapture(['rev-parse', `origin/${baseBranch}`], projectRootGitCwd) ||
+      ''
+    : '';
   const worktreePath =
     config.docsRepo === 'standalone' && headBranch
       ? resolveManagedWorktreePath(config, projectRootGitCwd, headBranch)
       : null;
   const managedWorktreeExists = !!worktreePath && fs.existsSync(worktreePath);
-  const localFeatureBranchExists = localBranchExists(projectRootGitCwd, headBranch);
+  const localFeatureBranchExists = localBranchExists(
+    projectRootGitCwd,
+    headBranch
+  );
   const remoteFeatureBranchExists =
     hasOriginRemote && remoteBranchExists(projectRootGitCwd, headBranch);
   const localBaseCheckedOut = currentBranch === baseBranch;
@@ -1603,7 +1652,10 @@ function nextExecutableTask(tasks: ParsedTasks): ParsedTasks['tasks'][number] {
 }
 
 function allTasksDone(tasks: ParsedTasks): boolean {
-  return tasks.tasks.length > 0 && tasks.tasks.every((task) => task.status === 'DONE');
+  return (
+    tasks.tasks.length > 0 &&
+    tasks.tasks.every((task) => task.status === 'DONE')
+  );
 }
 
 type ReviewTarget = {
@@ -1628,9 +1680,7 @@ function resolveAgentReviewPhase(
     return config.workflow?.agentReview?.task || {};
   }
   return (
-    config.workflow?.agentReview?.feature ||
-    config.workflow?.prePrReview ||
-    {}
+    config.workflow?.agentReview?.feature || config.workflow?.prePrReview || {}
   );
 }
 
@@ -1653,7 +1703,10 @@ function resolveProjectReviewTarget(
   }
 
   const targetSha =
-    runGitCapture(['log', '-n', '1', '--pretty=%H', ...pathArgs], projectGitCwd) ||
+    runGitCapture(
+      ['log', '-n', '1', '--pretty=%H', ...pathArgs],
+      projectGitCwd
+    ) ||
     runGitCapture(['rev-parse', 'HEAD'], projectGitCwd) ||
     '';
   if (!targetSha) return null;
@@ -1681,7 +1734,8 @@ function resolveProjectReviewTarget(
     const baseBranch = config.workflow?.baseBranch?.trim() || 'main';
     for (const candidate of [`origin/${baseBranch}`, baseBranch]) {
       const candidateBase =
-        runGitCapture(['merge-base', candidate, targetSha], projectGitCwd) || '';
+        runGitCapture(['merge-base', candidate, targetSha], projectGitCwd) ||
+        '';
       if (candidateBase && candidateBase !== targetSha) {
         baseSha = candidateBase;
         break;
@@ -1853,7 +1907,10 @@ function issueExistsRemotely(
   return result.code === 0;
 }
 
-function prExistsRemotely(prRef: string | null, feature: ResolvedFeature): boolean {
+function prExistsRemotely(
+  prRef: string | null,
+  feature: ResolvedFeature
+): boolean {
   if (!prRef) return false;
   const result = runProcess(
     'gh',
@@ -1989,8 +2046,16 @@ function createPlanReviewDelegationContext(
     featureRef: buildFeatureRef(feature),
     docsDirectory: config.docsDir,
     requiredDocuments: [
-      createDelegationDocument(paths.specPath, 'Review the approved requirements and acceptance boundaries.', target.specHash),
-      createDelegationDocument(paths.planPath, 'Review the implementation plan and Verification Contract.', target.planHash),
+      createDelegationDocument(
+        paths.specPath,
+        'Review the approved requirements and acceptance boundaries.',
+        target.specHash
+      ),
+      createDelegationDocument(
+        paths.planPath,
+        'Review the implementation plan and Verification Contract.',
+        target.planHash
+      ),
     ],
     reviewTarget: { specHash: target.specHash, planHash: target.planHash },
   };
@@ -2013,12 +2078,24 @@ function createTaskDelegationContext(
     docsDirectory: config.docsDir,
     workingDirectory,
     requiredDocuments: [
-      createDelegationDocument(paths.tasksPath, `Use only the ${task.taskId} task block as the implementation and acceptance scope.`),
-      createDelegationDocument(paths.planPath, 'Use the approved Verification Contract and implementation constraints.'),
+      createDelegationDocument(
+        paths.tasksPath,
+        `Use only the ${task.taskId} task block as the implementation and acceptance scope.`
+      ),
+      createDelegationDocument(
+        paths.planPath,
+        'Use the approved Verification Contract and implementation constraints.'
+      ),
     ],
     referenceDocuments: [
-      createDelegationDocument(paths.specPath, 'Read only when the delegated task or Verification Contract references a requirement that needs clarification.'),
-      createDelegationDocument(paths.decisionsPath, 'Read only when the delegated task or Verification Contract references a recorded technical decision.'),
+      createDelegationDocument(
+        paths.specPath,
+        'Read only when the delegated task or Verification Contract references a requirement that needs clarification.'
+      ),
+      createDelegationDocument(
+        paths.decisionsPath,
+        'Read only when the delegated task or Verification Contract references a recorded technical decision.'
+      ),
     ],
     task: {
       id: task.taskId,
@@ -2026,7 +2103,10 @@ function createTaskDelegationContext(
       instructions: task.instructions,
       acceptanceCriteria: task.acceptanceCriteria,
     },
-    verificationContract: extractMarkdownSection(planContent, 'Verification Contract'),
+    verificationContract: extractMarkdownSection(
+      planContent,
+      'Verification Contract'
+    ),
     ...(reviewTarget ? { reviewTarget } : {}),
   };
 }
@@ -2041,9 +2121,18 @@ function createFeatureReviewDelegationContext(
   const paths = getFeatureDocPaths(feature);
   const requiredDocuments = [
     createDelegationDocument(paths.specPath, 'Review Feature requirements.'),
-    createDelegationDocument(paths.planPath, 'Review the implementation plan and Verification Contract.'),
-    createDelegationDocument(paths.tasksPath, 'Review completed task acceptance and verification evidence.'),
-    createDelegationDocument(paths.decisionsPath, 'Review recorded decisions, trade-offs, and residual risks.'),
+    createDelegationDocument(
+      paths.planPath,
+      'Review the implementation plan and Verification Contract.'
+    ),
+    createDelegationDocument(
+      paths.tasksPath,
+      'Review completed task acceptance and verification evidence.'
+    ),
+    createDelegationDocument(
+      paths.decisionsPath,
+      'Review recorded decisions, trade-offs, and residual risks.'
+    ),
   ];
   for (const target of curatedDocumentationTargets) {
     const separator = target.indexOf(':');
@@ -2114,7 +2203,7 @@ function resolveActionApprovalRequired(
   const approval =
     config.approval?.mode === 'builtin'
       ? createDefaultApprovalConfig()
-      : config.approval ?? createDefaultApprovalConfig();
+      : (config.approval ?? createDefaultApprovalConfig());
   const mode = approval.mode ?? 'category';
 
   if (mode === 'steps') {
@@ -2141,16 +2230,14 @@ function resolveActionApprovalRequired(
       .map((value) => normalizeApprovalToken(value))
       .filter(Boolean)
   );
-  const defaultPolicy = approval.default ?? createDefaultApprovalConfig().default ?? 'skip';
+  const defaultPolicy =
+    approval.default ?? createDefaultApprovalConfig().default ?? 'skip';
   const normalizedCategory = normalizeApprovalToken(category);
   const explicitlyRequired =
     requiredCategories.has('*') || requiredCategories.has(normalizedCategory);
 
   if (explicitlyRequired) return true;
-  if (
-    skippedCategories.has('*') ||
-    skippedCategories.has(normalizedCategory)
-  ) {
+  if (skippedCategories.has('*') || skippedCategories.has(normalizedCategory)) {
     return false;
   }
   if (defaultPolicy === 'require') return true;
@@ -2180,7 +2267,10 @@ function resolveRemotePrReviewState(
   }
 
   try {
-    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<string, unknown>;
+    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<
+      string,
+      unknown
+    >;
     const reviewDecision = String(parsed.reviewDecision || '')
       .trim()
       .toUpperCase();
@@ -2191,13 +2281,15 @@ function resolveRemotePrReviewState(
       .trim()
       .toUpperCase();
     const isDraft = parsed.isDraft === true;
-    const headRefOid = String(parsed.headRefOid || '').trim().toLowerCase();
-    const mergedAt = typeof parsed.mergedAt === 'string'
-      ? parsed.mergedAt.trim()
-      : '';
-    const codeRabbitThreadState = reviewDecision.length === 0
-      ? resolveCodeRabbitReviewThreadsState(prRef, feature)
-      : 'unknown';
+    const headRefOid = String(parsed.headRefOid || '')
+      .trim()
+      .toLowerCase();
+    const mergedAt =
+      typeof parsed.mergedAt === 'string' ? parsed.mergedAt.trim() : '';
+    const codeRabbitThreadState =
+      reviewDecision.length === 0
+        ? resolveCodeRabbitReviewThreadsState(prRef, feature)
+        : 'unknown';
     const codeRabbitCheckSucceeded = hasSuccessfulCodeRabbitStatusCheck(
       parsed.statusCheckRollup
     );
@@ -2219,7 +2311,10 @@ function resolveRemotePrReviewState(
     if (reviewDecision.length === 0 && codeRabbitThreadState === 'open') {
       return 'changes_requested';
     }
-    if (reviewDecision.length === 0 && hasLatestHeadRateLimitSignal(parsed, headRefOid)) {
+    if (
+      reviewDecision.length === 0 &&
+      hasLatestHeadRateLimitSignal(parsed, headRefOid)
+    ) {
       return 'review_rate_limited';
     }
     if (
@@ -2229,7 +2324,10 @@ function resolveRemotePrReviewState(
     ) {
       return 'review_pending_latest_commit';
     }
-    if (reviewDecision.length === 0 && hasCodeRabbitActionableReview(parsed.latestReviews)) {
+    if (
+      reviewDecision.length === 0 &&
+      hasCodeRabbitActionableReview(parsed.latestReviews)
+    ) {
       if (codeRabbitThreadState === 'resolved' && codeRabbitCheckSucceeded) {
         return mergeStateStatus === 'CLEAN' || mergeStateStatus === 'HAS_HOOKS'
           ? 'approved'
@@ -2427,9 +2525,7 @@ function buildCodeReviewActionOptions(
   ];
 }
 
-function buildMergeActionOptions(
-  command: string
-): WorkflowStageOption[] {
+function buildMergeActionOptions(command: string): WorkflowStageOption[] {
   return [
     buildStageOption(
       'A',
@@ -2513,7 +2609,11 @@ function resolvePlanReviewPayload(
     specHash: target.specHash,
     planHash: target.planHash,
     docsDirectory: config.docsDir,
-    delegationContext: createPlanReviewDelegationContext(config, feature, target),
+    delegationContext: createPlanReviewDelegationContext(
+      config,
+      feature,
+      target
+    ),
   };
 
   if (review.decisionOutcome === 'changes_requested') {
@@ -2636,11 +2736,21 @@ export async function collectWorkflowStage(
   const requirements = resolveWorkflowRequirements(config);
   const taskCommitGatePolicy = resolveTaskCommitGatePolicy(config);
   const paths = getFeatureDocPaths(feature);
-  const specContent = await readFileIfExists(path.join(config.docsDir, paths.specPath));
-  const planContent = await readFileIfExists(path.join(config.docsDir, paths.planPath));
-  const tasksContent = await readFileIfExists(path.join(config.docsDir, paths.tasksPath));
-  const issueContent = await readFileIfExists(path.join(config.docsDir, paths.issuePath));
-  const prContent = await readFileIfExists(path.join(config.docsDir, paths.prPath));
+  const specContent = await readFileIfExists(
+    path.join(config.docsDir, paths.specPath)
+  );
+  const planContent = await readFileIfExists(
+    path.join(config.docsDir, paths.planPath)
+  );
+  const tasksContent = await readFileIfExists(
+    path.join(config.docsDir, paths.tasksPath)
+  );
+  const issueContent = await readFileIfExists(
+    path.join(config.docsDir, paths.issuePath)
+  );
+  const prContent = await readFileIfExists(
+    path.join(config.docsDir, paths.prPath)
+  );
 
   const specStatus = parseApprovalStatus(
     extractFieldValue(specContent || '', ['Status', '상태']) || undefined
@@ -2672,9 +2782,10 @@ export async function collectWorkflowStage(
     (tasks.docStatus !== 'approved' || planReview.hasMetadata);
   const issueDraft = parseWorkflowDraftMetadataExtended(issueContent || '');
   const prDraft = parseWorkflowDraftMetadataExtended(prContent || '');
-  const remoteReviewState = requirements.requireReview && tasks.prLink
-    ? resolveRemotePrReviewState(tasks.prLink, feature)
-    : 'unknown';
+  const remoteReviewState =
+    requirements.requireReview && tasks.prLink
+      ? resolveRemotePrReviewState(tasks.prLink, feature)
+      : 'unknown';
   const currentReviewState = resolveCurrentReviewState(
     tasks,
     prDraft,
@@ -2706,7 +2817,7 @@ export async function collectWorkflowStage(
             : 'Promote spec.md from Review to Approved and continue automatically.'
           : 'Write or refine spec.md until it is ready for approval.',
         approvalRequired
-        ),
+      ),
       approvalRequired,
       implementationAllowed: false,
       primaryActionLabel: actionOptions ? 'A' : undefined,
@@ -2750,9 +2861,10 @@ export async function collectWorkflowStage(
         planReviewTarget
       );
     }
-    const approvalRequired = isReviewStage && !planReviewAutoCompleted
-      ? resolveActionApprovalRequired(config, 'plan_approve', true)
-      : false;
+    const approvalRequired =
+      isReviewStage && !planReviewAutoCompleted
+        ? resolveActionApprovalRequired(config, 'plan_approve', true)
+        : false;
     const actionOptions = approvalRequired
       ? buildApprovalActionOptions({
           approveSummary: 'Approve plan.md and continue to the tasks stage.',
@@ -2770,12 +2882,12 @@ export async function collectWorkflowStage(
         isReviewStage
           ? planReviewAutoCompleted
             ? 'The Plan review round limit was reached. Preserve the remaining findings and post-review hash changes as residual risks, promote plan.md from Review to Approved, and continue automatically without asking the user for review approval.'
-          : approvalRequired
-            ? 'Get user approval and update plan.md status to Approved.'
-            : 'Promote plan.md from Review to Approved and continue automatically.'
+            : approvalRequired
+              ? 'Get user approval and update plan.md status to Approved.'
+              : 'Promote plan.md from Review to Approved and continue automatically.'
           : 'Write or refine plan.md until it is ready for approval.',
         approvalRequired
-        ),
+      ),
       approvalRequired,
       implementationAllowed: false,
       primaryActionLabel: actionOptions ? 'A' : undefined,
@@ -2788,15 +2900,21 @@ export async function collectWorkflowStage(
     enforcePlanReview &&
     !planReviewSatisfied(config, feature, planReview, planReviewTarget)
   ) {
-    return resolvePlanReviewPayload(config, feature, planReview, planReviewTarget);
+    return resolvePlanReviewPayload(
+      config,
+      feature,
+      planReview,
+      planReviewTarget
+    );
   }
 
   const taskDocumentationTargets = new Set(
     tasks.tasks.flatMap((task) => task.documentationTargets)
   );
-  const uncoveredDocumentationTargets = curatedDocumentationImpact.targets.filter(
-    (target) => !taskDocumentationTargets.has(target)
-  );
+  const uncoveredDocumentationTargets =
+    curatedDocumentationImpact.targets.filter(
+      (target) => !taskDocumentationTargets.has(target)
+    );
   const curatedTargetCoverageMissing =
     uncoveredDocumentationTargets.length > 0 &&
     (tasks.docStatus === 'review' || tasks.docStatus === 'approved');
@@ -2831,12 +2949,12 @@ export async function collectWorkflowStage(
         curatedTargetCoverageMissing
           ? `Link every Curated Documentation Impact target from a task Docs section. Missing: ${uncoveredDocumentationTargets.join(', ')}`
           : isReviewStage
-          ? approvalRequired
-            ? 'Get user approval and update tasks.md Doc Status to Approved.'
-            : 'Promote tasks.md Doc Status from Review to Approved and continue automatically.'
-          : 'Add and refine tasks until tasks.md is execution-ready and Approved.',
+            ? approvalRequired
+              ? 'Get user approval and update tasks.md Doc Status to Approved.'
+              : 'Promote tasks.md Doc Status from Review to Approved and continue automatically.'
+            : 'Add and refine tasks until tasks.md is execution-ready and Approved.',
         approvalRequired
-        ),
+      ),
       approvalRequired,
       implementationAllowed: false,
       primaryActionLabel: actionOptions ? 'A' : undefined,
@@ -2851,8 +2969,7 @@ export async function collectWorkflowStage(
       tasks.issueNumber !== null &&
       issueExistsRemotely(tasks.issueNumber, feature);
     if (!issueCreated || !issueReady) {
-      const issueCreateApprovalRequired =
-        issueReady && !issueCreated;
+      const issueCreateApprovalRequired = issueReady && !issueCreated;
       const issueCreateCommand = `npx lee-spec-kit github issue ${buildFeatureArgs(feature)} --create --confirm OK`;
       const issueCreateOptions = issueCreateApprovalRequired
         ? buildApprovalActionOptions({
@@ -2869,18 +2986,19 @@ export async function collectWorkflowStage(
         docsDir: config.docsDir,
         featureRef: buildFeatureRef(feature),
         stage: 'issue',
-        nextAction: issueReady && !issueCreated
-          ? buildAction(
-              'issue_create',
-              'Create the GitHub issue from issue.md and sync the issue number into tasks.md.',
-              issueCreateApprovalRequired,
-              issueCreateCommand
-            )
-          : buildAction(
-              'issue_prepare',
-              'Prepare issue.md and set its Status to Ready before issue creation.',
-              false
-            ),
+        nextAction:
+          issueReady && !issueCreated
+            ? buildAction(
+                'issue_create',
+                'Create the GitHub issue from issue.md and sync the issue number into tasks.md.',
+                issueCreateApprovalRequired,
+                issueCreateCommand
+              )
+            : buildAction(
+                'issue_prepare',
+                'Prepare issue.md and set its Status to Ready before issue creation.',
+                false
+              ),
         approvalRequired: issueCreateApprovalRequired,
         implementationAllowed: false,
         primaryActionLabel: issueCreateOptions ? 'A' : undefined,
@@ -2891,6 +3009,7 @@ export async function collectWorkflowStage(
   }
 
   let effectiveProjectGitCwd = feature.git.projectGitCwd;
+  let missingExpectedWorktreeBranch: string | null = null;
   if (requirements.requireWorktree) {
     const expectedBranch = resolveExpectedBranch(feature, tasks);
     if (expectedBranch) {
@@ -2901,6 +3020,15 @@ export async function collectWorkflowStage(
       );
       if (existingWorktreePath) {
         effectiveProjectGitCwd = existingWorktreePath;
+      } else {
+        const resolvedFeatureBranch =
+          runGitCapture(
+            ['branch', '--show-current'],
+            feature.git.projectGitCwd
+          ) || '';
+        if (resolvedFeatureBranch !== expectedBranch) {
+          missingExpectedWorktreeBranch = expectedBranch;
+        }
       }
     }
   }
@@ -2938,7 +3066,10 @@ export async function collectWorkflowStage(
     const expectedBranch = resolveExpectedBranch(feature, tasks);
     const currentBranch =
       runGitCapture(['branch', '--show-current'], effectiveProjectGitCwd) ||
-      runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], effectiveProjectGitCwd) ||
+      runGitCapture(
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        effectiveProjectGitCwd
+      ) ||
       null;
     if (expectedBranch && currentBranch !== expectedBranch) {
       const branchCommand = buildExpectedBranchCommand(
@@ -3117,7 +3248,9 @@ export async function collectWorkflowStage(
       };
     }
 
-    if (taskReviewEvidenceSatisfied(config, feature, reviewTask, reviewTarget)) {
+    if (
+      taskReviewEvidenceSatisfied(config, feature, reviewTask, reviewTarget)
+    ) {
       const completionSummary =
         reviewTask.reviewDecisionOutcome === 'approve'
           ? reviewTask.status === 'DONE'
@@ -3272,14 +3405,45 @@ export async function collectWorkflowStage(
     };
   }
 
+  if (
+    allTasksDone(tasks) &&
+    missingExpectedWorktreeBranch &&
+    !resolvedLocalState?.integrationComplete &&
+    !localIntegrationReachedBase &&
+    !remoteReviewAlreadyComplete
+  ) {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'branch',
+      nextAction: buildAction(
+        'branch_create',
+        `Restore or create the managed worktree for ${missingExpectedWorktreeBranch} before project-wide documentation or Knowledge synchronization.`,
+        false,
+        buildExpectedBranchCommand(
+          config,
+          feature,
+          missingExpectedWorktreeBranch,
+          true
+        )
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'BRANCH_NOT_READY',
+    };
+  }
+
   if (allTasksDone(tasks) && curatedDocumentationImpact.targets.length > 0) {
-    const documentationEvidenceErrors = await collectDocumentationTargetEvidenceErrors({
-      config,
-      feature,
-      tasks,
-      projectGitCwd: effectiveProjectGitCwd,
-      targets: curatedDocumentationImpact.targets,
-    });
+    const documentationEvidenceErrors =
+      await collectDocumentationTargetEvidenceErrors({
+        config,
+        feature,
+        tasks,
+        projectGitCwd: effectiveProjectGitCwd,
+        targets: curatedDocumentationImpact.targets,
+      });
     if (documentationEvidenceErrors.length > 0) {
       return {
         status: 'ok',
@@ -3459,10 +3623,7 @@ export async function collectWorkflowStage(
       tasks.prePrReviewedHead === reviewTarget.targetSha &&
       tasks.prePrReviewedTree === reviewTarget.targetTree;
 
-    if (
-      reviewContext &&
-      tasks.prePrDecisionOutcome === 'changes_requested'
-    ) {
+    if (reviewContext && tasks.prePrDecisionOutcome === 'changes_requested') {
       if (
         evidenceMatchesTarget &&
         reviewContext.reviewRound <= reviewContext.maxReviewRounds
@@ -3519,17 +3680,12 @@ export async function collectWorkflowStage(
 
     if (!featureReviewSatisfied(config, feature, tasks, reviewTarget)) {
       const rawRequestedRound =
-        reviewContext &&
-        !evidenceMatchesTarget &&
-        tasks.prePrDecisionOutcome
+        reviewContext && !evidenceMatchesTarget && tasks.prePrDecisionOutcome
           ? reviewContext.reviewRound + 1
           : reviewContext?.reviewRound;
       const requestedRound =
         reviewContext && typeof rawRequestedRound === 'number'
-          ? Math.min(
-              rawRequestedRound,
-              reviewContext.maxReviewRounds
-            )
+          ? Math.min(rawRequestedRound, reviewContext.maxReviewRounds)
           : rawRequestedRound;
       const reviewLimitExhausted =
         !!reviewContext &&
@@ -3546,8 +3702,8 @@ export async function collectWorkflowStage(
           reviewLimitExhausted
             ? `The Feature review round limit was reached at round ${reviewContext.reviewRound}. Do not delegate another review. Repair or record the final-round evidence if needed and preserve the remaining findings and any post-review target changes as residual risks before continuing automatically.`
             : reviewTarget
-            ? `Delegate independent read-only Feature review round ${requestedRound} to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
-            : 'Create a project commit before requesting the independent Feature review.',
+              ? `Delegate independent read-only Feature review round ${requestedRound} to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
+              : 'Create a project commit before requesting the independent Feature review.',
           false,
           null,
           reviewTarget && !reviewLimitExhausted
@@ -3695,7 +3851,7 @@ export async function collectWorkflowStage(
             ? `Approve the completed implementation and continue to the separate local merge approval before ${localIntegrationLabel}.`
             : localIntegrationApproval
               ? `Approve the completed implementation and authorize ${localIntegrationLabel}, post-merge verification, and cleanup that will ${localCleanupSummary}.`
-            : 'Approve the completed implementation and continue to the pre-PR or PR preparation stage.',
+              : 'Approve the completed implementation and continue to the pre-PR or PR preparation stage.',
           holdSummary:
             'Request implementation changes before the workflow continues.',
         })
@@ -3712,7 +3868,7 @@ export async function collectWorkflowStage(
           ? `Share the completed implementation and get user approval for the implementation itself. Record it in tasks.md; ${localIntegrationLabel} will require a separate local_merge approval.`
           : localIntegrationApproval
             ? `Share the completed implementation and get user approval for the remaining local completion flow: ${localIntegrationLabel}, run post-merge checks, then ${localCleanupSummary}. Record that approval in tasks.md.`
-          : 'Share the completed implementation, get user approval, and record the completion checkpoint in tasks.md.',
+            : 'Share the completed implementation, get user approval, and record the completion checkpoint in tasks.md.',
         approvalRequired
       ),
       approvalRequired,
@@ -3728,11 +3884,10 @@ export async function collectWorkflowStage(
     resolveLocalCompletionStrategy(config) !== 'none'
   ) {
     const localState =
-      resolvedLocalState || await resolveLocalIntegrationContext(config, feature);
-    const localVerifyCommand =
-      `npx lee-spec-kit local verify ${buildFeatureArgs(feature)} --json`;
-    const localMergeBaseCommand =
-      `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
+      resolvedLocalState ||
+      (await resolveLocalIntegrationContext(config, feature));
+    const localVerifyCommand = `npx lee-spec-kit local verify ${buildFeatureArgs(feature)} --json`;
+    const localMergeBaseCommand = `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
 
     if (localState.cleanedIntegrationStillValid) {
       return {
@@ -3808,7 +3963,7 @@ export async function collectWorkflowStage(
         : localMergeBaseCommand;
       const actionOptions = approvalRequired
         ? buildApprovalActionOptions({
-          approveSummary:
+            approveSummary:
               localState.completionStrategy === 'local-squash'
                 ? `Squash ${localState.featureBranch} into ${localState.baseBranch}, preserve the source Feature tip, and run the configured post-merge checks.`
                 : `Fast-forward ${localState.featureBranch} into ${localState.baseBranch} and run the configured post-merge checks.`,
@@ -3895,19 +4050,15 @@ export async function collectWorkflowStage(
 
   if (requirements.requirePr) {
     const prReady = prDraft.status === 'ready';
-    const prCreated =
-      !!tasks.prLink &&
-      prExistsRemotely(tasks.prLink, feature);
+    const prCreated = !!tasks.prLink && prExistsRemotely(tasks.prLink, feature);
     if (!prCreated || !prReady) {
-      const prCreateApprovalRequired =
-        prReady && !prCreated;
+      const prCreateApprovalRequired = prReady && !prCreated;
       const prCreateCommand = `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --create --confirm OK`;
       const prCreateOptions = prCreateApprovalRequired
         ? buildApprovalActionOptions({
             approveSummary:
               'Create the GitHub PR now and sync the PR metadata back into tasks.md.',
-            holdSummary:
-              'Keep the PR in Ready state but do not create it yet.',
+            holdSummary: 'Keep the PR in Ready state but do not create it yet.',
             remoteCommand: prCreateCommand,
           })
         : undefined;
@@ -3917,18 +4068,19 @@ export async function collectWorkflowStage(
         docsDir: config.docsDir,
         featureRef: buildFeatureRef(feature),
         stage: 'pr',
-        nextAction: prReady && !prCreated
-          ? buildAction(
-              'pr_create',
-              'Create the GitHub PR from pr.md and sync the PR metadata into tasks.md.',
-              prCreateApprovalRequired,
-              prCreateCommand
-            )
-          : buildAction(
-              'pr_prepare',
-              'Prepare pr.md and set its Status to Ready before PR creation.',
-              false
-            ),
+        nextAction:
+          prReady && !prCreated
+            ? buildAction(
+                'pr_create',
+                'Create the GitHub PR from pr.md and sync the PR metadata into tasks.md.',
+                prCreateApprovalRequired,
+                prCreateCommand
+              )
+            : buildAction(
+                'pr_prepare',
+                'Prepare pr.md and set its Status to Ready before PR creation.',
+                false
+              ),
         approvalRequired: prCreateApprovalRequired,
         implementationAllowed: false,
         primaryActionLabel: prCreateOptions ? 'A' : undefined,
@@ -3941,7 +4093,11 @@ export async function collectWorkflowStage(
   const reviewApprovedInDocs =
     tasks.prStatus === 'approved' && prDraft.prStatus === 'approved';
 
-  if (requirements.requireReview && currentReviewState === 'merged' && reviewApprovedInDocs) {
+  if (
+    requirements.requireReview &&
+    currentReviewState === 'merged' &&
+    reviewApprovedInDocs
+  ) {
     const cleanupState = resolvePostMergeCleanupState(config, feature, tasks);
     if (!cleanupState.complete) {
       return {
@@ -3979,7 +4135,10 @@ export async function collectWorkflowStage(
     };
   }
 
-  if (requirements.requireReview && (!reviewApprovedInDocs || currentReviewState !== 'approved')) {
+  if (
+    requirements.requireReview &&
+    (!reviewApprovedInDocs || currentReviewState !== 'approved')
+  ) {
     const reviewFixAllowed = currentReviewState === 'changes_requested';
     const reviewApprovalRequired = !reviewFixAllowed;
     const reviewSyncCommand =
@@ -3994,17 +4153,17 @@ export async function collectWorkflowStage(
         ? 'Record the approved PR review state in tasks.md and pr.md before proceeding to merge.'
         : currentReviewState === 'merged'
           ? 'Sync the already-merged PR state into tasks.md and pr.md before marking the workflow as complete.'
-        : currentReviewState === 'changes_requested'
-          ? 'Address the requested review changes and update the PR review evidence/decision before continuing.'
-          : currentReviewState === 'review_pending_latest_commit'
-            ? 'Wait for a fresh review on the latest PR commit before taking the next review action.'
-          : currentReviewState === 'review_rate_limited'
-            ? 'Wait for the current CodeRabbit review rate limit to clear, then re-check the latest PR review state before continuing.'
-          : currentReviewState === 'draft'
-            ? 'Resolve the draft PR state before continuing to the merge boundary.'
-            : currentReviewState === 'merge_blocked'
-              ? 'Resolve the current PR merge blocker before continuing to merge.'
-        : 'Wait for PR review or inspect the current review state before taking the next review action.';
+          : currentReviewState === 'changes_requested'
+            ? 'Address the requested review changes and update the PR review evidence/decision before continuing.'
+            : currentReviewState === 'review_pending_latest_commit'
+              ? 'Wait for a fresh review on the latest PR commit before taking the next review action.'
+              : currentReviewState === 'review_rate_limited'
+                ? 'Wait for the current CodeRabbit review rate limit to clear, then re-check the latest PR review state before continuing.'
+                : currentReviewState === 'draft'
+                  ? 'Resolve the draft PR state before continuing to the merge boundary.'
+                  : currentReviewState === 'merge_blocked'
+                    ? 'Resolve the current PR merge blocker before continuing to merge.'
+                    : 'Wait for PR review or inspect the current review state before taking the next review action.';
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -4027,8 +4186,7 @@ export async function collectWorkflowStage(
   }
 
   if (requirements.requireMerge) {
-    const mergeCommand =
-      `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --merge --confirm OK`;
+    const mergeCommand = `npx lee-spec-kit github pr ${buildFeatureArgs(feature)} --merge --confirm OK`;
     return {
       status: 'ok',
       reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -4087,7 +4245,9 @@ function hasStaleLatestCommitReviewSignal(
     return false;
   }
 
-  const latestReviewHead = findLatestCodeRabbitReviewedHead(parsed.latestReviews);
+  const latestReviewHead = findLatestCodeRabbitReviewedHead(
+    parsed.latestReviews
+  );
   if (!latestReviewHead) {
     return false;
   }
@@ -4126,7 +4286,10 @@ function resolveCodeRabbitReviewThreadsState(
   }
 
   try {
-    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<string, unknown>;
+    const parsed = JSON.parse(String(result.stdout || '{}')) as Record<
+      string,
+      unknown
+    >;
     const nodes = extractNestedArray(parsed, [
       'data',
       'repository',
@@ -4173,7 +4336,9 @@ function parseGithubPullRequestRef(
   };
 }
 
-function hasSuccessfulCodeRabbitStatusCheck(statusChecksValue: unknown): boolean {
+function hasSuccessfulCodeRabbitStatusCheck(
+  statusChecksValue: unknown
+): boolean {
   if (!Array.isArray(statusChecksValue)) {
     return false;
   }
@@ -4227,7 +4392,10 @@ function hasCodeRabbitActionableReview(reviewsValue: unknown): boolean {
 
   return reviewsValue.some((entry) => {
     if (!entry || typeof entry !== 'object') return false;
-    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    const authorLogin = extractNestedString(entry, [
+      'author',
+      'login',
+    ]).toLowerCase();
     if (authorLogin !== 'coderabbitai') return false;
 
     const state = String((entry as Record<string, unknown>).state || '')
@@ -4249,12 +4417,17 @@ function hasCodeRabbitNoActionableComment(commentsValue: unknown): boolean {
 
   return commentsValue.some((entry) => {
     if (!entry || typeof entry !== 'object') return false;
-    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    const authorLogin = extractNestedString(entry, [
+      'author',
+      'login',
+    ]).toLowerCase();
     if (!authorLogin.startsWith('coderabbitai')) return false;
 
     const body = String((entry as Record<string, unknown>).body || '');
     if (/Actionable comments posted:\s*0\b/i.test(body)) return true;
-    return /no actionable comments (?:were )?(?:generated|found|posted)/i.test(body);
+    return /no actionable comments (?:were )?(?:generated|found|posted)/i.test(
+      body
+    );
   });
 }
 
@@ -4283,11 +4456,16 @@ function findLatestCodeRabbitRateLimitCommentAt(
   let latest: string | null = null;
   for (const entry of commentsValue) {
     if (!entry || typeof entry !== 'object') continue;
-    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    const authorLogin = extractNestedString(entry, [
+      'author',
+      'login',
+    ]).toLowerCase();
     if (authorLogin !== 'coderabbitai') continue;
     const body = String((entry as Record<string, unknown>).body || '');
     if (!isCodeRabbitRateLimitBody(body, headRefOid)) continue;
-    const createdAt = String((entry as Record<string, unknown>).createdAt || '').trim();
+    const createdAt = String(
+      (entry as Record<string, unknown>).createdAt || ''
+    ).trim();
     if (!createdAt) continue;
     if (!latest || createdAt > latest) {
       latest = createdAt;
@@ -4305,9 +4483,14 @@ function findLatestCodeRabbitReviewAt(reviewsValue: unknown): string | null {
   let latest: string | null = null;
   for (const entry of reviewsValue) {
     if (!entry || typeof entry !== 'object') continue;
-    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    const authorLogin = extractNestedString(entry, [
+      'author',
+      'login',
+    ]).toLowerCase();
     if (authorLogin !== 'coderabbitai') continue;
-    const submittedAt = String((entry as Record<string, unknown>).submittedAt || '').trim();
+    const submittedAt = String(
+      (entry as Record<string, unknown>).submittedAt || ''
+    ).trim();
     if (!submittedAt) continue;
     if (!latest || submittedAt > latest) {
       latest = submittedAt;
@@ -4317,17 +4500,27 @@ function findLatestCodeRabbitReviewAt(reviewsValue: unknown): string | null {
   return latest;
 }
 
-function findLatestCodeRabbitReviewedHead(reviewsValue: unknown): string | null {
+function findLatestCodeRabbitReviewedHead(
+  reviewsValue: unknown
+): string | null {
   if (!Array.isArray(reviewsValue)) {
     return null;
   }
 
-  let latestReview: { submittedAt: string; reviewedHead: string | null } | null = null;
+  let latestReview: {
+    submittedAt: string;
+    reviewedHead: string | null;
+  } | null = null;
   for (const entry of reviewsValue) {
     if (!entry || typeof entry !== 'object') continue;
-    const authorLogin = extractNestedString(entry, ['author', 'login']).toLowerCase();
+    const authorLogin = extractNestedString(entry, [
+      'author',
+      'login',
+    ]).toLowerCase();
     if (authorLogin !== 'coderabbitai') continue;
-    const submittedAt = String((entry as Record<string, unknown>).submittedAt || '').trim();
+    const submittedAt = String(
+      (entry as Record<string, unknown>).submittedAt || ''
+    ).trim();
     if (!submittedAt) continue;
     const body = String((entry as Record<string, unknown>).body || '');
     const reviewedHead = extractReviewedHeadFromReviewBody(body);
@@ -4357,14 +4550,19 @@ function isCodeRabbitRateLimitBody(body: string, headRefOid: string): boolean {
 }
 
 function extractReviewedHeadFromReviewBody(body: string): string | null {
-  const match = body.match(/between\s+[0-9a-f]{7,40}\s+and\s+([0-9a-f]{7,40})/i);
+  const match = body.match(
+    /between\s+[0-9a-f]{7,40}\s+and\s+([0-9a-f]{7,40})/i
+  );
   if (!match) {
     return null;
   }
   return match[1].trim().toLowerCase();
 }
 
-function matchesCommitReference(headRefOid: string, reviewedHead: string): boolean {
+function matchesCommitReference(
+  headRefOid: string,
+  reviewedHead: string
+): boolean {
   const normalizedHead = headRefOid.trim().toLowerCase();
   const normalizedReviewedHead = reviewedHead.trim().toLowerCase();
   return (
@@ -4374,10 +4572,7 @@ function matchesCommitReference(headRefOid: string, reviewedHead: string): boole
   );
 }
 
-function extractNestedString(
-  value: unknown,
-  pathSegments: string[]
-): string {
+function extractNestedString(value: unknown, pathSegments: string[]): string {
   let current: unknown = value;
   for (const segment of pathSegments) {
     if (!current || typeof current !== 'object') {

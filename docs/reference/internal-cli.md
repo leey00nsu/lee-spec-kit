@@ -12,6 +12,7 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `decision add`
 - `workflow-stage`
 - `knowledge doctor`
+- `knowledge migrate` (dry-run by default; explicit `--apply` for eligible legacy Plans)
 - `knowledge sync`
 - `knowledge audit`
 - `workflow-audit`

@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import os from 'os';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { execFileSync } from 'child_process';
 import { createCliError } from './cli-error.js';
 import { sleep } from './async.js';
@@ -15,6 +15,13 @@ interface FileLockOptions {
 
 interface LockPayload {
   pid?: number;
+  nonce?: string;
+}
+
+interface LockSnapshot {
+  raw: string;
+  payload: LockPayload | null;
+  mtimeMs: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -24,7 +31,10 @@ const RUNTIME_GIT_DIRNAME = 'lee-spec-kit.runtime';
 const RUNTIME_TEMP_DIRNAME = 'lee-spec-kit-runtime';
 
 function toScopeKey(value: string): string {
-  return createHash('sha1').update(path.resolve(value)).digest('hex').slice(0, 16);
+  return createHash('sha1')
+    .update(path.resolve(value))
+    .digest('hex')
+    .slice(0, 16);
 }
 
 function getTempRuntimeDir(scopePath: string): string {
@@ -82,37 +92,49 @@ export function getProjectExecutionLockPath(cwd: string): string {
   return path.join(getRuntimeStateDir(cwd), 'locks', 'project.lock');
 }
 
-async function isStaleLock(lockPath: string, staleMs: number): Promise<boolean> {
+async function readLockSnapshot(
+  lockPath: string
+): Promise<LockSnapshot | null> {
   try {
     const stat = await fs.stat(lockPath);
-    if (Date.now() - stat.mtimeMs <= staleMs) {
-      return false;
-    }
-
-    const payload = await readLockPayload(lockPath);
-    if (
-      typeof payload?.pid === 'number' &&
-      Number.isFinite(payload.pid) &&
-      isProcessAlive(payload.pid)
-    ) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function readLockPayload(lockPath: string): Promise<LockPayload | null> {
-  try {
     const raw = await fs.readFile(lockPath, 'utf8');
-    const parsed = JSON.parse(raw) as LockPayload;
-    if (!parsed || typeof parsed !== 'object') return null;
-    return parsed;
+    let payload: LockPayload | null = null;
+    try {
+      const parsed = JSON.parse(raw) as LockPayload;
+      if (parsed && typeof parsed === 'object') payload = parsed;
+    } catch {
+      // A malformed lock can only be reclaimed after its stale timeout.
+    }
+    return { raw, payload, mtimeMs: stat.mtimeMs };
   } catch {
     return null;
   }
+}
+
+function isStaleSnapshot(snapshot: LockSnapshot, staleMs: number): boolean {
+  if (Date.now() - snapshot.mtimeMs <= staleMs) return false;
+  const pid = snapshot.payload?.pid;
+  return !(
+    typeof pid === 'number' &&
+    Number.isFinite(pid) &&
+    isProcessAlive(pid)
+  );
+}
+
+async function removeLockIfUnchanged(
+  lockPath: string,
+  snapshot: LockSnapshot
+): Promise<boolean> {
+  const current = await readLockSnapshot(lockPath);
+  if (!current || current.raw !== snapshot.raw) return false;
+  await fs.remove(lockPath);
+  return true;
+}
+
+async function removeOwnedLock(lockPath: string, nonce: string): Promise<void> {
+  const current = await readLockSnapshot(lockPath);
+  if (!current || current.payload?.nonce !== nonce) return;
+  await removeLockIfUnchanged(lockPath, current);
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -133,21 +155,27 @@ function isProcessAlive(pid: number): boolean {
 async function tryAcquire(
   lockPath: string,
   owner: string | undefined
-): Promise<boolean> {
+): Promise<string | null> {
   await fs.ensureDir(path.dirname(lockPath));
+  const nonce = randomUUID();
   try {
     const fd = await fs.open(lockPath, 'wx');
     const payload = JSON.stringify(
-      { pid: process.pid, owner: owner ?? 'unknown', createdAt: new Date().toISOString() },
+      {
+        pid: process.pid,
+        nonce,
+        owner: owner ?? 'unknown',
+        createdAt: new Date().toISOString(),
+      },
       null,
       2
     );
     await fs.writeFile(fd, `${payload}\n`, { encoding: 'utf8' });
     await fs.close(fd);
-    return true;
+    return nonce;
   } catch (error) {
     if ((error as { code?: string }).code === 'EEXIST') {
-      return false;
+      return null;
     }
     throw error;
   }
@@ -163,12 +191,16 @@ export async function waitForLockRelease(
   const startedAt = Date.now();
 
   while (await fs.pathExists(lockPath)) {
-    if (await isStaleLock(lockPath, staleMs)) {
-      await fs.remove(lockPath);
-      break;
+    const snapshot = await readLockSnapshot(lockPath);
+    if (snapshot && isStaleSnapshot(snapshot, staleMs)) {
+      if (await removeLockIfUnchanged(lockPath, snapshot)) break;
+      continue;
     }
     if (Date.now() - startedAt > timeoutMs) {
-      throw createCliError('LOCK_WAIT_TIMEOUT', `Timed out waiting for lock: ${lockPath}`);
+      throw createCliError(
+        'LOCK_WAIT_TIMEOUT',
+        `Timed out waiting for lock: ${lockPath}`
+      );
     }
     await sleep(pollMs);
   }
@@ -183,13 +215,18 @@ export async function withFileLock<T>(
   const pollMs = options.pollMs ?? DEFAULT_POLL_MS;
   const staleMs = options.staleMs ?? DEFAULT_STALE_MS;
   const startedAt = Date.now();
+  let nonce = '';
 
   while (true) {
-    const acquired = await tryAcquire(lockPath, options.owner);
-    if (acquired) break;
+    const acquiredNonce = await tryAcquire(lockPath, options.owner);
+    if (acquiredNonce) {
+      nonce = acquiredNonce;
+      break;
+    }
 
-    if (await isStaleLock(lockPath, staleMs)) {
-      await fs.remove(lockPath);
+    const snapshot = await readLockSnapshot(lockPath);
+    if (snapshot && isStaleSnapshot(snapshot, staleMs)) {
+      await removeLockIfUnchanged(lockPath, snapshot);
       continue;
     }
 
@@ -205,7 +242,7 @@ export async function withFileLock<T>(
   try {
     return await task();
   } finally {
-    await fs.remove(lockPath).catch(() => {
+    await removeOwnedLock(lockPath, nonce).catch(() => {
       // Ignore cleanup errors; stale lock detection will recover.
     });
   }

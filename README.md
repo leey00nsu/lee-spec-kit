@@ -88,6 +88,7 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 - `commit-audit --json`: hooks용 commit-time docs path + canonical commit subject validator
 - `workflow-audit --json`: hooks용 docs sync validator
 - `knowledge doctor|sync|audit <feature-ref> --json`: 실험적 OpenWiki 온보딩 계층 준비·동기화·검증
+- `knowledge migrate [--apply] --json`: 기존 Feature의 문서 영향 판정 도입 상태를 dry-run하고, 안전한 대상만 명시적으로 grandfather 처리
 - `local verify <feature-ref> --json`: local Feature worktree에서 검사를 실행하고 결과를 정확한 tip/tree에 결속
 - `local merge <feature-ref> --json`: 검증된 local Feature를 설정된 fast-forward 또는 squash 전략으로 base branch에 통합
 - `local cleanup <feature-ref> --json`: managed worktree 제거 및 설정에 따른 통합 완료 Feature 브랜치 삭제
@@ -103,7 +104,9 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 npx lee-spec-kit config --openwiki true
 ```
 
-활성화하면 task 커밋 이후 Feature 리뷰 전에 OpenWiki 동기화와 전용 Knowledge 커밋이 필수가 됩니다. SDD 문서는 요구사항과 결정의 규범이고, 사람이 관리하는 상위 문서는 프로젝트 현재 상태이며, `openwiki/`는 코드로 다시 검증해야 하는 파생 온보딩 자료입니다. OpenWiki CLI `>=0.5.0 <1.0.0`과 Node.js 22 이상은 사용자가 명시적으로 설치·설정해야 하며 lee-spec-kit이 자동 설치하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+활성화하면 task 커밋 이후 Feature 리뷰 전에 OpenWiki 동기화와 전용 Knowledge 커밋이 필수가 됩니다. SDD 문서는 요구사항과 결정의 규범이고, 사람이 관리하는 상위 문서는 프로젝트 현재 상태이며, `openwiki/`는 코드로 다시 검증해야 하는 파생 온보딩 자료입니다. 현재 계약은 OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 OpenWiki나 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+
+동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge sync`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 
 OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에 접근하는 외부 에이전트입니다. lee-spec-kit은 변경 경로·보호 파일·출력 내 고신뢰 secret 패턴을 검증하지만 OS sandbox는 제공하지 않으므로, 신뢰할 수 있는 저장소와 격리된 실행 환경에서만 활성화하고 로컬·ignored secret 관리는 운영자가 책임져야 합니다.
 
