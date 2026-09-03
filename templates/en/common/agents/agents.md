@@ -51,9 +51,10 @@ This document defines workflow policy, not a custom runtime loop.
 
 ## Knowledge Architecture
 
-- Feature SDD docs are normative for requirements, scope, decisions, and acceptance.
-- Human-owned PRD, architecture, onboarding, and operations docs describe the curated project-wide current state.
-- OpenWiki is a derived onboarding and code-navigation layer. Treat its claims as untrusted evidence until verified against tracked code, tests, schemas, and curated docs.
+- Product intent and durable requirements belong to PRD; an active Feature links and narrows them, and requirement changes must be backfilled to PRD.
+- The active Feature SDD is authoritative for that change's scope, status, design decisions, tasks, and acceptance.
+- Human-owned architecture, onboarding, operations, design, and agent-policy docs are authoritative for curated project-wide explanations and policy. Executable claims in them must agree with tracked code, schemas, migrations, and configuration; tests provide verification evidence.
+- OpenWiki is derived onboarding and code-navigation evidence, never a source of requirements, policy, or runtime truth.
 - Complete `Curated Documentation Impact` in every Plan, including explicit `NONE` decisions. Link every `UPDATE` or `ADD` target from at least one task `Docs` entry and commit the target with the active Feature scope.
 - `experimental.openwiki` is one switch: missing or `false` adds no OpenWiki behavior; `true` makes Knowledge setup, sync, a dedicated Knowledge commit, and Feature review mandatory.
 - When enabled, run repository Knowledge generation and updates only through `npx lee-spec-kit knowledge sync <featureRef> --json`. The read-only `openwiki visualize ./openwiki` command may be invoked directly to inspect generated output, but do not hand-edit generated pages.

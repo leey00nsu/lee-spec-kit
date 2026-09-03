@@ -53,6 +53,7 @@ src/
 
 > Complete this assessment even when every decision is `NONE`. `NONE` means the surface was reviewed and no human-owned project document needs to change. Generated OpenWiki synchronization is evaluated separately.
 
+- **Schema**: 2
 - **Assessment**: Pending
   - Values: Pending | Complete
 - **Product requirements**: -
@@ -67,6 +68,24 @@ src/
 - **Targets**: -
   - Use comma-separated `docs:<path>` and `project:<path>` targets when any decision is UPDATE or ADD.
   - Every target must be linked from a task `Docs` list and committed with the active Feature scope before Knowledge sync or Feature review.
+
+---
+
+## Additional Curated Impacts
+
+> Assess conditional project-wide documents such as constitution/custom policy, design systems, API/data contracts, security, release, and observability. When none apply, record `Decision: NONE` and leave the table empty.
+
+- **Assessment**: Pending
+- **Decision**: -
+  - Values: NONE | DECLARED
+
+| Kind | Decision | Target | Reason |
+| ---- | -------- | ------ | ------ |
+| -    | -        | -      | -      |
+
+Allowed kinds: `engineering-agent-policy`, `design-system-ux`, `api-data-contract`, `security-privacy`, `release-deployment`, `observability`, `other-curated`
+
+Each `DECLARED` row uses `UPDATE` or `ADD` and a `docs:<path>` or `project:<path>` target. Link every target from a task `Docs` list.
 
 ---
 
@@ -87,9 +106,9 @@ src/
 
 ### Test Decisions
 
-| Contract / Requirement | Decision | Test Level | Realistic Regression Protected | Independent Oracle |
-| ---------------------- | -------- | ---------- | ------------------------------ | ------------------ |
-| (AC/FR reference)      | NONE \| UPDATE \| ADD | Unit \| Integration \| E2E \| Non-test | (failure this prevents) | (spec/released behavior/external reference) |
+| Contract / Requirement | Decision              | Test Level                             | Realistic Regression Protected | Independent Oracle                          |
+| ---------------------- | --------------------- | -------------------------------------- | ------------------------------ | ------------------------------------------- |
+| (AC/FR reference)      | NONE \| UPDATE \| ADD | Unit \| Integration \| E2E \| Non-test | (failure this prevents)        | (spec/released behavior/external reference) |
 
 ### Excluded Tests
 

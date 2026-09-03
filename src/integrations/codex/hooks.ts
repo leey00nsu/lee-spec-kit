@@ -1090,7 +1090,8 @@ function classifyOpenWikiInvocation(value, depth = 0) {
     }
     if (executable === 'bash' || executable === 'sh' || executable === 'zsh') {
       const commandIndex = tokens.findIndex(
-        (token, tokenIndex) => tokenIndex > index && token === '-c'
+        (token, tokenIndex) =>
+          tokenIndex > index && isShellCommandFlag(token.replace(/^['"]|['"]$/gu, ''))
       );
       if (
         commandIndex >= 0 &&
@@ -1104,7 +1105,7 @@ function classifyOpenWikiInvocation(value, depth = 0) {
     }
   }
   if (
-    /\\b(?:bash|sh|zsh)(?:\\.exe)?\\b[\\s\\S]{0,80}\\s-c\\s+["'][^"']*\\bopenwiki(?:\\.cmd|\\.exe)?\\b/iu.test(String(value || ''))
+    /\\b(?:bash|sh|zsh)(?:\\.exe)?\\b[\\s\\S]{0,80}\\s-[a-z]*c[a-z]*\\s+["'][^"']*\\bopenwiki(?:\\.cmd|\\.exe)?\\b/iu.test(String(value || ''))
   ) {
     return 'blocked';
   }

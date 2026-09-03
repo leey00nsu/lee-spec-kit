@@ -9,6 +9,14 @@ import {
   withTempDir,
 } from './helpers/cli-contract-helpers.mjs';
 
+async function expectedWorkflowSyncMarker(dir) {
+  const result = await runCli(dir, ['workflow-audit', '--json']);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  const marker = JSON.parse(result.stdout.trim()).expectedWorkflowSyncMarker;
+  assert.match(marker, /^<!-- lee-spec-kit:workflow-sync sha256:[a-f0-9]{64} -->$/);
+  return marker;
+}
+
 test('workflow-audit reports docs sync required when code changes exist without feature-doc updates', async () => {
   await withTempDir('lsk-workflow-audit-sync-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);
@@ -277,7 +285,7 @@ test('workflow-audit in standalone multi fails closed when another component rep
   });
 });
 
-test('workflow-audit treats .cjs code changes as requiring docs sync', async () => {
+test('workflow-audit treats source and schema changes as requiring docs sync', async () => {
   await withTempDir('lsk-workflow-audit-cjs-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);
     assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
@@ -309,6 +317,8 @@ test('workflow-audit treats .cjs code changes as requiring docs sync', async () 
 
     await fs.mkdir(path.join(dir, 'scripts'), { recursive: true });
     await fs.writeFile(path.join(dir, 'scripts', 'demo.cjs'), 'module.exports = 1;\n');
+    await fs.mkdir(path.join(dir, 'prisma'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'prisma', 'schema.prisma'), 'model Demo {}\n');
 
     const auditResult = await runCli(dir, ['workflow-audit', '--json']);
     assert.equal(auditResult.code, 0, auditResult.stderr || auditResult.stdout);
@@ -317,6 +327,7 @@ test('workflow-audit treats .cjs code changes as requiring docs sync', async () 
     assert.equal(payload.status, 'needs_sync');
     assert.equal(payload.reasonCode, 'CODE_WITHOUT_DOCS_SYNC');
     assert.equal(payload.changedCodePaths.includes('scripts/demo.cjs'), true);
+    assert.equal(payload.changedCodePaths.includes('prisma/schema.prisma'), true);
   });
 });
 
@@ -361,10 +372,10 @@ test('workflow-audit in standalone accepts newer active feature docs from separa
     await fs.mkdir(srcDir, { recursive: true });
     await fs.writeFile(path.join(srcDir, 'demo.ts'), 'export const demo = 1;\n');
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    const marker = await expectedWorkflowSyncMarker(dir);
     await fs.appendFile(
       path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
-      `\n- [ ] Sync note\n<!-- lee-spec-kit:workflow-sync ${new Date().toISOString()} -->\n`,
+      `\n- [ ] Sync note\n${marker}\n`,
       'utf-8'
     );
 
@@ -535,7 +546,7 @@ test('workflow-audit rejects workflow-sync markers spread across multiple featur
   });
 });
 
-test('workflow-audit ignores future workflow-sync markers', async () => {
+test('workflow-audit rejects legacy timestamp workflow-sync markers', async () => {
   await withTempDir('lsk-workflow-audit-future-sync-marker-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);
     assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
@@ -567,10 +578,9 @@ test('workflow-audit ignores future workflow-sync markers', async () => {
 
     await fs.mkdir(path.join(dir, 'src'), { recursive: true });
     await fs.writeFile(path.join(dir, 'src', 'demo.ts'), 'export const demo = 1;\n');
-    const futureMarker = new Date(Date.now() + 30_000).toISOString();
     await fs.appendFile(
       path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
-      `\n<!-- lee-spec-kit:workflow-sync ${futureMarker} -->\n`,
+      '\n<!-- lee-spec-kit:workflow-sync 2026-04-16T00:00:00.000Z -->\n',
       'utf-8'
     );
 
@@ -581,6 +591,91 @@ test('workflow-audit ignores future workflow-sync markers', async () => {
     assert.equal(payload.status, 'needs_sync');
     assert.equal(payload.reasonCode, 'CODE_WITHOUT_DOCS_SYNC');
     assert.equal(payload.latestFeatureDocSyncAt, null);
+    assert.equal(payload.workflowSyncFingerprint, null);
+    assert.match(
+      payload.expectedWorkflowSyncMarker,
+      /^<!-- lee-spec-kit:workflow-sync sha256:[a-f0-9]{64} -->$/
+    );
+  });
+});
+
+test('workflow-audit detects a later code-only commit from the stored content fingerprint', async () => {
+  await withTempDir('lsk-workflow-audit-committed-drift-', async (dir) => {
+    const gitInit = await runCommand(dir, 'git', ['init']);
+    assert.equal(gitInit.code, 0, gitInit.stderr || gitInit.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+    await fs.mkdir(path.join(dir, 'src'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'src', 'demo.ts'), 'export const demo = 1;\n');
+    const marker = await expectedWorkflowSyncMarker(dir);
+    await fs.appendFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      `\n${marker}\n`,
+      'utf-8'
+    );
+    assert.equal((await runCommand(dir, 'git', ['add', '.'])).code, 0);
+    assert.equal(
+      (
+        await runCommand(dir, 'git', [
+          '-c',
+          'user.name=Test',
+          '-c',
+          'user.email=test@example.com',
+          'commit',
+          '-m',
+          'baseline',
+        ])
+      ).code,
+      0
+    );
+
+    await fs.writeFile(path.join(dir, 'src', 'demo.ts'), 'export const demo = 2;\n');
+    assert.equal((await runCommand(dir, 'git', ['add', 'src/demo.ts'])).code, 0);
+    assert.equal(
+      (
+        await runCommand(dir, 'git', [
+          '-c',
+          'user.name=Test',
+          '-c',
+          'user.email=test@example.com',
+          'commit',
+          '-m',
+          'code only',
+        ])
+      ).code,
+      0
+    );
+
+    const auditResult = await runCli(dir, ['workflow-audit', '--json']);
+    assert.equal(auditResult.code, 0, auditResult.stderr || auditResult.stdout);
+    const payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'needs_sync');
+    assert.equal(payload.reasonCode, 'CODE_WITHOUT_DOCS_SYNC');
+    assert.notEqual(payload.workflowSyncFingerprint, payload.codeFingerprint);
+    assert.deepEqual(payload.changedCodePaths, []);
   });
 });
 

@@ -14,8 +14,11 @@ import {
   runOpenWikiSync,
 } from '../utils/openwiki-knowledge.js';
 import {
-  CURATED_IMPACT_GRANDFATHER_MARKER,
+  buildCuratedImpactGrandfatherMarker,
+  computeFeatureDocumentationFingerprint,
+  isTerminalFeatureForCuratedImpact,
   parseCuratedDocumentationImpact,
+  removeCuratedImpactGrandfatherMarkers,
 } from '../utils/documentation-impact.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 
@@ -212,13 +215,18 @@ async function migrateLegacyDocumentationImpact(
       featureRef: string;
       component: string;
       status: 'current' | 'grandfathered' | 'eligible' | 'manual_review';
+      schemaStatus: string;
       reason: string;
       planPath: string;
     }> = [];
     for (const feature of selection.features) {
+      const specPath = path.join(feature.path, 'spec.md');
       const planPath = path.join(feature.path, 'plan.md');
       const tasksPath = path.join(feature.path, 'tasks.md');
-      const [plan, tasks] = await Promise.all([
+      const [spec, plan, tasks] = await Promise.all([
+        fs
+          .pathExists(specPath)
+          .then((exists) => (exists ? fs.readFile(specPath, 'utf-8') : '')),
         fs
           .pathExists(planPath)
           .then((exists) => (exists ? fs.readFile(planPath, 'utf-8') : '')),
@@ -231,8 +239,9 @@ async function migrateLegacyDocumentationImpact(
         featureRef: feature.folderName,
         component: feature.type,
         planPath,
+        schemaStatus: impact.schemaStatus,
       };
-      if (impact.present && impact.valid) {
+      if (impact.schemaStatus === 'current-v2' && impact.valid) {
         results.push({
           ...base,
           status: 'current',
@@ -241,14 +250,32 @@ async function migrateLegacyDocumentationImpact(
         continue;
       }
       if (impact.grandfathered) {
+        const terminal = isTerminalFeatureForCuratedImpact({
+          spec,
+          plan,
+          tasks,
+        });
+        const currentFingerprint = await computeFeatureDocumentationFingerprint(
+          feature.path
+        );
+        const gitState = inspectCommittedFeatureDocs(
+          feature.git.docsGitCwd,
+          feature.path
+        );
+        const validGrandfather =
+          terminal.terminal &&
+          gitState === 'committed' &&
+          impact.grandfatheredFingerprint === currentFingerprint;
         results.push({
           ...base,
-          status: 'grandfathered',
-          reason: 'The legacy policy marker is already present.',
+          status: validGrandfather ? 'grandfathered' : 'manual_review',
+          reason: validGrandfather
+            ? 'The provenance-bound legacy policy marker is valid.'
+            : `The grandfather marker is stale or the Feature is no longer terminal (gitState=${gitState}; ${terminal.reasons.join(', ') || 'feature documentation fingerprint changed'}).`,
         });
         continue;
       }
-      if (impact.present) {
+      if (impact.schemaStatus === 'partial') {
         results.push({
           ...base,
           status: 'manual_review',
@@ -256,33 +283,28 @@ async function migrateLegacyDocumentationImpact(
         });
         continue;
       }
-      const planApproved =
-        readMetadataValue(plan, ['Status', '상태']) === 'approved';
-      const tasksApproved =
-        readMetadataValue(tasks, ['Doc Status', '문서 상태']) === 'approved';
-      const taskList = tasks.replace(/```[\s\S]*?```/gu, '');
-      const hasDoneTask = /^\s*-\s*\[DONE\]/imu.test(taskList);
-      const hasOpenTask = /^\s*-\s*\[(?:TODO|DOING|REVIEW)\]/imu.test(taskList);
+      const terminal = isTerminalFeatureForCuratedImpact({
+        spec,
+        plan,
+        tasks,
+      });
       const gitState = inspectCommittedFeatureDocs(
         feature.git.docsGitCwd,
         feature.path
       );
-      if (
-        !planApproved ||
-        !tasksApproved ||
-        !hasDoneTask ||
-        hasOpenTask ||
-        gitState !== 'committed'
-      ) {
+      if (!terminal.terminal || gitState !== 'committed') {
         results.push({
           ...base,
           status: 'manual_review',
-          reason: `Only approved, terminal, fully committed legacy Features are eligible (planApproved=${planApproved}, tasksApproved=${tasksApproved}, hasDoneTask=${hasDoneTask}, hasOpenTask=${hasOpenTask}, gitState=${gitState}).`,
+          reason: `Only approved, terminal, fully committed legacy Features are eligible (gitState=${gitState}; ${terminal.reasons.join(', ') || 'terminal document state confirmed'}).`,
         });
         continue;
       }
       if (apply) {
-        const next = `${plan.trimEnd()}\n\n${CURATED_IMPACT_GRANDFATHER_MARKER}\n`;
+        const fingerprint = await computeFeatureDocumentationFingerprint(
+          feature.path
+        );
+        const next = `${removeCuratedImpactGrandfatherMarkers(plan)}\n\n${buildCuratedImpactGrandfatherMarker(fingerprint)}\n`;
         const temporary = `${planPath}.${process.pid}.${randomUUID()}.tmp`;
         try {
           await fs.writeFile(temporary, next, {
@@ -297,6 +319,7 @@ async function migrateLegacyDocumentationImpact(
       }
       results.push({
         ...base,
+        schemaStatus: apply ? 'grandfathered' : impact.schemaStatus,
         status: apply ? 'grandfathered' : 'eligible',
         reason: apply
           ? 'Recorded a policy-cutover marker without inferring NONE decisions.'
@@ -318,17 +341,6 @@ async function migrateLegacyDocumentationImpact(
         owner: 'openwiki:migrate',
       })
     : assess();
-}
-
-function readMetadataValue(content: string, labels: string[]): string {
-  for (const label of labels) {
-    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const value = content.match(
-      new RegExp(`^\\s*-\\s*\\*\\*${escaped}\\*\\*:\\s*(.*?)\\s*$`, 'imu')
-    )?.[1];
-    if (value) return value.trim().replace(/^`|`$/gu, '').toLowerCase();
-  }
-  return '';
 }
 
 function inspectCommittedFeatureDocs(

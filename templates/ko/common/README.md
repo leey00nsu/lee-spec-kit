@@ -56,11 +56,17 @@ npx lee-spec-kit docs get agents --json
 
 ### Knowledge Architecture와 권한
 
-1. Feature SDD(`spec.md`, `plan.md`, `tasks.md`, `decisions.md`)는 요구사항, 범위, 결정, 인수 조건의 규범입니다.
-2. 사람이 관리하는 PRD, 아키텍처, 온보딩, 운영 문서는 프로젝트 전체의 curated 현재 상태입니다.
-3. `openwiki/`는 파생된 온보딩·코드 탐색 계층입니다. 그 내용은 tracked 소스, 테스트, 스키마, curated 문서로 다시 검증합니다.
+| 주장 유형                                        | 기준                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| 제품 의도와 장기 요구사항                        | PRD. 활성 Feature는 이를 연결·구체화하며 요구사항 변경은 PRD에 다시 반영 |
+| 활성 변경의 범위·상태·설계 결정·태스크·인수 조건 | 활성 Feature SDD(`spec.md`, `plan.md`, `tasks.md`, `decisions.md`)       |
+| 프로젝트 전체 설명과 정책                        | 사람이 관리하는 아키텍처·온보딩·운영·디자인·에이전트 정책 문서           |
+| 실행 가능한 런타임 사실                          | tracked 코드·스키마·마이그레이션·설정. 테스트는 검증 증거                |
+| 온보딩과 코드 탐색                               | 위 기준으로 검증하는 파생 `openwiki/` Knowledge                          |
 
 모든 Plan은 명시적인 `NONE`까지 포함해 `Curated Documentation Impact`를 완료해야 합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 목록에 연결하고 완료 전에 활성 Feature scope로 커밋합니다. 이 전파 규칙은 OpenWiki 활성화 여부와 무관하게 적용됩니다.
+
+Schema 2는 자주 쓰는 네 영역을 기본 판정으로 유지하고, 보안·API/데이터 계약·디자인 시스템·릴리스 운영·관측성·에이전트 정책 같은 프로젝트별 문서만 `Additional Curated Impacts`에 유형을 지정해 선언합니다. 완료 시 lee-spec-kit은 실제 Feature diff에서 바뀐 주요 curated 파일을 선언 대상과 대조한 뒤 OpenWiki 생성 또는 Feature 리뷰로 넘어갑니다. 이 검사는 조용히 바뀐 문서를 잡지만, 변경되지 않은 문서가 의미상 낡았는지 판단하지는 않습니다. 도입 시 기존 PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 한 번 수동으로 기준선 점검해야 합니다.
 
 `experimental.openwiki`가 `true`이면 task checkpoint 뒤에 Knowledge 준비·동기화·커밋 stage와 Feature 리뷰가 필수로 붙습니다. 누락 또는 `false`면 이 stage들은 전혀 추가되지 않습니다. `lee-spec-kit knowledge sync`만 사용하고 생성 페이지를 손으로 수정하거나 workflow에서 OpenWiki를 직접 호출하지 않습니다.
 

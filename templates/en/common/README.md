@@ -56,11 +56,17 @@ Keep product roadmaps in `prd/`, but manage implementation sequencing and work p
 
 ### Knowledge Architecture and authority
 
-1. Feature SDD (`spec.md`, `plan.md`, `tasks.md`, `decisions.md`) is normative for requirements, scope, decisions, and acceptance.
-2. Human-owned PRD, architecture, onboarding, and operations documents are the curated project-wide current state.
-3. `openwiki/` is a derived onboarding and code-navigation layer. Verify its claims against tracked source, tests, schemas, and curated docs.
+| Claim type                                                           | Authority                                                                                    |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Product intent and durable requirements                              | PRD; an active Feature links and narrows them, and requirement changes are backfilled to PRD |
+| Active change scope, status, design decisions, tasks, and acceptance | The active Feature SDD (`spec.md`, `plan.md`, `tasks.md`, `decisions.md`)                    |
+| Project-wide explanations and policy                                 | Human-owned architecture, onboarding, operations, design, and agent-policy docs              |
+| Executable runtime facts                                             | Tracked code, schemas, migrations, and configuration; tests are verification evidence        |
+| Onboarding and code navigation                                       | Derived `openwiki/` Knowledge, verified against the authorities above                        |
 
 Every Plan must complete `Curated Documentation Impact`, including explicit `NONE` decisions. Every `UPDATE` or `ADD` target must be attached to at least one task through its `Docs` list and committed with the active Feature scope before completion. This propagation rule applies whether OpenWiki is enabled or not.
+
+Schema 2 keeps four common surfaces in the core assessment and uses `Additional Curated Impacts` only for typed project-specific surfaces such as security, API/data contracts, design systems, release operations, observability, or agent policy. At completion, lee-spec-kit reconciles recognized curated files changed in the actual Feature diff against the declared targets before OpenWiki generation or Feature review. This prevents silent changes; it does not decide whether an unchanged document is semantically stale. After adoption, perform one manual baseline reconciliation of existing PRD, architecture, onboarding, operations, design, and agent-policy docs.
 
 When `experimental.openwiki` is `true`, task checkpoints are followed by required Knowledge setup/sync/commit stages and a Feature review. Missing or `false` adds none of those stages. Use `lee-spec-kit knowledge sync`; never hand-edit generated pages or invoke OpenWiki directly from the workflow.
 

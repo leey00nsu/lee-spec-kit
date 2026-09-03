@@ -47,7 +47,7 @@ These orchestration steps belong to the primary agent unless an explicit delegat
 9. In standalone mode, use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project repo
 10. In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env` / `.env.*` copy step stay consistent
 11. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
-12. When docs are synced to code, keep exactly one explicit marker like `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in a single active feature doc (prefer `tasks.md` or `decisions.md`): replace an existing marker timestamp or remove duplicates instead of appending another marker, so `workflow-audit` can prove the sync happened after the latest code change
+12. When docs are synced to code, run `npx lee-spec-kit workflow-audit --json` and copy its exact `expectedWorkflowSyncMarker` into one active feature doc (prefer `tasks.md` or `decisions.md`): replace an existing marker or remove duplicates instead of appending another marker, so the marker is bound to the current code-content fingerprint
 13. When `workflow-stage --json` returns `nextAction.category === "plan_review"` with `executor === "subagent"`, delegate a fresh read-only review using the returned model settings, exact `specHash` / `planHash`, and exact `delegationContext`; the main agent records the returned `reviewRound`, evidence, decision, reviewer metadata, and both hashes, and any later spec/plan content change requires a fresh review
 14. When `workflow-stage --json` returns `nextAction.category === "task_execute"` with `executor === "subagent"`, mark exactly the returned `taskId` as active and delegate its implementation plus task-scoped verification to a fresh subagent in the returned `workingDirectory`, using the returned `model`, `reasoningEffort`, `onUnavailable`, exact `workerContract`, and exact `delegationContext`; do not reconstruct, omit, or broaden the returned context, and no named execution skill is required
 15. The task implementation worker executes directly: it must follow the approved Verification Contract, must not add unplanned durable tests, and must not run `workflow-stage`, spawn another subagent, edit lee-spec-kit docs, change task state, commit, request approvals, or perform remote/destructive actions. It may modify project code and run task-scoped checks only. The main agent inspects the result, synchronizes docs and task state, and owns every commit and workflow transition; official hooks block commits while `task_execute` is still active
@@ -71,7 +71,7 @@ Approval and remote actions:
 Validation:
 
 - Prefer `npx lee-spec-kit commit-audit --json` for commit-time staged docs path validation and canonical commit-subject validation
-- Prefer `npx lee-spec-kit workflow-audit --json` as the default docs-sync validator for Codex hooks and end-of-turn checks; it expects the active feature docs to carry one fresh `lee-spec-kit:workflow-sync` marker after meaningful code/doc sync
+- Prefer `npx lee-spec-kit workflow-audit --json` as the default docs-sync validator for Codex hooks and end-of-turn checks; copy its exact `expectedWorkflowSyncMarker` into exactly one active Feature doc after meaningful code/doc sync
 
 Optional UI/UX design policy:
 

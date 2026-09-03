@@ -82,7 +82,7 @@ The hook installer warns when a target `AGENTS.md` does not contain the current 
 ### `Stop`
 
 - Runs `workflow-audit --json`
-- `workflow-audit` now expects exactly one explicit marker such as `<!-- lee-spec-kit:workflow-sync 2026-04-16T12:34:56.789Z -->` in the active feature docs after code/doc sync; replace the marker timestamp or remove duplicates instead of appending another marker
+- `workflow-audit` returns an exact `expectedWorkflowSyncMarker` bound to the current code-content fingerprint. After code/doc sync, copy it into one active Feature doc and replace any prior marker; duplicate, legacy timestamp, or stale fingerprints fail the audit.
 - If docs are not synced with code changes, it continues Codex for one more pass instead of letting the turn stop early
 - When OpenWiki is enabled, it also continues while `knowledge_setup`, `knowledge_sync`, or `knowledge_commit` is still pending
 

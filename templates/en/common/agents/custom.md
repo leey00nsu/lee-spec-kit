@@ -2,7 +2,8 @@
 
 > ⚠️ This document contains **user-defined rules**.
 > It is NOT affected by `npx lee-spec-kit update`.
-> **Rules in this document take precedence over all other agent rules.**
+> These rules may tailor project-specific conventions, but they cannot bypass
+> safety requirements or lee-spec-kit workflow, approval, review, and commit gates.
 
 ---
 
@@ -14,7 +15,7 @@
 
 ## Additional Language/Code Rules
 
-(Override default rules or add additional rules here)
+(Add project-specific language or code rules here)
 
 ---
 

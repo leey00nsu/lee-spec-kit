@@ -104,7 +104,9 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 npx lee-spec-kit config --openwiki true
 ```
 
-활성화하면 task 커밋 이후 Feature 리뷰 전에 OpenWiki 동기화와 전용 Knowledge 커밋이 필수가 됩니다. SDD 문서는 요구사항과 결정의 규범이고, 사람이 관리하는 상위 문서는 프로젝트 현재 상태이며, `openwiki/`는 코드로 다시 검증해야 하는 파생 온보딩 자료입니다. 현재 계약은 OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 OpenWiki나 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+활성화하면 task 커밋 이후 Feature 리뷰 전에 OpenWiki 동기화와 전용 Knowledge 커밋이 필수가 됩니다. 권한은 주장 유형별로 나뉩니다. PRD는 장기 요구사항, 활성 Feature SDD는 현재 변경의 범위와 결정, 사람이 관리하는 상위 문서는 프로젝트 전체 설명과 정책, tracked 코드·스키마·설정은 실행 사실의 기준이며 `openwiki/`는 이를 바탕으로 다시 검증하는 파생 온보딩 자료입니다. 모든 Plan의 Schema 2 `Curated Documentation Impact`는 네 기본 영역과 필요한 추가 유형을 판정하고, 완료 시 실제 Feature diff와 선언 대상을 대조합니다. 현재 계약은 OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 OpenWiki나 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+
+OpenWiki 도입만으로 기존 문서의 낡은 내용이 자동 복구되지는 않습니다. 기존 프로젝트는 `knowledge migrate`로 workflow 호환 대상을 분류하는 것과 별개로, PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 현재 코드와 한 번 수동 대조해 기준선을 맞춰야 합니다.
 
 동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge sync`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 

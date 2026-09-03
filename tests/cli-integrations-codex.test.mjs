@@ -12,7 +12,7 @@ import {
 } from './helpers/cli-contract-helpers.mjs';
 
 function completeNoImpactAssessment(content) {
-  let next = content.replace(
+  let next = content.replaceAll(
     '- **Assessment**: Pending',
     '- **Assessment**: Complete'
   );
@@ -24,10 +24,12 @@ function completeNoImpactAssessment(content) {
   ]) {
     next = next.replace(`- **${field}**: -`, `- **${field}**: NONE`);
   }
-  return next.replace(
-    '- **Reason**: -',
-    '- **Reason**: Test fixture has no curated documentation impact.'
-  );
+  return next
+    .replace('- **Decision**: -', '- **Decision**: NONE')
+    .replace(
+      '- **Reason**: -',
+      '- **Reason**: Test fixture has no curated documentation impact.'
+    );
 }
 
 test('integrations codex-bootstrap creates managed Codex hooks flag in CODEX_HOME config.toml', async () => {
@@ -885,6 +887,9 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
       'pnpm dlx openwiki code --update --print',
       'npm exec -- openwiki code --update --print',
       'bash -c "openwiki code --update --print"',
+      'bash -lc "openwiki code --update --print"',
+      'sh -lc openwiki code --update --print',
+      'sudo zsh -lc "openwiki code --update --print"',
       'sudo openwiki code --update --print',
       'corepack pnpm dlx openwiki code --update --print',
       'npm run openwiki -- --update',

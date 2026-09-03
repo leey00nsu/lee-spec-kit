@@ -181,7 +181,11 @@ async function setStatus(filePath, label, value) {
 }
 
 function completeNoImpactAssessment(content) {
-  let next = content.replace('- **Assessment**: Pending', '- **Assessment**: Complete');
+  let next = content.replaceAll(
+    '- **Assessment**: Pending',
+    '- **Assessment**: Complete'
+  );
+  next = next.replace('- **Decision**: -', '- **Decision**: NONE');
   for (const label of [
     'Product requirements',
     'System architecture',
@@ -393,6 +397,108 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
     ]);
     assert.equal(verify.code, 0, verify.stderr || verify.stdout);
   }
+}
+
+async function prepareCompletedStandaloneLocalFeature(
+  dir,
+  { projectCommit = true } = {}
+) {
+  const { projectRoot } = await initStandaloneRepo(dir, { workflow: 'local' });
+  const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+  const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  config.workflow.agentReview.feature.enabled = false;
+  await fs.writeFile(
+    configPath,
+    `${JSON.stringify(config, null, 2)}\n`,
+    'utf-8'
+  );
+
+  const base = featureDir(dir);
+  await setStatus(path.join(base, 'spec.md'), 'Status', 'Approved');
+  await setStatus(path.join(base, 'plan.md'), 'Status', 'Approved');
+  const tasksPath = path.join(base, 'tasks.md');
+  let tasks = await fs.readFile(tasksPath, 'utf-8');
+  tasks = tasks.replace('- **Doc Status**: -', '- **Doc Status**: Approved');
+  tasks = tasks.replace(
+    '## Completion Criteria',
+    `- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell
+  - Date: 2026-09-03
+  - Acceptance:
+    - alpha shell renders
+  - Checklist:
+    - [ ] add UI
+
+## Completion Criteria`
+  );
+  await fs.writeFile(tasksPath, tasks, 'utf-8');
+  let result = await runCommand(path.join(dir, 'docs'), 'git', ['add', '.']);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  result = await runCommand(path.join(dir, 'docs'), 'git', [
+    'commit',
+    '-m',
+    'docs(F001): prepare local feature',
+  ]);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+
+  const branchStage = await readStage(dir);
+  assert.equal(branchStage.stage, 'branch');
+  result = await runCommand(dir, 'sh', ['-c', branchStage.nextAction.command]);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  const worktreeMatch = branchStage.nextAction.command.match(
+    /worktree add "([^"]+)"/
+  );
+  assert.ok(worktreeMatch);
+  const worktreePath = worktreeMatch[1];
+
+  tasks = await fs.readFile(tasksPath, 'utf-8');
+  tasks = tasks
+    .replace(
+      '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+      '- [DONE][NON-PRD] T-F001-alpha-01 implement alpha shell'
+    )
+    .replace('- [ ] add UI', '- [x] add UI')
+    .replace(
+      '| `{test command you ran}` | `-` | `{PASS/FAIL summary}` |',
+      '| `pnpm vitest` | `2026-09-03` | `PASS` |'
+    )
+    .replace(
+      "- [ ] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked",
+      "- [x] All tasks are `[DONE]`, and each task's `Acceptance` is verified and `Checklist` is checked"
+    )
+    .replace(
+      '- [ ] Tests executed and passing (record command/result below)',
+      '- [x] Tests executed and passing (record command/result below)'
+    )
+    .replace(
+      '- [ ] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint',
+      '- [x] Final outcome shared and any required user confirmation recorded at the documented workflow checkpoint'
+    );
+  await fs.writeFile(tasksPath, tasks, 'utf-8');
+  result = await runCommand(path.join(dir, 'docs'), 'git', ['add', '.']);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  result = await runCommand(path.join(dir, 'docs'), 'git', [
+    'commit',
+    '-m',
+    'docs(F001): complete local feature',
+  ]);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+
+  if (projectCommit) {
+    await fs.writeFile(
+      path.join(worktreePath, 'alpha.ts'),
+      'export const alpha = true;\n'
+    );
+    result = await runCommand(worktreePath, 'git', ['add', 'alpha.ts']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(worktreePath, 'git', [
+      'commit',
+      '-m',
+      'feat(F001): implement alpha shell',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+  }
+
+  return { projectRoot, worktreePath };
 }
 
 async function setupFakeReviewGhCli(dir, prViewPayload = {}) {
@@ -789,6 +895,35 @@ test('workflow-stage rejects contradictory or derived curated documentation targ
   });
 });
 
+test('workflow-stage rejects malformed typed Additional Curated Impacts', async () => {
+  await withTempDir('lsk-workflow-stage-additional-impact-', async (dir) => {
+    await initRepo(dir);
+    await setStatus(
+      path.join(featureDir(dir), 'spec.md'),
+      'Status',
+      'Approved'
+    );
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    await setStatus(planPath, 'Status', 'Review');
+    let plan = await fs.readFile(planPath, 'utf-8');
+    plan = plan
+      .replace('- **Decision**: NONE', '- **Decision**: DECLARED')
+      .replace(
+        /\|\s*-\s*\|\s*-\s*\|\s*-\s*\|\s*-\s*\|/u,
+        '| arbitrary-policy | UPDATE | docs:agents/custom.md | project rules changed |'
+      );
+    await fs.writeFile(planPath, plan, 'utf-8');
+
+    const payload = await readStage(dir);
+    assert.equal(payload.stage, 'plan');
+    assert.equal(payload.nextAction.category, 'plan_write');
+    assert.match(
+      payload.nextAction.summary,
+      /unsupported Kind arbitrary-policy/i
+    );
+  });
+});
+
 test('workflow-stage requires every curated UPDATE target to be linked from a task Docs list', async () => {
   await withTempDir('lsk-workflow-stage-doc-targets-', async (dir) => {
     await initRepo(dir);
@@ -797,8 +932,16 @@ test('workflow-stage requires every curated UPDATE target to be linked from a ta
     await setStatus(planPath, 'Status', 'Approved');
     let plan = await fs.readFile(planPath, 'utf-8');
     plan = plan
-      .replace('- **System architecture**: NONE', '- **System architecture**: UPDATE')
-      .replace('- **Targets**: -', '- **Targets**: project:README.md');
+      .replace(
+        '- **System architecture**: NONE',
+        '- **System architecture**: UPDATE'
+      )
+      .replace('- **Targets**: -', '- **Targets**: project:README.md')
+      .replace('- **Decision**: NONE', '- **Decision**: DECLARED')
+      .replace(
+        /\|\s*-\s*\|\s*-\s*\|\s*-\s*\|\s*-\s*\|/u,
+        '| engineering-agent-policy | UPDATE | docs:agents/custom.md | project policy changed |'
+      );
     await fs.writeFile(planPath, plan, 'utf-8');
 
     const tasksPath = path.join(featureDir(dir), 'tasks.md');
@@ -807,6 +950,7 @@ test('workflow-stage requires every curated UPDATE target to be linked from a ta
     assert.equal(payload.stage, 'tasks');
     assert.equal(payload.nextAction.category, 'tasks_write');
     assert.match(payload.nextAction.summary, /project:README\.md/);
+    assert.match(payload.nextAction.summary, /docs:agents\/custom\.md/);
 
     let tasks = await fs.readFile(tasksPath, 'utf-8');
     tasks = tasks.replace(
@@ -817,6 +961,7 @@ test('workflow-stage requires every curated UPDATE target to be linked from a ta
     - README reflects current architecture
   - Docs:
     - project:README.md
+    - docs:agents/custom.md
   - Checklist:
     - [ ] update README
 
@@ -828,6 +973,55 @@ test('workflow-stage requires every curated UPDATE target to be linked from a ta
     assert.equal(payload.stage, 'tasks');
     assert.equal(payload.nextAction.category, 'tasks_approve');
   });
+});
+
+test('workflow-stage canonicalizes curated target paths before task linkage', async () => {
+  await withTempDir(
+    'lsk-workflow-stage-doc-target-normalization-',
+    async (dir) => {
+      await initRepo(dir);
+      await setStatus(
+        path.join(featureDir(dir), 'spec.md'),
+        'Status',
+        'Approved'
+      );
+      const planPath = path.join(featureDir(dir), 'plan.md');
+      await setStatus(planPath, 'Status', 'Approved');
+      let plan = await fs.readFile(planPath, 'utf-8');
+      plan = plan
+        .replace(
+          '- **System architecture**: NONE',
+          '- **System architecture**: UPDATE'
+        )
+        .replace(
+          '- **Targets**: -',
+          '- **Targets**: project:docs/../README.md'
+        );
+      await fs.writeFile(planPath, plan, 'utf-8');
+
+      const tasksPath = path.join(featureDir(dir), 'tasks.md');
+      await setStatus(tasksPath, 'Doc Status', 'Review');
+      let tasks = await fs.readFile(tasksPath, 'utf-8');
+      tasks = tasks.replace(
+        '## Completion Criteria',
+        `- [TODO][NON-PRD] T-F001-alpha-01 update onboarding entrypoint
+  - Date: 2026-09-03
+  - Acceptance:
+    - README reflects current architecture
+  - Docs:
+    - project:README.md
+  - Checklist:
+    - [ ] update README
+
+## Completion Criteria`
+      );
+      await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+      const payload = await readStage(dir);
+      assert.equal(payload.stage, 'tasks');
+      assert.equal(payload.nextAction.category, 'tasks_approve');
+    }
+  );
 });
 
 test('workflow-stage requires completed curated targets to have a Feature-scoped commit', async () => {
@@ -882,8 +1076,98 @@ test('workflow-stage requires completed curated targets to have a Feature-scoped
     assert.equal(result.code, 0, result.stderr || result.stdout);
 
     payload = await readStage(dir);
-    assert.doesNotMatch(payload.nextAction.summary, /project:README\.md.*scope F001/i);
+    assert.doesNotMatch(
+      payload.nextAction.summary,
+      /project:README\.md.*scope F001/i
+    );
+
+    const architecturePath = path.join(dir, 'docs', 'prd', 'architecture.md');
+    await fs.writeFile(architecturePath, '# Current architecture\n', 'utf-8');
+    const localizedReadmePath = path.join(dir, 'README.en.md');
+    await fs.writeFile(
+      localizedReadmePath,
+      '# Current project guide\n',
+      'utf-8'
+    );
+    result = await runCommand(dir, 'git', [
+      'add',
+      architecturePath,
+      localizedReadmePath,
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(dir, 'git', [
+      'commit',
+      '-m',
+      'docs(F001): add undeclared architecture guide',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    payload = await readStage(dir);
+    assert.equal(payload.stage, 'task_commit');
+    assert.match(payload.nextAction.summary, /docs:prd\/architecture\.md/);
+    assert.match(payload.nextAction.summary, /project:README\.en\.md/);
+    assert.match(payload.nextAction.summary, /Declare these changed targets/i);
   });
+});
+
+test('workflow-stage rejects curated targets that escape through a symlinked parent', async () => {
+  if (process.platform === 'win32') return;
+  await withTempDir(
+    'lsk-workflow-stage-doc-target-parent-symlink-',
+    async (dir) => {
+      await prepareCompletedLocalFeature(dir, {
+        autoVerify: false,
+        featureReviewEnabled: false,
+      });
+
+      const externalRoot = path.join(dir, 'external-docs');
+      await fs.mkdir(externalRoot, { recursive: true });
+      await fs.writeFile(
+        path.join(externalRoot, 'secret.md'),
+        '# Outside docs root\n'
+      );
+      await fs.mkdir(path.join(dir, 'docs', 'prd'), { recursive: true });
+      await fs.symlink(
+        externalRoot,
+        path.join(dir, 'docs', 'prd', 'link'),
+        'dir'
+      );
+
+      const planPath = path.join(featureDir(dir), 'plan.md');
+      let plan = await fs.readFile(planPath, 'utf-8');
+      plan = plan
+        .replace(
+          '- **System architecture**: NONE',
+          '- **System architecture**: UPDATE'
+        )
+        .replace(
+          '- **Targets**: -',
+          '- **Targets**: docs:prd/link/secret.md, docs:prd/link'
+        );
+      await fs.writeFile(planPath, plan, 'utf-8');
+
+      const tasksPath = path.join(featureDir(dir), 'tasks.md');
+      let tasks = await fs.readFile(tasksPath, 'utf-8');
+      tasks = tasks.replace(
+        '  - Checklist:\n    - [x] add UI',
+        '  - Docs:\n    - docs:prd/link/secret.md\n    - docs:prd/link\n  - Checklist:\n    - [x] add UI'
+      );
+      await fs.writeFile(tasksPath, tasks, 'utf-8');
+
+      let result = await runCommand(dir, 'git', ['add', '.']);
+      assert.equal(result.code, 0, result.stderr || result.stdout);
+      result = await runCommand(dir, 'git', [
+        'commit',
+        '-m',
+        'docs(F001): add linked architecture target',
+      ]);
+      assert.equal(result.code, 0, result.stderr || result.stdout);
+
+      const payload = await readStage(dir);
+      assert.equal(payload.stage, 'task_commit');
+      assert.match(payload.nextAction.summary, /symbolic-link parent/u);
+    }
+  );
 });
 
 test('workflow-stage delegates Plan review before approval and invalidates evidence when Plan content changes', async () => {
@@ -1703,6 +1987,53 @@ test('workflow-stage uses the standalone managed worktree once it exists', async
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, true);
     assert.equal(payload.blockedReasonCode, null);
+  });
+});
+
+test('workflow-stage blocks completed standalone Features with dirty curated docs', async () => {
+  await withTempDir(
+    'lsk-workflow-stage-standalone-dirty-docs-',
+    async (dir) => {
+      await prepareCompletedStandaloneLocalFeature(dir);
+      const architecturePath = path.join(dir, 'docs', 'prd', 'architecture.md');
+      await fs.writeFile(
+        architecturePath,
+        '# Uncommitted architecture\n',
+        'utf-8'
+      );
+
+      const payload = await readStage(dir);
+      assert.equal(payload.stage, 'task_commit');
+      assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
+      assert.match(payload.nextAction.summary, /Docs commit/u);
+    }
+  );
+});
+
+test('workflow-stage ignores unrelated project history when a standalone Feature has no scoped project commit', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-docs-only-', async (dir) => {
+    const { worktreePath } = await prepareCompletedStandaloneLocalFeature(dir, {
+      projectCommit: false,
+    });
+    await fs.writeFile(
+      path.join(worktreePath, 'README.en.md'),
+      '# Unrelated guide\n'
+    );
+    let result = await runCommand(worktreePath, 'git', ['add', 'README.en.md']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(worktreePath, 'git', [
+      'commit',
+      '-m',
+      'docs: update unrelated guide',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const payload = await readStage(dir);
+    assert.doesNotMatch(
+      payload.nextAction.summary,
+      /Reconcile curated documentation changes/u
+    );
+    assert.doesNotMatch(payload.nextAction.summary, /project:README\.en\.md/u);
   });
 });
 

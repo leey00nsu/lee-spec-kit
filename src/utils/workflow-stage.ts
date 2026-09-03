@@ -42,6 +42,8 @@ import {
   resolveLocalIntegrationContext,
 } from './local-integration.js';
 import {
+  computeFeatureDocumentationFingerprint,
+  isTerminalFeatureForCuratedImpact,
   parseCuratedDocumentationImpact,
   parseTaskDocumentationTargets,
 } from './documentation-impact.js';
@@ -1148,6 +1150,26 @@ async function collectDocumentationTargetEvidenceErrors(input: {
       errors.push(`${target} must resolve to a regular file.`);
       continue;
     }
+    try {
+      const [realNamespaceRoot, realTarget] = await Promise.all([
+        fs.realpath(namespaceRoot),
+        fs.realpath(absoluteTarget),
+      ]);
+      const realContainment = path.relative(realNamespaceRoot, realTarget);
+      if (
+        realContainment === '..' ||
+        realContainment.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(realContainment)
+      ) {
+        errors.push(
+          `${target} escapes its declared documentation namespace through a symbolic-link parent.`
+        );
+        continue;
+      }
+    } catch {
+      errors.push(`${target} could not be resolved safely.`);
+      continue;
+    }
     const gitRoot =
       runGitCapture(['rev-parse', '--show-toplevel'], namespaceRoot) || '';
     if (!gitRoot) {
@@ -1157,18 +1179,267 @@ async function collectDocumentationTargetEvidenceErrors(input: {
     const gitRelativeTarget = normalizeGitRelativePath(
       path.relative(gitRoot, absoluteTarget)
     );
-    const latestSubject =
-      runGitCapture(
-        ['log', '-n', '1', '--pretty=%s', '--', gitRelativeTarget],
-        gitRoot
-      ) || '';
-    if (!scopedSubject.test(latestSubject)) {
+    const standaloneDocsTarget =
+      input.config.docsRepo === 'standalone' && namespace === 'docs';
+    const baseSha = standaloneDocsTarget
+      ? null
+      : resolveFeatureDiffBase(input.config, gitRoot, scopedSubject);
+    const targetChanged = standaloneDocsTarget
+      ? hasScopedCommitForPath(gitRoot, gitRelativeTarget, scopedSubject)
+      : !!baseSha &&
+        !!runGitCapture(
+          ['diff', '--name-only', `${baseSha}...HEAD`, '--', gitRelativeTarget],
+          gitRoot
+        );
+    const scopedCommit = standaloneDocsTarget
+      ? targetChanged
+      : !!baseSha &&
+        hasScopedCommitForPath(
+          gitRoot,
+          gitRelativeTarget,
+          scopedSubject,
+          `${baseSha}..HEAD`
+        );
+    if (!targetChanged || !scopedCommit) {
       errors.push(
-        `${target} has no committed update using the active scope ${scope}.`
+        `${target} has no committed change in the active Feature diff using scope ${scope}.`
       );
     }
   }
   return errors;
+}
+
+function resolveFeatureDiffBase(
+  config: ProjectConfig,
+  gitRoot: string,
+  scopedSubject?: RegExp
+): string | null {
+  const head = runGitCapture(['rev-parse', 'HEAD'], gitRoot) || '';
+  if (!head) return null;
+  const baseBranch = config.workflow?.baseBranch?.trim() || 'main';
+  for (const candidate of [`origin/${baseBranch}`, baseBranch]) {
+    const mergeBase =
+      runGitCapture(['merge-base', candidate, head], gitRoot) || '';
+    if (mergeBase && mergeBase !== head) return mergeBase;
+  }
+  if (scopedSubject) {
+    const commits = runGitCapture(
+      ['log', '--reverse', '--pretty=%H%x00%s'],
+      gitRoot
+    );
+    for (const line of (commits || '').split('\n')) {
+      const separator = line.indexOf('\0');
+      if (separator < 0 || !scopedSubject.test(line.slice(separator + 1))) {
+        continue;
+      }
+      const firstScopedCommit = line.slice(0, separator);
+      const parent =
+        runGitCapture(['rev-parse', `${firstScopedCommit}^`], gitRoot) || '';
+      if (parent) return parent;
+    }
+    return null;
+  }
+  return runGitCapture(['rev-parse', `${head}^`], gitRoot) || null;
+}
+
+function hasScopedCommitForPath(
+  gitRoot: string,
+  gitRelativePath: string,
+  scopedSubject: RegExp,
+  range?: string
+): boolean {
+  const args = ['log', '--pretty=%s'];
+  if (range) args.push(range);
+  args.push('--', gitRelativePath);
+  const subjects = runGitCapture(args, gitRoot) || '';
+  return subjects.split('\n').some((subject) => scopedSubject.test(subject));
+}
+
+async function collectUndeclaredCuratedDocumentationChanges(input: {
+  config: ProjectConfig;
+  feature: ResolvedFeature;
+  tasks: ParsedTasks;
+  projectGitCwd: string;
+  declaredTargets: string[];
+}): Promise<string[]> {
+  const scope = resolveFeatureCommitScope({
+    issueNumber: input.tasks.issueNumber,
+    featureId: input.feature.id,
+    workflowMode: input.config.workflow?.mode,
+  });
+  if (!scope) return [];
+  const escapedScope = scope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const scopedSubject = new RegExp(`\\(${escapedScope}\\)`, 'u');
+  const docsGitRoot =
+    runGitCapture(['rev-parse', '--show-toplevel'], input.config.docsDir) || '';
+  const projectRoot = resolveProjectRootFromGitCwd(input.projectGitCwd);
+  const projectGitRoot =
+    runGitCapture(['rev-parse', '--show-toplevel'], projectRoot) || '';
+  const candidates = new Set<string>();
+
+  if (docsGitRoot) {
+    const committed =
+      input.config.docsRepo === 'standalone'
+        ? collectScopedCommitPaths(docsGitRoot, scopedSubject)
+        : collectFeatureRangePaths(input.config, docsGitRoot, scopedSubject);
+    const changed = [
+      ...new Set([...committed, ...collectWorkingTreePaths(docsGitRoot)]),
+    ];
+    for (const gitRelativePath of changed) {
+      const absolutePath = path.resolve(docsGitRoot, gitRelativePath);
+      const relativeToDocs = path.relative(input.config.docsDir, absolutePath);
+      const insideDocs =
+        relativeToDocs !== '..' &&
+        !relativeToDocs.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relativeToDocs);
+      if (insideDocs) {
+        const normalized = normalizeGitRelativePath(relativeToDocs);
+        if (isCuratedDocsPath(normalized)) {
+          candidates.add(`docs:${normalized}`);
+        }
+      }
+    }
+  }
+
+  if (projectGitRoot) {
+    const changed = [
+      ...new Set([
+        ...collectFeatureRangePaths(
+          input.config,
+          projectGitRoot,
+          scopedSubject
+        ),
+        ...collectWorkingTreePaths(projectGitRoot),
+      ]),
+    ];
+    for (const gitRelativePath of changed) {
+      const absolutePath = path.resolve(projectGitRoot, gitRelativePath);
+      const relativeToDocs = path.relative(input.config.docsDir, absolutePath);
+      const insideDocs =
+        relativeToDocs === '' ||
+        (!relativeToDocs.startsWith(`..${path.sep}`) &&
+          relativeToDocs !== '..' &&
+          !path.isAbsolute(relativeToDocs));
+      if (!insideDocs && isCuratedProjectPath(gitRelativePath)) {
+        candidates.add(`project:${normalizeGitRelativePath(gitRelativePath)}`);
+      }
+    }
+  }
+
+  const declared = new Set(
+    input.declaredTargets.map((target) =>
+      normalizeTargetForReconciliation(
+        target,
+        input.config.docsDir,
+        projectRoot
+      )
+    )
+  );
+  return [...candidates].filter((target) => !declared.has(target)).sort();
+}
+
+function collectWorkingTreePaths(gitRoot: string): string[] {
+  const paths = new Set<string>();
+  for (const args of [
+    ['diff', '--name-only'],
+    ['diff', '--cached', '--name-only'],
+    ['ls-files', '--others', '--exclude-standard'],
+  ]) {
+    const changed = runGitCapture(args, gitRoot) || '';
+    changed
+      .split('\n')
+      .filter(Boolean)
+      .forEach((relativePath) => paths.add(relativePath));
+  }
+  return [...paths];
+}
+
+function normalizeTargetForReconciliation(
+  target: string,
+  docsDir: string,
+  projectRoot: string
+): string {
+  const separator = target.indexOf(':');
+  if (separator < 0) return target;
+  const namespace = target.slice(0, separator);
+  const relativeTarget = target.slice(separator + 1);
+  if (namespace !== 'project') return target;
+  const absoluteTarget = path.resolve(projectRoot, relativeTarget);
+  const relativeToDocs = path.relative(docsDir, absoluteTarget);
+  const insideDocs =
+    relativeToDocs === '' ||
+    (relativeToDocs !== '..' &&
+      !relativeToDocs.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativeToDocs));
+  return insideDocs
+    ? `docs:${normalizeGitRelativePath(relativeToDocs)}`
+    : target;
+}
+
+function collectFeatureRangePaths(
+  config: ProjectConfig,
+  gitRoot: string,
+  scopedSubject: RegExp
+): string[] {
+  const baseSha = resolveFeatureDiffBase(config, gitRoot, scopedSubject);
+  if (!baseSha) return [];
+  const range = `${baseSha}..HEAD`;
+  const paths = new Set(
+    (runGitCapture(['diff', '--name-only', `${baseSha}...HEAD`], gitRoot) || '')
+      .split('\n')
+      .filter(Boolean)
+  );
+  const scopedPaths = collectScopedCommitPaths(gitRoot, scopedSubject, range);
+  return scopedPaths.filter((relativePath) => paths.has(relativePath));
+}
+
+function collectScopedCommitPaths(
+  gitRoot: string,
+  scopedSubject: RegExp,
+  range?: string
+): string[] {
+  const logArgs = ['log', '--pretty=%H%x00%s'];
+  if (range) logArgs.push(range);
+  const commits = runGitCapture(logArgs, gitRoot) || '';
+  const paths = new Set<string>();
+  for (const line of commits.split('\n')) {
+    const separator = line.indexOf('\0');
+    if (separator < 0) continue;
+    const sha = line.slice(0, separator);
+    const subject = line.slice(separator + 1);
+    if (!scopedSubject.test(subject)) continue;
+    const changed =
+      runGitCapture(
+        ['show', '--pretty=format:', '--name-only', sha],
+        gitRoot
+      ) || '';
+    changed
+      .split('\n')
+      .filter(Boolean)
+      .forEach((relativePath) => paths.add(relativePath));
+  }
+  return [...paths];
+}
+
+function isCuratedDocsPath(relativePath: string): boolean {
+  const normalized = normalizeGitRelativePath(relativePath);
+  if (
+    !normalized ||
+    normalized === '.lee-spec-kit.json' ||
+    normalized === '.gitignore' ||
+    normalized === 'AGENTS.md'
+  ) {
+    return false;
+  }
+  return !/^(?:features|ideas|scripts)(?:\/|$)/u.test(normalized);
+}
+
+function isCuratedProjectPath(relativePath: string): boolean {
+  const normalized = normalizeGitRelativePath(relativePath);
+  return (
+    /^README(?:\.[^/]+)?\.md$/iu.test(normalized) ||
+    normalized.startsWith('docs/')
+  );
 }
 
 function hasOpenTask(tasks: ParsedTasks): boolean {
@@ -2767,6 +3038,32 @@ export async function collectWorkflowStage(
   const curatedDocumentationImpact = parseCuratedDocumentationImpact(
     planContent || ''
   );
+  const curatedDocumentationImpactErrors = [
+    ...curatedDocumentationImpact.errors,
+  ];
+  if (curatedDocumentationImpact.grandfathered) {
+    const terminal = isTerminalFeatureForCuratedImpact({
+      spec: specContent || '',
+      plan: planContent || '',
+      tasks: tasksContent || '',
+    });
+    const fingerprint = await computeFeatureDocumentationFingerprint(
+      feature.path
+    );
+    if (!terminal.terminal) {
+      curatedDocumentationImpactErrors.push(
+        `Grandfathered Feature is no longer terminal: ${terminal.reasons.join(', ')}.`
+      );
+    }
+    if (curatedDocumentationImpact.grandfatheredFingerprint !== fingerprint) {
+      curatedDocumentationImpactErrors.push(
+        'Grandfathered Feature documentation changed after its provenance marker was recorded.'
+      );
+    }
+  }
+  const curatedDocumentationImpactValid =
+    curatedDocumentationImpact.valid &&
+    curatedDocumentationImpactErrors.length === 0;
   const planReviewAutoCompleted =
     planReview.status === 'done' &&
     reviewEvidenceSatisfied(config, feature, 'plan', planReview.evidence) &&
@@ -2828,7 +3125,7 @@ export async function collectWorkflowStage(
 
   if (
     (planStatus === 'review' || planStatus === 'approved') &&
-    !curatedDocumentationImpact.valid
+    !curatedDocumentationImpactValid
   ) {
     return {
       status: 'ok',
@@ -2838,7 +3135,7 @@ export async function collectWorkflowStage(
       stage: 'plan',
       nextAction: buildAction(
         'plan_write',
-        `Complete the Curated Documentation Impact assessment before Plan review or approval. ${curatedDocumentationImpact.errors.join(' ')}`,
+        `Complete the Curated Documentation Impact assessment before Plan review or approval. ${curatedDocumentationImpactErrors.join(' ')}`,
         false
       ),
       approvalRequired: false,
@@ -3341,7 +3638,9 @@ export async function collectWorkflowStage(
   const taskCommitCheckpointRequired =
     !activeTaskOpen &&
     !!lastDoneTask &&
-    (taskProjectDirty || pendingDoneTransitions > 0);
+    (taskProjectDirty ||
+      (config.docsRepo === 'standalone' && docsDirty) ||
+      pendingDoneTransitions > 0);
 
   if (taskCommitCheckpointRequired) {
     const pendingReason =
@@ -3433,6 +3732,37 @@ export async function collectWorkflowStage(
       implementationAllowed: false,
       blockedReasonCode: 'BRANCH_NOT_READY',
     };
+  }
+
+  if (
+    allTasksDone(tasks) &&
+    curatedDocumentationImpact.schemaStatus === 'current-v2'
+  ) {
+    const undeclaredCuratedChanges =
+      await collectUndeclaredCuratedDocumentationChanges({
+        config,
+        feature,
+        tasks,
+        projectGitCwd: effectiveProjectGitCwd,
+        declaredTargets: curatedDocumentationImpact.targets,
+      });
+    if (undeclaredCuratedChanges.length > 0) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'task_commit',
+        nextAction: buildAction(
+          'task_commit',
+          `Reconcile curated documentation changes before Knowledge sync or Feature review. Declare these changed targets in the Plan and a task Docs list, or revert changes that do not belong to this Feature: ${undeclaredCuratedChanges.join(', ')}.`,
+          false
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'TASK_COMMIT_REQUIRED',
+      };
+    }
   }
 
   if (allTasksDone(tasks) && curatedDocumentationImpact.targets.length > 0) {

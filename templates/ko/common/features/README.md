@@ -57,9 +57,9 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 반환되는 `stage`, `nextAction`, `implementationAllowed` 값을 현재 워크플로우 상태로 사용하세요.
 
-Plan 검수 또는 승인 전에 `Curated Documentation Impact`를 완료합니다. 명시적인 `NONE`은 해당 영역을 검토했다는 증거이며, 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 아래에 있어야 합니다.
+Plan 검수 또는 승인 전에 Schema 2 `Curated Documentation Impact`를 완료합니다. 네 기본 영역을 모두 판정하고, 프로젝트별 추가 영역이 적용될 때만 typed `Additional Curated Impacts`를 사용합니다. 추가 영역의 명시적인 `NONE`은 해당 범주가 없음을 검토했다는 증거입니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs`와 커밋된 Feature diff에 함께 있어야 합니다. 기존 프로젝트는 Feature별 검사를 신뢰하기 전에 한 번의 수동 baseline reconciliation을 수행합니다.
 
-`experimental.openwiki=true`이면 완료된 모든 task checkpoint 뒤에 필수 `knowledge_setup`, `knowledge_sync`, `knowledge_commit` stage를 거쳐 Feature 리뷰로 이동합니다. Feature reviewer는 `openwiki/index.md`, 검증 receipt, Plan이 선언한 모든 curated target을 받으며, SDD와 curated 프로젝트 문서가 계속 상위 권한을 가집니다. Knowledge surface에는 `.openwikiignore`의 마지막 lee-spec-kit 보호 블록도 포함됩니다.
+`experimental.openwiki=true`이면 완료된 모든 task checkpoint 뒤에 필수 `knowledge_setup`, `knowledge_sync`, `knowledge_commit` stage를 거쳐 Feature 리뷰로 이동합니다. Feature reviewer는 `openwiki/index.md`, 검증 receipt, Plan이 선언한 모든 curated target을 받으며, 생성된 Knowledge를 기준으로 삼지 않고 `docs/README.md`의 주장 유형별 권한 표를 따릅니다. Knowledge surface에는 `.openwikiignore`의 마지막 lee-spec-kit 보호 블록도 포함됩니다.
 
 Plan 검수가 활성화되면 계획 단계는 `plan Review → fresh 읽기 전용 Plan 검수 → plan 승인` 순서로 진행됩니다. 검수는 반환된 `specHash`와 `planHash`에 묶이며 두 문서 중 하나의 내용이 바뀌면 기존 evidence가 무효입니다. reviewer는 문서를 수정하지 않고 Verification Contract와 테스트 결정을 점검합니다.
 

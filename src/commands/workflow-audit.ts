@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { createHash } from 'node:crypto';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { getConfig } from '../utils/config.js';
@@ -58,19 +59,32 @@ interface WorkflowAuditPayload {
   changedFeatureDocPaths: string[];
   latestCodeChangeAt: string | null;
   latestFeatureDocSyncAt: string | null;
+  codeFingerprint?: string | null;
+  workflowSyncFingerprint?: string | null;
+  expectedWorkflowSyncMarker?: string | null;
+}
+
+interface WorkflowSyncMarkerState {
+  count: number;
+  paths: string[];
+  fingerprint: string | null;
+  legacy: boolean;
 }
 
 const FEATURE_DOC_FILE_PATTERN =
   /^features\/(?:[^/]+\/)?F\d{3,}[^/]*\/(spec|plan|tasks|decisions|issue|pr)\.md$/i;
 const CODE_FILE_PATTERN =
-  /(^|\/)(Dockerfile|Makefile)$|\.(c|cc|cjs|cpp|cs|css|cts|go|h|hpp|html|java|js|json|jsx|kt|mjs|mts|php|py|rb|rs|scss|sh|sql|swift|ts|tsx|vue|yaml|yml|zsh)$/i;
+  /(^|\/)(Dockerfile|Gemfile|Makefile|Podfile|Procfile)$|\.(c|cc|cjs|conf|cpp|cs|css|cts|gql|go|gradle|graphql|h|hcl|hpp|html|ini|java|js|json|jsx|kt|kts|lock|mdx|mjs|mts|php|prisma|proto|py|rb|rs|scss|sh|sql|swift|tf|toml|ts|tsx|vue|xml|yaml|yml|zsh)$/i;
 const WORKFLOW_SYNC_MARKER_PATTERN =
-  /<!--\s*lee-spec-kit:workflow-sync\s+([0-9]{4}-[0-9]{2}-[0-9]{2}T[^ ]+?)\s*-->/gi;
+  /<!--\s*lee-spec-kit:workflow-sync\s+([^\s>]+)\s*-->/giu;
+const WORKFLOW_SYNC_FINGERPRINT_PATTERN = /^sha256:[a-f0-9]{64}$/u;
 
 export function workflowAuditCommand(program: Command): void {
   program
     .command('workflow-audit')
-    .description('Validate whether code changes have been synchronized back into feature docs')
+    .description(
+      'Validate whether code changes have been synchronized back into feature docs'
+    )
     .option('--json', 'Output JSON for hooks and agents')
     .action(async (options: WorkflowAuditOptions) => {
       try {
@@ -111,10 +125,15 @@ export function workflowAuditCommand(program: Command): void {
     });
 }
 
-async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> {
+async function collectWorkflowAudit(
+  cwd: string
+): Promise<WorkflowAuditPayload> {
   const config = await getConfig(cwd);
   if (!config) {
-    throw createCliError('CONFIG_NOT_FOUND', 'Config file not found. Run `init` first.');
+    throw createCliError(
+      'CONFIG_NOT_FOUND',
+      'Config file not found. Run `init` first.'
+    );
   }
 
   const activeFeature = await resolveActiveFeature(cwd);
@@ -148,9 +167,10 @@ async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> 
     };
   }
 
-  const changedCodePaths = collectChangedRecords(codeRoots, config.docsDir).filter(
-    (record) => isCodeChange(record, config)
-  );
+  const changedCodePaths = collectChangedRecords(
+    codeRoots,
+    config.docsDir
+  ).filter((record) => isCodeChange(record, config));
   const outOfScopeStandaloneCodePaths = collectOutOfScopeStandaloneCodeChanges(
     config,
     activeFeature,
@@ -162,74 +182,64 @@ async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> 
   ];
   const docsRepoRoot = resolveDocsRepoRoot(config.docsDir);
   const changedFeatureDocPaths = docsRepoRoot
-    ? collectChangedRecords([docsRepoRoot], config.docsDir).filter(isFeatureDocChange)
+    ? collectChangedRecords([docsRepoRoot], config.docsDir).filter(
+        isFeatureDocChange
+      )
     : [];
-  const meaningfulChangedFeatureDocPaths = await filterMeaningfulFeatureDocRecords(
-    config,
-    activeFeature,
-    changedFeatureDocPaths
-  );
+  const meaningfulChangedFeatureDocPaths =
+    await filterMeaningfulFeatureDocRecords(
+      config,
+      activeFeature,
+      changedFeatureDocPaths
+    );
   const scopedFeatureDocPaths = activeFeatureRef
     ? meaningfulChangedFeatureDocPaths.filter(
-        (record) => featureRefFromDocPath(record.relativeToDocs) === activeFeatureRef
+        (record) =>
+          featureRefFromDocPath(record.relativeToDocs) === activeFeatureRef
       )
     : [];
   const allMeaningfulFeatureDocPaths = meaningfulChangedFeatureDocPaths;
 
-  const latestCodeChangeAt = await getLatestMtimeIso(combinedChangedCodePaths);
-  const latestFeatureDocSyncAt = await getLatestWorkflowSyncMarkerAt(activeFeature);
-  const duplicateWorkflowSyncMarkerPaths =
-    await collectDuplicateWorkflowSyncMarkerPaths(activeFeature);
+  const codeFingerprint = await computeCodeFingerprint(codeRoots, config);
+  const workflowSyncMarker = await readWorkflowSyncMarker(activeFeature);
+  const expectedWorkflowSyncMarker = activeFeature
+    ? buildWorkflowSyncMarker(codeFingerprint)
+    : null;
+  const common = {
+    latestCodeChangeAt: null,
+    latestFeatureDocSyncAt: null,
+    codeFingerprint,
+    workflowSyncFingerprint: workflowSyncMarker.fingerprint,
+    expectedWorkflowSyncMarker,
+  };
 
-  if (combinedChangedCodePaths.length === 0) {
-    if (duplicateWorkflowSyncMarkerPaths.length > 0) {
-      return {
-        status: 'needs_sync',
-        reasonCode: 'DUPLICATE_WORKFLOW_SYNC_MARKERS',
-        docsDir: config.docsDir,
-        activeFeatureRef,
-        changedCodePaths: [],
-        changedFeatureDocPaths: duplicateWorkflowSyncMarkerPaths,
-        latestCodeChangeAt: null,
-        latestFeatureDocSyncAt,
-      };
-    }
-
-    return {
-      status: 'ok',
-      reasonCode: 'WORKFLOW_IN_SYNC',
-      docsDir: config.docsDir,
-      activeFeatureRef,
-      changedCodePaths: [],
-      changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map((item) => item.relativeToRepo),
-      latestCodeChangeAt: null,
-      latestFeatureDocSyncAt,
-    };
-  }
-
-  if (duplicateWorkflowSyncMarkerPaths.length > 0) {
+  if (workflowSyncMarker.count > 1) {
     return {
       status: 'needs_sync',
       reasonCode: 'DUPLICATE_WORKFLOW_SYNC_MARKERS',
       docsDir: config.docsDir,
       activeFeatureRef,
-      changedCodePaths: combinedChangedCodePaths.map((item) => item.relativeToRepo),
-      changedFeatureDocPaths: duplicateWorkflowSyncMarkerPaths,
-      latestCodeChangeAt,
-      latestFeatureDocSyncAt,
+      changedCodePaths: combinedChangedCodePaths.map(
+        (item) => item.relativeToRepo
+      ),
+      changedFeatureDocPaths: workflowSyncMarker.paths,
+      ...common,
     };
   }
 
-  if (!activeFeatureRef) {
+  if (!activeFeatureRef && combinedChangedCodePaths.length > 0) {
     return {
       status: 'needs_sync',
       reasonCode: 'ACTIVE_FEATURE_SCOPE_UNCLEAR',
       docsDir: config.docsDir,
       activeFeatureRef: null,
-      changedCodePaths: combinedChangedCodePaths.map((item) => item.relativeToRepo),
-      changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map((item) => item.relativeToRepo),
-      latestCodeChangeAt,
-      latestFeatureDocSyncAt,
+      changedCodePaths: combinedChangedCodePaths.map(
+        (item) => item.relativeToRepo
+      ),
+      changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map(
+        (item) => item.relativeToRepo
+      ),
+      ...common,
     };
   }
 
@@ -239,28 +249,54 @@ async function collectWorkflowAudit(cwd: string): Promise<WorkflowAuditPayload> 
       reasonCode: 'ACTIVE_FEATURE_SCOPE_UNCLEAR',
       docsDir: config.docsDir,
       activeFeatureRef,
-      changedCodePaths: combinedChangedCodePaths.map((item) => item.relativeToRepo),
-      changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map((item) => item.relativeToRepo),
-      latestCodeChangeAt,
-      latestFeatureDocSyncAt,
+      changedCodePaths: combinedChangedCodePaths.map(
+        (item) => item.relativeToRepo
+      ),
+      changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map(
+        (item) => item.relativeToRepo
+      ),
+      ...common,
     };
   }
 
-  const needsSync =
-    scopedFeatureDocPaths.length === 0 ||
-    !latestFeatureDocSyncAt ||
-    !latestCodeChangeAt ||
-    latestCodeChangeAt > latestFeatureDocSyncAt;
+  const markerMatchesCurrentCode =
+    workflowSyncMarker.count === 1 &&
+    !workflowSyncMarker.legacy &&
+    workflowSyncMarker.fingerprint === codeFingerprint;
+  const markerRequiresRefresh =
+    workflowSyncMarker.count === 1 && !markerMatchesCurrentCode;
+  const changedCodeRequiresSync =
+    combinedChangedCodePaths.length > 0 &&
+    (scopedFeatureDocPaths.length === 0 || !markerMatchesCurrentCode);
+
+  if (markerRequiresRefresh || changedCodeRequiresSync) {
+    return {
+      status: 'needs_sync',
+      reasonCode: 'CODE_WITHOUT_DOCS_SYNC',
+      docsDir: config.docsDir,
+      activeFeatureRef,
+      changedCodePaths: combinedChangedCodePaths.map(
+        (item) => item.relativeToRepo
+      ),
+      changedFeatureDocPaths: scopedFeatureDocPaths.map(
+        (item) => item.relativeToRepo
+      ),
+      ...common,
+    };
+  }
 
   return {
-    status: needsSync ? 'needs_sync' : 'ok',
-    reasonCode: needsSync ? 'CODE_WITHOUT_DOCS_SYNC' : 'WORKFLOW_IN_SYNC',
+    status: 'ok',
+    reasonCode: 'WORKFLOW_IN_SYNC',
     docsDir: config.docsDir,
     activeFeatureRef,
-    changedCodePaths: combinedChangedCodePaths.map((item) => item.relativeToRepo),
-    changedFeatureDocPaths: scopedFeatureDocPaths.map((item) => item.relativeToRepo),
-    latestCodeChangeAt,
-    latestFeatureDocSyncAt,
+    changedCodePaths: combinedChangedCodePaths.map(
+      (item) => item.relativeToRepo
+    ),
+    changedFeatureDocPaths: allMeaningfulFeatureDocPaths.map(
+      (item) => item.relativeToRepo
+    ),
+    ...common,
   };
 }
 
@@ -297,8 +333,7 @@ function toChangedPathRecord(
     path.relative(docsDir, absolutePath)
   );
   const relativeToDocs =
-    relativeToDocsCandidate === '' ||
-    relativeToDocsCandidate.startsWith('..')
+    relativeToDocsCandidate === '' || relativeToDocsCandidate.startsWith('..')
       ? null
       : relativeToDocsCandidate;
 
@@ -317,7 +352,10 @@ function collectChangedRecords(
   const records: ChangedPathRecord[] = [];
   for (const repoRoot of repoRoots) {
     const porcelain =
-      runGitCapture(['status', '--porcelain=v1', '--untracked-files=all'], repoRoot) || '';
+      runGitCapture(
+        ['status', '--porcelain=v1', '--untracked-files=all'],
+        repoRoot
+      ) || '';
     const changedRelativePaths = parsePorcelainPaths(porcelain);
     for (const relativeToRepo of changedRelativePaths) {
       records.push(toChangedPathRecord(repoRoot, docsDir, relativeToRepo));
@@ -327,12 +365,17 @@ function collectChangedRecords(
 }
 
 function isFeatureDocChange(record: ChangedPathRecord): boolean {
-  return !!record.relativeToDocs && FEATURE_DOC_FILE_PATTERN.test(record.relativeToDocs);
+  return (
+    !!record.relativeToDocs &&
+    FEATURE_DOC_FILE_PATTERN.test(record.relativeToDocs)
+  );
 }
 
 function featureRefFromDocPath(relativeToDocs: string | null): string | null {
   if (!relativeToDocs) return null;
-  const match = relativeToDocs.match(/^features\/(?:[^/]+\/)?(F\d{3,}[^/]+)\//i);
+  const match = relativeToDocs.match(
+    /^features\/(?:[^/]+\/)?(F\d{3,}[^/]+)\//i
+  );
   return match?.[1] ?? null;
 }
 
@@ -342,7 +385,11 @@ function isCodeChange(
 ): boolean {
   if (record.relativeToDocs) return false;
   const normalized = record.relativeToRepo;
-  if (config && isOpenWikiEnabled(config) && isOpenWikiKnowledgePath(normalized)) {
+  if (
+    config &&
+    isOpenWikiEnabled(config) &&
+    isOpenWikiKnowledgePath(normalized)
+  ) {
     return false;
   }
   if (
@@ -352,57 +399,28 @@ function isCodeChange(
   ) {
     return false;
   }
-  return CODE_FILE_PATTERN.test(path.basename(normalized)) || CODE_FILE_PATTERN.test(normalized);
+  return (
+    CODE_FILE_PATTERN.test(path.basename(normalized)) ||
+    CODE_FILE_PATTERN.test(normalized)
+  );
 }
 
-async function getLatestMtimeIso(
-  records: ChangedPathRecord[]
-): Promise<string | null> {
-  let latest = 0;
-
-  for (const record of records) {
-    if (!(await fs.pathExists(record.absolutePath))) continue;
-    const stat = await fs.stat(record.absolutePath);
-    const value = stat.mtimeMs;
-    if (value > latest) latest = value;
-  }
-
-  return latest > 0 ? new Date(latest).toISOString() : null;
-}
-
-async function getLatestWorkflowSyncMarkerAt(
+async function readWorkflowSyncMarker(
   activeFeature: ResolvedFeature | null
-): Promise<string | null> {
-  if (!activeFeature) return null;
-  const canonicalFiles = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md', 'issue.md', 'pr.md'];
-  let latest = 0;
-  const nowMs = Date.now();
-
-  for (const fileName of canonicalFiles) {
-    const absolutePath = path.join(activeFeature.path, fileName);
-    if (!(await fs.pathExists(absolutePath))) continue;
-    const stat = await fs.stat(absolutePath);
-    const content = await fs.readFile(absolutePath, 'utf-8');
-    const matchedTimes = extractWorkflowSyncMarkerTimes(
-      content,
-      nowMs,
-      stat.mtimeMs
-    );
-    for (const value of matchedTimes) {
-      if (value > latest) latest = value;
-    }
+): Promise<WorkflowSyncMarkerState> {
+  if (!activeFeature) {
+    return { count: 0, paths: [], fingerprint: null, legacy: false };
   }
-
-  return latest > 0 ? new Date(latest).toISOString() : null;
-}
-
-async function collectDuplicateWorkflowSyncMarkerPaths(
-  activeFeature: ResolvedFeature | null
-): Promise<string[]> {
-  if (!activeFeature) return [];
-  const canonicalFiles = ['spec.md', 'plan.md', 'tasks.md', 'decisions.md', 'issue.md', 'pr.md'];
+  const canonicalFiles = [
+    'spec.md',
+    'plan.md',
+    'tasks.md',
+    'decisions.md',
+    'issue.md',
+    'pr.md',
+  ];
   const markerPaths: string[] = [];
-  let markerCount = 0;
+  const values: string[] = [];
 
   for (const fileName of canonicalFiles) {
     const absolutePath = path.join(activeFeature.path, fileName);
@@ -410,33 +428,80 @@ async function collectDuplicateWorkflowSyncMarkerPaths(
     const content = await fs.readFile(absolutePath, 'utf-8');
     const matches = [...content.matchAll(WORKFLOW_SYNC_MARKER_PATTERN)];
     if (matches.length > 0) {
-      markerCount += matches.length;
-      markerPaths.push(normalizeSlashes(path.relative(activeFeature.path, absolutePath)));
+      markerPaths.push(
+        normalizeSlashes(path.relative(activeFeature.path, absolutePath))
+      );
+      values.push(...matches.map((match) => String(match[1] || '').trim()));
     }
   }
 
-  return markerCount > 1 ? markerPaths : [];
+  const onlyValue = values.length === 1 ? values[0] : null;
+  return {
+    count: values.length,
+    paths: markerPaths,
+    fingerprint:
+      onlyValue && WORKFLOW_SYNC_FINGERPRINT_PATTERN.test(onlyValue)
+        ? onlyValue
+        : null,
+    legacy:
+      values.length === 1 && !WORKFLOW_SYNC_FINGERPRINT_PATTERN.test(values[0]),
+  };
 }
 
-function extractWorkflowSyncMarkerTimes(
-  content: string,
-  nowMs: number,
-  fileMtimeMs: number
-): number[] {
-  const values: number[] = [];
-  for (const match of content.matchAll(WORKFLOW_SYNC_MARKER_PATTERN)) {
-    const rawTimestamp = String(match[1] || '').trim();
-    if (!rawTimestamp) continue;
-    const parsed = Date.parse(rawTimestamp);
-    if (
-      Number.isFinite(parsed) &&
-      parsed <= nowMs &&
-      parsed <= fileMtimeMs
-    ) {
-      values.push(parsed);
+function buildWorkflowSyncMarker(fingerprint: string): string {
+  return `<!-- lee-spec-kit:workflow-sync ${fingerprint} -->`;
+}
+
+async function computeCodeFingerprint(
+  codeRoots: string[],
+  config: ProjectConfig
+): Promise<string> {
+  const entries: string[] = [];
+  for (const [rootIndex, repoRoot] of codeRoots.entries()) {
+    const inventory =
+      runGitCapture(
+        ['ls-files', '--cached', '--others', '--exclude-standard'],
+        repoRoot
+      ) || '';
+    for (const relativePath of inventory.split('\n').filter(Boolean)) {
+      const record = toChangedPathRecord(
+        repoRoot,
+        config.docsDir,
+        relativePath
+      );
+      if (!isCodeChange(record, config)) continue;
+      let kind = 'missing';
+      let contentHash = createHash('sha256').update('missing').digest('hex');
+      try {
+        const stat = await fs.lstat(record.absolutePath);
+        if (stat.isFile() && !stat.isSymbolicLink()) {
+          kind = 'file';
+          contentHash = createHash('sha256')
+            .update(await fs.readFile(record.absolutePath))
+            .digest('hex');
+        } else if (stat.isSymbolicLink()) {
+          kind = 'symlink';
+          contentHash = createHash('sha256')
+            .update(await fs.readlink(record.absolutePath))
+            .digest('hex');
+        } else {
+          kind = 'other';
+          contentHash = createHash('sha256').update('other').digest('hex');
+        }
+      } catch {
+        // A tracked deletion is part of the current code state.
+      }
+      entries.push(
+        `${rootIndex}\0${normalizeSlashes(relativePath)}\0${kind}\0${contentHash}`
+      );
     }
   }
-  return values;
+  const hash = createHash('sha256');
+  for (const entry of entries.sort()) {
+    hash.update(entry);
+    hash.update('\0');
+  }
+  return `sha256:${hash.digest('hex')}`;
 }
 
 async function filterMeaningfulFeatureDocRecords(
@@ -475,7 +540,10 @@ async function isMeaningfulFeatureDocRecord(
     return true;
   }
   const actualContent = await fs.readFile(record.absolutePath, 'utf-8');
-  return normalizeFeatureDocContent(actualContent) !== normalizeFeatureDocContent(expectedContent);
+  return (
+    normalizeFeatureDocContent(actualContent) !==
+    normalizeFeatureDocContent(expectedContent)
+  );
 }
 
 function isTrackedGitPath(record: ChangedPathRecord): boolean {
@@ -516,13 +584,14 @@ function renderFeatureDocTemplate(
   template: string
 ): string {
   const featureName = activeFeature.slug;
-  const featureId = activeFeature.id || activeFeature.folderName.split('-')[0] || '';
+  const featureId =
+    activeFeature.id || activeFeature.folderName.split('-')[0] || '';
   const idNumber = featureId.replace(/^F/i, '');
   const component = config.projectType === 'multi' ? activeFeature.type : '';
   const repoName =
     config.projectType === 'multi'
       ? `${config.projectName || '{{projectName}}'}-${component}`
-      : (config.projectName || '{{projectName}}');
+      : config.projectName || '{{projectName}}';
 
   const replacements: Record<string, string> = {
     '{{projectName}}': config.projectName || '{{projectName}}',
@@ -547,11 +616,11 @@ function renderFeatureDocTemplate(
   if (config.lang === 'en') {
     rendered = applyReplacements(rendered, {
       '기능 ID': 'Feature ID',
-      '기능명': 'Feature Name',
+      기능명: 'Feature Name',
       '대상 레포': 'Target Repo',
       '이슈 번호': 'Issue Number',
-      '작성일': 'Created',
-      '상태': 'Status',
+      작성일: 'Created',
+      상태: 'Status',
     });
   }
 
@@ -559,7 +628,9 @@ function renderFeatureDocTemplate(
 }
 
 function normalizeFeatureDocContent(content: string): string {
-  return content.replace(/\r\n/g, '\n').replace(/\b\d{4}-\d{2}-\d{2}\b/g, '__DATE__');
+  return content
+    .replace(/\r\n/g, '\n')
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '__DATE__');
 }
 
 function resolveDocsRepoRoot(docsDir: string): string | null {
@@ -572,7 +643,8 @@ function resolveCodeRepoRoots(
   activeFeature: ResolvedFeature | null
 ): CodeRootResolution {
   if (config.docsRepo !== 'standalone') {
-    const repoRoot = runGitCapture(['rev-parse', '--show-toplevel'], cwd) || null;
+    const repoRoot =
+      runGitCapture(['rev-parse', '--show-toplevel'], cwd) || null;
     return { codeRoots: repoRoot ? [repoRoot] : [] };
   }
 
@@ -606,8 +678,7 @@ function resolveCodeRepoRoots(
     };
   }
 
-  const gitRoots = resolvedRoots
-    .map((root) => resolveGitTopLevelOrNull(root))
+  const gitRoots = resolvedRoots.map((root) => resolveGitTopLevelOrNull(root));
   if (gitRoots.some((root) => !root)) {
     return {
       codeRoots: [],
@@ -627,7 +698,9 @@ function collectOutOfScopeStandaloneCodeChanges(
     return [];
   }
 
-  const normalizedScopedRoots = new Set(scopedCodeRoots.map((root) => path.resolve(root)));
+  const normalizedScopedRoots = new Set(
+    scopedCodeRoots.map((root) => path.resolve(root))
+  );
   const extraRoots = resolveStandaloneProjectRoots(config)
     .map((root) => resolveGitTopLevelOrNull(root))
     .filter((root): root is string => !!root)
@@ -643,7 +716,9 @@ function collectOutOfScopeStandaloneCodeChanges(
   );
 }
 
-async function resolveActiveFeature(cwd: string): Promise<ResolvedFeature | null> {
+async function resolveActiveFeature(
+  cwd: string
+): Promise<ResolvedFeature | null> {
   const selection = await resolveFeatureSelection(cwd);
   return selection.matchedFeature;
 }

@@ -113,7 +113,8 @@ async function setStatus(filePath, label, value) {
   );
   if (path.basename(filePath) === 'plan.md') {
     content = content
-      .replace('- **Assessment**: Pending', '- **Assessment**: Complete')
+      .replaceAll('- **Assessment**: Pending', '- **Assessment**: Complete')
+      .replace('- **Decision**: -', '- **Decision**: NONE')
       .replace(
         '- **Product requirements**: -',
         '- **Product requirements**: NONE'
@@ -336,10 +337,7 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
       'utf-8'
     );
     assert.match(openWikiIgnore, /^\.env$/mu);
-    assert.match(
-      openWikiIgnore,
-      /^\.lee-spec-kit\/openwiki-run\.json$/mu
-    );
+    assert.match(openWikiIgnore, /^\.lee-spec-kit\/openwiki-run\.json$/mu);
     assert.match(openWikiIgnore, /^\*\*\/secrets\/$/mu);
     assert.match(openWikiIgnore, /# lee-spec-kit:openwiki-ignore:end\s*$/u);
     const invocations = await fs.readFile(fake.invocationLog, 'utf-8');
@@ -877,11 +875,22 @@ test('Knowledge migration is dry-run by default and never infers NONE decisions'
     );
     const current = await fs.readFile(planPath, 'utf-8');
     const legacy = current.replace(
-      /\n## Curated Documentation Impact\n[\s\S]*?(?=\n## )/u,
+      /\n## Curated Documentation Impact\n[\s\S]*?(?=\n## Verification Contract)/u,
       ''
     );
     await fs.writeFile(planPath, legacy, 'utf-8');
-    await git(dir, ['add', planPath]);
+    const tasksPath = path.join(
+      dir,
+      'docs',
+      'features',
+      'F001-alpha',
+      'tasks.md'
+    );
+    const tasks = (await fs.readFile(tasksPath, 'utf-8'))
+      .replace(/^- \[ \](?=.*lee-spec-kit:completion:)/gmu, '- [x]')
+      .replace(/\s*<!-- lee-spec-kit:completion:[^>]+ -->/gu, '');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await git(dir, ['add', planPath, tasksPath]);
     await git(dir, ['commit', '-m', 'docs(F001): restore legacy plan fixture']);
     const activeFeature = await runCli(dir, [
       'feature',
@@ -916,7 +925,7 @@ test('Knowledge migration is dry-run by default and never infers NONE decisions'
     const migrated = await fs.readFile(planPath, 'utf-8');
     assert.match(
       migrated,
-      /lee-spec-kit:curated-impact-grandfathered v0\.9\.10/u
+      /lee-spec-kit:curated-impact-grandfathered v2 feature-docs=sha256:[a-f0-9]{64}/u
     );
     assert.doesNotMatch(migrated, /Product requirements.*NONE/iu);
 
@@ -926,6 +935,43 @@ test('Knowledge migration is dry-run by default and never infers NONE decisions'
       })
     );
     assert.notEqual(stage.stage, 'plan');
+
+    const grandfatherMarker = migrated.match(
+      /<!-- lee-spec-kit:curated-impact-grandfathered v2 feature-docs=sha256:[a-f0-9]{64} -->/u
+    )?.[0];
+    assert.ok(grandfatherMarker);
+    await fs.writeFile(
+      planPath,
+      `${migrated.trimEnd()}\n${grandfatherMarker}\n`,
+      'utf-8'
+    );
+    const duplicateStage = json(
+      await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], {
+        LEE_SPEC_KIT_OPENWIKI_BIN: path.join(dir, 'missing-openwiki'),
+      })
+    );
+    assert.equal(duplicateStage.stage, 'plan');
+    assert.match(
+      duplicateStage.nextAction.summary,
+      /Exactly one provenance-bound/u
+    );
+
+    await fs.writeFile(planPath, migrated, 'utf-8');
+
+    await fs.appendFile(
+      planPath,
+      '\nLegacy Feature reopened for correction.\n'
+    );
+    const staleStage = json(
+      await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], {
+        LEE_SPEC_KIT_OPENWIKI_BIN: path.join(dir, 'missing-openwiki'),
+      })
+    );
+    assert.equal(staleStage.stage, 'plan');
+    assert.match(
+      staleStage.nextAction.summary,
+      /provenance marker was recorded/i
+    );
   });
 });
 

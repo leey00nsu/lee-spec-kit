@@ -53,6 +53,7 @@ src/
 
 > 모든 결정이 `NONE`이어도 영향 판정을 완료합니다. `NONE`은 사람이 관리하는 상위 문서를 검토했지만 변경할 필요가 없다는 뜻입니다. 생성형 OpenWiki 동기화는 별도로 판정합니다.
 
+- **Schema**: 2
 - **Assessment**: Pending
   - 값: Pending | Complete
 - **Product requirements**: -
@@ -67,6 +68,24 @@ src/
 - **Targets**: -
   - UPDATE 또는 ADD가 하나라도 있으면 쉼표로 구분한 `docs:<path>`와 `project:<path>` 대상을 기록합니다.
   - 모든 대상은 task `Docs` 목록에 연결하고 Knowledge 동기화 또는 Feature 리뷰 전에 활성 Feature scope로 커밋합니다.
+
+---
+
+## Additional Curated Impacts
+
+> constitution/custom, 디자인 시스템, API·데이터, 보안, 배포, 관측성처럼 조건부로 존재하는 상위 문서를 판정합니다. 해당 영향이 없으면 `Decision: NONE`을 명시하고 표는 비워 둡니다.
+
+- **Assessment**: Pending
+- **Decision**: -
+  - 값: NONE | DECLARED
+
+| Kind | Decision | Target | Reason |
+| ---- | -------- | ------ | ------ |
+| -    | -        | -      | -      |
+
+허용 Kind: `engineering-agent-policy`, `design-system-ux`, `api-data-contract`, `security-privacy`, `release-deployment`, `observability`, `other-curated`
+
+`DECLARED` 행의 Decision은 `UPDATE` 또는 `ADD`이고, Target은 `docs:<path>` 또는 `project:<path>`여야 합니다. 모든 Target은 task `Docs` 목록에 연결합니다.
 
 ---
 
@@ -87,9 +106,9 @@ src/
 
 ### 테스트 결정
 
-| 계약 / 요구사항 | 결정 | 테스트 수준 | 보호할 현실적인 회귀 | 독립적인 Oracle |
-| --------------- | ---- | ----------- | --------------------- | ---------------- |
-| (AC/FR 참조)    | NONE \| UPDATE \| ADD | 단위 \| 통합 \| E2E \| 비테스트 | (방지할 실패) | (스펙/출시 동작/외부 기준) |
+| 계약 / 요구사항 | 결정                  | 테스트 수준                     | 보호할 현실적인 회귀 | 독립적인 Oracle            |
+| --------------- | --------------------- | ------------------------------- | -------------------- | -------------------------- |
+| (AC/FR 참조)    | NONE \| UPDATE \| ADD | 단위 \| 통합 \| E2E \| 비테스트 | (방지할 실패)        | (스펙/출시 동작/외부 기준) |
 
 ### 의도적으로 제외하는 테스트
 

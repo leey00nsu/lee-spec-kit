@@ -57,9 +57,9 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 Use the returned `stage`, `nextAction`, and `implementationAllowed` values as the current workflow state.
 
-Before Plan review or approval, complete `Curated Documentation Impact`. Explicit `NONE` values prove the surface was reviewed; every `UPDATE` or `ADD` target must appear under `Docs` in at least one task.
+Before Plan review or approval, complete Schema 2 `Curated Documentation Impact`. Assess all four core surfaces, and use typed `Additional Curated Impacts` only for applicable project-specific surfaces; an explicit additional `NONE` proves that no extra category applies. Every `UPDATE` or `ADD` target must appear under `Docs` in at least one task and in the committed Feature diff. Existing projects require one manual baseline reconciliation before per-Feature checks can keep the curated layer current.
 
-When `experimental.openwiki=true`, all completed task checkpoints advance through required `knowledge_setup`, `knowledge_sync`, and `knowledge_commit` stages before Feature review. The Feature reviewer receives `openwiki/index.md`, the verified receipt, and every Plan-declared curated target; SDD and curated project docs remain authoritative. The Knowledge surface includes a final lee-spec-kit protection block in `.openwikiignore`.
+When `experimental.openwiki=true`, all completed task checkpoints advance through required `knowledge_setup`, `knowledge_sync`, and `knowledge_commit` stages before Feature review. The Feature reviewer receives `openwiki/index.md`, the verified receipt, and every Plan-declared curated target; use the claim-specific authority matrix in `docs/README.md` rather than treating generated Knowledge as authoritative. The Knowledge surface includes a final lee-spec-kit protection block in `.openwikiignore`.
 
 With Plan review enabled, planning follows `plan Review → fresh read-only Plan review → plan approval`. The review is bound to the returned `specHash` and `planHash`; changing either document's content invalidates the prior evidence. The reviewer checks the Verification Contract and test decisions without editing docs.
 
