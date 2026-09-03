@@ -190,7 +190,9 @@ if (!fs.existsSync(path.join(wiki, 'INSTRUCTIONS.md'))) {
   process.stderr.write('missing protected instructions');
   process.exit(3);
 }
-fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId: 'fake-run', mode: 'update', phase: 'generating', plan: { pages: [{ path: '/openwiki/architecture map.md', status: 'complete' }] } }, null, 2) + '\\n');
+const interruptedMode = process.env.FAKE_OPENWIKI_INTERRUPTED || '';
+const pageStatus = interruptedMode === 'skipped' ? 'skipped' : 'complete';
+fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId: 'fake-run', mode: 'update', phase: 'generating', plan: { pages: [{ path: '/openwiki/architecture map.md', status: pageStatus }] } }, null, 2) + '\\n');
 if (process.env.FAKE_OPENWIKI_FAIL === '1') {
   process.stderr.write('simulated provider failure\\n');
   process.exit(7);
@@ -199,10 +201,24 @@ const sleepMs = Number(process.env.FAKE_OPENWIKI_SLEEP_MS || 0);
 if (sleepMs > 0) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sleepMs);
 }
+if (process.env.FAKE_OPENWIKI_ASSERT_RUN_OWNER_IGNORE === '1') {
+  const ignoreLines = fs.readFileSync(path.join(root, '.openwikiignore'), 'utf8')
+    .split(/\\r?\\n/u)
+    .map((line) => line.trim());
+  if (!ignoreLines.includes('.lee-spec-kit/openwiki-run.json')) {
+    process.stderr.write('run owner is visible to OpenWiki source fingerprint\\n');
+    process.exit(8);
+  }
+  const owner = JSON.parse(fs.readFileSync(path.join(root, '.lee-spec-kit', 'openwiki-run.json'), 'utf8'));
+  if (owner.runId !== 'fake-run') {
+    process.stderr.write('lee-spec-kit did not persist the observed OpenWiki run id\\n');
+    process.exit(9);
+  }
+}
 const indexLink = process.env.FAKE_OPENWIKI_INDEX_LINK || '/openwiki/architecture%20map.md';
 fs.writeFileSync(path.join(wiki, 'index.md'), '---\\nokf_version: "0.2"\\n---\\n# Demo Knowledge\\n\\n[Architecture](' + indexLink + ')\\n');
 fs.writeFileSync(path.join(wiki, 'architecture map.md'), '---\\ntype: concept\\n---\\n# Architecture\\n\\nThe tracked [README](/README.md) is the demo entrypoint.\\n');
-fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify({ status: 'complete', command: 'update' }, null, 2) + '\\n');
+fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify({ status: interruptedMode ? 'interrupted' : 'complete', command: 'update' }, null, 2) + '\\n');
 fs.unlinkSync(path.join(wiki, '.run.json'));
 const begin = '<!-- OPENWIKI:START -->';
 const end = '<!-- OPENWIKI:END -->';
@@ -307,11 +323,23 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
     assert.equal(syncResult.receipt.triggerFeatureRef, 'F001-alpha');
     assert.equal(syncResult.receipt.schemaVersion, 2);
     assert.equal(syncResult.receipt.okfVersion, '0.2');
+    assert.equal(syncResult.progress.phase, 'complete');
+    assert.equal(
+      syncResult.progress.completedPages,
+      syncResult.progress.totalPages
+    );
+    assert.equal(syncResult.progress.skippedPages, 0);
+    assert.deepEqual(syncResult.progress.skippedPagePaths, []);
+    assert.equal(syncResult.progress.currentPage, undefined);
     const openWikiIgnore = await fs.readFile(
       path.join(dir, '.openwikiignore'),
       'utf-8'
     );
     assert.match(openWikiIgnore, /^\.env$/mu);
+    assert.match(
+      openWikiIgnore,
+      /^\.lee-spec-kit\/openwiki-run\.json$/mu
+    );
     assert.match(openWikiIgnore, /^\*\*\/secrets\/$/mu);
     assert.match(openWikiIgnore, /# lee-spec-kit:openwiki-ignore:end\s*$/u);
     const invocations = await fs.readFile(fake.invocationLog, 'utf-8');
@@ -529,6 +557,124 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
     );
     assert.equal(stale.status, 'sync_required');
     assert.equal(stale.reasonCode, 'OPENWIKI_SOURCE_STALE');
+  });
+});
+
+test('OpenWiki run-owner updates stay outside the source fingerprint', async () => {
+  await withTempDir('lsk-openwiki-run-owner-ignore-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SLEEP_MS: '1500',
+          FAKE_OPENWIKI_ASSERT_RUN_OWNER_IGNORE: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(result.status, 'ok', result.error);
+    assert.equal(result.reasonCode, 'OPENWIKI_SYNCED');
+    assert.equal(result.progress.phase, 'complete');
+    assert.equal(result.progress.completedPages, 1);
+    assert.equal(result.progress.totalPages, 1);
+    assert.equal(result.progress.skippedPages, 0);
+  });
+});
+
+test('OpenWiki reports an interrupted finished process without claiming its queue was never persisted', async () => {
+  await withTempDir('lsk-openwiki-interrupted-finish-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const before = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    await fs.mkdir(path.join(dir, 'openwiki'), { recursive: true });
+    await fs.mkdir(path.join(dir, '.lee-spec-kit'), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'openwiki', '.last-update.json'),
+      `${JSON.stringify({ status: 'interrupted', command: 'update' }, null, 2)}\n`,
+      'utf-8'
+    );
+    await fs.writeFile(
+      path.join(dir, '.lee-spec-kit', 'openwiki-run.json'),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          ownerId: 'test-owner',
+          featureRef: 'F001-alpha',
+          component: 'single',
+          language: 'en',
+          sourceHead: 'test-head',
+          sourceFingerprint: before.sourceFingerprint,
+          baseHead: 'test-base',
+          startedAt: '2026-09-03T00:00:00.000Z',
+          runId: 'finished-run',
+        },
+        null,
+        2
+      )}\n`,
+      'utf-8'
+    );
+
+    const interrupted = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(interrupted.status, 'sync_required');
+    assert.equal(interrupted.reasonCode, 'OPENWIKI_RUN_INCOMPLETE');
+    assert.match(interrupted.detail, /no active page queue remains/i);
+    assert.doesNotMatch(interrupted.detail, /before OpenWiki persisted/i);
+    assert.equal(
+      interrupted.interruption.reasonCode,
+      'OPENWIKI_SOURCE_DRIFT_OR_SKIPPED_PAGES'
+    );
+    assert.equal(interrupted.interruption.lastUpdateStatus, 'interrupted');
+    assert.equal(interrupted.interruption.activePageQueue, false);
+    assert.equal(interrupted.interruption.ownerRunId, 'finished-run');
+  });
+});
+
+test('OpenWiki interrupted completion reports observed skipped pages without writing a receipt', async () => {
+  await withTempDir('lsk-openwiki-interrupted-details-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = await runCli(
+      dir,
+      ['knowledge', 'sync', 'F001-alpha', '--json'],
+      {
+        ...fake.env,
+        FAKE_OPENWIKI_SLEEP_MS: '1500',
+        FAKE_OPENWIKI_INTERRUPTED: 'skipped',
+      },
+      { timeoutMs: 60_000 }
+    );
+    const payload = json(result);
+
+    assert.equal(result.code, 1);
+    assert.equal(payload.reasonCode, 'OPENWIKI_RUN_INCOMPLETE');
+    assert.equal(
+      payload.details.interruption.reasonCode,
+      'OPENWIKI_SKIPPED_PAGES_OBSERVED'
+    );
+    assert.equal(payload.details.interruption.activePageQueue, false);
+    assert.equal(payload.details.interruption.observedSkippedPages, 1);
+    assert.deepEqual(payload.details.interruption.observedSkippedPagePaths, [
+      '/openwiki/architecture map.md',
+    ]);
+    assert.match(payload.details.interruption.limitation, /source drift/u);
+    assert.equal(
+      await fs
+        .access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json'))
+        .then(
+          () => true,
+          () => false
+        ),
+      false
+    );
   });
 });
 

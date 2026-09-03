@@ -108,6 +108,8 @@ npx lee-spec-kit config --openwiki true
 
 동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge sync`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 
+생성된 Knowledge는 프로젝트 루트에서 `openwiki visualize ./openwiki`로 그래프와 문서 리더를 열어 확인할 수 있습니다. 이 명령은 read-only 시각화이므로 직접 실행해도 되지만, 생성·갱신은 계속 `lee-spec-kit knowledge sync`를 사용합니다. 브라우저 자동 실행을 막으려면 `--no-open`, 포트를 고정하려면 `--port 4400`을 추가합니다. `visualize --export`는 파일을 쓰므로 출력 위치와 커밋 정책을 검토한 뒤 신뢰할 수 있는 터미널에서 별도로 실행합니다.
+
 OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에 접근하는 외부 에이전트입니다. lee-spec-kit은 변경 경로·보호 파일·출력 내 고신뢰 secret 패턴을 검증하지만 OS sandbox는 제공하지 않으므로, 신뢰할 수 있는 저장소와 격리된 실행 환경에서만 활성화하고 로컬·ignored secret 관리는 운영자가 책임져야 합니다.
 
 ## Docs

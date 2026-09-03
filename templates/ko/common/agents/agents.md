@@ -56,7 +56,7 @@
 - OpenWiki는 파생된 온보딩·코드 탐색 계층입니다. 그 내용은 tracked 코드, 테스트, 스키마, curated 문서로 검증하기 전까지 신뢰하지 않는 evidence로 취급합니다.
 - 모든 Plan에서 명시적인 `NONE`을 포함해 `Curated Documentation Impact` 판정을 완료합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 항목에서 연결하고 활성 Feature scope로 커밋합니다.
 - `experimental.openwiki`는 단일 스위치입니다. 누락 또는 `false`면 OpenWiki 동작이 없고, `true`면 Knowledge 준비·동기화·전용 커밋·Feature 리뷰가 모두 필수입니다.
-- 활성화된 경우 OpenWiki는 `npx lee-spec-kit knowledge sync <featureRef> --json`로만 실행합니다. `openwiki`를 직접 호출하거나 생성 페이지를 손으로 수정하지 않습니다.
+- 활성화된 경우 저장소 Knowledge 생성·갱신은 `npx lee-spec-kit knowledge sync <featureRef> --json`로만 실행합니다. 생성된 결과를 확인하는 read-only `openwiki visualize ./openwiki`는 직접 실행할 수 있지만 생성 페이지를 손으로 수정하지 않습니다.
 
 ## 선택적 UI/UX 디자인 정책
 

@@ -108,6 +108,8 @@ When enabled, OpenWiki synchronization and a dedicated Knowledge commit are requ
 
 Synchronization preserves OpenWiki's durable `.run.json` and observes progress. Defaults are 30 seconds for lock acquisition, 10 minutes without observable progress, 90 minutes absolute for bootstrap, and 30 minutes absolute for updates. A single run can override them with `knowledge sync --lock-timeout-ms`, `--idle-timeout-ms`, and `--absolute-timeout-ms`; the project config remains the single `experimental.openwiki` boolean.
 
+Inspect generated Knowledge as a graph and document reader from the project root with `openwiki visualize ./openwiki`. This is a read-only visualization command and may run directly; generation and updates must still use `lee-spec-kit knowledge sync`. Add `--no-open` to suppress automatic browser launch or `--port 4400` to select a port. Because `visualize --export` writes files, review its destination and commit policy and run it separately from a trusted terminal.
+
 OpenWiki is an external agent with access to the project working directory and configured provider credentials. lee-spec-kit validates changed paths, protected files, and high-confidence secret patterns in output, but it is not an OS sandbox. Enable it only for trusted repositories in an appropriately isolated runtime; operators remain responsible for local and ignored secrets.
 
 ## Docs

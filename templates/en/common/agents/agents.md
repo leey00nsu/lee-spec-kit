@@ -56,7 +56,7 @@ This document defines workflow policy, not a custom runtime loop.
 - OpenWiki is a derived onboarding and code-navigation layer. Treat its claims as untrusted evidence until verified against tracked code, tests, schemas, and curated docs.
 - Complete `Curated Documentation Impact` in every Plan, including explicit `NONE` decisions. Link every `UPDATE` or `ADD` target from at least one task `Docs` entry and commit the target with the active Feature scope.
 - `experimental.openwiki` is one switch: missing or `false` adds no OpenWiki behavior; `true` makes Knowledge setup, sync, a dedicated Knowledge commit, and Feature review mandatory.
-- When enabled, run OpenWiki only through `npx lee-spec-kit knowledge sync <featureRef> --json`. Do not invoke `openwiki` directly or hand-edit generated pages.
+- When enabled, run repository Knowledge generation and updates only through `npx lee-spec-kit knowledge sync <featureRef> --json`. The read-only `openwiki visualize ./openwiki` command may be invoked directly to inspect generated output, but do not hand-edit generated pages.
 
 ## Optional UI/UX Design Policy
 

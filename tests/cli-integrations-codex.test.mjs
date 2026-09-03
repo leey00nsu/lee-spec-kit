@@ -897,6 +897,8 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
       'cmd /c openwiki code --update --print',
       'powershell -Command "openwiki code --update --print"',
       'npx --package attacker openwiki code --update --print',
+      'openwiki visualize .. --no-open',
+      'openwiki visualize openwiki --export docs/openwiki-visualizer',
     ]) {
       hookResult = await invoke(command);
       assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
@@ -910,6 +912,9 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
       'openwiki auth',
       'openwiki auth configure',
       'npx --yes openwiki@0.5.0 auth tools',
+      'openwiki visualize',
+      'openwiki visualize openwiki --port 4400 --no-open',
+      'npx --yes openwiki@0.5.0 visualize ./openwiki --no-open',
     ]) {
       hookResult = await invoke(command);
       assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);

@@ -173,8 +173,25 @@ export interface OpenWikiProgress {
   phase?: string;
   completedPages: number;
   totalPages: number;
+  skippedPages?: number;
+  skippedPagePaths?: string[];
   currentPage?: string;
   updatedAt?: string;
+}
+
+export interface OpenWikiInterruptionDetails {
+  reasonCode:
+    | 'OPENWIKI_ACTIVE_PAGE_QUEUE'
+    | 'OPENWIKI_SKIPPED_PAGES_OBSERVED'
+    | 'OPENWIKI_SOURCE_DRIFT_OR_SKIPPED_PAGES'
+    | 'OPENWIKI_COMPLETION_METADATA_MISSING';
+  lastUpdateStatus: string | null;
+  activePageQueue: boolean;
+  observedSkippedPages: number | null;
+  observedSkippedPagePaths: string[];
+  ownerRunId?: string;
+  progress?: OpenWikiProgress;
+  limitation?: string;
 }
 
 interface OpenWikiRunOwner {
@@ -246,6 +263,7 @@ export interface OpenWikiKnowledgeState {
   outputHash?: string;
   receipt?: OpenWikiReceipt;
   progress?: OpenWikiProgress;
+  interruption?: OpenWikiInterruptionDetails;
   changedPaths: string[];
   unexpectedPaths: string[];
   detail?: string;
@@ -423,6 +441,11 @@ export async function inspectOpenWikiKnowledge(input: {
         progress,
       };
     }
+    const interruption = await inspectOpenWikiInterruption(
+      projectRoot,
+      progress,
+      activeOwner
+    );
     return {
       ...state(
         'sync_required',
@@ -435,6 +458,7 @@ export async function inspectOpenWikiKnowledge(input: {
       sourceFingerprint,
       receipt: receipt || undefined,
       progress,
+      interruption,
     };
   }
   if (activeOwner) {
@@ -443,6 +467,11 @@ export async function inspectOpenWikiKnowledge(input: {
       activeOwner.component === input.component &&
       activeOwner.language === input.config.lang &&
       activeOwner.sourceFingerprint === sourceFingerprint;
+    const interruption = await inspectOpenWikiInterruption(
+      projectRoot,
+      undefined,
+      activeOwner
+    );
     return {
       ...state(
         ownerMatches ? 'sync_required' : 'blocked',
@@ -453,11 +482,14 @@ export async function inspectOpenWikiKnowledge(input: {
         changedPaths,
         unexpectedPaths,
         ownerMatches
-          ? 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
+          ? interruption.lastUpdateStatus === 'interrupted'
+            ? 'A prior OpenWiki process ended without a complete update and no active page queue remains. Generated state was preserved; inspect `interruption` and rerun the same sync.'
+            : 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
           : 'The pending OpenWiki owner record belongs to another Feature/source snapshot.'
       ),
       sourceFingerprint,
       receipt: receipt || undefined,
+      interruption,
     };
   }
   if (!(await fs.pathExists(indexPath))) {
@@ -485,6 +517,7 @@ export async function inspectOpenWikiKnowledge(input: {
   }
 
   if (await hasInterruptedOpenWikiMetadata(projectRoot)) {
+    const interruption = await inspectOpenWikiInterruption(projectRoot);
     return {
       ...state(
         'sync_required',
@@ -495,6 +528,7 @@ export async function inspectOpenWikiKnowledge(input: {
       ),
       sourceFingerprint,
       receipt: receipt || undefined,
+      interruption,
     };
   }
 
@@ -877,7 +911,9 @@ export async function runOpenWikiSync(
       await verifyOpenWikiOutput(
         projectRoot,
         preserved,
-        runtime.capability.okfVersion
+        runtime.capability.okfVersion,
+        progress,
+        owner
       );
       await normalizeManagedEntrypoints(projectRoot, preserved);
       const changedPaths = collectGitChangedPaths(projectRoot);
@@ -928,7 +964,7 @@ export async function runOpenWikiSync(
         okfVersion: runtime.capability.okfVersion,
         receipt,
         changedPaths: collectGitChangedPaths(projectRoot),
-        progress,
+        progress: normalizeCompletedOpenWikiProgress(progress, owner.runId),
       };
     },
     {
@@ -1611,6 +1647,10 @@ async function readOpenWikiProgress(
     const completedPages = pages.filter(
       (entry) => entry?.status === 'complete' || entry?.status === 'skipped'
     ).length;
+    const skippedPagePaths = pages
+      .filter((entry) => entry?.status === 'skipped')
+      .map((entry) => entry.path)
+      .filter((entry): entry is string => typeof entry === 'string');
     const current = pages.find((entry) => entry?.status === 'pending');
     return {
       ...(typeof value.runId === 'string' ? { runId: value.runId } : {}),
@@ -1618,6 +1658,8 @@ async function readOpenWikiProgress(
       ...(typeof value.phase === 'string' ? { phase: value.phase } : {}),
       completedPages,
       totalPages: pages.length,
+      skippedPages: skippedPagePaths.length,
+      skippedPagePaths,
       ...(typeof current?.path === 'string'
         ? { currentPage: current.path }
         : {}),
@@ -2052,6 +2094,84 @@ async function hasInterruptedOpenWikiMetadata(
   return (await readOpenWikiLastUpdateStatus(projectRoot)) === 'interrupted';
 }
 
+function normalizeCompletedOpenWikiProgress(
+  progress: OpenWikiProgress | undefined,
+  ownerRunId: string | undefined
+): OpenWikiProgress {
+  const totalPages = progress?.totalPages ?? 0;
+  return {
+    ...(progress?.runId || ownerRunId
+      ? { runId: progress?.runId || ownerRunId }
+      : {}),
+    mode: progress?.mode || 'update',
+    phase: 'complete',
+    completedPages: totalPages,
+    totalPages,
+    skippedPages: 0,
+    skippedPagePaths: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function inspectOpenWikiInterruption(
+  projectRoot: string,
+  progress?: OpenWikiProgress,
+  owner?: OpenWikiRunOwner | null
+): Promise<OpenWikiInterruptionDetails> {
+  const activePageQueue = await fs.pathExists(
+    path.join(projectRoot, OPENWIKI_DIR, '.run.json')
+  );
+  const lastUpdateStatus = await readOpenWikiLastUpdateStatus(projectRoot);
+  const observedSkippedPages = progress?.skippedPages ?? null;
+  const observedSkippedPagePaths = progress?.skippedPagePaths || [];
+  if (activePageQueue) {
+    return {
+      reasonCode: 'OPENWIKI_ACTIVE_PAGE_QUEUE',
+      lastUpdateStatus,
+      activePageQueue,
+      observedSkippedPages,
+      observedSkippedPagePaths,
+      ...(owner?.runId ? { ownerRunId: owner.runId } : {}),
+      ...(progress ? { progress } : {}),
+    };
+  }
+  if (lastUpdateStatus === 'interrupted') {
+    if ((observedSkippedPages || 0) > 0) {
+      return {
+        reasonCode: 'OPENWIKI_SKIPPED_PAGES_OBSERVED',
+        lastUpdateStatus,
+        activePageQueue,
+        observedSkippedPages,
+        observedSkippedPagePaths,
+        ...(owner?.runId ? { ownerRunId: owner.runId } : {}),
+        ...(progress ? { progress } : {}),
+        limitation:
+          'OpenWiki 0.5.x does not persist whether source drift also occurred.',
+      };
+    }
+    return {
+      reasonCode: 'OPENWIKI_SOURCE_DRIFT_OR_SKIPPED_PAGES',
+      lastUpdateStatus,
+      activePageQueue,
+      observedSkippedPages,
+      observedSkippedPagePaths,
+      ...(owner?.runId ? { ownerRunId: owner.runId } : {}),
+      ...(progress ? { progress } : {}),
+      limitation:
+        'OpenWiki 0.5.x records only `interrupted` after removing its page queue, so source drift cannot be distinguished from an unobserved final skipped page.',
+    };
+  }
+  return {
+    reasonCode: 'OPENWIKI_COMPLETION_METADATA_MISSING',
+    lastUpdateStatus,
+    activePageQueue,
+    observedSkippedPages,
+    observedSkippedPagePaths,
+    ...(owner?.runId ? { ownerRunId: owner.runId } : {}),
+    ...(progress ? { progress } : {}),
+  };
+}
+
 async function readOpenWikiLastUpdateStatus(
   projectRoot: string
 ): Promise<string | null> {
@@ -2130,7 +2250,9 @@ async function snapshotProtectedContent(projectRoot: string): Promise<{
 async function verifyOpenWikiOutput(
   projectRoot: string,
   preserved: Awaited<ReturnType<typeof snapshotProtectedContent>>,
-  expectedOkfVersion: string
+  expectedOkfVersion: string,
+  progress?: OpenWikiProgress,
+  owner?: OpenWikiRunOwner
 ): Promise<void> {
   const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
   const indexPath = path.join(wikiRoot, 'index.md');
@@ -2141,15 +2263,27 @@ async function verifyOpenWikiOutput(
     );
   }
   if (await fs.pathExists(path.join(wikiRoot, '.run.json'))) {
+    const interruption = await inspectOpenWikiInterruption(
+      projectRoot,
+      progress,
+      owner
+    );
     throw createCliError(
       'OPENWIKI_RUN_INCOMPLETE',
-      'OpenWiki left `.run.json`; resume the interrupted run instead of committing partial output.'
+      'OpenWiki left `.run.json`; resume the interrupted run instead of committing partial output.',
+      { interruption }
     );
   }
   if ((await readOpenWikiLastUpdateStatus(projectRoot)) !== 'complete') {
+    const interruption = await inspectOpenWikiInterruption(
+      projectRoot,
+      progress,
+      owner
+    );
     throw createCliError(
       'OPENWIKI_RUN_INCOMPLETE',
-      'OpenWiki did not record a complete `.last-update.json`; no receipt will be written.'
+      'OpenWiki did not record a complete `.last-update.json`; inspect `details.interruption` before resuming. No receipt was written.',
+      { interruption }
     );
   }
 
@@ -2551,6 +2685,7 @@ function normalizeProtectedOutsideBlock(content: string): string {
 
 function managedOpenWikiIgnoreBlock(): string {
   return `${OPENWIKI_IGNORE_BEGIN}
+.lee-spec-kit/openwiki-run.json
 .env
 .env.*
 **/*.pem

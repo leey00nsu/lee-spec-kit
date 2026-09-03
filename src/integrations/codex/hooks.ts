@@ -988,6 +988,28 @@ function classifyOpenWikiInvocation(value, depth = 0) {
       return true;
     }
     if (normalized[0] === 'help') return true;
+    if (normalized[0] === 'visualize') {
+      let index = 1;
+      if (normalized[index] && !normalized[index].startsWith('-')) {
+        if (!/^(?:\\.\\/)?openwiki\\/?$/u.test(normalized[index])) return false;
+        index += 1;
+      }
+      while (index < normalized.length) {
+        if (normalized[index] === '--no-open') {
+          index += 1;
+          continue;
+        }
+        if (
+          normalized[index] === '--port' &&
+          /^\\d{1,5}$/u.test(normalized[index + 1] || '')
+        ) {
+          index += 2;
+          continue;
+        }
+        return false;
+      }
+      return true;
+    }
     return normalized[0] === 'auth';
   };
   const segments = source.split(/&&|\\|\\||[;|]/u);
@@ -1092,7 +1114,7 @@ function classifyOpenWikiInvocation(value, depth = 0) {
 if (detected?.experimentalOpenwiki === true) {
   const openWikiPolicy = classifyOpenWikiInvocation(command);
   if (openWikiPolicy === 'blocked') {
-    printBlock('OpenWiki repository generation must run through the exact lee-spec-kit knowledge sync nextAction. Only simple --help and auth commands are allowed directly.');
+    printBlock('OpenWiki repository generation must run through the exact lee-spec-kit knowledge sync nextAction. Only simple --help, auth, and read-only visualize commands for ./openwiki are allowed directly.');
     process.exit(0);
   }
   if (openWikiPolicy === 'safe' && !isDangerousCommandWithoutOpenWiki) {
