@@ -2,7 +2,7 @@
 
 Choose the pattern from the reader's goal, not from the source files available.
 
-## Learning path
+## Tutorial
 
 Use when a new developer needs guided experience.
 
@@ -12,7 +12,7 @@ Use when a new developer needs guided experience.
 4. Show checkpoints that confirm progress.
 5. End with the next useful concept or task.
 
-## How-to or troubleshooting
+## How-to guide or troubleshooting
 
 Use when the reader has a concrete task or failure.
 
@@ -43,3 +43,12 @@ Use when the reader needs a mental model.
 5. End with practical implications for navigation or change.
 
 One page may contain a small supporting section of another type, but one pattern should remain dominant.
+
+Use goal-oriented titles when they help the reader choose a page:
+
+- tutorial: “Start CopySinger locally”;
+- how-to: “Choose tests for a change”;
+- explanation: “Understand job leases and recovery”;
+- reference: “Environment variables”.
+
+Do not force an action title on a reference page when a stable lookup noun is clearer.

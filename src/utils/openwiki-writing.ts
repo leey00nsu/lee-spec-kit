@@ -27,7 +27,18 @@ interface OpenWikiWritingAdapter {
   version: string;
   skillName: string;
   bundleDirectory: string;
-  renderInstructions(language: 'ko' | 'en'): string;
+  renderPlannerInstructions(language: 'ko' | 'en'): string[];
+  renderPageInstructions(language: 'ko' | 'en'): string[];
+  inspectMarkdown(
+    language: 'ko' | 'en',
+    content: string
+  ): OpenWikiWritingStyleViolation[];
+}
+
+export interface OpenWikiWritingStyleViolation {
+  rule: 'ko_reader_voice';
+  line: number;
+  excerpt: string;
 }
 
 export interface ResolvedOpenWikiWritingPolicy {
@@ -35,29 +46,79 @@ export interface ResolvedOpenWikiWritingPolicy {
   policyHash: string;
   managedBlock: string;
   bundlePath: string;
+  inspectMarkdown(content: string): OpenWikiWritingStyleViolation[];
 }
 
 const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
   id: 'lee-spec-kit.technical-writing',
-  version: '1.1.3',
+  version: '1.4.0',
   skillName: 'lee-spec-kit-technical-writing',
   bundleDirectory: 'lee-spec-kit-technical-writing',
-  renderInstructions(language) {
+  renderPlannerInstructions() {
+    return [
+      'Read and follow the installed writing skill before planning the Knowledge route.',
+      "Plan the smallest complete route around a new developer's goals. Classify pages as tutorials, how-to guides, explanations, or references instead of mirroring the source tree or targeting a fixed page count.",
+      "For each page, put its reader question and document type (tutorial, how-to, explanation, or reference) in the job's purpose and instructions. Split different reader tasks instead of combining setup, runtime theory, and lookup contracts in one page. Choose paths after identifying those goals.",
+      'OpenWiki owns generated index pages; do not schedule or author them. Use quickstart as the human entrypoint with links grouped by reader purpose. Preserve the quickstart required by the generator.',
+      "Copy every bullet under **Page-worker contract** into every page job's `instructions`. Page workers do not inherit this file automatically.",
+    ];
+  },
+  renderPageInstructions(language) {
     const outputLanguage = language === 'ko' ? 'Korean' : 'English';
-    return `${OPENWIKI_WRITING_POLICY_BEGIN}
-## Writing policy managed by lee-spec-kit
-
-- Before drafting or revising reader-facing Knowledge pages, read and follow \`/skills/${this.skillName}/SKILL.md\`.
-- Apply that skill to information architecture, page structure, headings, sentences, links, and the final readability review.
-- Write reader-facing content in ${outputLanguage}. Keep code identifiers, commands, paths, and public API names exact.
-- Repository evidence and technical accuracy outrank writing style. Never smooth over uncertainty or invent missing facts.
-- Every generated reader-facing page except the index must include at least one descriptive Markdown link to a tracked source file using \`repo://path\` or \`repo://path#Lx-Ly\`. Reserve \`repo://\` for source files included in the repository fingerprint; link Knowledge pages with \`/openwiki/...\` instead. Claim sidecars and inline code citations do not replace this reader navigation link.
-- Knowledge cross-links must use an exact planned page path, including the \`.md\` suffix. Never guess a shortened slug or omit the suffix.
-- Write Markdown URL targets with literal forward slashes. Never insert backslashes before forward slashes.
-- This block is managed by lee-spec-kit. Put project-specific writing instructions outside the managed markers.
-${OPENWIKI_WRITING_POLICY_END}`;
+    return [
+      `Before drafting or revising a reader-facing page, read and follow \`/skills/${this.skillName}/SKILL.md\` and its reference matching the assigned page type.`,
+      `Write reader-facing content in ${outputLanguage}. Keep code identifiers, commands, paths, and public API names exact.`,
+      ...(language === 'ko'
+        ? [
+            'Write Korean explanations consistently in reader-friendly `해요체` and reader actions with `-하세요`. Do not use declarative `-다` or formal `-습니다` prose, except inside exact identifiers, code, or quoted runtime text.',
+            'Use natural Korean for ordinary explanatory terms: worker → 워커, ownership → 소유권, lifecycle → 수명 주기, focused test → 변경 범위 테스트. Preserve actual code identifiers, product names, and commands; introduce unfamiliar terms once instead of mixing English into every sentence.',
+          ]
+        : [
+            'Use direct, reader-focused English with a clear result, conclusion, or next action first.',
+          ]),
+      "Put the reader's result, conclusion, or next action first and keep one primary goal on the page.",
+      'Use three stages inside each page job: (1) draft an evidence-backed answer to the assigned reader question; (2) edit the complete draft for one dominant document type, one point per paragraph, consistent natural terminology, and no repeated summaries; (3) reconcile commands, conditions, exceptions, source links and Claims with the edited text, then call submit_page. Do not submit the first draft. Perform the edit within this job without a separate model, score, or review artifact.',
+      'Repository evidence and technical accuracy outrank writing style. Never smooth over uncertainty or invent missing facts.',
+      'Input visibility is not repository existence. A failed read or absence from the generation input may mean exclusion or access restrictions, not a missing file. Verify existence only with available authoritative tracked-file metadata; otherwise say the file was not available in the generation input. Never read excluded secrets or relax ignore rules to resolve uncertainty.',
+      'Every generated reader-facing page except the index must include at least one descriptive Markdown link to a tracked source file using `repo://path` or `repo://path#Lx-Ly`. Reserve `repo://` for source files included in the repository fingerprint; link Knowledge pages with `/openwiki/...` instead. Claim sidecars and inline code citations do not replace this reader navigation link.',
+      'Before submitting, check every repo:// target is a regular tracked source file, not a directory or symlink. For a directory, use plain code notation or link a relevant file inside it; never invent a file or line range.',
+      'Knowledge cross-links must use an exact planned page path, including the `.md` suffix. Never guess a shortened slug or omit the suffix.',
+      'Write Markdown URL targets with literal forward slashes. Never insert backslashes before forward slashes.',
+    ];
+  },
+  inspectMarkdown(language, content) {
+    return language === 'ko' ? inspectKoreanReaderVoice(content) : [];
   },
 };
+
+function renderManagedInstructions(
+  adapter: OpenWikiWritingAdapter,
+  language: 'ko' | 'en'
+): string {
+  const plannerInstructions = adapter
+    .renderPlannerInstructions(language)
+    .map((instruction) => `- ${instruction}`)
+    .join('\n');
+  const pageInstructions = adapter
+    .renderPageInstructions(language)
+    .map((instruction) => `- ${instruction}`)
+    .join('\n');
+  return `${OPENWIKI_WRITING_POLICY_BEGIN}
+## Writing policy managed by lee-spec-kit
+
+### Planner contract
+
+${plannerInstructions}
+
+### Page-worker contract
+
+${pageInstructions}
+
+### Managed boundary
+
+- This block is managed by lee-spec-kit. Put project-specific writing instructions outside the managed markers.
+${OPENWIKI_WRITING_POLICY_END}`;
+}
 
 export function resolveOpenWikiConfigDir(
   baseDirectory = process.cwd(),
@@ -80,7 +141,7 @@ export async function resolveOpenWikiWritingPolicy(
     adapter.bundleDirectory
   );
   const skillHash = await hashDirectory(bundlePath);
-  const managedBlock = adapter.renderInstructions(language);
+  const managedBlock = renderManagedInstructions(adapter, language);
   const receipt: OpenWikiWritingPolicyReceipt = {
     adapterId: adapter.id,
     adapterVersion: adapter.version,
@@ -92,6 +153,9 @@ export async function resolveOpenWikiWritingPolicy(
     bundlePath,
     managedBlock,
     receipt,
+    inspectMarkdown(content) {
+      return adapter.inspectMarkdown(language, content);
+    },
     policyHash: hashText(
       [
         receipt.adapterId,
@@ -102,6 +166,121 @@ export async function resolveOpenWikiWritingPolicy(
       ].join('\0')
     ),
   };
+}
+
+export function inspectOpenWikiMarkdownStyle(
+  language: 'ko' | 'en',
+  content: string
+): OpenWikiWritingStyleViolation[] {
+  return DEFAULT_WRITING_ADAPTER.inspectMarkdown(language, content);
+}
+
+function inspectKoreanReaderVoice(
+  content: string
+): OpenWikiWritingStyleViolation[] {
+  const violations: OpenWikiWritingStyleViolation[] = [];
+  const lines = content.split(/\r?\n/u);
+  let frontmatter = lines[0]?.trim() === '---';
+  let fencedBy: '`' | '~' | null = null;
+  let fenceLength = 0;
+  let inHtmlComment = false;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index] || '';
+    const trimmed = rawLine.trim();
+
+    if (index === 0 && frontmatter) continue;
+    if (frontmatter) {
+      if (trimmed === '---') {
+        frontmatter = false;
+        continue;
+      }
+      const description = rawLine.match(
+        /^\s*(?:description|summary):\s*(.*)$/u
+      );
+      if (description) {
+        recordKoreanVoiceViolation(description[1] || '', index, violations);
+      }
+      continue;
+    }
+
+    const fence = rawLine.match(/^\s{0,3}(`{3,}|~{3,})/u)?.[1];
+    if (fence) {
+      const marker = fence[0] as '`' | '~';
+      if (!fencedBy) {
+        fencedBy = marker;
+        fenceLength = fence.length;
+      } else if (marker === fencedBy && fence.length >= fenceLength) {
+        fencedBy = null;
+        fenceLength = 0;
+      }
+      continue;
+    }
+    if (fencedBy || /^\s*>/u.test(rawLine)) continue;
+
+    let prose = rawLine;
+    if (inHtmlComment) {
+      const commentEnd = prose.indexOf('-->');
+      if (commentEnd < 0) continue;
+      prose = prose.slice(commentEnd + 3);
+      inHtmlComment = false;
+    }
+    while (prose.includes('<!--')) {
+      const commentStart = prose.indexOf('<!--');
+      const commentEnd = prose.indexOf('-->', commentStart + 4);
+      if (commentEnd < 0) {
+        prose = prose.slice(0, commentStart);
+        inHtmlComment = true;
+        break;
+      }
+      prose = `${prose.slice(0, commentStart)} ${prose.slice(commentEnd + 3)}`;
+    }
+
+    prose = prose
+      .replace(/`+[^`]*`+/gu, ' ')
+      .replace(/!?\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/gu, '$1')
+      .replace(/"[^"]*"|'[^']*'|“[^”]*”|‘[^’]*’/gu, ' ')
+      .replace(/<[^>]+>/gu, ' ')
+      .replace(/[*_~]/gu, '');
+    recordKoreanVoiceViolation(prose, index, violations);
+  }
+
+  return violations;
+}
+
+function recordKoreanVoiceViolation(
+  prose: string,
+  zeroBasedLine: number,
+  violations: OpenWikiWritingStyleViolation[]
+): void {
+  let disallowed = false;
+  for (const match of prose.matchAll(/([가-힣]+)(?=(?:[.!?…|]|[)}\]]|$))/gu)) {
+    if (isDisallowedKoreanEnding(match[1] || '')) {
+      disallowed = true;
+      break;
+    }
+  }
+  if (!disallowed) return;
+  violations.push({
+    rule: 'ko_reader_voice',
+    line: zeroBasedLine + 1,
+    excerpt: prose.trim().replace(/\s+/gu, ' ').slice(0, 160),
+  });
+}
+
+function isDisallowedKoreanEnding(word: string): boolean {
+  if (/니다$/u.test(word)) return true;
+  if (
+    /(?:는다|한다|된다|이다|아니다|있다|없다|않다|같다|싶다|하다|되다)$/u.test(
+      word
+    )
+  ) {
+    return true;
+  }
+  if (!word.endsWith('다') || word.length < 2) return false;
+  const preceding = word.charCodeAt(word.length - 2);
+  if (preceding < 0xac00 || preceding > 0xd7a3) return false;
+  return (preceding - 0xac00) % 28 === 4;
 }
 
 export async function installOpenWikiWritingSkill(

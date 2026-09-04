@@ -2,6 +2,21 @@
 
 Design the page around the reader's route through the repository.
 
+## Start from the reader's purpose
+
+Use these four document types as the default navigation model:
+
+- `tutorials/`: a guided learning path that reaches a working result;
+- `how-tos/`: a concrete task or problem to finish;
+- `explanations/`: a mental model, boundary, or design reason to understand;
+- `reference/`: exact values, contracts, states, commands, or paths to look up.
+
+OpenWiki generates directory indexes itself; do not include those indexes in a page plan or edit their control fields. Use the required `/openwiki/quickstart.md` as the human entrypoint and group its navigation links by reader purpose. Use a system-oriented group such as `architecture/` or `operations/` only when it is clearer for the reader than the four default types; do not create both groupings for the same content.
+
+Before choosing a path, record the reader question and document type in the page job. “How do I start the app locally?” is a tutorial; “How do I recover a failed job?” is a how-to; “Why does a worker need a lease?” is an explanation; “Which values configure a worker?” is a reference. Separate these goals even when they share source files. Pass this classification to the page worker through the job purpose and instructions, without requiring a new frontmatter schema.
+
+This is a planning preference, not a page-count target. A small repository may need only a few pages. A large repository should split pages only where the reader's goal, prerequisite, or evidence ownership changes.
+
 ## Scope one primary topic
 
 A page should resolve one main question. Split material when sections serve different goals, require different prerequisites, or need to be maintained by different evidence.

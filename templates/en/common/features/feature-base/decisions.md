@@ -12,6 +12,7 @@ If unmanaged docs artifacts exist outside the canonical docs surface (for exampl
 Recording principles:
 
 - Prefer `npx lee-spec-kit decision add <feature-ref> --title "..." --context "..." --decision "..." --rationale "..." --evidence "..."` when creating a new ADR.
+- Append manual entries after the last ADR in D001 → D002 order, never before the document guidance, and preserve existing IDs. Update the same ADR's Trace/Evidence for reruns and verification results; create a new ADR only for a new choice or scope change.
 - Every ADR must capture both **Decision (what was chosen)** and **Trace (how it was evaluated and validated)**.
 - Use fixed timing checkpoints:
   - Task start (`[TODO] -> [DOING]`): add 1-3 lines for `Context/Constraints` and `Trace (initial hypothesis)`
