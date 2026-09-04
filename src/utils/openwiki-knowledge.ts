@@ -1146,22 +1146,45 @@ export async function runOpenWikiSync(
         allowHeadFallback: false,
       };
       let evidenceIntegrity: OpenWikiEvidenceIntegritySummary;
-      try {
-        evidenceIntegrity = await verifyOpenWikiOutput(
-          projectRoot,
-          preserved,
-          verificationContext,
-          progress,
-          owner
-        );
-        await normalizeManagedEntrypoints(projectRoot, preserved);
-      } catch (error) {
-        if (!isOpenWikiEvidenceIntegrityError(error)) throw error;
+      let evidenceRetryUsed = false;
+      let brokenLinkRepairUsed = false;
+      for (;;) {
+        let resetGeneratedOutput = false;
+        try {
+          evidenceIntegrity = await verifyOpenWikiOutput(
+            projectRoot,
+            preserved,
+            verificationContext,
+            progress,
+            owner
+          );
+          await normalizeManagedEntrypoints(projectRoot, preserved);
+          break;
+        } catch (error) {
+          if (!evidenceRetryUsed && isOpenWikiEvidenceIntegrityError(error)) {
+            // OpenWiki 0.5.x can mark an incremental update complete without
+            // refreshing line-bound claim evidence. Retry once from a clean
+            // generated surface while preserving the user-owned brief.
+            evidenceRetryUsed = true;
+            resetGeneratedOutput = true;
+          } else if (
+            !brokenLinkRepairUsed &&
+            isOpenWikiBrokenLinkValidationError(error) &&
+            (await hasOpenWikiBrokenLinkStamps(projectRoot))
+          ) {
+            // OpenWiki deliberately stamps broken internal links so a later
+            // update can repair them with the full page plan still present.
+            // Run that bounded repair pass in place instead of rewriting the
+            // generated Markdown or its provenance ourselves.
+            brokenLinkRepairUsed = true;
+          } else {
+            throw error;
+          }
 
-        // OpenWiki 0.5.x can mark an incremental update complete without
-        // refreshing line-bound claim evidence. Retry once from a clean
-        // generated surface while preserving the user-owned brief.
-        await resetGeneratedOpenWikiOutput(projectRoot);
+          if (resetGeneratedOutput) {
+            await resetGeneratedOpenWikiOutput(projectRoot);
+          }
+        }
         await verifyOpenWikiWritingSkillInstallation(
           writingPolicy,
           openWikiConfigDir
@@ -1174,7 +1197,10 @@ export async function runOpenWikiSync(
           owner,
           idleTimeoutMs: input.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
           absoluteTimeoutMs:
-            input.absoluteTimeoutMs ?? DEFAULT_BOOTSTRAP_TIMEOUT_MS,
+            input.absoluteTimeoutMs ??
+            (resetGeneratedOutput
+              ? DEFAULT_BOOTSTRAP_TIMEOUT_MS
+              : DEFAULT_UPDATE_TIMEOUT_MS),
           onProgress: input.onProgress,
         });
         await verifyOpenWikiWritingSkillInstallation(
@@ -1197,14 +1223,6 @@ export async function runOpenWikiSync(
             'Tracked source changed while OpenWiki was regenerating. Partial output was preserved, but no receipt was written.'
           );
         }
-        evidenceIntegrity = await verifyOpenWikiOutput(
-          projectRoot,
-          preserved,
-          verificationContext,
-          progress,
-          owner
-        );
-        await normalizeManagedEntrypoints(projectRoot, preserved);
       }
       const changedPaths = collectGitChangedPaths(projectRoot);
       const unexpectedPaths = changedPaths.filter(
@@ -3554,6 +3572,45 @@ function isOpenWikiEvidenceIntegrityError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const details = (error as { details?: { validation?: unknown } }).details;
   return details?.validation === OPENWIKI_EVIDENCE_VALIDATION;
+}
+
+function isOpenWikiBrokenLinkValidationError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (
+    candidate.code !== 'OPENWIKI_OUTPUT_INVALID' ||
+    typeof candidate.message !== 'string'
+  ) {
+    return false;
+  }
+  return (
+    candidate.message.startsWith('Broken OpenWiki link at ') ||
+    candidate.message.startsWith('OpenWiki link has an unsafe local path at ')
+  );
+}
+
+async function hasOpenWikiBrokenLinkStamps(
+  projectRoot: string
+): Promise<boolean> {
+  const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
+  let found = false;
+  await walkFilesPreservingRoot(
+    wikiRoot,
+    async (absolutePath, relativePath) => {
+      if (
+        found ||
+        !relativePath.toLowerCase().endsWith('.md') ||
+        isUnmanifestedOpenWikiMarkdownAllowed(relativePath)
+      ) {
+        return;
+      }
+      const content = await fs.readFile(absolutePath, 'utf-8');
+      found = /^\s*<!--\s*openwiki:\s*broken internal link\b.*?-->\s*$/mu.test(
+        content
+      );
+    }
+  );
+  return found;
 }
 
 async function resetGeneratedOpenWikiOutput(

@@ -276,7 +276,13 @@ const citation = citationMode ? '\\nEvidence: \`README.md#L1-L' + (staleCitation
 const sourceLink = process.env.FAKE_OPENWIKI_OMIT_SOURCE_LINK === '1'
   ? 'README is the demo entrypoint.'
   : 'The tracked [README](repo://' + (process.env.FAKE_OPENWIKI_SOURCE_LINK_TARGET || 'README.md#L1-L1') + ') is the demo entrypoint.';
-const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\n' + sourceLink + '\\n' + citation;
+const brokenLinkMode = process.env.FAKE_OPENWIKI_BROKEN_LINK_MODE || '';
+const brokenLink = brokenLinkMode === 'always' ||
+  (brokenLinkMode === 'first' && updateInvocationCount === 1) ||
+  (brokenLinkMode === 'second' && updateInvocationCount === 2)
+  ? '\\n<!-- openwiki: broken internal link [/openwiki/missing.md] file "/openwiki/missing.md" does not exist. Fix the href or restore the target, then delete this comment. -->\\n[Missing](/openwiki/missing.md)\\n'
+  : '';
+const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\n' + sourceLink + '\\n' + citation + brokenLink;
 fs.writeFileSync(path.join(wiki, 'architecture map.md'), pageContent);
 const pageVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(pageContent)).digest('hex');
 const claimMode = process.env.FAKE_OPENWIKI_CLAIM_MODE || 'valid';
@@ -1288,6 +1294,38 @@ test('OpenWiki sync rejects generated Knowledge as a repo source link', async ()
     assert.equal(payload.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
     assert.equal(payload.details.validation, 'evidence_structure');
     assert.match(payload.error, /excluded from the Knowledge fingerprint/u);
+  });
+});
+
+test('OpenWiki runs one in-place broken-link repair after a clean evidence retry', async () => {
+  await withTempDir('lsk-openwiki-link-repair-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_CLAIM_MODE: 'stale-first',
+          FAKE_OPENWIKI_BROKEN_LINK_MODE: 'second',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(result.status, 'ok', result.error);
+    const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
+      .split('\n')
+      .filter((entry) => entry === 'code --update --print --language en');
+    assert.equal(invocations.length, 3);
+    assert.doesNotMatch(
+      await fs.readFile(
+        path.join(dir, 'openwiki', 'architecture map.md'),
+        'utf-8'
+      ),
+      /openwiki: broken internal link/u
+    );
   });
 });
 
