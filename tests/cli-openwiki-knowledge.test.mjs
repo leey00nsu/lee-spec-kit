@@ -188,6 +188,7 @@ async function setupFakeOpenWiki(dir) {
   await ignoreGitArtifacts(dir, [
     '/fake-openwiki-bin/',
     '/fake-openwiki-package/',
+    '/fake-openwiki-config/',
     '/openwiki-invocations.log',
   ]);
   await fs.mkdir(binDir, { recursive: true });
@@ -230,6 +231,10 @@ if (args.join(' ') !== 'code --update --print --language en') {
 }
 const root = process.cwd();
 const wiki = path.join(root, 'openwiki');
+if (process.env.FAKE_OPENWIKI_EXPECT_CONFIG_DIR && process.env.OPENWIKI_CONFIG_DIR !== process.env.FAKE_OPENWIKI_EXPECT_CONFIG_DIR) {
+  process.stderr.write('OPENWIKI_CONFIG_DIR was not normalized for the child process');
+  process.exit(10);
+}
 const updateInvocationCount = fs.readFileSync(${JSON.stringify(invocationLog)}, 'utf8')
   .split(/\\r?\\n/u)
   .filter((entry) => entry === 'code --update --print --language en').length;
@@ -359,6 +364,9 @@ for (const fileName of ['AGENTS.md', 'CLAUDE.md']) {
     ? current.slice(0, start) + block + current.slice(finish + end.length)
     : current.trimEnd() + (current.trim() ? '\\n\\n' : '') + block + '\\n';
   fs.writeFileSync(target, next);
+}
+if (process.env.FAKE_OPENWIKI_TAMPER_WRITING_SKILL === '1') {
+  fs.appendFileSync(path.join(process.env.OPENWIKI_CONFIG_DIR, 'skills', 'lee-spec-kit-technical-writing', 'SKILL.md'), '\\nconcurrent tamper\\n');
 }
 process.stdout.write('updated\\n');
 `,
@@ -652,8 +660,18 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
       'openwiki code --update --print --language en'
     );
     assert.equal(syncResult.receipt.triggerFeatureRef, 'F001-alpha');
-    assert.equal(syncResult.receipt.schemaVersion, 2);
+    assert.equal(syncResult.receipt.schemaVersion, 3);
     assert.equal(syncResult.receipt.okfVersion, '0.2');
+    assert.equal(
+      syncResult.receipt.writingPolicy.adapterId,
+      'lee-spec-kit.technical-writing'
+    );
+    assert.equal(
+      syncResult.receipt.writingPolicy.skillName,
+      'lee-spec-kit-technical-writing'
+    );
+    assert.match(syncResult.receipt.writingPolicy.skillHash, /^sha256:/u);
+    assert.match(syncResult.receipt.writingPolicy.instructionHash, /^sha256:/u);
     assert.equal(syncResult.progress.phase, 'complete');
     assert.equal(
       syncResult.progress.completedPages,
@@ -674,6 +692,27 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
     assert.match(openWikiIgnore, /^\.lee-spec-kit\/openwiki-run\.json$/mu);
     assert.match(openWikiIgnore, /^\*\*\/secrets\/$/mu);
     assert.match(openWikiIgnore, /# lee-spec-kit:openwiki-ignore:end\s*$/u);
+    const instructions = await fs.readFile(
+      path.join(dir, 'openwiki', 'INSTRUCTIONS.md'),
+      'utf-8'
+    );
+    assert.match(instructions, /<!-- lee-spec-kit:writing-policy:begin -->/u);
+    assert.match(
+      instructions,
+      /\/skills\/lee-spec-kit-technical-writing\/SKILL\.md/u
+    );
+    assert.match(
+      await fs.readFile(
+        path.join(
+          fake.env.OPENWIKI_CONFIG_DIR,
+          'skills',
+          'lee-spec-kit-technical-writing',
+          'SKILL.md'
+        ),
+        'utf-8'
+      ),
+      /code-grounded OpenWiki pages/u
+    );
     const invocations = await fs.readFile(fake.invocationLog, 'utf-8');
     assert.match(invocations, /code --update --print --language en\n$/u);
     assert.doesNotMatch(invocations, /--init/u);
@@ -917,6 +956,226 @@ test('OpenWiki sync regenerates once when incremental claim evidence is stale', 
           'utf-8'
         )
         .then((content) => content.includes('sha256:' + '0'.repeat(64))),
+      false
+    );
+  });
+});
+
+test('OpenWiki migrates an older receipt to the managed writing policy and preserves custom instructions', async () => {
+  await withTempDir('lsk-openwiki-writing-migration-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const first = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(first.status, 'ok', first.error);
+
+    const instructionsPath = path.join(dir, 'openwiki', 'INSTRUCTIONS.md');
+    await fs.appendFile(
+      instructionsPath,
+      '\nProject-specific rule: introduce the demo API before its worker.\n',
+      'utf-8'
+    );
+    await fs.writeFile(
+      path.join(dir, 'openwiki', 'obsolete.md'),
+      '# Obsolete generated page\n',
+      'utf-8'
+    );
+    const receiptPath = path.join(dir, '.lee-spec-kit', 'openwiki-sync.json');
+    const receipt = JSON.parse(await fs.readFile(receiptPath, 'utf-8'));
+    receipt.schemaVersion = 2;
+    delete receipt.writingPolicy;
+    await fs.writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+
+    const stale = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(stale.status, 'sync_required');
+    assert.equal(stale.reasonCode, 'OPENWIKI_WRITING_POLICY_STALE');
+
+    const migrated = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(migrated.status, 'ok', migrated.error);
+    assert.equal(migrated.receipt.schemaVersion, 3);
+    assert.equal(
+      await fs.access(path.join(dir, 'openwiki', 'obsolete.md')).then(
+        () => true,
+        () => false
+      ),
+      false
+    );
+    assert.match(
+      await fs.readFile(instructionsPath, 'utf-8'),
+      /Project-specific rule: introduce the demo API before its worker\./u
+    );
+    const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
+      .split('\n')
+      .filter((entry) => entry === 'code --update --print --language en');
+    assert.equal(invocations.length, 2);
+  });
+});
+
+test('OpenWiki does not overwrite a same-name user skill', async () => {
+  await withTempDir('lsk-openwiki-writing-conflict-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const skillDirectory = path.join(
+      fake.env.OPENWIKI_CONFIG_DIR,
+      'skills',
+      'lee-spec-kit-technical-writing'
+    );
+    await fs.mkdir(skillDirectory, { recursive: true });
+    await fs.writeFile(
+      path.join(skillDirectory, 'SKILL.md'),
+      '# User-owned skill\n',
+      'utf-8'
+    );
+
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(result.status, 'error');
+    assert.equal(result.reasonCode, 'OPENWIKI_WRITING_SKILL_CONFLICT');
+    assert.equal(
+      await fs.readFile(path.join(skillDirectory, 'SKILL.md'), 'utf-8'),
+      '# User-owned skill\n'
+    );
+  });
+});
+
+test('OpenWiki does not replace a dangling same-name user skill symlink', async () => {
+  await withTempDir('lsk-openwiki-writing-symlink-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const skillsDirectory = path.join(fake.env.OPENWIKI_CONFIG_DIR, 'skills');
+    const skillDirectory = path.join(
+      skillsDirectory,
+      'lee-spec-kit-technical-writing'
+    );
+    await fs.mkdir(skillsDirectory, { recursive: true });
+    await fs.symlink(path.join(dir, 'missing-user-skill'), skillDirectory);
+
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(result.status, 'error');
+    assert.equal(result.reasonCode, 'OPENWIKI_WRITING_SKILL_CONFLICT');
+    assert.equal((await fs.lstat(skillDirectory)).isSymbolicLink(), true);
+  });
+});
+
+test('OpenWiki normalizes a relative config directory for installation and the child process', async () => {
+  await withTempDir('lsk-openwiki-relative-config-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const relativeConfigDir = `../${path.basename(dir)}-openwiki-config`;
+    const absoluteConfigDir = path.resolve(
+      await fs.realpath(dir),
+      relativeConfigDir
+    );
+    try {
+      const result = json(
+        await runCli(
+          dir,
+          ['knowledge', 'sync', 'F001-alpha', '--json'],
+          {
+            ...fake.env,
+            OPENWIKI_CONFIG_DIR: relativeConfigDir,
+            FAKE_OPENWIKI_EXPECT_CONFIG_DIR: absoluteConfigDir,
+          },
+          { timeoutMs: 60_000 }
+        )
+      );
+      assert.equal(result.status, 'ok', result.error);
+      assert.equal(
+        await fs
+          .access(
+            path.join(
+              absoluteConfigDir,
+              'skills',
+              'lee-spec-kit-technical-writing',
+              'SKILL.md'
+            )
+          )
+          .then(
+            () => true,
+            () => false
+          ),
+        true
+      );
+    } finally {
+      await fs.rm(absoluteConfigDir, { recursive: true, force: true });
+    }
+  });
+});
+
+test('OpenWiki rejects an unignored project-local config directory before installation', async () => {
+  await withTempDir('lsk-openwiki-visible-config-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const visibleConfigDir = path.join(dir, 'visible-openwiki-config');
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        { ...fake.env, OPENWIKI_CONFIG_DIR: visibleConfigDir },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(result.status, 'error');
+    assert.equal(result.reasonCode, 'OPENWIKI_CONFIG_DIR_UNSAFE');
+    assert.equal(
+      await fs.access(visibleConfigDir).then(
+        () => true,
+        () => false
+      ),
+      false
+    );
+  });
+});
+
+test('OpenWiki refuses a receipt when the installed writing skill changes during generation', async () => {
+  await withTempDir('lsk-openwiki-writing-tamper-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        { ...fake.env, FAKE_OPENWIKI_TAMPER_WRITING_SKILL: '1' },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(result.status, 'error');
+    assert.equal(result.reasonCode, 'OPENWIKI_WRITING_SKILL_UNAVAILABLE');
+    assert.equal(
+      await fs
+        .access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json'))
+        .then(
+          () => true,
+          () => false
+        ),
       false
     );
   });
@@ -1243,25 +1502,11 @@ test('OpenWiki accepts legacy OKF 0.1 output without modern provenance metadata'
     );
     const receiptPath = path.join(dir, '.lee-spec-kit', 'openwiki-sync.json');
     const modernReceipt = JSON.parse(await fs.readFile(receiptPath, 'utf-8'));
+    modernReceipt.okfVersion = '0.1';
+    modernReceipt.outputHash = 'sha256:pending';
     await fs.writeFile(
       receiptPath,
-      `${JSON.stringify(
-        {
-          schemaVersion: 1,
-          featureRef: modernReceipt.triggerFeatureRef,
-          component: modernReceipt.triggerComponent,
-          language: modernReceipt.language,
-          sourceHead: modernReceipt.sourceHead,
-          sourceFingerprint: modernReceipt.sourceFingerprint,
-          baseRef: modernReceipt.baseRef,
-          baseHead: modernReceipt.baseHead,
-          openwikiVersion: modernReceipt.openwikiVersion,
-          outputHash: 'sha256:pending',
-          verifiedAt: modernReceipt.verifiedAt,
-        },
-        null,
-        2
-      )}\n`
+      `${JSON.stringify(modernReceipt, null, 2)}\n`
     );
     await rebindOpenWikiReceiptOutputHash(dir);
     await git(dir, [
@@ -1281,7 +1526,7 @@ test('OpenWiki accepts legacy OKF 0.1 output without modern provenance metadata'
       await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
     );
     assert.equal(audit.status, 'verified', JSON.stringify(audit));
-    assert.equal(audit.receipt.schemaVersion, 1);
+    assert.equal(audit.receipt.schemaVersion, 3);
     assert.equal(audit.receipt.okfVersion, '0.1');
     assert.equal(audit.evidenceIntegrity.manifestPages, undefined);
   });
@@ -1429,36 +1674,21 @@ test('OpenWiki run-owner updates stay outside the source fingerprint', async () 
 test('OpenWiki reports an interrupted finished process without claiming its queue was never persisted', async () => {
   await withTempDir('lsk-openwiki-interrupted-finish-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);
-    const before = json(
-      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
-    );
-    await fs.mkdir(path.join(dir, 'openwiki'), { recursive: true });
-    await fs.mkdir(path.join(dir, '.lee-spec-kit'), { recursive: true });
-    await fs.writeFile(
-      path.join(dir, 'openwiki', '.last-update.json'),
-      `${JSON.stringify({ status: 'interrupted', command: 'update' }, null, 2)}\n`,
-      'utf-8'
-    );
-    await fs.writeFile(
-      path.join(dir, '.lee-spec-kit', 'openwiki-run.json'),
-      `${JSON.stringify(
+    const fake = await setupFakeOpenWiki(dir);
+    const failed = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
         {
-          schemaVersion: 1,
-          ownerId: 'test-owner',
-          featureRef: 'F001-alpha',
-          component: 'single',
-          language: 'en',
-          sourceHead: 'test-head',
-          sourceFingerprint: before.sourceFingerprint,
-          baseHead: 'test-base',
-          startedAt: '2026-09-03T00:00:00.000Z',
-          runId: 'finished-run',
+          ...fake.env,
+          FAKE_OPENWIKI_SLEEP_MS: '1500',
+          FAKE_OPENWIKI_INTERRUPTED: 'finished',
         },
-        null,
-        2
-      )}\n`,
-      'utf-8'
+        { timeoutMs: 60_000 }
+      )
     );
+    assert.equal(failed.status, 'error');
+    assert.equal(failed.reasonCode, 'OPENWIKI_RUN_INCOMPLETE');
 
     const interrupted = json(
       await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
@@ -1473,7 +1703,7 @@ test('OpenWiki reports an interrupted finished process without claiming its queu
     );
     assert.equal(interrupted.interruption.lastUpdateStatus, 'interrupted');
     assert.equal(interrupted.interruption.activePageQueue, false);
-    assert.equal(interrupted.interruption.ownerRunId, 'finished-run');
+    assert.equal(interrupted.interruption.ownerRunId, 'fake-run');
   });
 });
 

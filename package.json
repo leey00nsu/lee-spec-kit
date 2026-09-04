@@ -11,7 +11,9 @@
   "files": [
     "dist",
     "templates",
-    "assets"
+    "assets",
+    "resources",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -38,7 +40,7 @@
     "workflow"
   ],
   "author": "Lee Yoonsu",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=18.0.0"
   },

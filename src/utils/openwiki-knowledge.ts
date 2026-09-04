@@ -16,6 +16,15 @@ import type { ProjectConfig } from '../config/types.js';
 import { createCliError } from './cli-error.js';
 import { runGitCapture } from './git-run.js';
 import { getProjectExecutionLockPath, withFileLock } from './lock.js';
+import {
+  ensureOpenWikiWritingInstructions,
+  inspectOpenWikiWritingPolicy,
+  installOpenWikiWritingSkill,
+  resolveOpenWikiConfigDir,
+  resolveOpenWikiWritingPolicy,
+  verifyOpenWikiWritingSkillInstallation,
+  type OpenWikiWritingPolicyReceipt,
+} from './openwiki-writing.js';
 
 export const OPENWIKI_DIR = 'openwiki';
 export const OPENWIKI_RECEIPT_PATH = '.lee-spec-kit/openwiki-sync.json';
@@ -27,8 +36,8 @@ export const OPENWIKI_AGENTS_END = '<!-- OPENWIKI:END -->';
 const OPENWIKI_IGNORE_BEGIN = '# lee-spec-kit:openwiki-ignore:begin';
 const OPENWIKI_IGNORE_END = '# lee-spec-kit:openwiki-ignore:end';
 
-const RECEIPT_SCHEMA_VERSION = 2;
-const RUN_OWNER_SCHEMA_VERSION = 1;
+const RECEIPT_SCHEMA_VERSION = 3;
+const RUN_OWNER_SCHEMA_VERSION = 2;
 const OPENWIKI_CAPABILITY = {
   range: '>=0.5.0 <0.6.0',
   okfVersion: '0.2',
@@ -156,7 +165,7 @@ const OPENWIKI_PROVIDER_CONTRACTS: Record<
 };
 
 export interface OpenWikiReceipt {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   /** Feature that most recently triggered this project-wide snapshot. */
   triggerFeatureRef: string;
   /** Component that most recently triggered this project-wide snapshot. */
@@ -170,6 +179,7 @@ export interface OpenWikiReceipt {
   okfVersion: string;
   outputHash: string;
   verifiedAt: string;
+  writingPolicy?: OpenWikiWritingPolicyReceipt;
 }
 
 export interface OpenWikiProgress {
@@ -200,7 +210,7 @@ export interface OpenWikiInterruptionDetails {
 }
 
 interface OpenWikiRunOwner {
-  schemaVersion: 1;
+  schemaVersion: 2;
   ownerId: string;
   featureRef: string;
   component: string;
@@ -210,6 +220,7 @@ interface OpenWikiRunOwner {
   baseHead: string;
   startedAt: string;
   runId?: string;
+  writingPolicyHash: string;
 }
 
 export type OpenWikiRuntimeProbe =
@@ -255,6 +266,8 @@ export interface OpenWikiKnowledgeState {
     | 'OPENWIKI_RECEIPT_MISSING'
     | 'OPENWIKI_RUN_INCOMPLETE'
     | 'OPENWIKI_RUN_OWNER_MISMATCH'
+    | 'OPENWIKI_WRITING_POLICY_STALE'
+    | 'OPENWIKI_WRITING_SKILL_UNAVAILABLE'
     | 'OPENWIKI_SOURCE_STALE'
     | 'OPENWIKI_BASE_STALE'
     | 'OPENWIKI_OUTPUT_STALE'
@@ -320,7 +333,7 @@ interface OpenWikiVerificationContext {
   docsDir: string;
   language: 'ko' | 'en';
   okfVersion: string;
-  receiptSchemaVersion: 1 | 2;
+  receiptSchemaVersion: 1 | 2 | 3;
   allowHeadFallback: boolean;
 }
 
@@ -367,6 +380,39 @@ export function isOpenWikiKnowledgePath(relativePath: string): boolean {
     normalized === OPENWIKI_IGNORE_PATH ||
     normalized === 'AGENTS.md' ||
     normalized === 'CLAUDE.md'
+  );
+}
+
+function assertOpenWikiConfigDirSafe(
+  projectRoot: string,
+  configDir: string
+): void {
+  const relative = path.relative(projectRoot, configDir);
+  const isInsideProject =
+    relative === '' ||
+    (relative !== '..' &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative));
+  if (!isInsideProject) return;
+  if (relative === '') {
+    throw createCliError(
+      'OPENWIKI_CONFIG_DIR_UNSAFE',
+      `OPENWIKI_CONFIG_DIR must not be the project root: ${configDir}. Use the default OpenWiki home or another ignored directory.`
+    );
+  }
+
+  const normalized = normalizeGitPath(relative);
+  const probe = `${normalized}/.lee-spec-kit-openwiki-config-probe`;
+  if (
+    execGitSuccess(projectRoot, ['check-ignore', '-q', '--', normalized]) ||
+    execGitSuccess(projectRoot, ['check-ignore', '-q', '--', probe])
+  ) {
+    return;
+  }
+
+  throw createCliError(
+    'OPENWIKI_CONFIG_DIR_UNSAFE',
+    `OPENWIKI_CONFIG_DIR resolves inside the project and is not ignored by Git: ${configDir}. Move it outside the project or add a narrow ignore rule before syncing.`
   );
 }
 
@@ -454,6 +500,21 @@ export async function inspectOpenWikiKnowledge(input: {
   const unexpectedPaths = changedPaths.filter(
     (entry) => !isOpenWikiKnowledgePath(entry)
   );
+  let writingPolicy: Awaited<ReturnType<typeof resolveOpenWikiWritingPolicy>>;
+  try {
+    writingPolicy = await resolveOpenWikiWritingPolicy(input.config.lang);
+  } catch (error) {
+    return state(
+      'blocked',
+      'OPENWIKI_WRITING_SKILL_UNAVAILABLE',
+      projectRoot,
+      changedPaths,
+      unexpectedPaths,
+      error instanceof Error
+        ? error.message
+        : 'The bundled OpenWiki writing skill could not be inspected.'
+    );
+  }
 
   const indexPath = path.join(projectRoot, OPENWIKI_DIR, 'index.md');
   const receipt = await readOpenWikiReceipt(projectRoot);
@@ -465,7 +526,8 @@ export async function inspectOpenWikiKnowledge(input: {
       activeOwner.featureRef !== input.featureRef ||
       activeOwner.component !== input.component ||
       activeOwner.language !== input.config.lang ||
-      activeOwner.sourceFingerprint !== sourceFingerprint
+      activeOwner.sourceFingerprint !== sourceFingerprint ||
+      activeOwner.writingPolicyHash !== writingPolicy.policyHash
     ) {
       return {
         ...state(
@@ -474,7 +536,7 @@ export async function inspectOpenWikiKnowledge(input: {
           projectRoot,
           changedPaths,
           unexpectedPaths,
-          'An interrupted OpenWiki run is not owned by this Feature/source snapshot. Preserve it for inspection or resume it from its original Feature.'
+          'An interrupted OpenWiki run is not owned by this Feature, source snapshot, or writing policy. Preserve it for inspection or resume it with its original inputs.'
         ),
         sourceFingerprint,
         receipt: receipt || undefined,
@@ -506,7 +568,8 @@ export async function inspectOpenWikiKnowledge(input: {
       activeOwner.featureRef === input.featureRef &&
       activeOwner.component === input.component &&
       activeOwner.language === input.config.lang &&
-      activeOwner.sourceFingerprint === sourceFingerprint;
+      activeOwner.sourceFingerprint === sourceFingerprint &&
+      activeOwner.writingPolicyHash === writingPolicy.policyHash;
     const interruption = await inspectOpenWikiInterruption(
       projectRoot,
       undefined,
@@ -525,7 +588,7 @@ export async function inspectOpenWikiKnowledge(input: {
           ? interruption.lastUpdateStatus === 'interrupted'
             ? 'A prior OpenWiki process ended without a complete update and no active page queue remains. Generated state was preserved; inspect `interruption` and rerun the same sync.'
             : 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
-          : 'The pending OpenWiki owner record belongs to another Feature/source snapshot.'
+          : 'The pending OpenWiki owner record belongs to another Feature, source snapshot, or writing policy.'
       ),
       sourceFingerprint,
       receipt: receipt || undefined,
@@ -570,6 +633,28 @@ export async function inspectOpenWikiKnowledge(input: {
       receipt: receipt || undefined,
       interruption,
     };
+  }
+
+  if (receipt) {
+    const writingState = await inspectOpenWikiWritingPolicy(
+      path.join(projectRoot, OPENWIKI_DIR, 'INSTRUCTIONS.md'),
+      writingPolicy,
+      receipt.writingPolicy
+    );
+    if (!writingState.current) {
+      return {
+        ...state(
+          'sync_required',
+          'OPENWIKI_WRITING_POLICY_STALE',
+          projectRoot,
+          changedPaths,
+          unexpectedPaths,
+          writingState.detail
+        ),
+        sourceFingerprint,
+        receipt,
+      };
+    }
   }
 
   try {
@@ -837,6 +922,7 @@ export async function runOpenWikiSync(
 
   const projectRoot = resolveProjectRoot(input.projectCwd);
   const docsDir = resolveOpenWikiDocsDir(projectRoot, input.config.docsDir);
+  const openWikiConfigDir = resolveOpenWikiConfigDir();
   return withFileLock(
     getProjectExecutionLockPath(projectRoot),
     async () => {
@@ -845,11 +931,15 @@ export async function runOpenWikiSync(
       if (!runtime.ok) {
         throw createCliError(runtime.reasonCode, runtime.detail);
       }
-      const provider = await probeOpenWikiProvider(runtime);
+      assertOpenWikiConfigDirSafe(projectRoot, openWikiConfigDir);
+      const provider = await probeOpenWikiProvider(runtime, openWikiConfigDir);
       if (!provider.ok) {
         throw createCliError(provider.reasonCode, provider.detail);
       }
       await assertExistingOpenWikiOkfCompatible(projectRoot);
+      const writingPolicy = await resolveOpenWikiWritingPolicy(
+        input.config.lang
+      );
 
       const initialChanges = collectGitChangedPaths(projectRoot);
       const unexpectedInitialChanges = initialChanges.filter(
@@ -863,6 +953,11 @@ export async function runOpenWikiSync(
       }
       await verifyProtectedEntrypointsAgainstHead(projectRoot);
       await ensureManagedOpenWikiIgnore(projectRoot, docsDir);
+      await installOpenWikiWritingSkill(
+        writingPolicy,
+        openWikiConfigDir,
+        input.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS
+      );
 
       const sourceHead =
         runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
@@ -889,17 +984,40 @@ export async function runOpenWikiSync(
 
       const existingProgress = await readOpenWikiProgress(projectRoot);
       const existingOwner = await readOpenWikiRunOwner(projectRoot);
+      const instructionsPath = path.join(
+        projectRoot,
+        OPENWIKI_DIR,
+        'INSTRUCTIONS.md'
+      );
+      const existingReceipt = await readOpenWikiReceipt(projectRoot);
+      const receiptWritingState = await inspectOpenWikiWritingPolicy(
+        instructionsPath,
+        writingPolicy,
+        existingReceipt?.writingPolicy
+      );
+      const instructionWritingState = await inspectOpenWikiWritingPolicy(
+        instructionsPath,
+        writingPolicy,
+        writingPolicy.receipt
+      );
       const ownerMismatch =
         !!existingOwner &&
         (existingOwner.featureRef !== input.featureRef ||
           existingOwner.component !== input.component ||
           existingOwner.language !== input.config.lang ||
           existingOwner.sourceFingerprint !== sourceFingerprint ||
-          existingOwner.baseHead !== base.head);
+          existingOwner.baseHead !== base.head ||
+          existingOwner.writingPolicyHash !== writingPolicy.policyHash);
       if ((existingProgress && !existingOwner) || ownerMismatch) {
         throw createCliError(
           'OPENWIKI_RUN_OWNER_MISMATCH',
-          'The durable OpenWiki run belongs to a different Feature or source snapshot. Resume it from the original Feature or remove it only after explicit inspection.'
+          'The durable OpenWiki run belongs to a different Feature, source snapshot, or writing policy. Resume it with the original inputs or remove it only after explicit inspection.'
+        );
+      }
+      if (existingProgress && !instructionWritingState.current) {
+        throw createCliError(
+          'OPENWIKI_PROTECTED_CONTENT_CHANGED',
+          'The writing policy changed during an interrupted OpenWiki run. Preserve the partial output for inspection; do not resume it under different instructions.'
         );
       }
 
@@ -913,27 +1031,27 @@ export async function runOpenWikiSync(
         sourceFingerprint,
         baseHead: base.head,
         startedAt: new Date().toISOString(),
+        writingPolicyHash: writingPolicy.policyHash,
       };
       await writeOpenWikiRunOwner(projectRoot, owner);
 
-      const instructionsPath = path.join(
-        projectRoot,
-        OPENWIKI_DIR,
-        'INSTRUCTIONS.md'
-      );
       await ensureSafeDirectory(path.dirname(instructionsPath), projectRoot);
-      if (!(await fs.pathExists(instructionsPath))) {
-        await writeFileAtomic(
-          instructionsPath,
-          defaultOpenWikiInstructions(),
-          projectRoot
-        );
-      }
+      await ensureOpenWikiWritingInstructions(
+        instructionsPath,
+        defaultOpenWikiInstructions(),
+        writingPolicy
+      );
 
-      const preserved = await snapshotProtectedContent(projectRoot);
       const hasIndex = await fs.pathExists(
         path.join(projectRoot, OPENWIKI_DIR, 'index.md')
       );
+      const writingPolicyRegenerationRequired =
+        hasIndex && !receiptWritingState.current;
+      if (writingPolicyRegenerationRequired && !existingProgress) {
+        await resetGeneratedOpenWikiOutput(projectRoot);
+      }
+
+      const preserved = await snapshotProtectedContent(projectRoot);
       const initialized = !hasIndex;
       // `--init` also creates a scheduled GitHub workflow. The Knowledge layer
       // deliberately owns only generated docs plus OpenWiki's managed agent
@@ -945,20 +1063,29 @@ export async function runOpenWikiSync(
         '--language',
         input.config.lang,
       ];
+      await verifyOpenWikiWritingSkillInstallation(
+        writingPolicy,
+        openWikiConfigDir
+      );
 
       let progress = await runOpenWikiProcess({
         executablePath: runtime.executablePath,
         args,
         projectRoot,
+        openWikiConfigDir,
         owner,
         idleTimeoutMs: input.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
         absoluteTimeoutMs:
           input.absoluteTimeoutMs ??
-          (initialized
+          (initialized || writingPolicyRegenerationRequired
             ? DEFAULT_BOOTSTRAP_TIMEOUT_MS
             : DEFAULT_UPDATE_TIMEOUT_MS),
         onProgress: input.onProgress,
       });
+      await verifyOpenWikiWritingSkillInstallation(
+        writingPolicy,
+        openWikiConfigDir
+      );
 
       await assertManagedOpenWikiPathsSafe(projectRoot, false);
       const currentSourceFingerprint = computeSourceFingerprint(
@@ -1003,16 +1130,25 @@ export async function runOpenWikiSync(
         // refreshing line-bound claim evidence. Retry once from a clean
         // generated surface while preserving the user-owned brief.
         await resetGeneratedOpenWikiOutput(projectRoot);
+        await verifyOpenWikiWritingSkillInstallation(
+          writingPolicy,
+          openWikiConfigDir
+        );
         progress = await runOpenWikiProcess({
           executablePath: runtime.executablePath,
           args,
           projectRoot,
+          openWikiConfigDir,
           owner,
           idleTimeoutMs: input.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
           absoluteTimeoutMs:
             input.absoluteTimeoutMs ?? DEFAULT_BOOTSTRAP_TIMEOUT_MS,
           onProgress: input.onProgress,
         });
+        await verifyOpenWikiWritingSkillInstallation(
+          writingPolicy,
+          openWikiConfigDir
+        );
         await assertManagedOpenWikiPathsSafe(projectRoot, false);
         const retrySourceFingerprint = computeSourceFingerprint(
           projectRoot,
@@ -1070,6 +1206,7 @@ export async function runOpenWikiSync(
         okfVersion: runtime.capability.okfVersion,
         outputHash,
         verifiedAt: new Date().toISOString(),
+        writingPolicy: writingPolicy.receipt,
       };
       const receiptPath = path.join(projectRoot, OPENWIKI_RECEIPT_PATH);
       await writeJsonAtomic(receiptPath, receipt, projectRoot);
@@ -1169,11 +1306,9 @@ export function probeOpenWikiRuntime(): OpenWikiRuntimeProbe {
 }
 
 export async function probeOpenWikiProvider(
-  runtime: Extract<OpenWikiRuntimeProbe, { ok: true }>
+  runtime: Extract<OpenWikiRuntimeProbe, { ok: true }>,
+  configDir = resolveOpenWikiConfigDir()
 ): Promise<OpenWikiProviderProbe> {
-  const configDir = process.env.OPENWIKI_CONFIG_DIR?.trim()
-    ? path.resolve(expandHome(process.env.OPENWIKI_CONFIG_DIR.trim()))
-    : path.join(os.homedir(), '.openwiki');
   const configPath = path.join(configDir, '.env');
   let fileEnvironment: Record<string, string>;
   try {
@@ -1568,6 +1703,7 @@ async function runOpenWikiProcess(input: {
   executablePath: string;
   args: string[];
   projectRoot: string;
+  openWikiConfigDir: string;
   owner: OpenWikiRunOwner;
   idleTimeoutMs: number;
   absoluteTimeoutMs: number;
@@ -1577,7 +1713,10 @@ async function runOpenWikiProcess(input: {
     cwd: input.projectRoot,
     detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: process.env,
+    env: {
+      ...process.env,
+      OPENWIKI_CONFIG_DIR: input.openWikiConfigDir,
+    },
   });
   const startedAt = Date.now();
   let lastActivityAt = startedAt;
@@ -1811,7 +1950,8 @@ async function readOpenWikiRunOwner(
       typeof value.sourceHead !== 'string' ||
       typeof value.sourceFingerprint !== 'string' ||
       typeof value.baseHead !== 'string' ||
-      typeof value.startedAt !== 'string'
+      typeof value.startedAt !== 'string' ||
+      typeof value.writingPolicyHash !== 'string'
     ) {
       return null;
     }
@@ -2312,7 +2452,9 @@ export async function readOpenWikiReceipt(
     if (!stat.isFile() || stat.isSymbolicLink()) return null;
     const value = await fs.readJson(receiptPath);
     if (
-      (value?.schemaVersion !== 1 && value?.schemaVersion !== 2) ||
+      (value?.schemaVersion !== 1 &&
+        value?.schemaVersion !== 2 &&
+        value?.schemaVersion !== 3) ||
       (value.language !== 'ko' && value.language !== 'en') ||
       typeof value.sourceHead !== 'string' ||
       typeof value.sourceFingerprint !== 'string' ||
@@ -2353,10 +2495,30 @@ export async function readOpenWikiReceipt(
     ) {
       return null;
     }
+    if (
+      value.schemaVersion === 3 &&
+      !isOpenWikiWritingPolicyReceipt(value.writingPolicy)
+    ) {
+      return null;
+    }
     return value as OpenWikiReceipt;
   } catch {
     return null;
   }
+}
+
+function isOpenWikiWritingPolicyReceipt(
+  value: unknown
+): value is OpenWikiWritingPolicyReceipt {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.adapterId === 'string' &&
+    typeof record.adapterVersion === 'string' &&
+    typeof record.skillName === 'string' &&
+    typeof record.skillHash === 'string' &&
+    typeof record.instructionHash === 'string'
+  );
 }
 
 async function hasInterruptedOpenWikiMetadata(
@@ -2978,7 +3140,7 @@ async function verifyOpenWikiEvidenceIntegrity(
   const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
   const snapshot = resolveOpenWikiEvidenceSnapshot(projectRoot, context);
   const provenance =
-    context.receiptSchemaVersion === 2 && context.okfVersion === '0.2'
+    context.receiptSchemaVersion >= 2 && context.okfVersion === '0.2'
       ? await verifyModernOpenWikiProvenance(projectRoot, context)
       : undefined;
   const staleFailures = createOpenWikiValidationFailures();
