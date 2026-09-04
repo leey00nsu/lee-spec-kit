@@ -108,7 +108,7 @@ npx lee-spec-kit config --openwiki true
 
 OpenWiki 도입만으로 기존 문서의 낡은 내용이 자동 복구되지는 않습니다. 기존 프로젝트는 `knowledge migrate`로 workflow 호환 대상을 분류하는 것과 별개로, PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 현재 코드와 한 번 수동 대조해 기준선을 맞춰야 합니다.
 
-동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge sync`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
+동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. `sync`와 `audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 증분 갱신이 완료됐더라도 이 근거 검증이 실패하면 `INSTRUCTIONS.md`를 보존한 채 생성물만 비우고 같은 update 경로를 한 번 재실행하며, 그래도 실패하면 receipt를 갱신하지 않습니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge sync`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 
 생성된 Knowledge는 프로젝트 루트에서 `openwiki visualize ./openwiki`로 그래프와 문서 리더를 열어 확인할 수 있습니다. 이 명령은 read-only 시각화이므로 직접 실행해도 되지만, 생성·갱신은 계속 `lee-spec-kit knowledge sync`를 사용합니다. 브라우저 자동 실행을 막으려면 `--no-open`, 포트를 고정하려면 `--port 4400`을 추가합니다. `visualize --export`는 파일을 쓰므로 출력 위치와 커밋 정책을 검토한 뒤 신뢰할 수 있는 터미널에서 별도로 실행합니다.
 
