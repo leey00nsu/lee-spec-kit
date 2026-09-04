@@ -275,7 +275,7 @@ const staleCitation = citationMode === 'stale' || (citationMode === 'stale-first
 const citation = citationMode ? '\\nEvidence: \`README.md#L1-L' + (staleCitation ? '99' : '1') + '\`\\n' : '';
 const sourceLink = process.env.FAKE_OPENWIKI_OMIT_SOURCE_LINK === '1'
   ? 'README is the demo entrypoint.'
-  : 'The tracked [README](repo://README.md#L1-L1) is the demo entrypoint.';
+  : 'The tracked [README](repo://' + (process.env.FAKE_OPENWIKI_SOURCE_LINK_TARGET || 'README.md#L1-L1') + ') is the demo entrypoint.';
 const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\n' + sourceLink + '\\n' + citation;
 fs.writeFileSync(path.join(wiki, 'architecture map.md'), pageContent);
 const pageVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(pageContent)).digest('hex');
@@ -1262,6 +1262,28 @@ test('OpenWiki sync refuses reader pages without a repo source link', async () =
         ),
       false
     );
+  });
+});
+
+test('OpenWiki sync rejects generated Knowledge as a repo source link', async () => {
+  await withTempDir('lsk-openwiki-reader-generated-link-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = await runCli(
+      dir,
+      ['knowledge', 'sync', 'F001-alpha', '--json'],
+      {
+        ...fake.env,
+        FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'openwiki/index.md',
+      },
+      { timeoutMs: 60_000 }
+    );
+    const payload = json(result);
+
+    assert.equal(result.code, 1);
+    assert.equal(payload.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.equal(payload.details.validation, 'evidence_structure');
+    assert.match(payload.error, /excluded from the Knowledge fingerprint/u);
   });
 });
 

@@ -16,7 +16,7 @@ Make the repository easier to understand without weakening evidence or inventing
 4. Give each page one primary topic and arrange sections in the order a new developer needs them.
 5. Use specific headings, stable terminology, concrete subjects, and short sentences that carry one main idea.
 6. Link prerequisite, neighboring, and next-step pages where they remove guesswork.
-7. Add at least one descriptive Markdown source link to every generated reader-facing page except the index. Use `[label](repo://path)` or `[label](repo://path#Lx-Ly)` and prefer a stable line range when it points the reader to the relevant contract. Claim sidecars and inline code citations do not satisfy this requirement.
+7. Add at least one descriptive Markdown source link to every generated reader-facing page except the index. Use `[label](repo://path)` or `[label](repo://path#Lx-Ly)` and prefer a stable line range when it points the reader to the relevant contract. Reserve `repo://` for tracked source files included in the repository fingerprint. Link another Knowledge page with `/openwiki/...`, never `repo://openwiki/...`. Claim sidecars and inline code citations do not satisfy this requirement.
 8. Review the page against the checklist below before finishing.
 
 Technical accuracy is the hard constraint. If evidence is missing or conflicting, state the uncertainty instead of making the prose sound complete.
