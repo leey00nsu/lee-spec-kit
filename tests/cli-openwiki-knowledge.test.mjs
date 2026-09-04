@@ -1287,6 +1287,47 @@ test('OpenWiki sync rejects generated Knowledge as a repo source link', async ()
   });
 });
 
+test('OpenWiki replaces a terminal validation owner after a writing policy change', async () => {
+  await withTempDir('lsk-openwiki-terminal-policy-owner-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const invalid = await runCli(
+      dir,
+      ['knowledge', 'sync', 'F001-alpha', '--json'],
+      {
+        ...fake.env,
+        FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'openwiki/index.md',
+      },
+      { timeoutMs: 60_000 }
+    );
+    assert.equal(invalid.code, 1);
+
+    const ownerPath = path.join(dir, '.lee-spec-kit', 'openwiki-run.json');
+    const owner = JSON.parse(await fs.readFile(ownerPath, 'utf-8'));
+    owner.writingPolicyHash = `sha256:${'0'.repeat(64)}`;
+    await fs.writeFile(ownerPath, `${JSON.stringify(owner, null, 2)}\n`);
+
+    const inspect = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(inspect.status, 'sync_required');
+    assert.equal(inspect.reasonCode, 'OPENWIKI_WRITING_POLICY_STALE');
+
+    const recovered = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(recovered.status, 'ok', recovered.error);
+    assert.equal(recovered.reasonCode, 'OPENWIKI_SYNCED');
+    assert.equal(recovered.evidenceIntegrity.readerPagesValidated, 1);
+    await assert.rejects(fs.access(ownerPath));
+  });
+});
+
 test('OpenWiki audit validates claim hashes and Markdown citation ranges even with a matching receipt hash', async () => {
   await withTempDir('lsk-openwiki-evidence-audit-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);

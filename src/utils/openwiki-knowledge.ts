@@ -577,20 +577,36 @@ export async function inspectOpenWikiKnowledge(input: {
       undefined,
       activeOwner
     );
+    const base = resolveBaseTarget(projectRoot, input.config);
+    const terminalPolicyOwnerCanBeReplaced =
+      !ownerMatches &&
+      interruption.lastUpdateStatus === 'complete' &&
+      activeOwner.featureRef === input.featureRef &&
+      activeOwner.component === input.component &&
+      activeOwner.language === input.config.lang &&
+      activeOwner.sourceFingerprint === sourceFingerprint &&
+      activeOwner.baseHead === base?.head &&
+      activeOwner.writingPolicyHash !== writingPolicy.policyHash;
     return {
       ...state(
-        ownerMatches ? 'sync_required' : 'blocked',
-        ownerMatches
-          ? 'OPENWIKI_RUN_INCOMPLETE'
-          : 'OPENWIKI_RUN_OWNER_MISMATCH',
+        ownerMatches || terminalPolicyOwnerCanBeReplaced
+          ? 'sync_required'
+          : 'blocked',
+        terminalPolicyOwnerCanBeReplaced
+          ? 'OPENWIKI_WRITING_POLICY_STALE'
+          : ownerMatches
+            ? 'OPENWIKI_RUN_INCOMPLETE'
+            : 'OPENWIKI_RUN_OWNER_MISMATCH',
         projectRoot,
         changedPaths,
         unexpectedPaths,
-        ownerMatches
-          ? interruption.lastUpdateStatus === 'interrupted'
-            ? 'A prior OpenWiki process ended without a complete update and no active page queue remains. Generated state was preserved; inspect `interruption` and rerun the same sync.'
-            : 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
-          : 'The pending OpenWiki owner record belongs to another Feature, source snapshot, or writing policy.'
+        terminalPolicyOwnerCanBeReplaced
+          ? 'A prior OpenWiki process completed but failed post-generation validation under an older writing policy. The next sync will replace its terminal owner and regenerate the Knowledge surface.'
+          : ownerMatches
+            ? interruption.lastUpdateStatus === 'interrupted'
+              ? 'A prior OpenWiki process ended without a complete update and no active page queue remains. Generated state was preserved; inspect `interruption` and rerun the same sync.'
+              : 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
+            : 'The pending OpenWiki owner record belongs to another Feature, source snapshot, or writing policy.'
       ),
       sourceFingerprint,
       receipt: receipt || undefined,
@@ -985,7 +1001,7 @@ export async function runOpenWikiSync(
       }
 
       const existingProgress = await readOpenWikiProgress(projectRoot);
-      const existingOwner = await readOpenWikiRunOwner(projectRoot);
+      let existingOwner = await readOpenWikiRunOwner(projectRoot);
       const instructionsPath = path.join(
         projectRoot,
         OPENWIKI_DIR,
@@ -1002,6 +1018,20 @@ export async function runOpenWikiSync(
         writingPolicy,
         writingPolicy.receipt
       );
+      const terminalPolicyOwnerCanBeReplaced =
+        !!existingOwner &&
+        !existingProgress &&
+        (await readOpenWikiLastUpdateStatus(projectRoot)) === 'complete' &&
+        existingOwner.featureRef === input.featureRef &&
+        existingOwner.component === input.component &&
+        existingOwner.language === input.config.lang &&
+        existingOwner.sourceFingerprint === sourceFingerprint &&
+        existingOwner.baseHead === base.head &&
+        existingOwner.writingPolicyHash !== writingPolicy.policyHash;
+      if (terminalPolicyOwnerCanBeReplaced && existingOwner) {
+        await removeOpenWikiRunOwner(projectRoot, existingOwner.ownerId);
+        existingOwner = null;
+      }
       const ownerMismatch =
         !!existingOwner &&
         (existingOwner.featureRef !== input.featureRef ||
