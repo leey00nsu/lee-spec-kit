@@ -1078,7 +1078,7 @@ export async function runOpenWikiSync(
         path.join(projectRoot, OPENWIKI_DIR, 'index.md')
       );
       const writingPolicyRegenerationRequired =
-        hasIndex && !receiptWritingState.current;
+        hasIndex && !receiptWritingState.current && !existingOwner;
       if (writingPolicyRegenerationRequired && !existingProgress) {
         await resetGeneratedOpenWikiOutput(projectRoot);
       }

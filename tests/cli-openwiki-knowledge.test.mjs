@@ -243,6 +243,10 @@ if (!fs.existsSync(path.join(wiki, 'INSTRUCTIONS.md'))) {
   process.stderr.write('missing protected instructions');
   process.exit(3);
 }
+if (process.env.FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE === '1' && !fs.existsSync(path.join(wiki, 'architecture map.md'))) {
+  process.stderr.write('existing terminal page was reset before retry');
+  process.exit(11);
+}
 const interruptedMode = process.env.FAKE_OPENWIKI_INTERRUPTED || '';
 const pageStatus = interruptedMode === 'skipped' ? 'skipped' : 'complete';
 fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId: 'fake-run', mode: 'update', phase: 'generating', plan: { pages: [{ path: '/openwiki/architecture map.md', status: pageStatus }] } }, null, 2) + '\\n');
@@ -1348,6 +1352,44 @@ test('OpenWiki still rejects reader source ranges beyond the trailing EOF bounda
     assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
     assert.equal(result.details.validation, 'evidence_integrity');
     assert.match(result.error, /exceeds README\.md's 3 lines: L1-L5/u);
+  });
+});
+
+test('OpenWiki preserves current-policy terminal output for a later validation retry', async () => {
+  await withTempDir('lsk-openwiki-terminal-validation-retry-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const invalid = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'README.md#L1-L99',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(invalid.status, 'error');
+    assert.equal(invalid.details.validation, 'evidence_integrity');
+
+    const recovered = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(recovered.status, 'ok', recovered.error);
+    const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
+      .split('\n')
+      .filter((entry) => entry === 'code --update --print --language en');
+    assert.equal(invocations.length, 3);
   });
 });
 
