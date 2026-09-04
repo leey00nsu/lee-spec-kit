@@ -15,6 +15,7 @@ import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automati
 import { createDefaultApprovalConfig, getConfig } from './config.js';
 import {
   getFeatureDocPaths,
+  requiresManagedFeatureWorktree,
   resolveFeatureSelection,
   type FeatureSelectionState,
   type ResolvedFeature,
@@ -25,6 +26,7 @@ import {
   buildManagedWorktreeStaleCleanupCommand,
   isRegisteredGitWorktree,
   resolveManagedWorktreePath,
+  resolveGitPrimaryWorktreeRoot,
   resolveStandaloneProjectRoots,
 } from './standalone-workspace.js';
 import {
@@ -1687,7 +1689,7 @@ function resolveProjectRootGitCwd(
     }
   }
 
-  return resolveProjectRootFromGitCwd(feature.git.projectGitCwd);
+  return resolveGitPrimaryWorktreeRoot(feature.git.projectGitCwd);
 }
 
 function getExpectedWorktreePath(
@@ -1814,7 +1816,7 @@ function resolvePostMergeCleanupState(
       ''
     : '';
   const worktreePath =
-    config.docsRepo === 'standalone' && headBranch
+    requiresManagedFeatureWorktree(config) && headBranch
       ? resolveManagedWorktreePath(config, projectRootGitCwd, headBranch)
       : null;
   const managedWorktreeExists = !!worktreePath && fs.existsSync(worktreePath);
@@ -3310,22 +3312,17 @@ export async function collectWorkflowStage(
   if (requirements.requireWorktree) {
     const expectedBranch = resolveExpectedBranch(feature, tasks);
     if (expectedBranch) {
-      const existingWorktreePath = await resolveExistingExpectedWorktreePath(
-        config,
-        feature.git.projectGitCwd,
-        expectedBranch
-      );
+      const existingWorktreePath = feature.git.managedWorktree
+        ? feature.git.projectGitCwd
+        : await resolveExistingExpectedWorktreePath(
+            config,
+            feature.git.projectGitCwd,
+            expectedBranch
+          );
       if (existingWorktreePath) {
         effectiveProjectGitCwd = existingWorktreePath;
       } else {
-        const resolvedFeatureBranch =
-          runGitCapture(
-            ['branch', '--show-current'],
-            feature.git.projectGitCwd
-          ) || '';
-        if (resolvedFeatureBranch !== expectedBranch) {
-          missingExpectedWorktreeBranch = expectedBranch;
-        }
+        missingExpectedWorktreeBranch = expectedBranch;
       }
     }
   }
@@ -3368,7 +3365,10 @@ export async function collectWorkflowStage(
         effectiveProjectGitCwd
       ) ||
       null;
-    if (expectedBranch && currentBranch !== expectedBranch) {
+    if (
+      expectedBranch &&
+      (currentBranch !== expectedBranch || !!missingExpectedWorktreeBranch)
+    ) {
       const branchCommand = buildExpectedBranchCommand(
         config,
         feature,

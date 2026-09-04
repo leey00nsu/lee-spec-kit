@@ -5,7 +5,10 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import { getConfig } from '../utils/config.js';
 import { createCliError, toCliError } from '../utils/cli-error.js';
-import { resolveFeatureSelection } from '../utils/feature-resolver.js';
+import {
+  requiresManagedFeatureWorktree,
+  resolveFeatureSelection,
+} from '../utils/feature-resolver.js';
 import {
   inspectOpenWikiKnowledge,
   isOpenWikiEnabled,
@@ -149,7 +152,7 @@ export function knowledgeCommand(program: Command): void {
     .action(
       async (featureName: string | undefined, options: KnowledgeOptions) => {
         await handleKnowledgeAction(options, async () => {
-          const context = await resolveKnowledgeContext(featureName, options);
+          const context = await resolveKnowledgeContext(featureName, options, true);
           return runOpenWikiSync({
             ...context,
             lockTimeoutMs: parseTimeoutOption(options.lockTimeoutMs),
@@ -394,7 +397,8 @@ function parseTimeoutOption(value: string | undefined): number | undefined {
 
 async function resolveKnowledgeContext(
   featureName: string | undefined,
-  options: KnowledgeOptions
+  options: KnowledgeOptions,
+  requireExecutionWorktree = false
 ) {
   const config = await getConfig(process.cwd());
   if (!config) {
@@ -415,6 +419,16 @@ async function resolveKnowledgeContext(
     );
   }
   const feature = selection.matchedFeature;
+  if (
+    requireExecutionWorktree &&
+    requiresManagedFeatureWorktree(config) &&
+    !feature.git.managedWorktree
+  ) {
+    throw createCliError(
+      'OPENWIKI_WORKTREE_REQUIRED',
+      'Knowledge sync must run in the registered managed Feature worktree. Run the branch/worktree command returned by `workflow-stage`, then retry.'
+    );
+  }
   return {
     config,
     featureRef: feature.folderName,

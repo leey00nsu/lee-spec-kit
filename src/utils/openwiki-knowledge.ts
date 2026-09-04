@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
+import { Buffer } from 'node:buffer';
 import { constants as fsConstants } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -39,6 +40,8 @@ const DEFAULT_BOOTSTRAP_TIMEOUT_MS = 90 * 60_000;
 const DEFAULT_UPDATE_TIMEOUT_MS = 30 * 60_000;
 const PROGRESS_POLL_MS = 1_000;
 const OPENWIKI_EVIDENCE_VALIDATION = 'evidence_integrity';
+const OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION = 'evidence_structure';
+const OPENWIKI_PROVENANCE_VALIDATION = 'provenance_integrity';
 const MAX_EVIDENCE_VALIDATION_FAILURES = 5;
 
 type OpenWikiProviderId =
@@ -266,6 +269,7 @@ export interface OpenWikiKnowledgeState {
   receipt?: OpenWikiReceipt;
   progress?: OpenWikiProgress;
   interruption?: OpenWikiInterruptionDetails;
+  evidenceIntegrity?: OpenWikiEvidenceIntegritySummary;
   changedPaths: string[];
   unexpectedPaths: string[];
   detail?: string;
@@ -282,6 +286,42 @@ export interface OpenWikiSyncResult {
   receipt: OpenWikiReceipt;
   changedPaths: string[];
   progress?: OpenWikiProgress;
+  evidenceIntegrity: OpenWikiEvidenceIntegritySummary;
+}
+
+export interface OpenWikiEvidenceIntegritySummary {
+  recordedSourceHead: string;
+  resolvedHead: string;
+  resolvedFrom: 'sourceHead' | 'head';
+  claimFiles: number;
+  claims: number;
+  repoLineEvidenceValidated: number;
+  repoFileEvidenceValidated: number;
+  markdownCitationsValidated: number;
+  manifestPages?: number;
+  distinctRunCount?: number;
+}
+
+interface OpenWikiEvidenceSnapshot {
+  recordedSourceHead: string;
+  resolvedHead: string;
+  resolvedFrom: 'sourceHead' | 'head';
+}
+
+interface OpenWikiLastUpdateMetadata {
+  status: string;
+  gitHead?: string;
+  language?: string;
+}
+
+interface OpenWikiVerificationContext {
+  sourceHead: string;
+  sourceFingerprint: string;
+  docsDir: string;
+  language: 'ko' | 'en';
+  okfVersion: string;
+  receiptSchemaVersion: 1 | 2;
+  allowHeadFallback: boolean;
 }
 
 export interface OpenWikiSyncOptions {
@@ -379,6 +419,7 @@ export async function inspectOpenWikiKnowledge(input: {
   projectCwd: string;
 }): Promise<OpenWikiKnowledgeState> {
   const projectRoot = resolveProjectRoot(input.projectCwd);
+  const docsDir = resolveOpenWikiDocsDir(projectRoot, input.config.docsDir);
   if (!isOpenWikiEnabled(input.config)) {
     return state('disabled', 'OPENWIKI_DISABLED', projectRoot);
   }
@@ -397,10 +438,7 @@ export async function inspectOpenWikiKnowledge(input: {
     );
   }
 
-  const sourceFingerprint = computeSourceFingerprint(
-    projectRoot,
-    input.config.docsDir
-  );
+  const sourceFingerprint = computeSourceFingerprint(projectRoot, docsDir);
   if (!sourceFingerprint) {
     return state(
       'blocked',
@@ -535,7 +573,7 @@ export async function inspectOpenWikiKnowledge(input: {
   }
 
   try {
-    await verifyCurrentOpenWikiOutput(projectRoot);
+    await verifyCurrentOpenWikiOutput(projectRoot, docsDir);
   } catch (error) {
     return {
       ...state(
@@ -644,7 +682,7 @@ export async function inspectOpenWikiKnowledge(input: {
   if (
     !base ||
     !sameBaseBranch(receipt.baseRef, base.ref) ||
-    !isReceiptBaseFresh(projectRoot, input.config.docsDir, receipt, base.head)
+    !isReceiptBaseFresh(projectRoot, docsDir, receipt, base.head)
   ) {
     return {
       ...state(
@@ -675,8 +713,17 @@ export async function inspectOpenWikiKnowledge(input: {
     };
   }
 
+  let evidenceIntegrity: OpenWikiEvidenceIntegritySummary;
   try {
-    await verifyOpenWikiEvidenceIntegrity(projectRoot, receipt.sourceHead);
+    evidenceIntegrity = await verifyOpenWikiEvidenceIntegrity(projectRoot, {
+      sourceHead: receipt.sourceHead,
+      sourceFingerprint: receipt.sourceFingerprint,
+      docsDir,
+      language: receipt.language,
+      okfVersion: receipt.okfVersion,
+      receiptSchemaVersion: receipt.schemaVersion,
+      allowHeadFallback: true,
+    });
   } catch (error) {
     return {
       ...state(
@@ -707,6 +754,7 @@ export async function inspectOpenWikiKnowledge(input: {
       sourceFingerprint,
       outputHash,
       receipt,
+      evidenceIntegrity,
     };
   }
 
@@ -721,6 +769,7 @@ export async function inspectOpenWikiKnowledge(input: {
     sourceFingerprint,
     outputHash,
     receipt,
+    evidenceIntegrity,
   };
 }
 
@@ -787,6 +836,7 @@ export async function runOpenWikiSync(
   }
 
   const projectRoot = resolveProjectRoot(input.projectCwd);
+  const docsDir = resolveOpenWikiDocsDir(projectRoot, input.config.docsDir);
   return withFileLock(
     getProjectExecutionLockPath(projectRoot),
     async () => {
@@ -812,14 +862,11 @@ export async function runOpenWikiSync(
         );
       }
       await verifyProtectedEntrypointsAgainstHead(projectRoot);
-      await ensureManagedOpenWikiIgnore(projectRoot);
+      await ensureManagedOpenWikiIgnore(projectRoot, docsDir);
 
       const sourceHead =
         runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
-      const sourceFingerprint = computeSourceFingerprint(
-        projectRoot,
-        input.config.docsDir
-      );
+      const sourceFingerprint = computeSourceFingerprint(projectRoot, docsDir);
       const base = resolveBaseTarget(projectRoot, input.config);
       if (!sourceHead || !sourceFingerprint || !base) {
         throw createCliError(
@@ -916,7 +963,7 @@ export async function runOpenWikiSync(
       await assertManagedOpenWikiPathsSafe(projectRoot, false);
       const currentSourceFingerprint = computeSourceFingerprint(
         projectRoot,
-        input.config.docsDir
+        docsDir
       );
       const currentSourceHead =
         runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
@@ -930,12 +977,21 @@ export async function runOpenWikiSync(
         );
       }
 
+      const verificationContext: OpenWikiVerificationContext = {
+        sourceHead,
+        sourceFingerprint,
+        docsDir,
+        language: input.config.lang,
+        okfVersion: runtime.capability.okfVersion,
+        receiptSchemaVersion: RECEIPT_SCHEMA_VERSION,
+        allowHeadFallback: false,
+      };
+      let evidenceIntegrity: OpenWikiEvidenceIntegritySummary;
       try {
-        await verifyOpenWikiOutput(
+        evidenceIntegrity = await verifyOpenWikiOutput(
           projectRoot,
           preserved,
-          runtime.capability.okfVersion,
-          sourceHead,
+          verificationContext,
           progress,
           owner
         );
@@ -960,7 +1016,7 @@ export async function runOpenWikiSync(
         await assertManagedOpenWikiPathsSafe(projectRoot, false);
         const retrySourceFingerprint = computeSourceFingerprint(
           projectRoot,
-          input.config.docsDir
+          docsDir
         );
         const retrySourceHead =
           runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
@@ -973,11 +1029,10 @@ export async function runOpenWikiSync(
             'Tracked source changed while OpenWiki was regenerating. Partial output was preserved, but no receipt was written.'
           );
         }
-        await verifyOpenWikiOutput(
+        evidenceIntegrity = await verifyOpenWikiOutput(
           projectRoot,
           preserved,
-          runtime.capability.okfVersion,
-          sourceHead,
+          verificationContext,
           progress,
           owner
         );
@@ -1032,6 +1087,7 @@ export async function runOpenWikiSync(
         receipt,
         changedPaths: collectGitChangedPaths(projectRoot),
         progress: normalizeCompletedOpenWikiProgress(progress, owner.runId),
+        evidenceIntegrity,
       };
     },
     {
@@ -1951,6 +2007,31 @@ function resolveProjectRoot(cwd: string): string {
   );
 }
 
+function resolveGitCommonDir(cwd: string): string | null {
+  const raw = runGitCapture(['rev-parse', '--git-common-dir'], cwd) || '';
+  return raw ? path.resolve(cwd, raw) : null;
+}
+
+function resolveOpenWikiDocsDir(projectRoot: string, docsDir: string): string {
+  const resolvedDocsDir = path.resolve(docsDir);
+  const docsGitRoot = resolveProjectRoot(resolvedDocsDir);
+  const projectCommonDir = resolveGitCommonDir(projectRoot);
+  const docsCommonDir = resolveGitCommonDir(resolvedDocsDir);
+  if (!projectCommonDir || projectCommonDir !== docsCommonDir) {
+    return resolvedDocsDir;
+  }
+
+  const relativeDocsDir = path.relative(docsGitRoot, resolvedDocsDir);
+  if (
+    relativeDocsDir === '..' ||
+    relativeDocsDir.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeDocsDir)
+  ) {
+    return resolvedDocsDir;
+  }
+  return path.resolve(projectRoot, relativeDocsDir);
+}
+
 function normalizeGitPath(value: string): string {
   return value.replace(/\\/g, '/').replace(/^\.\//, '');
 }
@@ -2083,20 +2164,142 @@ function readGitRefText(
   }
 }
 
+function resolveCommit(projectRoot: string, ref: string): string | null {
+  if (ref !== 'HEAD' && !/^[0-9a-f]{40,64}$/iu.test(ref)) return null;
+  const resolved =
+    runGitCapture(['rev-parse', '--verify', `${ref}^{commit}`], projectRoot) ||
+    '';
+  return /^[0-9a-f]{40,64}$/iu.test(resolved) ? resolved : null;
+}
+
+type GitRegularFileRead =
+  | { status: 'ok'; content: Buffer }
+  | { status: 'missing' }
+  | { status: 'non_regular'; mode: string; objectType: string };
+
+function readGitRefRegularFile(
+  projectRoot: string,
+  ref: string,
+  filePath: string
+): GitRegularFileRead {
+  let entry = '';
+  try {
+    entry = String(
+      execFileSync('git', ['ls-tree', '-z', ref, '--', filePath], {
+        cwd: projectRoot,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }) || ''
+    );
+  } catch {
+    return { status: 'missing' };
+  }
+  const record = entry.split('\0').find(Boolean) || '';
+  const match = record.match(/^(\d+)\s+(\S+)\s+[0-9a-f]+\t([\s\S]+)$/iu);
+  if (!match || normalizeGitPath(match[3]) !== filePath) {
+    return { status: 'missing' };
+  }
+  if (!/^100(?:644|755)$/u.test(match[1]) || match[2] !== 'blob') {
+    return {
+      status: 'non_regular',
+      mode: match[1],
+      objectType: match[2],
+    };
+  }
+  try {
+    const content = execFileSync('git', ['show', `${ref}:${filePath}`], {
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1024 * 1024 * 1024,
+    });
+    return { status: 'ok', content };
+  } catch {
+    return { status: 'missing' };
+  }
+}
+
+function resolveOpenWikiEvidenceSnapshot(
+  projectRoot: string,
+  context: OpenWikiVerificationContext
+): OpenWikiEvidenceSnapshot {
+  if (!/^[0-9a-f]{40,64}$/iu.test(context.sourceHead)) {
+    throw createCliError(
+      'OPENWIKI_OUTPUT_INVALID',
+      `OpenWiki receipt has an invalid source commit: ${context.sourceHead}`,
+      { validation: OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION }
+    );
+  }
+
+  const recordedHead = resolveCommit(projectRoot, context.sourceHead);
+  if (
+    recordedHead &&
+    computeSourceFingerprintAtRef(
+      projectRoot,
+      context.docsDir,
+      recordedHead
+    ) === context.sourceFingerprint
+  ) {
+    return {
+      recordedSourceHead: context.sourceHead,
+      resolvedHead: recordedHead,
+      resolvedFrom: 'sourceHead',
+    };
+  }
+
+  if (context.allowHeadFallback) {
+    const head = resolveCommit(projectRoot, 'HEAD');
+    if (
+      head &&
+      computeSourceFingerprintAtRef(projectRoot, context.docsDir, head) ===
+        context.sourceFingerprint
+    ) {
+      return {
+        recordedSourceHead: context.sourceHead,
+        resolvedHead: head,
+        resolvedFrom: 'head',
+      };
+    }
+  }
+
+  throw createCliError(
+    'OPENWIKI_OUTPUT_INVALID',
+    `OpenWiki evidence source ${context.sourceHead.slice(0, 12)} is unavailable or does not match the receipt fingerprint, and committed HEAD is not content-equivalent.`,
+    { validation: OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION }
+  );
+}
+
 function isSourceFingerprintExcluded(
   filePath: string,
   relativeDocsDir: string
 ): boolean {
   if (isOpenWikiKnowledgePath(filePath)) return true;
   if (filePath.startsWith('.codex/')) return true;
+  const featureDocsPrefix = resolveFeatureDocsPrefix(relativeDocsDir);
+  if (featureDocsPrefix && filePath.startsWith(featureDocsPrefix)) return true;
+  return false;
+}
+
+function resolveFeatureDocsPrefix(relativeDocsDir: string): string | null {
   if (
-    relativeDocsDir &&
-    relativeDocsDir !== '..' &&
-    !relativeDocsDir.startsWith('../') &&
-    filePath.startsWith(`${relativeDocsDir}/features/`)
+    relativeDocsDir === '..' ||
+    relativeDocsDir.startsWith('../') ||
+    path.posix.isAbsolute(relativeDocsDir)
   ) {
-    return true;
+    return null;
   }
+  return !relativeDocsDir || relativeDocsDir === '.'
+    ? 'features/'
+    : `${relativeDocsDir}/features/`;
+}
+
+function isOpenWikiEvidenceSourceExcluded(
+  filePath: string,
+  projectRoot: string,
+  docsDir: string
+): boolean {
+  const relativeDocsDir = normalizeGitPath(path.relative(projectRoot, docsDir));
+  if (isSourceFingerprintExcluded(filePath, relativeDocsDir)) return true;
+  if (filePath === 'AGENTS.md' || filePath === 'CLAUDE.md') return true;
   return false;
 }
 
@@ -2159,7 +2362,10 @@ export async function readOpenWikiReceipt(
 async function hasInterruptedOpenWikiMetadata(
   projectRoot: string
 ): Promise<boolean> {
-  return (await readOpenWikiLastUpdateStatus(projectRoot)) === 'interrupted';
+  return (
+    (await readOpenWikiLastUpdateStatus(projectRoot)) === 'interrupted' ||
+    (await fs.pathExists(path.join(projectRoot, OPENWIKI_DIR, '.run.json')))
+  );
 }
 
 function normalizeCompletedOpenWikiProgress(
@@ -2243,12 +2449,27 @@ async function inspectOpenWikiInterruption(
 async function readOpenWikiLastUpdateStatus(
   projectRoot: string
 ): Promise<string | null> {
+  return (await readOpenWikiLastUpdateMetadata(projectRoot))?.status ?? null;
+}
+
+async function readOpenWikiLastUpdateMetadata(
+  projectRoot: string
+): Promise<OpenWikiLastUpdateMetadata | null> {
   try {
     const target = path.join(projectRoot, OPENWIKI_DIR, '.last-update.json');
     const stat = await fs.lstat(target);
     if (!stat.isFile() || stat.isSymbolicLink()) return null;
     const metadata = await fs.readJson(target);
-    return typeof metadata?.status === 'string' ? metadata.status : null;
+    if (typeof metadata?.status !== 'string') return null;
+    return {
+      status: metadata.status,
+      ...(typeof metadata.gitHead === 'string'
+        ? { gitHead: metadata.gitHead }
+        : {}),
+      ...(typeof metadata.language === 'string'
+        ? { language: metadata.language }
+        : {}),
+    };
   } catch {
     return null;
   }
@@ -2318,11 +2539,10 @@ async function snapshotProtectedContent(projectRoot: string): Promise<{
 async function verifyOpenWikiOutput(
   projectRoot: string,
   preserved: Awaited<ReturnType<typeof snapshotProtectedContent>>,
-  expectedOkfVersion: string,
-  sourceHead: string,
+  context: OpenWikiVerificationContext,
   progress?: OpenWikiProgress,
   owner?: OpenWikiRunOwner
-): Promise<void> {
+): Promise<OpenWikiEvidenceIntegritySummary> {
   const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
   const indexPath = path.join(wikiRoot, 'index.md');
   if (!(await fs.pathExists(indexPath))) {
@@ -2377,10 +2597,14 @@ async function verifyOpenWikiOutput(
     'CLAUDE.md',
     preserved.claudeOutsideBlock
   );
-  await verifyManagedOpenWikiIgnore(projectRoot, preserved.ignoreOutsideBlock);
+  await verifyManagedOpenWikiIgnore(
+    projectRoot,
+    preserved.ignoreOutsideBlock,
+    context.docsDir
+  );
 
-  await verifyOpenWikiTree(projectRoot, [expectedOkfVersion]);
-  await verifyOpenWikiEvidenceIntegrity(projectRoot, sourceHead);
+  await verifyOpenWikiTree(projectRoot, [context.okfVersion]);
+  return verifyOpenWikiEvidenceIntegrity(projectRoot, context);
 }
 
 async function assertExistingOpenWikiOkfCompatible(
@@ -2401,7 +2625,16 @@ async function assertExistingOpenWikiOkfCompatible(
   );
 }
 
-async function verifyCurrentOpenWikiOutput(projectRoot: string): Promise<void> {
+async function verifyCurrentOpenWikiOutput(
+  projectRoot: string,
+  docsDir: string
+): Promise<void> {
+  if (await fs.pathExists(path.join(projectRoot, OPENWIKI_DIR, '.run.json'))) {
+    throw createCliError(
+      'OPENWIKI_RUN_INCOMPLETE',
+      'OpenWiki Knowledge still has an active `.run.json` page queue.'
+    );
+  }
   if ((await readOpenWikiLastUpdateStatus(projectRoot)) !== 'complete') {
     throw createCliError(
       'OPENWIKI_RUN_INCOMPLETE',
@@ -2410,7 +2643,7 @@ async function verifyCurrentOpenWikiOutput(projectRoot: string): Promise<void> {
   }
   await verifyManagedEntrypointAgainstHead(projectRoot, 'AGENTS.md');
   await verifyManagedEntrypointAgainstHead(projectRoot, 'CLAUDE.md');
-  await verifyManagedOpenWikiIgnoreAgainstHead(projectRoot);
+  await verifyManagedOpenWikiIgnoreAgainstHead(projectRoot, docsDir);
   await verifyOpenWikiTree(projectRoot, [
     OPENWIKI_CAPABILITY.okfVersion,
     ...OPENWIKI_CAPABILITY.legacyOkfVersions,
@@ -2465,30 +2698,333 @@ async function verifyOpenWikiTree(
   }
 }
 
-async function verifyOpenWikiEvidenceIntegrity(
-  projectRoot: string,
-  sourceHead: string
-): Promise<void> {
-  const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
+function createOpenWikiValidationFailures(): {
+  record: (message: string) => void;
+  throwIfAny: (label: string, validation: string) => void;
+} {
   const failures: string[] = [];
   let failureCount = 0;
-  const sourceCache = new Map<string, string | null>();
-  const recordFailure = (message: string) => {
-    failureCount += 1;
-    if (failures.length < MAX_EVIDENCE_VALIDATION_FAILURES) {
-      failures.push(message);
-    }
+  return {
+    record(message: string) {
+      failureCount += 1;
+      if (failures.length < MAX_EVIDENCE_VALIDATION_FAILURES) {
+        failures.push(message);
+      }
+    },
+    throwIfAny(label: string, validation: string) {
+      if (failureCount === 0) return;
+      const omitted = failureCount - failures.length;
+      throw createCliError(
+        'OPENWIKI_OUTPUT_INVALID',
+        `${label} (${failureCount}): ${failures.join('; ')}${omitted > 0 ? `; ${omitted} more` : ''}`,
+        { validation, failureCount }
+      );
+    },
   };
-  if (!/^[0-9a-f]{40,64}$/iu.test(sourceHead)) {
-    recordFailure(`receipt has an invalid source commit: ${sourceHead}`);
+}
+
+function parseOpenWikiManifestPagePath(rawPath: string): string | null {
+  if (!rawPath.startsWith(`/${OPENWIKI_DIR}/`)) return null;
+  const relativePath = parseOpenWikiEvidencePath(
+    rawPath.slice(`/${OPENWIKI_DIR}/`.length)
+  );
+  if (!relativePath || !relativePath.toLowerCase().endsWith('.md')) {
+    return null;
   }
-  const readSource = (relativePath: string): string | null => {
-    if (sourceCache.has(relativePath)) {
-      return sourceCache.get(relativePath) ?? null;
+  return relativePath;
+}
+
+function isUnmanifestedOpenWikiMarkdownAllowed(relativePath: string): boolean {
+  const normalized = normalizeGitPath(relativePath);
+  const baseName = path.posix.basename(normalized).toLowerCase();
+  return (
+    baseName === 'index.md' ||
+    normalized === 'INSTRUCTIONS.md' ||
+    normalized === 'log.md'
+  );
+}
+
+async function verifyModernOpenWikiProvenance(
+  projectRoot: string,
+  context: OpenWikiVerificationContext
+): Promise<
+  Pick<OpenWikiEvidenceIntegritySummary, 'manifestPages' | 'distinctRunCount'>
+> {
+  const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
+  const failures = createOpenWikiValidationFailures();
+  const lastUpdate = await readOpenWikiLastUpdateMetadata(projectRoot);
+  if (!lastUpdate) {
+    failures.record('`.last-update.json` is missing or malformed');
+  } else {
+    if (lastUpdate.status !== 'complete') {
+      failures.record(
+        `\`.last-update.json\` status is ${lastUpdate.status || 'missing'}, expected complete`
+      );
     }
-    const content = readGitRefText(projectRoot, sourceHead, relativePath);
-    sourceCache.set(relativePath, content);
-    return content;
+    if (lastUpdate.gitHead !== context.sourceHead) {
+      failures.record(
+        '`openwiki/.last-update.json` gitHead does not match the receipt sourceHead'
+      );
+    }
+    if (lastUpdate.language !== context.language) {
+      failures.record(
+        '`openwiki/.last-update.json` language does not match the receipt language'
+      );
+    }
+  }
+  if (await fs.pathExists(path.join(wikiRoot, '.run.json'))) {
+    failures.record('`openwiki/.run.json` remains after a completed update');
+  }
+
+  const manifestPath = path.join(wikiRoot, '.page-manifest.json');
+  let manifest: unknown;
+  try {
+    manifest = await fs.readJson(manifestPath);
+  } catch {
+    failures.record('`.page-manifest.json` is missing or malformed');
+  }
+  const manifestRecord =
+    manifest && typeof manifest === 'object' && !Array.isArray(manifest)
+      ? (manifest as Record<string, unknown>)
+      : null;
+  if (manifest !== undefined && !manifestRecord) {
+    failures.record('`.page-manifest.json` root must be an object');
+  }
+  const pageEntries =
+    manifestRecord?.schemaVersion === 1 &&
+    manifestRecord.pages &&
+    typeof manifestRecord.pages === 'object' &&
+    !Array.isArray(manifestRecord.pages)
+      ? Object.entries(manifestRecord.pages as Record<string, unknown>)
+      : [];
+  if (manifestRecord && pageEntries.length === 0) {
+    if (manifestRecord.schemaVersion !== 1) {
+      failures.record('`.page-manifest.json` must use schemaVersion 1');
+    } else if (
+      !manifestRecord.pages ||
+      typeof manifestRecord.pages !== 'object' ||
+      Array.isArray(manifestRecord.pages)
+    ) {
+      failures.record('`.page-manifest.json` must contain a pages object');
+    }
+  }
+
+  const claimRoot = path.join(wikiRoot, '.claims');
+  const claimDocuments = new Map<string, unknown>();
+  if (await fs.pathExists(claimRoot)) {
+    await walkFilesPreservingRoot(
+      claimRoot,
+      async (absolutePath, relativePath) => {
+        if (!relativePath.toLowerCase().endsWith('.json')) return;
+        try {
+          claimDocuments.set(
+            normalizeGitPath(relativePath),
+            JSON.parse(await fs.readFile(absolutePath, 'utf-8'))
+          );
+        } catch {
+          failures.record(`.claims/${relativePath} is not valid JSON`);
+        }
+      }
+    );
+  }
+
+  const manifestPages = new Set<string>();
+  const matchedClaims = new Set<string>();
+  const runIds = new Set<string>();
+  const openWikiFingerprints = new Set<string>();
+  for (const [rawPagePath, rawEntry] of pageEntries) {
+    const relativePagePath = parseOpenWikiManifestPagePath(rawPagePath);
+    if (!relativePagePath) {
+      failures.record(
+        `.page-manifest.json contains an unsafe page path: ${rawPagePath}`
+      );
+      continue;
+    }
+    if (manifestPages.has(relativePagePath)) {
+      failures.record(
+        `.page-manifest.json contains a duplicate normalized page path: ${relativePagePath}`
+      );
+      continue;
+    }
+    manifestPages.add(relativePagePath);
+    const entry =
+      rawEntry && typeof rawEntry === 'object' && !Array.isArray(rawEntry)
+        ? (rawEntry as Record<string, unknown>)
+        : null;
+    if (!entry) {
+      failures.record(`manifest page metadata is malformed: ${rawPagePath}`);
+      continue;
+    }
+    const pageVersion =
+      typeof entry.pageVersion === 'string' ? entry.pageVersion : '';
+    const versionMatch = pageVersion.match(/^sha256:([0-9a-f]{64})$/u);
+    if (!versionMatch) {
+      failures.record(`manifest pageVersion is malformed: ${rawPagePath}`);
+    }
+    if (entry.gitHead !== context.sourceHead) {
+      failures.record(
+        `manifest gitHead does not match the receipt sourceHead: ${rawPagePath}`
+      );
+    }
+    if (
+      typeof entry.sourceFingerprint !== 'string' ||
+      !/^sha256:[0-9a-f]{64}$/u.test(entry.sourceFingerprint)
+    ) {
+      failures.record(
+        `manifest sourceFingerprint is malformed: ${rawPagePath}`
+      );
+    } else {
+      openWikiFingerprints.add(entry.sourceFingerprint);
+    }
+    if (
+      typeof entry.completedRunId !== 'string' ||
+      !entry.completedRunId.trim()
+    ) {
+      failures.record(`manifest completedRunId is missing: ${rawPagePath}`);
+    } else {
+      runIds.add(entry.completedRunId);
+    }
+    if (typeof entry.completedBy !== 'string' || !entry.completedBy.trim()) {
+      failures.record(`manifest completedBy is missing: ${rawPagePath}`);
+    }
+
+    const absolutePagePath = path.join(wikiRoot, relativePagePath);
+    try {
+      const stat = await fs.lstat(absolutePagePath);
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        failures.record(`manifest page is not a regular file: ${rawPagePath}`);
+      } else if (versionMatch) {
+        const actualVersion = createHash('sha256')
+          .update(await fs.readFile(absolutePagePath))
+          .digest('hex');
+        if (actualVersion !== versionMatch[1]) {
+          failures.record(
+            `manifest pageVersion does not match Markdown bytes: ${rawPagePath}`
+          );
+        }
+      }
+    } catch {
+      failures.record(`manifest page is missing: ${rawPagePath}`);
+    }
+
+    const claimPath = relativePagePath.replace(/\.md$/iu, '.json');
+    const claimDocument = claimDocuments.get(claimPath);
+    if (!claimDocument) {
+      failures.record(`manifest page has no claim sidecar: ${rawPagePath}`);
+      continue;
+    }
+    matchedClaims.add(claimPath);
+    const claimRecord =
+      typeof claimDocument === 'object' &&
+      claimDocument !== null &&
+      !Array.isArray(claimDocument)
+        ? (claimDocument as Record<string, unknown>)
+        : null;
+    if (
+      !claimRecord ||
+      claimRecord.schemaVersion !== 1 ||
+      !Array.isArray(claimRecord.claims)
+    ) {
+      failures.record(`claim sidecar is malformed: .claims/${claimPath}`);
+      continue;
+    }
+    if (claimRecord.pageVersion !== pageVersion) {
+      failures.record(
+        `claim pageVersion does not match its manifest page: .claims/${claimPath}`
+      );
+    }
+  }
+
+  if (openWikiFingerprints.size > 1) {
+    failures.record(
+      '`.page-manifest.json` mixes multiple OpenWiki source fingerprints'
+    );
+  }
+  for (const claimPath of claimDocuments.keys()) {
+    if (!matchedClaims.has(claimPath)) {
+      failures.record(
+        `claim sidecar has no manifest page: .claims/${claimPath}`
+      );
+    }
+  }
+  await walkFilesPreservingRoot(
+    wikiRoot,
+    async (_absolutePath, relativePath) => {
+      if (!relativePath.toLowerCase().endsWith('.md')) return;
+      const normalized = normalizeGitPath(relativePath);
+      if (
+        !manifestPages.has(normalized) &&
+        !isUnmanifestedOpenWikiMarkdownAllowed(normalized)
+      ) {
+        failures.record(`Markdown page has no manifest entry: ${normalized}`);
+      }
+    }
+  );
+
+  failures.throwIfAny(
+    'OpenWiki provenance integrity failed',
+    OPENWIKI_PROVENANCE_VALIDATION
+  );
+  return {
+    manifestPages: manifestPages.size,
+    distinctRunCount: runIds.size,
+  };
+}
+
+async function verifyOpenWikiEvidenceIntegrity(
+  projectRoot: string,
+  context: OpenWikiVerificationContext
+): Promise<OpenWikiEvidenceIntegritySummary> {
+  const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
+  const snapshot = resolveOpenWikiEvidenceSnapshot(projectRoot, context);
+  const provenance =
+    context.receiptSchemaVersion === 2 && context.okfVersion === '0.2'
+      ? await verifyModernOpenWikiProvenance(projectRoot, context)
+      : undefined;
+  const staleFailures = createOpenWikiValidationFailures();
+  const structuralFailures = createOpenWikiValidationFailures();
+  const sourceCache = new Map<string, GitRegularFileRead>();
+  let claimFiles = 0;
+  let claims = 0;
+  let repoLineEvidenceValidated = 0;
+  let repoFileEvidenceValidated = 0;
+  let markdownCitationsValidated = 0;
+
+  const readSource = (relativePath: string): GitRegularFileRead => {
+    const cached = sourceCache.get(relativePath);
+    if (cached) return cached;
+    const source = readGitRefRegularFile(
+      projectRoot,
+      snapshot.resolvedHead,
+      relativePath
+    );
+    sourceCache.set(relativePath, source);
+    return source;
+  };
+  const resolveEvidencePath = (
+    rawPath: string,
+    location: string
+  ): string | null => {
+    const relativePath = parseOpenWikiEvidencePath(rawPath);
+    if (!relativePath) {
+      structuralFailures.record(
+        `${location} has an unsafe source path: ${rawPath}`
+      );
+      return null;
+    }
+    if (
+      isOpenWikiEvidenceSourceExcluded(
+        relativePath,
+        projectRoot,
+        context.docsDir
+      )
+    ) {
+      structuralFailures.record(
+        `${location} references a source excluded from the Knowledge fingerprint: ${relativePath}`
+      );
+      return null;
+    }
+    return relativePath;
   };
   const validateRange = (input: {
     rawPath: string;
@@ -2496,147 +3032,223 @@ async function verifyOpenWikiEvidenceIntegrity(
     endLine: number;
     location: string;
     expectedHash?: string;
-  }) => {
-    const relativePath = parseOpenWikiEvidencePath(input.rawPath);
-    if (!relativePath) {
-      recordFailure(
-        `${input.location} has an unsafe source path: ${input.rawPath}`
-      );
-      return;
-    }
+  }): boolean => {
+    const relativePath = resolveEvidencePath(input.rawPath, input.location);
+    if (!relativePath) return false;
     if (
       !Number.isSafeInteger(input.startLine) ||
       !Number.isSafeInteger(input.endLine) ||
       input.startLine < 1 ||
       input.endLine < input.startLine
     ) {
-      recordFailure(
+      structuralFailures.record(
         `${input.location} has an invalid line range: L${input.startLine}-L${input.endLine}`
       );
-      return;
+      return false;
     }
     const source = readSource(relativePath);
-    if (source === null) {
-      recordFailure(
-        `${input.location} references a file absent from source ${sourceHead.slice(0, 12)}: ${relativePath}`
+    if (source.status === 'missing') {
+      staleFailures.record(
+        `${input.location} references a file absent from source ${snapshot.resolvedHead.slice(0, 12)}: ${relativePath}`
       );
-      return;
+      return false;
     }
-    const lines = splitSourceLinesPreservingEndings(source);
+    if (source.status === 'non_regular') {
+      structuralFailures.record(
+        `${input.location} references a non-regular Git object (${source.mode} ${source.objectType}): ${relativePath}`
+      );
+      return false;
+    }
+    const content = source.content.toString('utf-8');
+    if (!Buffer.from(content, 'utf-8').equals(source.content)) {
+      structuralFailures.record(
+        `${input.location} uses line evidence for a non-UTF-8 file: ${relativePath}`
+      );
+      return false;
+    }
+    const lines = splitSourceLinesPreservingEndings(content);
     if (input.endLine > lines.length) {
-      recordFailure(
+      staleFailures.record(
         `${input.location} exceeds ${relativePath}'s ${lines.length} lines: L${input.startLine}-L${input.endLine}`
       );
-      return;
+      return false;
     }
     if (input.expectedHash) {
       const actualHash = createHash('sha256')
         .update(lines.slice(input.startLine - 1, input.endLine).join(''))
         .digest('hex');
       if (actualHash !== input.expectedHash) {
-        recordFailure(
+        staleFailures.record(
           `${input.location} has stale line evidence for ${relativePath}#L${input.startLine}-L${input.endLine}`
         );
+        return false;
       }
     }
+    return true;
   };
 
   const claimsRoot = path.join(wikiRoot, '.claims');
   if (await fs.pathExists(claimsRoot)) {
-    await walkFiles(claimsRoot, async (absolutePath, relativePath) => {
-      if (!relativePath.toLowerCase().endsWith('.json')) return;
-      let claims: unknown;
-      try {
-        claims = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
-      } catch {
-        recordFailure(`.claims/${relativePath} is not valid JSON`);
-        return;
-      }
-      visitOpenWikiClaimEvidence(claims, (resource, version) => {
-        const location = `.claims/${relativePath}`;
-        const resourceMatch = resource.match(
-          /^repo:\/\/(.+)#L(\d+)(?:-L(\d+))?$/u
-        );
-        const versionMatch = version.match(
-          /^repo-lines-v1:sha256:([0-9a-f]{64})(?::.*)?$/u
-        );
-        if (!resourceMatch || !versionMatch) {
-          recordFailure(
-            `${location} contains malformed repo-lines-v1 evidence: ${resource}`
+    await walkFilesPreservingRoot(
+      claimsRoot,
+      async (absolutePath, relativePath) => {
+        if (!relativePath.toLowerCase().endsWith('.json')) return;
+        claimFiles += 1;
+        let document: unknown;
+        try {
+          document = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+        } catch {
+          structuralFailures.record(
+            `.claims/${relativePath} is not valid JSON`
           );
           return;
         }
-        validateRange({
-          rawPath: resourceMatch[1],
-          startLine: Number(resourceMatch[2]),
-          endLine: Number(resourceMatch[3] || resourceMatch[2]),
-          location,
-          expectedHash: versionMatch[1],
+        claims += visitOpenWikiClaimEvidence(document, (resource, version) => {
+          const location = `.claims/${relativePath}`;
+          const lineResourceMatch = resource.match(
+            /^repo:\/\/(.+)#L(\d+)(?:-L(\d+))?$/u
+          );
+          const lineVersionMatch = version.match(
+            /^repo-lines-v1:sha256:([0-9a-f]{64})(?::.*)?$/u
+          );
+          const fileResourceMatch = resource.match(/^repo:\/\/([^#]+)$/u);
+          const fileVersionMatch = version.match(
+            /^repo-file-v1:sha256:([0-9a-f]{64})$/u
+          );
+          if (lineResourceMatch && lineVersionMatch) {
+            if (
+              validateRange({
+                rawPath: lineResourceMatch[1],
+                startLine: Number(lineResourceMatch[2]),
+                endLine: Number(lineResourceMatch[3] || lineResourceMatch[2]),
+                location,
+                expectedHash: lineVersionMatch[1],
+              })
+            ) {
+              repoLineEvidenceValidated += 1;
+            }
+            return;
+          }
+          if (fileResourceMatch && fileVersionMatch) {
+            const relativeSourcePath = resolveEvidencePath(
+              fileResourceMatch[1],
+              location
+            );
+            if (!relativeSourcePath) return;
+            const source = readSource(relativeSourcePath);
+            if (source.status === 'missing') {
+              staleFailures.record(
+                `${location} references a file absent from source ${snapshot.resolvedHead.slice(0, 12)}: ${relativeSourcePath}`
+              );
+              return;
+            }
+            if (source.status === 'non_regular') {
+              structuralFailures.record(
+                `${location} references a non-regular Git object (${source.mode} ${source.objectType}): ${relativeSourcePath}`
+              );
+              return;
+            }
+            const actualHash = createHash('sha256')
+              .update(source.content)
+              .digest('hex');
+            if (actualHash !== fileVersionMatch[1]) {
+              staleFailures.record(
+                `${location} has stale file evidence for ${relativeSourcePath}`
+              );
+              return;
+            }
+            repoFileEvidenceValidated += 1;
+            return;
+          }
+          structuralFailures.record(
+            `${location} contains malformed or unsupported repository evidence: ${resource}`
+          );
         });
-      });
-    });
-  }
-
-  await walkFiles(wikiRoot, async (absolutePath, relativePath) => {
-    if (!relativePath.toLowerCase().endsWith('.md')) return;
-    const content = await fs.readFile(absolutePath, 'utf-8');
-    const citationPattern = /`([^`\r\n]+)#L(\d+)(?:-L(\d+))?`/gu;
-    for (const match of content.matchAll(citationPattern)) {
-      const rawPath = (match[1] || '').replace(/^repo:\/\//u, '');
-      if (
-        !rawPath ||
-        rawPath.startsWith('#') ||
-        /^[a-z][a-z0-9+.-]*:\/\//iu.test(rawPath) ||
-        normalizeGitPath(rawPath).startsWith(`${OPENWIKI_DIR}/`)
-      ) {
-        continue;
       }
-      const before = content.slice(0, match.index || 0);
-      const markdownLine = before.split('\n').length;
-      validateRange({
-        rawPath,
-        startLine: Number(match[2]),
-        endLine: Number(match[3] || match[2]),
-        location: `${relativePath}:${markdownLine}`,
-      });
-    }
-  });
-
-  if (failureCount > 0) {
-    const omitted = failureCount - failures.length;
-    throw createCliError(
-      'OPENWIKI_OUTPUT_INVALID',
-      `OpenWiki evidence integrity failed (${failureCount}): ${failures.join('; ')}${omitted > 0 ? `; ${omitted} more` : ''}`,
-      { validation: OPENWIKI_EVIDENCE_VALIDATION, failureCount }
     );
   }
+
+  await walkFilesPreservingRoot(
+    wikiRoot,
+    async (absolutePath, relativePath) => {
+      if (!relativePath.toLowerCase().endsWith('.md')) return;
+      const content = await fs.readFile(absolutePath, 'utf-8');
+      const citationPattern = /`([^`\r\n]+)#L(\d+)(?:-L(\d+))?`/gu;
+      for (const match of content.matchAll(citationPattern)) {
+        const rawPath = (match[1] || '').replace(/^repo:\/\//u, '');
+        if (
+          !rawPath ||
+          rawPath.startsWith('#') ||
+          /^[a-z][a-z0-9+.-]*:\/\//iu.test(rawPath)
+        ) {
+          continue;
+        }
+        const before = content.slice(0, match.index || 0);
+        const markdownLine = before.split('\n').length;
+        if (
+          validateRange({
+            rawPath,
+            startLine: Number(match[2]),
+            endLine: Number(match[3] || match[2]),
+            location: `${relativePath}:${markdownLine}`,
+          })
+        ) {
+          markdownCitationsValidated += 1;
+        }
+      }
+    }
+  );
+
+  structuralFailures.throwIfAny(
+    'OpenWiki evidence structure failed',
+    OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION
+  );
+  staleFailures.throwIfAny(
+    'OpenWiki evidence integrity failed',
+    OPENWIKI_EVIDENCE_VALIDATION
+  );
+
+  return {
+    ...snapshot,
+    claimFiles,
+    claims,
+    repoLineEvidenceValidated,
+    repoFileEvidenceValidated,
+    markdownCitationsValidated,
+    ...(provenance || {}),
+  };
 }
 
 function visitOpenWikiClaimEvidence(
   value: unknown,
   visit: (resource: string, version: string) => void
-): void {
-  if (Array.isArray(value)) {
-    for (const entry of value) visitOpenWikiClaimEvidence(entry, visit);
-    return;
+): number {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 0;
+  const document = value as Record<string, unknown>;
+  if (!Array.isArray(document.claims)) return 0;
+  let claimCount = 0;
+  for (const claim of document.claims) {
+    if (!claim || typeof claim !== 'object' || Array.isArray(claim)) continue;
+    claimCount += 1;
+    const evidence = (claim as Record<string, unknown>).evidence;
+    if (!Array.isArray(evidence)) continue;
+    for (const entry of evidence) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const record = entry as Record<string, unknown>;
+      const resource = record.resource;
+      const version = record.version;
+      const repoResource =
+        typeof resource === 'string' && resource.startsWith('repo://');
+      const repoVersion =
+        typeof version === 'string' && version.startsWith('repo-');
+      if (!repoResource && !repoVersion) continue;
+      visit(
+        typeof resource === 'string' ? resource : '<missing resource>',
+        typeof version === 'string' ? version : '<missing version>'
+      );
+    }
   }
-  if (!value || typeof value !== 'object') return;
-  const record = value as Record<string, unknown>;
-  const resource = record.resource;
-  const version = record.version;
-  const lineResource =
-    typeof resource === 'string' && /^repo:\/\/.+#L\d+/u.test(resource);
-  const lineVersion =
-    typeof version === 'string' && version.startsWith('repo-lines-v1:');
-  if (lineResource || lineVersion) {
-    visit(
-      typeof resource === 'string' ? resource : '<missing resource>',
-      typeof version === 'string' ? version : '<missing version>'
-    );
-  }
-  for (const entry of Object.values(record)) {
-    visitOpenWikiClaimEvidence(entry, visit);
-  }
+  return claimCount;
 }
 
 function parseOpenWikiEvidencePath(rawPath: string): string | null {
@@ -2788,7 +3400,10 @@ async function assertOpenWikiRootSafe(
   }
 }
 
-async function ensureManagedOpenWikiIgnore(projectRoot: string): Promise<void> {
+async function ensureManagedOpenWikiIgnore(
+  projectRoot: string,
+  docsDir: string
+): Promise<void> {
   const target = path.join(projectRoot, OPENWIKI_IGNORE_PATH);
   const current = (await fs.pathExists(target))
     ? await fs.readFile(target, 'utf-8')
@@ -2801,24 +3416,29 @@ async function ensureManagedOpenWikiIgnore(projectRoot: string): Promise<void> {
     );
   }
   const prefix = outside.trimEnd();
-  const next = `${prefix}${prefix ? '\n\n' : ''}${managedOpenWikiIgnoreBlock()}\n`;
+  const next = `${prefix}${prefix ? '\n\n' : ''}${managedOpenWikiIgnoreBlock(
+    resolveManagedFeatureDocsIgnore(projectRoot, docsDir)
+  )}\n`;
   if (next !== current) await writeFileAtomic(target, next, projectRoot);
 }
 
 async function verifyManagedOpenWikiIgnoreAgainstHead(
-  projectRoot: string
+  projectRoot: string,
+  docsDir: string
 ): Promise<void> {
   await verifyManagedOpenWikiIgnore(
     projectRoot,
     normalizeIgnoreOutsideManagedBlock(
       runGitCapture(['show', `HEAD:${OPENWIKI_IGNORE_PATH}`], projectRoot) || ''
-    )
+    ),
+    docsDir
   );
 }
 
 async function verifyManagedOpenWikiIgnore(
   projectRoot: string,
-  previousOutsideBlock: string | null
+  previousOutsideBlock: string | null,
+  docsDir: string
 ): Promise<void> {
   const target = path.join(projectRoot, OPENWIKI_IGNORE_PATH);
   if (!(await fs.pathExists(target))) {
@@ -2836,7 +3456,11 @@ async function verifyManagedOpenWikiIgnore(
   }
   const content = await fs.readFile(target, 'utf-8');
   const block = extractManagedIgnoreBlock(content);
-  if (!block || block !== managedOpenWikiIgnoreBlock()) {
+  const expectedBlock = managedOpenWikiIgnoreBlock(
+    resolveManagedFeatureDocsIgnore(projectRoot, docsDir)
+  );
+  const legacyBlock = managedOpenWikiIgnoreBlock();
+  if (!block || (block !== expectedBlock && block !== legacyBlock)) {
     throw createCliError(
       'OPENWIKI_PROTECTED_CONTENT_CHANGED',
       `${OPENWIKI_IGNORE_PATH} does not contain the required lee-spec-kit protection block.`
@@ -2982,7 +3606,17 @@ function normalizeProtectedOutsideBlock(content: string): string {
   return removeOpenWikiManagedBlock(content).replace(/[\t \r\n]+$/u, '');
 }
 
-function managedOpenWikiIgnoreBlock(): string {
+function resolveManagedFeatureDocsIgnore(
+  projectRoot: string,
+  docsDir: string
+): string | null {
+  const relativeDocsDir = normalizeGitPath(path.relative(projectRoot, docsDir));
+  return resolveFeatureDocsPrefix(relativeDocsDir);
+}
+
+function managedOpenWikiIgnoreBlock(
+  featureDocsIgnore: string | null = null
+): string {
   return `${OPENWIKI_IGNORE_BEGIN}
 .lee-spec-kit/openwiki-run.json
 .env
@@ -3001,7 +3635,7 @@ function managedOpenWikiIgnoreBlock(): string {
 **/secrets/
 **/.secrets/
 **/service-account*.json
-${OPENWIKI_IGNORE_END}`;
+${featureDocsIgnore || ''}${featureDocsIgnore ? '\n' : ''}${OPENWIKI_IGNORE_END}`;
 }
 
 function managedOpenWikiAgentBlock(): string {
@@ -3077,6 +3711,36 @@ async function walkFiles(
       );
     }
   }
+}
+
+async function walkFilesPreservingRoot(
+  root: string,
+  visit: (absolutePath: string, relativePath: string) => Promise<void>
+): Promise<void> {
+  const walk = async (current: string): Promise<void> => {
+    const entries = await fs.readdir(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const absolutePath = path.join(current, entry.name);
+      const stat = await fs.lstat(absolutePath);
+      if (stat.isSymbolicLink()) {
+        throw createCliError(
+          'OPENWIKI_OUTPUT_INVALID',
+          `OpenWiki output must not contain symlinks: ${absolutePath}`
+        );
+      }
+      if (entry.isDirectory()) {
+        await walk(absolutePath);
+        continue;
+      }
+      if (entry.isFile()) {
+        await visit(
+          absolutePath,
+          normalizeGitPath(path.relative(root, absolutePath))
+        );
+      }
+    }
+  };
+  await walk(root);
 }
 
 async function verifyKnowledgeSurfaceTrackable(

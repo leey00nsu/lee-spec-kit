@@ -9,6 +9,7 @@ import {
   isRegisteredGitWorktree,
   resolveManagedWorktreePath,
   resolveConfiguredStandaloneWorkspaceRoot,
+  resolveGitPrimaryWorktreeRoot,
   resolveGitTopLevelOrNull,
   resolveStandaloneProjectRoots,
 } from './standalone-workspace.js';
@@ -25,6 +26,7 @@ export interface ResolvedFeature {
   git: {
     docsGitCwd: string;
     projectGitCwd: string;
+    managedWorktree?: boolean;
   };
   issueNumber?: number;
 }
@@ -43,6 +45,18 @@ export interface FeatureSelectionState {
 }
 
 const BRANCH_LABELS = ['Branch', '브랜치'];
+
+export function requiresManagedFeatureWorktree(config: ProjectConfig): boolean {
+  const workflow = config.workflow || {};
+  const hasCanonicalMode =
+    workflow.mode === 'github' || workflow.mode === 'local';
+  const legacyStrictRequiresWorktree =
+    !hasCanonicalMode && workflow.preset === 'strict';
+  return (
+    config.docsRepo === 'standalone' ||
+    (workflow.requireWorktree ?? legacyStrictRequiresWorktree)
+  );
+}
 
 function normalizeComponent(value: string | undefined): string | undefined {
   const component = (value || '').trim().toLowerCase();
@@ -196,11 +210,15 @@ async function listResolvedFeatures(
       const issueNumber = await extractIssueNumber(featureDir);
       const branchName = await extractBranchName(featureDir);
       const projectGitCwdBase = resolveProjectGitCwd(cwd, config, type);
+      const managedWorktreeRequired = requiresManagedFeatureWorktree(config);
+      const worktreeLookupRoot = managedWorktreeRequired
+        ? resolveGitPrimaryWorktreeRoot(projectGitCwdBase)
+        : projectGitCwdBase;
       const worktreeProjectGitCwd =
-        config.docsRepo === 'standalone' && (issueNumber || branchName)
+        managedWorktreeRequired && (issueNumber || branchName)
           ? await resolveExistingManagedWorktreePath(
               config,
-              projectGitCwdBase,
+              worktreeLookupRoot,
               ref.slug,
               ref.folderName,
               issueNumber,
@@ -219,6 +237,7 @@ async function listResolvedFeatures(
         git: {
           docsGitCwd: config.docsDir,
           projectGitCwd: worktreeProjectGitCwd || projectGitCwdBase,
+          managedWorktree: !!worktreeProjectGitCwd,
         },
         issueNumber,
       } satisfies ResolvedFeature;

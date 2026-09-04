@@ -5,7 +5,10 @@ import type { LocalWorkflowCheck, ProjectConfig } from '../config/types.js';
 import type { ResolvedFeature } from './feature-resolver.js';
 import { runGitCapture } from './git-run.js';
 import { runProcess } from '../commands/github/process.js';
-import { resolveStandaloneProjectRoots } from './standalone-workspace.js';
+import {
+  resolveGitPrimaryWorktreeRoot,
+  resolveStandaloneProjectRoots,
+} from './standalone-workspace.js';
 
 export type LocalIntegrationStateStatus =
   | 'feature_failed'
@@ -407,12 +410,7 @@ function resolveProjectRoot(
     );
     if (roots[0]) return path.resolve(roots[0]);
   }
-  return (
-    runGitCapture(
-      ['rev-parse', '--show-toplevel'],
-      feature.git.projectGitCwd
-    ) || path.resolve(feature.git.projectGitCwd)
-  );
+  return resolveGitPrimaryWorktreeRoot(feature.git.projectGitCwd);
 }
 
 function resolveStatePath(

@@ -1,4 +1,5 @@
 import path from 'path';
+import { createHash } from 'node:crypto';
 import type { ProjectConfig } from '../config/types.js';
 import { runGitCapture } from './git-run.js';
 
@@ -149,6 +150,18 @@ export function resolveGitTopLevelOrSelf(cwd: string): string {
   return resolveGitTopLevelOrNull(cwd) || path.resolve(cwd);
 }
 
+export function resolveGitPrimaryWorktreeRoot(cwd: string): string {
+  const output = runGitCapture(['worktree', 'list', '--porcelain'], cwd) || '';
+  const primary = output
+    .split(/\r?\n/u)
+    .find((line) => line.startsWith('worktree '))
+    ?.slice('worktree '.length)
+    .trim();
+  return primary
+    ? path.resolve(primary)
+    : resolveGitTopLevelOrNull(cwd) || path.resolve(cwd);
+}
+
 export function normalizeBranchNameForWorktree(branchName: string): string {
   return branchName.trim().replace(/[\\/]/g, '-');
 }
@@ -160,11 +173,21 @@ export function resolveStandaloneManagedWorktreeRoot(
   if (config.docsRepo !== 'standalone') return null;
   const workspaceRoot = resolveConfiguredStandaloneWorkspaceRoot(config);
   if (!workspaceRoot) return null;
-  return path.resolve(
-    workspaceRoot,
-    '.worktrees',
-    path.basename(path.resolve(projectRoot))
-  );
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  const baseName = path.basename(resolvedProjectRoot);
+  const collidingRoots = collectStandaloneProjectRoots(config, workspaceRoot)
+    .map((entry) => path.resolve(entry))
+    .filter(
+      (entry) => path.basename(entry).toLowerCase() === baseName.toLowerCase()
+    );
+  const worktreeNamespace =
+    collidingRoots.length > 1
+      ? `${baseName}-${createHash('sha256')
+          .update(resolvedProjectRoot)
+          .digest('hex')
+          .slice(0, 8)}`
+      : baseName;
+  return path.resolve(workspaceRoot, '.worktrees', worktreeNamespace);
 }
 
 export function resolveManagedWorktreePath(

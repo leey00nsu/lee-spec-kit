@@ -1,9 +1,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { URL } from 'node:url';
 import {
   fs,
   ignoreGitArtifacts,
+  normalizePathForCompare,
   path,
   runCli,
   runCommand,
@@ -16,7 +18,8 @@ async function git(dir, args) {
   return result;
 }
 
-async function initializeOpenWikiFeature(dir, openwiki = true) {
+async function initializeOpenWikiFeature(dir, openwiki = true, options = {}) {
+  const docsDirectory = options.docsDirectory || './docs';
   await git(dir, ['init']);
   await git(dir, ['branch', '-M', 'main']);
   await git(dir, ['config', 'user.name', 'Test User']);
@@ -42,8 +45,9 @@ async function initializeOpenWikiFeature(dir, openwiki = true) {
     'none',
     '--openwiki',
     String(openwiki),
+    ...(options.force ? ['--force'] : []),
     '--dir',
-    './docs',
+    docsDirectory,
   ]);
   assert.equal(init.code, 0, init.stderr || init.stdout);
 
@@ -56,11 +60,48 @@ async function initializeOpenWikiFeature(dir, openwiki = true) {
   ]);
   assert.equal(feature.code, 0, feature.stderr || feature.stdout);
 
+  const initialFeatureDir = path.join(
+    path.resolve(dir, docsDirectory),
+    'features',
+    'F001-alpha'
+  );
+  const initialTasksPath = path.join(initialFeatureDir, 'tasks.md');
+  let initialTasks = await fs.readFile(initialTasksPath, 'utf-8');
+  initialTasks = initialTasks.replace(
+    /^- \*\*Branch\*\*:.*$/mu,
+    '- **Branch**: `feat/F001-alpha`'
+  );
+  await fs.writeFile(initialTasksPath, initialTasks, 'utf-8');
+  if (options.requireWorktree) {
+    const configPath = path.join(
+      path.resolve(dir, docsDirectory),
+      '.lee-spec-kit.json'
+    );
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.workflow.requireWorktree = true;
+    await fs.writeFile(
+      configPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      'utf-8'
+    );
+  }
+
   await git(dir, ['add', '.']);
   await git(dir, ['commit', '-m', 'chore: initialize demo']);
-  await git(dir, ['switch', '-c', 'feat/F001-alpha']);
+  let workingDir = dir;
+  if (options.requireWorktree) {
+    const worktreePath = path.join(dir, '.worktrees', 'feat-F001-alpha');
+    await git(dir, ['branch', 'feat/F001-alpha']);
+    await git(dir, ['worktree', 'add', worktreePath, 'feat/F001-alpha']);
+    workingDir = worktreePath;
+  } else {
+    await git(dir, ['switch', '-c', 'feat/F001-alpha']);
+  }
 
-  const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
+  const featureDir = path.join(
+    workingDir,
+    path.relative(dir, initialFeatureDir)
+  );
   await setStatus(path.join(featureDir, 'spec.md'), 'Status', 'Approved');
   await setStatus(path.join(featureDir, 'plan.md'), 'Status', 'Approved');
   await setStatus(path.join(featureDir, 'tasks.md'), 'Doc Status', 'Approved');
@@ -98,11 +139,12 @@ async function initializeOpenWikiFeature(dir, openwiki = true) {
     );
   await fs.writeFile(tasksPath, tasks, 'utf-8');
   await fs.appendFile(
-    path.join(dir, 'README.md'),
+    path.join(workingDir, 'README.md'),
     '\nImplemented alpha shell.\n'
   );
-  await git(dir, ['add', '.']);
-  await git(dir, ['commit', '-m', 'feat(F001): implement alpha shell']);
+  await git(workingDir, ['add', '.']);
+  await git(workingDir, ['commit', '-m', 'feat(F001): implement alpha shell']);
+  return { workingDir, featureDir };
 }
 
 async function setStatus(filePath, label, value) {
@@ -171,6 +213,7 @@ async function setupFakeOpenWiki(dir) {
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const childProcess = require('node:child_process');
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(invocationLog)}, args.join(' ') + '\\n');
 if (args.length === 1 && args[0] === '--help') {
@@ -225,28 +268,84 @@ fs.writeFileSync(path.join(wiki, 'index.md'), '---\\nokf_version: "0.2"\\n---\\n
 const citationMode = process.env.FAKE_OPENWIKI_CITATION_MODE || '';
 const staleCitation = citationMode === 'stale' || (citationMode === 'stale-first' && updateInvocationCount === 1);
 const citation = citationMode ? '\\nEvidence: \`README.md#L1-L' + (staleCitation ? '99' : '1') + '\`\\n' : '';
-fs.writeFileSync(path.join(wiki, 'architecture map.md'), '---\\ntype: concept\\n---\\n# Architecture\\n\\nThe tracked [README](/README.md) is the demo entrypoint.\\n' + citation);
-const claimMode = process.env.FAKE_OPENWIKI_CLAIM_MODE || '';
-if (claimMode) {
-  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-  const firstLine = (readme.match(/[^\\n]*\\n|[^\\n]+$/gu) || [])[0] || '';
-  const validHash = crypto.createHash('sha256').update(firstLine).digest('hex');
-  const staleClaim = claimMode === 'stale' || (claimMode === 'stale-first' && updateInvocationCount === 1);
-  const claimRoot = path.join(wiki, '.claims');
-  fs.mkdirSync(claimRoot, { recursive: true });
-  fs.writeFileSync(path.join(claimRoot, 'architecture.json'), JSON.stringify({
-    schemaVersion: 1,
-    claims: [{
-      id: 'claim_demo',
-      statement: 'README is the entrypoint.',
-      evidence: [{
-        resource: 'repo://README.md#L1-L1',
-        version: 'repo-lines-v1:sha256:' + (staleClaim ? '0'.repeat(64) : validHash) + ':fixture'
-      }]
+const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\nThe tracked [README](/README.md) is the demo entrypoint.\\n' + citation;
+fs.writeFileSync(path.join(wiki, 'architecture map.md'), pageContent);
+const pageVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(pageContent)).digest('hex');
+const claimMode = process.env.FAKE_OPENWIKI_CLAIM_MODE || 'valid';
+const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+const firstLine = (readme.match(/[^\\n]*\\n|[^\\n]+$/gu) || [])[0] || '';
+const validHash = crypto.createHash('sha256').update(firstLine).digest('hex');
+const staleClaim = claimMode === 'stale' || (claimMode === 'stale-first' && updateInvocationCount === 1);
+const evidenceMode = process.env.FAKE_OPENWIKI_EVIDENCE_MODE || 'line';
+const evidencePath = process.env.FAKE_OPENWIKI_EVIDENCE_PATH || 'README.md';
+let evidenceResource = 'repo://README.md#L1-L1';
+let evidenceVersion = 'repo-lines-v1:sha256:' + (staleClaim ? '0'.repeat(64) : validHash) + ':fixture';
+if (evidenceMode === 'file' || evidenceMode === 'file-stale') {
+  const fileHash = crypto.createHash('sha256').update(fs.readFileSync(path.join(root, evidencePath))).digest('hex');
+  evidenceResource = 'repo://' + evidencePath;
+  evidenceVersion = 'repo-file-v1:sha256:' + (evidenceMode === 'file-stale' ? '0'.repeat(64) : fileHash);
+} else if (evidenceMode === 'unsupported') {
+  evidenceResource = 'repo://README.md';
+  evidenceVersion = 'repo-symbol-v1:sha256:' + validHash;
+}
+const claimRoot = path.join(wiki, '.claims');
+fs.mkdirSync(claimRoot, { recursive: true });
+fs.writeFileSync(path.join(claimRoot, 'architecture map.json'), JSON.stringify({
+  schemaVersion: 1,
+  pageVersion,
+  claims: [{
+    id: 'claim_demo',
+    statement: 'README is the entrypoint.',
+    evidence: [{
+      resource: evidenceResource,
+      version: evidenceVersion
     }]
+  }]
+}, null, 2) + '\\n');
+const sourceHead = childProcess.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const openwikiSourceFingerprint = 'sha256:' + crypto.createHash('sha256').update(sourceHead).digest('hex');
+const manifestPages = {
+  '/openwiki/architecture map.md': {
+    pageVersion,
+    completedBy: 'openwiki/0.5.0',
+    completedRunId: 'fake-run',
+    gitHead: sourceHead,
+    sourceFingerprint: openwikiSourceFingerprint
+  }
+};
+if (process.env.FAKE_OPENWIKI_EXTRA_PAGE === '1') {
+  const extraDirectory = path.join(wiki, 'operations');
+  fs.mkdirSync(extraDirectory, { recursive: true });
+  const extraContent = '---\\ntype: concept\\n---\\n# Operations\\n';
+  fs.writeFileSync(path.join(extraDirectory, 'extra.md'), extraContent);
+  const extraVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(extraContent)).digest('hex');
+  manifestPages['/openwiki/operations/extra.md'] = {
+    pageVersion: extraVersion,
+    completedBy: 'openwiki/0.5.0',
+    completedRunId: 'fake-prior-run',
+    gitHead: sourceHead,
+    sourceFingerprint: openwikiSourceFingerprint
+  };
+  const extraClaimDirectory = path.join(claimRoot, 'operations');
+  fs.mkdirSync(extraClaimDirectory, { recursive: true });
+  fs.writeFileSync(path.join(extraClaimDirectory, 'extra.json'), JSON.stringify({
+    schemaVersion: 1,
+    pageVersion: extraVersion,
+    claims: []
   }, null, 2) + '\\n');
 }
-fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify({ status: interruptedMode ? 'interrupted' : 'complete', command: 'update' }, null, 2) + '\\n');
+fs.writeFileSync(path.join(wiki, '.page-manifest.json'), JSON.stringify({
+  schemaVersion: 1,
+  pages: manifestPages
+}, null, 2) + '\\n');
+fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify({
+  updatedAt: new Date().toISOString(),
+  command: 'update',
+  gitHead: sourceHead,
+  model: 'gpt-5.6-terra',
+  status: interruptedMode ? 'interrupted' : 'complete',
+  language: 'en'
+}, null, 2) + '\\n');
 fs.unlinkSync(path.join(wiki, '.run.json'));
 const begin = '<!-- OPENWIKI:START -->';
 const end = '<!-- OPENWIKI:END -->';
@@ -286,6 +385,37 @@ function json(result) {
   return JSON.parse(result.stdout);
 }
 
+async function refreshFakePageVersion(dir) {
+  const pagePath = path.join(dir, 'openwiki', 'architecture map.md');
+  const pageVersion = `sha256:${createHash('sha256')
+    .update(await fs.readFile(pagePath))
+    .digest('hex')}`;
+  const manifestPath = path.join(dir, 'openwiki', '.page-manifest.json');
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
+  manifest.pages['/openwiki/architecture map.md'].pageVersion = pageVersion;
+  await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const claimPath = path.join(
+    dir,
+    'openwiki',
+    '.claims',
+    'architecture map.json'
+  );
+  const claim = JSON.parse(await fs.readFile(claimPath, 'utf-8'));
+  claim.pageVersion = pageVersion;
+  await fs.writeFile(claimPath, `${JSON.stringify(claim, null, 2)}\n`);
+}
+
+async function rebindOpenWikiReceiptOutputHash(dir) {
+  const audit = json(
+    await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+  );
+  assert.ok(audit.outputHash, JSON.stringify(audit));
+  const receiptPath = path.join(dir, '.lee-spec-kit', 'openwiki-sync.json');
+  const receipt = JSON.parse(await fs.readFile(receiptPath, 'utf-8'));
+  receipt.outputHash = audit.outputHash;
+  await fs.writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+}
+
 test('OpenWiki 0.5.0 compatibility fixture pins the published contract', async () => {
   const contract = JSON.parse(
     await fs.readFile(
@@ -304,6 +434,179 @@ test('OpenWiki 0.5.0 compatibility fixture pins the published contract', async (
   assert.equal(contract.output.okfVersion, '0.2');
   assert.equal(contract.output.runStateSchemaVersion, 1);
   assert.match(contract.integrity, /^sha512-/u);
+});
+
+test('embedded Knowledge sync resolves the managed Feature worktree from the main checkout', async () => {
+  await withTempDir('lsk-openwiki-embedded-worktree-', async (dir) => {
+    const { workingDir } = await initializeOpenWikiFeature(dir, true, {
+      requireWorktree: true,
+    });
+    const fake = await setupFakeOpenWiki(dir);
+
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(result.status, 'ok', result.error);
+    assert.equal(
+      await normalizePathForCompare(result.projectRoot),
+      await normalizePathForCompare(workingDir)
+    );
+    assert.equal(
+      await fs.access(path.join(workingDir, 'openwiki', 'index.md')).then(
+        () => true,
+        () => false
+      ),
+      true
+    );
+    assert.equal(
+      await fs.access(path.join(dir, 'openwiki', 'index.md')).then(
+        () => true,
+        () => false
+      ),
+      false
+    );
+    assert.match(
+      await fs.readFile(path.join(workingDir, '.openwikiignore'), 'utf-8'),
+      /^docs\/features\/$/mu
+    );
+
+    const audit = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(audit.status, 'commit_required');
+    assert.equal(
+      await normalizePathForCompare(audit.projectRoot),
+      await normalizePathForCompare(workingDir)
+    );
+  });
+});
+
+test('root docsDir excludes Feature documents from the Knowledge fingerprint', async () => {
+  await withTempDir('lsk-openwiki-root-docs-', async (dir) => {
+    const { featureDir } = await initializeOpenWikiFeature(dir, true, {
+      docsDirectory: '.',
+      force: true,
+    });
+    const fake = await setupFakeOpenWiki(dir);
+    const synced = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(synced.status, 'ok', synced.error);
+    assert.match(
+      await fs.readFile(path.join(dir, '.openwikiignore'), 'utf-8'),
+      /^features\/$/mu
+    );
+    await git(dir, ['add', '.']);
+    await git(dir, [
+      'commit',
+      '-m',
+      'chore(F001): refresh OpenWiki knowledge layer',
+    ]);
+    await fs.appendFile(
+      path.join(featureDir, 'spec.md'),
+      '\nFeature-local note.\n',
+      'utf-8'
+    );
+    await git(dir, ['add', path.join('features', 'F001-alpha', 'spec.md')]);
+    await git(dir, ['commit', '-m', 'docs(F001): update feature note']);
+
+    const audit = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(audit.status, 'verified');
+    assert.equal(audit.sourceFingerprint, synced.receipt.sourceFingerprint);
+  });
+});
+
+test('standalone Knowledge sync fails closed until its managed worktree exists', async () => {
+  await withTempDir(
+    'lsk-openwiki-standalone-worktree-required-',
+    async (dir) => {
+      const projectRoot = path.join(dir, 'project');
+      await fs.mkdir(projectRoot, { recursive: true });
+      await git(projectRoot, ['init']);
+      await git(projectRoot, ['branch', '-M', 'main']);
+      await git(projectRoot, ['config', 'user.name', 'Test User']);
+      await git(projectRoot, ['config', 'user.email', 'test@example.com']);
+      await fs.writeFile(path.join(projectRoot, 'README.md'), '# Project\n');
+      await git(projectRoot, ['add', 'README.md']);
+      await git(projectRoot, ['commit', '-m', 'chore: initialize project']);
+
+      const init = await runCli(dir, [
+        'init',
+        '--non-interactive',
+        '--name',
+        'demo',
+        '--type',
+        'single',
+        '--lang',
+        'en',
+        '--workflow',
+        'local',
+        '--completion-strategy',
+        'none',
+        '--docs-repo',
+        'standalone',
+        '--project-root',
+        './project',
+        '--openwiki',
+        'true',
+        '--dir',
+        './docs',
+      ]);
+      assert.equal(init.code, 0, init.stderr || init.stdout);
+      const feature = await runCli(dir, [
+        'feature',
+        'alpha',
+        '--id',
+        'F001',
+        '--non-interactive',
+      ]);
+      assert.equal(feature.code, 0, feature.stderr || feature.stdout);
+      const tasksPath = path.join(
+        dir,
+        'docs',
+        'features',
+        'F001-alpha',
+        'tasks.md'
+      );
+      const tasks = await fs.readFile(tasksPath, 'utf-8');
+      await fs.writeFile(
+        tasksPath,
+        tasks.replace(
+          /^- \*\*Branch\*\*:.*$/mu,
+          '- **Branch**: `feat/F001-alpha`'
+        )
+      );
+
+      const result = await runCli(dir, [
+        'knowledge',
+        'sync',
+        'F001-alpha',
+        '--json',
+      ]);
+      const payload = json(result);
+      assert.equal(result.code, 1);
+      assert.equal(payload.reasonCode, 'OPENWIKI_WORKTREE_REQUIRED');
+      assert.equal(
+        await fs.access(path.join(projectRoot, 'openwiki')).then(
+          () => true,
+          () => false
+        ),
+        false
+      );
+    }
+  );
 });
 
 test('OpenWiki true adds a verified sync, dedicated commit, and Feature review gate', async () => {
@@ -358,6 +661,10 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
     );
     assert.equal(syncResult.progress.skippedPages, 0);
     assert.deepEqual(syncResult.progress.skippedPagePaths, []);
+    assert.match(
+      await fs.readFile(path.join(dir, '.openwikiignore'), 'utf-8'),
+      /^docs\/features\/$/mu
+    );
     assert.equal(syncResult.progress.currentPage, undefined);
     const openWikiIgnore = await fs.readFile(
       path.join(dir, '.openwikiignore'),
@@ -606,7 +913,7 @@ test('OpenWiki sync regenerates once when incremental claim evidence is stale', 
     assert.equal(
       await fs
         .readFile(
-          path.join(dir, 'openwiki', '.claims', 'architecture.json'),
+          path.join(dir, 'openwiki', '.claims', 'architecture map.json'),
           'utf-8'
         )
         .then((content) => content.includes('sha256:' + '0'.repeat(64))),
@@ -685,12 +992,15 @@ test('OpenWiki audit validates claim hashes and Markdown citation ranges even wi
       dir,
       'openwiki',
       '.claims',
-      'architecture.json'
+      'architecture map.json'
     );
     const originalClaim = await fs.readFile(claimPath, 'utf-8');
     await fs.writeFile(
       claimPath,
-      originalClaim.replace(/sha256:[0-9a-f]{64}/u, `sha256:${'0'.repeat(64)}`),
+      originalClaim.replace(
+        /repo-lines-v1:sha256:[0-9a-f]{64}/u,
+        `repo-lines-v1:sha256:${'0'.repeat(64)}`
+      ),
       'utf-8'
     );
     const receiptPath = path.join(dir, '.lee-spec-kit', 'openwiki-sync.json');
@@ -716,6 +1026,7 @@ test('OpenWiki audit validates claim hashes and Markdown citation ranges even wi
     await fs.writeFile(claimPath, originalClaim, 'utf-8');
     const pagePath = path.join(dir, 'openwiki', 'architecture map.md');
     await fs.appendFile(pagePath, '\n`README.md#L1-L99`\n', 'utf-8');
+    await refreshFakePageVersion(dir);
     const citationHashMismatch = json(
       await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
     );
@@ -729,6 +1040,362 @@ test('OpenWiki audit validates claim hashes and Markdown citation ranges even wi
     assert.equal(staleCitation.status, 'sync_required');
     assert.equal(staleCitation.reasonCode, 'OPENWIKI_OUTPUT_STALE');
     assert.match(staleCitation.detail, /exceeds README\.md's/u);
+  });
+});
+
+test('OpenWiki validates raw repo-file evidence and does not retry unsupported evidence', async () => {
+  await withTempDir('lsk-openwiki-file-evidence-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    await fs.writeFile(
+      path.join(dir, 'fixture.bin'),
+      new Uint8Array([0, 255, 10, 13, 128, 1])
+    );
+    await git(dir, ['add', 'fixture.bin']);
+    await git(dir, ['commit', '-m', 'test(F001): add binary evidence']);
+    const fake = await setupFakeOpenWiki(dir);
+    const valid = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_EVIDENCE_MODE: 'file',
+          FAKE_OPENWIKI_EVIDENCE_PATH: 'fixture.bin',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(valid.status, 'ok', valid.error);
+    assert.equal(valid.evidenceIntegrity.repoFileEvidenceValidated, 1);
+    assert.equal(valid.evidenceIntegrity.repoLineEvidenceValidated, 0);
+  });
+
+  await withTempDir('lsk-openwiki-unsupported-evidence-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = await runCli(
+      dir,
+      ['knowledge', 'sync', 'F001-alpha', '--json'],
+      { ...fake.env, FAKE_OPENWIKI_EVIDENCE_MODE: 'unsupported' },
+      { timeoutMs: 60_000 }
+    );
+    const payload = json(result);
+    assert.equal(result.code, 1);
+    assert.equal(payload.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.equal(payload.details.validation, 'evidence_structure');
+    const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
+      .split('\n')
+      .filter((entry) => entry === 'code --update --print --language en');
+    assert.equal(invocations.length, 1);
+  });
+
+  await withTempDir('lsk-openwiki-stale-file-evidence-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = await runCli(
+      dir,
+      ['knowledge', 'sync', 'F001-alpha', '--json'],
+      { ...fake.env, FAKE_OPENWIKI_EVIDENCE_MODE: 'file-stale' },
+      { timeoutMs: 60_000 }
+    );
+    const payload = json(result);
+    assert.equal(result.code, 1);
+    assert.equal(payload.details.validation, 'evidence_integrity');
+    assert.match(payload.error, /stale file evidence/u);
+    const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
+      .split('\n')
+      .filter((entry) => entry === 'code --update --print --language en');
+    assert.equal(invocations.length, 2);
+  });
+});
+
+test('OpenWiki modern provenance binds Markdown, manifest, claims, and last-update metadata', async () => {
+  await withTempDir('lsk-openwiki-modern-provenance-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const sync = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        { ...fake.env, FAKE_OPENWIKI_EXTRA_PAGE: '1' },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(sync.status, 'ok', sync.error);
+    assert.equal(sync.evidenceIntegrity.manifestPages, 2);
+    assert.equal(sync.evidenceIntegrity.distinctRunCount, 2);
+
+    await git(dir, [
+      'add',
+      'openwiki',
+      '.lee-spec-kit/openwiki-sync.json',
+      '.openwikiignore',
+      'AGENTS.md',
+      'CLAUDE.md',
+    ]);
+    await git(dir, [
+      'commit',
+      '-m',
+      'chore(F001): refresh OpenWiki knowledge layer',
+    ]);
+
+    const manifestPath = path.join(dir, 'openwiki', '.page-manifest.json');
+    const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
+    manifest.pages['/openwiki/architecture map.md'].pageVersion =
+      `sha256:${'0'.repeat(64)}`;
+    await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    await rebindOpenWikiReceiptOutputHash(dir);
+    const stalePage = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(stalePage.status, 'sync_required');
+    assert.match(
+      stalePage.detail,
+      /pageVersion does not match Markdown bytes/u
+    );
+  });
+});
+
+test('OpenWiki audit rejects lingering run state and mismatched completion metadata', async () => {
+  await withTempDir('lsk-openwiki-run-provenance-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const sync = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(sync.status, 'ok', sync.error);
+    await git(dir, [
+      'add',
+      'openwiki',
+      '.lee-spec-kit/openwiki-sync.json',
+      '.openwikiignore',
+      'AGENTS.md',
+      'CLAUDE.md',
+    ]);
+    await git(dir, [
+      'commit',
+      '-m',
+      'chore(F001): refresh OpenWiki knowledge layer',
+    ]);
+
+    const runPath = path.join(dir, 'openwiki', '.run.json');
+    await fs.writeFile(
+      runPath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        runId: 'orphan-run',
+        mode: 'update',
+        phase: 'generating',
+        plan: { pages: [] },
+      })}\n`
+    );
+    const incomplete = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.notEqual(incomplete.status, 'verified');
+    assert.equal(incomplete.reasonCode, 'OPENWIKI_RUN_OWNER_MISMATCH');
+    await fs.rm(runPath);
+
+    const lastUpdatePath = path.join(dir, 'openwiki', '.last-update.json');
+    const lastUpdate = JSON.parse(await fs.readFile(lastUpdatePath, 'utf-8'));
+    lastUpdate.gitHead = '0'.repeat(40);
+    await fs.writeFile(
+      lastUpdatePath,
+      `${JSON.stringify(lastUpdate, null, 2)}\n`
+    );
+    await rebindOpenWikiReceiptOutputHash(dir);
+    const mismatched = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(mismatched.status, 'sync_required');
+    assert.match(mismatched.detail, /gitHead does not match/u);
+  });
+});
+
+test('OpenWiki accepts legacy OKF 0.1 output without modern provenance metadata', async () => {
+  await withTempDir('lsk-openwiki-legacy-provenance-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const sync = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(sync.status, 'ok', sync.error);
+    await fs.rm(path.join(dir, 'openwiki', '.page-manifest.json'));
+    const indexPath = path.join(dir, 'openwiki', 'index.md');
+    await fs.writeFile(
+      indexPath,
+      (await fs.readFile(indexPath, 'utf-8')).replace('"0.2"', '"0.1"'),
+      'utf-8'
+    );
+    await fs.writeFile(
+      path.join(dir, 'openwiki', '.last-update.json'),
+      `${JSON.stringify({ status: 'complete', command: 'update' }, null, 2)}\n`
+    );
+    const receiptPath = path.join(dir, '.lee-spec-kit', 'openwiki-sync.json');
+    const modernReceipt = JSON.parse(await fs.readFile(receiptPath, 'utf-8'));
+    await fs.writeFile(
+      receiptPath,
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          featureRef: modernReceipt.triggerFeatureRef,
+          component: modernReceipt.triggerComponent,
+          language: modernReceipt.language,
+          sourceHead: modernReceipt.sourceHead,
+          sourceFingerprint: modernReceipt.sourceFingerprint,
+          baseRef: modernReceipt.baseRef,
+          baseHead: modernReceipt.baseHead,
+          openwikiVersion: modernReceipt.openwikiVersion,
+          outputHash: 'sha256:pending',
+          verifiedAt: modernReceipt.verifiedAt,
+        },
+        null,
+        2
+      )}\n`
+    );
+    await rebindOpenWikiReceiptOutputHash(dir);
+    await git(dir, [
+      'add',
+      'openwiki',
+      '.lee-spec-kit/openwiki-sync.json',
+      '.openwikiignore',
+      'AGENTS.md',
+      'CLAUDE.md',
+    ]);
+    await git(dir, [
+      'commit',
+      '-m',
+      'chore(F001): preserve legacy OpenWiki knowledge',
+    ]);
+    const audit = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(audit.status, 'verified', JSON.stringify(audit));
+    assert.equal(audit.receipt.schemaVersion, 1);
+    assert.equal(audit.receipt.okfVersion, '0.1');
+    assert.equal(audit.evidenceIntegrity.manifestPages, undefined);
+  });
+});
+
+test('OpenWiki audit resolves a squashed fresh-clone snapshot from equivalent HEAD', async () => {
+  await withTempDir('lsk-openwiki-squash-fallback-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const sync = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(sync.status, 'ok', sync.error);
+    await git(dir, [
+      'add',
+      'openwiki',
+      '.lee-spec-kit/openwiki-sync.json',
+      '.openwikiignore',
+      'AGENTS.md',
+      'CLAUDE.md',
+    ]);
+    await git(dir, [
+      'commit',
+      '-m',
+      'chore(F001): refresh OpenWiki knowledge layer',
+    ]);
+    const featureTree = (
+      await git(dir, ['rev-parse', 'HEAD^{tree}'])
+    ).stdout.trim();
+    const squashCommit = (
+      await git(dir, [
+        'commit-tree',
+        featureTree,
+        '-p',
+        sync.receipt.baseHead,
+        '-m',
+        'feat(F001): squash alpha',
+      ])
+    ).stdout.trim();
+    await git(dir, ['branch', '-f', 'main', squashCommit]);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['branch', '-D', 'feat/F001-alpha']);
+    await git(dir, ['reflog', 'expire', '--expire=now', '--all']);
+    await git(dir, ['gc', '--prune=now']);
+    const missingSource = await runCommand(dir, 'git', [
+      'cat-file',
+      '-e',
+      `${sync.receipt.sourceHead}^{commit}`,
+    ]);
+    assert.notEqual(missingSource.code, 0);
+
+    const audit = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(audit.status, 'verified', JSON.stringify(audit));
+    assert.equal(audit.evidenceIntegrity.resolvedFrom, 'head');
+    assert.equal(
+      audit.evidenceIntegrity.recordedSourceHead,
+      sync.receipt.sourceHead
+    );
+    assert.equal(audit.evidenceIntegrity.resolvedHead, squashCommit);
+    assert.equal(audit.receipt.sourceHead, sync.receipt.sourceHead);
+  });
+});
+
+test('OpenWiki rejects claim evidence from fingerprint-excluded Feature docs', async () => {
+  await withTempDir('lsk-openwiki-excluded-evidence-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const sync = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        fake.env,
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(sync.status, 'ok', sync.error);
+    await git(dir, [
+      'add',
+      'openwiki',
+      '.lee-spec-kit/openwiki-sync.json',
+      '.openwikiignore',
+      'AGENTS.md',
+      'CLAUDE.md',
+    ]);
+    await git(dir, [
+      'commit',
+      '-m',
+      'chore(F001): refresh OpenWiki knowledge layer',
+    ]);
+    const claimPath = path.join(
+      dir,
+      'openwiki',
+      '.claims',
+      'architecture map.json'
+    );
+    const claim = JSON.parse(await fs.readFile(claimPath, 'utf-8'));
+    claim.claims[0].evidence[0] = {
+      resource: 'repo://docs/features/F001-alpha/spec.md#L1-L1',
+      version: `repo-lines-v1:sha256:${'0'.repeat(64)}:fixture`,
+    };
+    await fs.writeFile(claimPath, `${JSON.stringify(claim, null, 2)}\n`);
+    await rebindOpenWikiReceiptOutputHash(dir);
+    const audit = json(
+      await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'])
+    );
+    assert.equal(audit.status, 'sync_required');
+    assert.match(audit.detail, /excluded from the Knowledge fingerprint/u);
   });
 });
 

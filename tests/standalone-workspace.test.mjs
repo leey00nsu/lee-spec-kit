@@ -5,6 +5,35 @@ import {
   path,
   withTempDir,
 } from './helpers/cli-contract-helpers.mjs';
+import { resolveManagedWorktreePath } from '../src/utils/standalone-workspace.ts';
+
+test('standalone multi namespaces same-basename project worktrees safely', async () => {
+  await withTempDir('lsk-worktree-namespace-', async (dir) => {
+    const config = {
+      docsRepo: /** @type {const} */ ('standalone'),
+      docsDir: path.join(dir, 'docs'),
+      workspaceRoot: '..',
+      projectRoot: {
+        api: path.join(dir, 'api', 'service'),
+        web: path.join(dir, 'web', 'service'),
+      },
+    };
+    const apiPath = resolveManagedWorktreePath(
+      config,
+      config.projectRoot.api,
+      'feat/F001-alpha'
+    );
+    const webPath = resolveManagedWorktreePath(
+      config,
+      config.projectRoot.web,
+      'feat/F001-alpha'
+    );
+
+    assert.notEqual(path.dirname(apiPath), path.dirname(webPath));
+    assert.match(path.dirname(apiPath), /service-[0-9a-f]{8}$/u);
+    assert.match(path.dirname(webPath), /service-[0-9a-f]{8}$/u);
+  });
+});
 
 test('isRegisteredGitWorktree reuses git worktree list output per project root', async () => {
   const previousPath = process.env.PATH;

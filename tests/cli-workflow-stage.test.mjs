@@ -1862,6 +1862,29 @@ test('workflow-stage uses managed worktree creation for standalone projects', as
   });
 });
 
+test('workflow-stage does not accept the standalone project root as its Feature worktree', async () => {
+  await withTempDir('lsk-workflow-stage-standalone-root-branch-', async (dir) => {
+    const { projectRoot } = await initStandaloneRepo(dir);
+    const fakeGh = await setupFakeGhCli(dir);
+    await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
+    await syncIssueDraftMarker(dir, 123);
+
+    const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks
+      .replace('- **Issue**: #', '- **Issue**: #123')
+      .replace('- **Branch**: feat/-alpha', '- **Branch**: feat/123-alpha');
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    const branch = await runCommand(projectRoot, 'git', ['switch', '-c', 'feat/123-alpha']);
+    assert.equal(branch.code, 0, branch.stderr || branch.stdout);
+
+    const payload = await readStage(dir, fakeGh.env);
+    assert.equal(payload.stage, 'branch');
+    assert.equal(payload.nextAction.category, 'branch_create');
+    assert.match(payload.nextAction.command || '', /worktree add/u);
+  });
+});
+
 test('workflow-stage restores a missing standalone worktree before completed Feature Knowledge gates', async () => {
   await withTempDir('lsk-workflow-stage-standalone-complete-openwiki-', async (dir) => {
     const { projectRoot } = await initStandaloneRepo(dir);
