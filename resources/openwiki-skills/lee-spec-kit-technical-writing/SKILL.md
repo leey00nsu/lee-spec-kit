@@ -16,7 +16,8 @@ Make the repository easier to understand without weakening evidence or inventing
 4. Give each page one primary topic and arrange sections in the order a new developer needs them.
 5. Use specific headings, stable terminology, concrete subjects, and short sentences that carry one main idea.
 6. Link prerequisite, neighboring, and next-step pages where they remove guesswork.
-7. Review the page against the checklist below before finishing.
+7. Add at least one descriptive Markdown source link to every generated reader-facing page except the index. Use `[label](repo://path)` or `[label](repo://path#Lx-Ly)` and prefer a stable line range when it points the reader to the relevant contract. Claim sidecars and inline code citations do not satisfy this requirement.
+8. Review the page against the checklist below before finishing.
 
 Technical accuracy is the hard constraint. If evidence is missing or conflicting, state the uncertainty instead of making the prose sound complete.
 
@@ -31,6 +32,7 @@ Technical accuracy is the hard constraint. If evidence is missing or conflicting
 - Can a new developer tell within the opening section what this page helps them do or understand?
 - Does the page answer one primary question without hiding another document inside it?
 - Are commands, paths, identifiers, boundaries, and runtime sequences exact and evidence-backed?
+- Does every generated reader-facing page except the index contain at least one useful `repo://` Markdown source link?
 - Are prerequisites introduced before dependent concepts?
 - Do headings describe their section instead of using vague labels such as “Details” or “Overview” repeatedly?
 - Are important terms used consistently throughout the page and neighboring pages?

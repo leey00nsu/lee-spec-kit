@@ -273,7 +273,10 @@ fs.writeFileSync(path.join(wiki, 'index.md'), '---\\nokf_version: "0.2"\\n---\\n
 const citationMode = process.env.FAKE_OPENWIKI_CITATION_MODE || '';
 const staleCitation = citationMode === 'stale' || (citationMode === 'stale-first' && updateInvocationCount === 1);
 const citation = citationMode ? '\\nEvidence: \`README.md#L1-L' + (staleCitation ? '99' : '1') + '\`\\n' : '';
-const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\nThe tracked [README](/README.md) is the demo entrypoint.\\n' + citation;
+const sourceLink = process.env.FAKE_OPENWIKI_OMIT_SOURCE_LINK === '1'
+  ? 'README is the demo entrypoint.'
+  : 'The tracked [README](repo://README.md#L1-L1) is the demo entrypoint.';
+const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\n' + sourceLink + '\\n' + citation;
 fs.writeFileSync(path.join(wiki, 'architecture map.md'), pageContent);
 const pageVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(pageContent)).digest('hex');
 const claimMode = process.env.FAKE_OPENWIKI_CLAIM_MODE || 'valid';
@@ -321,7 +324,7 @@ const manifestPages = {
 if (process.env.FAKE_OPENWIKI_EXTRA_PAGE === '1') {
   const extraDirectory = path.join(wiki, 'operations');
   fs.mkdirSync(extraDirectory, { recursive: true });
-  const extraContent = '---\\ntype: concept\\n---\\n# Operations\\n';
+  const extraContent = '---\\ntype: concept\\n---\\n# Operations\\n\\nSee the tracked [README](repo://README.md#L1-L1).\\n';
   fs.writeFileSync(path.join(extraDirectory, 'extra.md'), extraContent);
   const extraVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(extraContent)).digest('hex');
   manifestPages['/openwiki/operations/extra.md'] = {
@@ -679,6 +682,8 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
     );
     assert.equal(syncResult.progress.skippedPages, 0);
     assert.deepEqual(syncResult.progress.skippedPagePaths, []);
+    assert.equal(syncResult.evidenceIntegrity.readerPagesValidated, 1);
+    assert.equal(syncResult.evidenceIntegrity.markdownSourceLinksValidated, 1);
     assert.match(
       await fs.readFile(path.join(dir, '.openwikiignore'), 'utf-8'),
       /^docs\/features\/$/mu
@@ -712,6 +717,18 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
         'utf-8'
       ),
       /code-grounded OpenWiki pages/u
+    );
+    assert.match(
+      await fs.readFile(
+        path.join(
+          fake.env.OPENWIKI_CONFIG_DIR,
+          'skills',
+          'lee-spec-kit-technical-writing',
+          'SKILL.md'
+        ),
+        'utf-8'
+      ),
+      /every generated reader-facing page except the index/u
     );
     const invocations = await fs.readFile(fake.invocationLog, 'utf-8');
     assert.match(invocations, /code --update --print --language en\n$/u);
@@ -1218,6 +1235,34 @@ test('OpenWiki sync refuses a receipt when regenerated evidence remains invalid'
       assert.equal(invocations.length, 2);
     });
   }
+});
+
+test('OpenWiki sync refuses reader pages without a repo source link', async () => {
+  await withTempDir('lsk-openwiki-reader-source-link-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = await runCli(
+      dir,
+      ['knowledge', 'sync', 'F001-alpha', '--json'],
+      { ...fake.env, FAKE_OPENWIKI_OMIT_SOURCE_LINK: '1' },
+      { timeoutMs: 60_000 }
+    );
+    const payload = json(result);
+
+    assert.equal(result.code, 1);
+    assert.equal(payload.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.equal(payload.details.validation, 'evidence_structure');
+    assert.match(payload.error, /no valid reader-facing repo:\/\//u);
+    assert.equal(
+      await fs
+        .access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json'))
+        .then(
+          () => true,
+          () => false
+        ),
+      false
+    );
+  });
 });
 
 test('OpenWiki audit validates claim hashes and Markdown citation ranges even with a matching receipt hash', async () => {
