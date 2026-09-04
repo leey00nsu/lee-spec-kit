@@ -39,7 +39,7 @@ export interface ResolvedOpenWikiWritingPolicy {
 
 const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
   id: 'lee-spec-kit.technical-writing',
-  version: '1.1.2',
+  version: '1.1.3',
   skillName: 'lee-spec-kit-technical-writing',
   bundleDirectory: 'lee-spec-kit-technical-writing',
   renderInstructions(language) {
@@ -53,6 +53,7 @@ const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
 - Repository evidence and technical accuracy outrank writing style. Never smooth over uncertainty or invent missing facts.
 - Every generated reader-facing page except the index must include at least one descriptive Markdown link to a tracked source file using \`repo://path\` or \`repo://path#Lx-Ly\`. Reserve \`repo://\` for source files included in the repository fingerprint; link Knowledge pages with \`/openwiki/...\` instead. Claim sidecars and inline code citations do not replace this reader navigation link.
 - Knowledge cross-links must use an exact planned page path, including the \`.md\` suffix. Never guess a shortened slug or omit the suffix.
+- Write Markdown URL targets with literal forward slashes. Never insert backslashes before forward slashes.
 - This block is managed by lee-spec-kit. Put project-specific writing instructions outside the managed markers.
 ${OPENWIKI_WRITING_POLICY_END}`;
   },

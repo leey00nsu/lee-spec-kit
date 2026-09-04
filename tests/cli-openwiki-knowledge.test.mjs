@@ -732,6 +732,8 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
     );
     assert.match(instructions, /exact planned page path/u);
     assert.match(instructions, /including the `\.md` suffix/u);
+    assert.match(instructions, /literal forward slashes/u);
+    assert.match(instructions, /Never insert backslashes/u);
     const invocations = await fs.readFile(fake.invocationLog, 'utf-8');
     assert.match(invocations, /code --update --print --language en\n$/u);
     assert.doesNotMatch(invocations, /--init/u);

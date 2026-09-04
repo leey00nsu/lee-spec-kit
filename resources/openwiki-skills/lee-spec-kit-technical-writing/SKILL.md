@@ -18,7 +18,8 @@ Make the repository easier to understand without weakening evidence or inventing
 6. Link prerequisite, neighboring, and next-step pages where they remove guesswork.
 7. Add at least one descriptive Markdown source link to every generated reader-facing page except the index. Use `[label](repo://path)` or `[label](repo://path#Lx-Ly)` and prefer a stable line range when it points the reader to the relevant contract. Reserve `repo://` for tracked source files included in the repository fingerprint. Link another Knowledge page with `/openwiki/...`, never `repo://openwiki/...`. Claim sidecars and inline code citations do not satisfy this requirement.
 8. Use the exact planned path for every Knowledge cross-link, including the `.md` suffix. Do not infer a shortened slug or extensionless alias.
-9. Review the page against the checklist below before finishing.
+9. Write Markdown URL targets with literal `/` characters. Never JSON-escape a Knowledge link as `\/openwiki\/...` or insert backslashes before slashes.
+10. Review the page against the checklist below before finishing.
 
 Technical accuracy is the hard constraint. If evidence is missing or conflicting, state the uncertainty instead of making the prose sound complete.
 
@@ -35,6 +36,7 @@ Technical accuracy is the hard constraint. If evidence is missing or conflicting
 - Are commands, paths, identifiers, boundaries, and runtime sequences exact and evidence-backed?
 - Does every generated reader-facing page except the index contain at least one useful `repo://` Markdown source link?
 - Does every Knowledge cross-link match an existing planned page path exactly, including `.md`?
+- Do Markdown URL targets use literal forward slashes without backslashes?
 - Are prerequisites introduced before dependent concepts?
 - Do headings describe their section instead of using vague labels such as “Details” or “Overview” repeatedly?
 - Are important terms used consistently throughout the page and neighboring pages?
