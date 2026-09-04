@@ -1297,6 +1297,60 @@ test('OpenWiki sync rejects generated Knowledge as a repo source link', async ()
   });
 });
 
+test('OpenWiki validates reader source links with balanced path parentheses and an EOF boundary', async () => {
+  await withTempDir('lsk-openwiki-reader-source-syntax-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const sourceDirectory = path.join(dir, 'app', '(group)');
+    await fs.mkdir(sourceDirectory, { recursive: true });
+    await fs.writeFile(
+      path.join(sourceDirectory, 'page.tsx'),
+      'export default function Page() {}\n',
+      'utf-8'
+    );
+    await git(dir, ['add', 'app/(group)/page.tsx']);
+    await git(dir, ['commit', '-m', 'test(F001): add grouped route']);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'app/(group)/page.tsx#L1-L2',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(result.status, 'ok', result.error);
+    assert.equal(result.evidenceIntegrity.readerPagesValidated, 1);
+    assert.equal(result.evidenceIntegrity.markdownSourceLinksValidated, 1);
+  });
+});
+
+test('OpenWiki still rejects reader source ranges beyond the trailing EOF boundary', async () => {
+  await withTempDir('lsk-openwiki-reader-source-range-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'README.md#L1-L5',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(result.status, 'error');
+    assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.equal(result.details.validation, 'evidence_integrity');
+    assert.match(result.error, /exceeds README\.md's 3 lines: L1-L5/u);
+  });
+});
+
 test('OpenWiki runs one in-place broken-link repair after a clean evidence retry', async () => {
   await withTempDir('lsk-openwiki-link-repair-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);

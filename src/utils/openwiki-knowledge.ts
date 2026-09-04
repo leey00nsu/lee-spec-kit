@@ -3246,6 +3246,7 @@ async function verifyOpenWikiEvidenceIntegrity(
     endLine: number;
     location: string;
     expectedHash?: string;
+    allowTrailingEofBoundary?: boolean;
   }): boolean => {
     const relativePath = resolveEvidencePath(input.rawPath, input.location);
     if (!relativePath) return false;
@@ -3281,7 +3282,12 @@ async function verifyOpenWikiEvidenceIntegrity(
       return false;
     }
     const lines = splitSourceLinesPreservingEndings(content);
-    if (input.endLine > lines.length) {
+    const usesTrailingEofBoundary =
+      input.allowTrailingEofBoundary === true &&
+      input.startLine <= lines.length &&
+      input.endLine === lines.length + 1 &&
+      content.endsWith('\n');
+    if (input.endLine > lines.length && !usesTrailingEofBoundary) {
       staleFailures.record(
         `${input.location} exceeds ${relativePath}'s ${lines.length} lines: L${input.startLine}-L${input.endLine}`
       );
@@ -3417,17 +3423,17 @@ async function verifyOpenWikiEvidenceIntegrity(
 
       let pageSourceLinksFound = 0;
       let pageSourceLinksValidated = 0;
-      const sourceLinkPattern = /(?<!!)\[([^\]\r\n]+)\]\(([^)\r\n]+)\)/gu;
-      for (const match of content.matchAll(sourceLinkPattern)) {
-        const label = (match[1] || '').trim();
-        const rawValue = (match[2] || '').trim();
+      for (const link of parseMarkdownInlineLinks(content)) {
+        if (link.isImage) continue;
+        const label = link.label.trim();
+        const rawValue = link.rawValue.trim();
         const rawTarget = rawValue.startsWith('<')
           ? rawValue.match(/^<([^>]+)>/u)?.[1] || rawValue
           : rawValue.replace(/\s+["'][^"']*["']\s*$/u, '');
         if (!rawTarget.startsWith('repo://')) continue;
         pageSourceLinksFound += 1;
 
-        const before = content.slice(0, match.index || 0);
+        const before = content.slice(0, link.index);
         const markdownLine = before.split('\n').length;
         const location = `${relativePath}:${markdownLine}`;
         const sourceMatch = rawTarget.match(
@@ -3450,6 +3456,7 @@ async function verifyOpenWikiEvidenceIntegrity(
             startLine,
             endLine,
             location,
+            allowTrailingEofBoundary: true,
           });
         } else {
           const relativeSourcePath = resolveEvidencePath(rawPath, location);
@@ -4116,15 +4123,14 @@ async function assertValidMarkdownLinks(
   markdownPath: string,
   content: string
 ): Promise<void> {
-  const linkPattern = /\[[^\]]*\]\(([^)]+)\)/g;
-  for (const match of content.matchAll(linkPattern)) {
-    const rawValue = (match[1] || '').trim();
+  for (const link of parseMarkdownInlineLinks(content)) {
+    const rawValue = link.rawValue.trim();
     const rawTarget = rawValue.startsWith('<')
       ? rawValue.match(/^<([^>]+)>/u)?.[1] || rawValue
       : rawValue.replace(/\s+["'][^"']*["']\s*$/u, '');
-    const before = content.slice(0, match.index || 0);
+    const before = content.slice(0, link.index);
     const line = before.split('\n').length;
-    const column = (match.index || 0) - before.lastIndexOf('\n');
+    const column = link.index - before.lastIndexOf('\n');
     const location = `${normalizeGitPath(path.relative(wikiRoot, markdownPath))}:${line}:${column}`;
     if (
       !rawTarget ||
@@ -4207,6 +4213,71 @@ async function assertValidMarkdownLinks(
       );
     }
   }
+}
+
+interface MarkdownInlineLink {
+  index: number;
+  label: string;
+  rawValue: string;
+  isImage: boolean;
+}
+
+function parseMarkdownInlineLinks(content: string): MarkdownInlineLink[] {
+  const links: MarkdownInlineLink[] = [];
+  for (let index = 0; index < content.length; index += 1) {
+    if (content[index] !== '[' || isEscapedMarkdownCharacter(content, index)) {
+      continue;
+    }
+
+    let labelEnd = index + 1;
+    for (; labelEnd < content.length; labelEnd += 1) {
+      const character = content[labelEnd];
+      if (character === '\n' || character === '\r') break;
+      if (character === ']' && !isEscapedMarkdownCharacter(content, labelEnd)) {
+        break;
+      }
+    }
+    if (content[labelEnd] !== ']' || content[labelEnd + 1] !== '(') {
+      continue;
+    }
+
+    const valueStart = labelEnd + 2;
+    let depth = 1;
+    let valueEnd = valueStart;
+    for (; valueEnd < content.length; valueEnd += 1) {
+      const character = content[valueEnd];
+      if (character === '\n' || character === '\r') break;
+      if (isEscapedMarkdownCharacter(content, valueEnd)) continue;
+      if (character === '(') {
+        depth += 1;
+      } else if (character === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (depth !== 0) continue;
+
+    links.push({
+      index,
+      label: content.slice(index + 1, labelEnd),
+      rawValue: content.slice(valueStart, valueEnd),
+      isImage:
+        index > 0 &&
+        content[index - 1] === '!' &&
+        !isEscapedMarkdownCharacter(content, index - 1),
+    });
+    index = valueEnd;
+  }
+  return links;
+}
+
+function isEscapedMarkdownCharacter(content: string, index: number): boolean {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (content[cursor] !== '\\') break;
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
 }
 
 function hasControlCharacter(value: string): boolean {
