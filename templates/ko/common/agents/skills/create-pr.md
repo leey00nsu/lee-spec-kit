@@ -19,6 +19,8 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 Pre-PR 리뷰에서 서브에이전트가 항상 수행하는 최소 기준입니다. 리뷰 스킬 이름에 의존하지 않습니다.
 
+Curated Documentation Impact의 NONE을 포함한 근거를 검토합니다. 발견한 불일치마다 수정 완료 또는 실제 후속 task/Feature/issue 연결을 확인하고 문서 경로·근거·미해결 질문·보류 이유를 점검합니다. 잔여 위험 문구만으로는 후속 추적이 아닙니다. 처리 누락은 finding으로 보고하며 코드나 파생 Knowledge로 제품 의도를 추정하지 않습니다. 기존 리뷰 횟수와 승인 정책은 그대로 적용합니다.
+
 `workflow-stage --json`의 `nextAction.executor`가 `subagent`이면 fresh context의 읽기 전용 서브에이전트에게 리뷰를 위임합니다. `model: inherit`은 현재 모델을 상속한다는 뜻이며, 그 외 값은 서브에이전트 생성 시 모델 override로 사용합니다. 지정 모델을 사용할 수 없으면 `onUnavailable` 정책(`inherit` 또는 `error`)을 따릅니다.
 
 1. `spec.md` / `plan.md` / `tasks.md` 기준으로 변경 범위 정합성을 확인하고, 구현이 원래 목적에 맞는지 점검합니다.

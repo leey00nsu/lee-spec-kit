@@ -19,6 +19,8 @@ Execution-state SSOT is the feature-local `pr.md`.
 
 The Pre-PR subagent must always run this minimum baseline. Do not depend on a named review skill.
 
+Review Curated Documentation Impact evidence, including NONE. For each discovered discrepancy, verify a completed correction or a real follow-up task/Feature/issue with document paths, evidence, the unresolved question, and the deferral reason. A residual-risk note alone is not follow-up tracking. Report missing disposition as a finding; do not infer product intent from code or generated Knowledge. Existing review-round and approval policies still apply.
+
 When `workflow-stage --json` returns `nextAction.executor: subagent`, delegate the review to a fresh, read-only subagent. `model: inherit` means inheriting the current model; any other value is used as the subagent model override. If that model is unavailable, follow `onUnavailable` (`inherit` or `error`).
 
 1. Review alignment with `spec.md` / `plan.md` / `tasks.md` and confirm implementation still matches the original goal.

@@ -26,8 +26,8 @@ Read [information-architecture.md](references/information-architecture.md) and [
 3. Arrange sections in the order a new developer needs them.
 4. Use specific headings, stable terminology, concrete subjects, and short sentences that carry one main idea.
 5. Link prerequisite, neighboring, and next-step pages where they remove guesswork.
-6. Add at least one descriptive Markdown source link to every generated reader-facing page except the index. Use `[label](repo://path)` or `[label](repo://path#Lx-Ly)` and prefer a stable line range when it points the reader to the relevant contract. Reserve `repo://` for tracked source files included in the repository fingerprint. Link another Knowledge page with `/openwiki/...`, never `repo://openwiki/...`. Claim sidecars and inline code citations do not satisfy this requirement.
-7. Use the exact planned path for every Knowledge cross-link, including the `.md` suffix. Do not infer a shortened slug or extensionless alias.
+6. Add at least one descriptive Markdown source link to every generated reader-facing page except the index. Use `[label](repo://path)` or `[label](repo://path#Lx-Ly)` and prefer a stable line range when it points the reader to the relevant contract. Reserve `repo://` for tracked source files included in the repository fingerprint. Link another Knowledge page with a page-relative Markdown path, never `/openwiki/...` or `repo://openwiki/...` hrefs. Claim sidecars and inline code citations do not satisfy this requirement.
+7. Resolve every Knowledge link to the exact planned path, including `.md`, but write its href relative to the current page directory. From `/openwiki/architecture/system.md` to `/openwiki/operations/workers.md`, use `../operations/workers.md`. Canonical `/openwiki/...` identifiers belong in plans and metadata; OpenWiki visualize 0.5.0 requires relative Markdown hrefs. Do not infer a shortened slug or extensionless alias.
 8. Write Markdown URL targets with literal `/` characters. Never JSON-escape a Knowledge link as `\/openwiki\/...` or insert backslashes before slashes.
 9. Finish the draft before editing it. In this second stage, choose one dominant document type, separate unrelated reader goals, and revise every paragraph for focus and natural terminology. Do not submit the first draft.
 10. In the final stage, reconcile commands, conditions, exceptions, links and Claims with the edited prose, then submit the page. Check that every `repo://` target is a tracked regular file; directories belong in code notation or need a link to a relevant file inside them. Keep all three stages in the page job, without a separate model, score, or review artifact.
@@ -48,7 +48,7 @@ Unavailable input does not prove that a file is absent from the repository. Use 
 - Does the page answer one primary question without hiding another document inside it?
 - Are commands, paths, identifiers, boundaries, and runtime sequences exact and evidence-backed?
 - Does every generated reader-facing page except the index contain at least one useful `repo://` Markdown source link?
-- Does every Knowledge cross-link match an existing planned page path exactly, including `.md`?
+- Does every page-relative Knowledge href resolve to the exact planned page, including `.md`, without a root-leading slash?
 - Do Markdown URL targets use literal forward slashes without backslashes?
 - Are prerequisites introduced before dependent concepts?
 - Do headings describe their section instead of using vague labels such as “Details” or “Overview” repeatedly?

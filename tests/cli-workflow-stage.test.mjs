@@ -2124,6 +2124,13 @@ test('workflow-stage runs Feature review before implementation approval', async 
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
     assert.equal(payload.blockedReasonCode, 'PRE_PR_REVIEW_NOT_APPROVED');
+    const decisionReview = payload.nextAction.delegationContext.requiredDocuments.find(
+      (document) => document.path.endsWith('/decisions.md')
+    );
+    assert.match(decisionReview.purpose, /including NONE/u);
+    assert.match(decisionReview.purpose, /real follow-up task\/Feature\/issue reference/u);
+    assert.match(decisionReview.purpose, /A residual-risk note alone is not follow-up tracking/u);
+    assert.match(decisionReview.purpose, /never infer product intent/u);
   });
 });
 

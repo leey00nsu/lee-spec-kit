@@ -34,6 +34,8 @@ Use the active feature folder as the execution SSOT.
 
 ## 3. Keep docs in sync
 
+Do not close a discovered documentation discrepancy with a decisions.md note alone. For an unambiguous factual error within approved scope, declare UPDATE/ADD and link a task Docs target. If product intent or scope expansion needs confirmation, record the conflicting document paths and evidence, the question to resolve, the deferral reason, and a real follow-up task/Feature/issue reference. Never invent identifiers or approvals. If creating the tracking item needs approval, do not report resolution before user confirmation. Explain in NONE evidence whether no known discrepancy remains or a remaining discrepancy is tracked by that follow-up. Never delete unimplemented PRD requirements merely to match code or OpenWiki.
+
 - `spec.md`: update when user-visible scope or acceptance criteria change
 - `plan.md`: update when architecture, file structure, or test strategy changes
 - `decisions.md`: record non-obvious decisions, trade-offs, compatibility behavior, and user-requested behavior changes

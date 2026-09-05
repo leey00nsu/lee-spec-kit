@@ -51,6 +51,8 @@ src/
 
 ## Curated Documentation Impact
 
+Do not close a discovered documentation discrepancy with a decisions.md note alone. For an unambiguous factual error within approved scope, declare UPDATE/ADD and link a task Docs target. If product intent or scope expansion needs confirmation, record the conflicting document paths and evidence, the question to resolve, the deferral reason, and a real follow-up task/Feature/issue reference. Never invent identifiers or approvals. If creating the tracking item needs approval, do not report resolution before user confirmation. Explain in NONE evidence whether no known discrepancy remains or a remaining discrepancy is tracked by that follow-up. Never delete unimplemented PRD requirements merely to match code or OpenWiki.
+
 > Complete this assessment even when every decision is `NONE`. `NONE` means the surface was reviewed and no human-owned project document needs to change. Generated OpenWiki synchronization is evaluated separately.
 
 - **Schema**: 2

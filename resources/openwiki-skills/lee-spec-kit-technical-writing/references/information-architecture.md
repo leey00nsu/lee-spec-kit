@@ -49,3 +49,5 @@ Link only when it reduces navigation work:
 - evidence: the tracked file supporting a factual claim.
 
 Use descriptive link text. Avoid unexplained chains of “here”, raw host paths, or duplicate links that lead to the same destination.
+
+Keep canonical `/openwiki/...md` paths for planning and page identity. In Markdown, use links relative to the current page: `../quickstart.md` from a one-level-deep page, or `../operations/workers.md` between sibling sections. This lets OpenWiki visualize resolve the intended relationship. Do not add unrelated links or duplicate indexes solely to make the graph connected.

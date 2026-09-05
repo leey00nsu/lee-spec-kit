@@ -78,6 +78,8 @@ applicable, the approved Verification Contract for task work, and exact hash or
 SHA/tree review targets. The primary agent passes this object without rebuilding,
 omitting, or broadening it.
 
+Curated discrepancy disposition is part of existing Plan, task execution, and Feature review policy, not a new config flag or schema. Correct in-scope factual errors through declared targets and tasks. If product intent or scope needs confirmation, record the document paths, evidence, unresolved question, deferral reason, and a real follow-up task/Feature/issue. A decisions-only residual note is insufficient. Reviewers inspect NONE evidence and report untracked discrepancies as findings under the existing review-round policy. This does not add an automatic semantic-staleness detector or authorize rewriting product intent from generated Knowledge.
+
 ### `local verify` / `local merge` / `local cleanup`
 
 ```bash

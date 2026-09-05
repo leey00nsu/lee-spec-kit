@@ -276,12 +276,13 @@ if (process.env.FAKE_OPENWIKI_ASSERT_RUN_OWNER_IGNORE === '1') {
     process.exit(9);
   }
 }
-const indexLink = process.env.FAKE_OPENWIKI_INDEX_LINK || '/openwiki/architecture%20map.md';
+const repaired = isRepair && process.env.FAKE_OPENWIKI_REPAIR_SUCCEEDS === '1';
+const requestedIndexLink = process.env.FAKE_OPENWIKI_INDEX_LINK || 'architecture%20map.md';
+const indexLink = repaired && requestedIndexLink.startsWith('/openwiki/') ? requestedIndexLink.slice('/openwiki/'.length) : requestedIndexLink;
 fs.writeFileSync(path.join(wiki, 'index.md'), '---\\nokf_version: "0.2"\\n---\\n# Demo Knowledge\\n\\n[Architecture](' + indexLink + ')\\n');
 const citationMode = process.env.FAKE_OPENWIKI_CITATION_MODE || '';
-const staleCitation = citationMode === 'stale' || (citationMode === 'stale-first' && updateInvocationCount === 1);
+const staleCitation = !repaired && (citationMode === 'stale' || (citationMode === 'stale-first' && updateInvocationCount === 1));
 const citation = citationMode ? '\\nEvidence: \`README.md#L1-L' + (staleCitation ? '99' : '1') + '\`\\n' : '';
-const repaired = isRepair && process.env.FAKE_OPENWIKI_REPAIR_SUCCEEDS === '1';
 const sourceLink = !repaired && process.env.FAKE_OPENWIKI_OMIT_SOURCE_LINK === '1'
   ? 'README is the demo entrypoint.'
   : 'The tracked [README](repo://' + ((!repaired && process.env.FAKE_OPENWIKI_SOURCE_LINK_TARGET) || 'README.md#L1-L1') + ') is the demo entrypoint.';
@@ -289,11 +290,11 @@ const pageProse = repaired ? '' : process.env.FAKE_OPENWIKI_PAGE_PROSE
   ? process.env.FAKE_OPENWIKI_PAGE_PROSE + '\\n'
   : '';
 const brokenLinkMode = process.env.FAKE_OPENWIKI_BROKEN_LINK_MODE || '';
-const brokenLink = brokenLinkMode === 'always' ||
+const brokenLink = !repaired && (brokenLinkMode === 'always' ||
   (brokenLinkMode === 'first' && updateInvocationCount === 1) ||
-  (brokenLinkMode === 'second' && updateInvocationCount === 2)
+  (brokenLinkMode === 'second' && updateInvocationCount === 2))
   ? '\\n<!-- openwiki: broken internal link [/openwiki/missing.md] file "/openwiki/missing.md" does not exist. Fix the href or restore the target, then delete this comment. -->\\n[Missing](/openwiki/missing.md)\\n'
-  : '';
+  : repaired && brokenLinkMode ? '\\n[Missing](missing.md)\\n' : '';
 const pageContent = '---\\ntype: concept\\n---\\n# Architecture\\n\\n' + pageProse + sourceLink + '\\n' + citation + brokenLink;
 fs.writeFileSync(path.join(wiki, 'architecture map.md'), pageContent);
 const pageVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(pageContent)).digest('hex');
@@ -339,6 +340,15 @@ const manifestPages = {
     sourceFingerprint: openwikiSourceFingerprint
   }
 };
+if (repaired && brokenLinkMode) {
+  const restoredContent = '---\\ntype: concept\\n---\\n# Restored topic\\n\\nRead the [README](repo://README.md#L1-L1).\\n';
+  fs.writeFileSync(path.join(wiki, 'missing.md'), restoredContent);
+  const restoredVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(restoredContent)).digest('hex');
+  manifestPages['/openwiki/missing.md'] = { ...manifestPages['/openwiki/architecture map.md'], pageVersion: restoredVersion };
+  const restoredClaims = JSON.parse(fs.readFileSync(path.join(claimRoot, 'architecture map.json'), 'utf8'));
+  restoredClaims.pageVersion = restoredVersion;
+  fs.writeFileSync(path.join(claimRoot, 'missing.json'), JSON.stringify(restoredClaims));
+}
 if (process.env.FAKE_OPENWIKI_EXTRA_PAGE === '1') {
   const extraDirectory = path.join(wiki, 'operations');
   fs.mkdirSync(extraDirectory, { recursive: true });
@@ -694,7 +704,7 @@ test('OpenWiki true adds a verified sync, dedicated commit, and Feature review g
       syncResult.receipt.writingPolicy.skillName,
       'lee-spec-kit-technical-writing'
     );
-    assert.equal(syncResult.receipt.writingPolicy.adapterVersion, '1.4.0');
+    assert.equal(syncResult.receipt.writingPolicy.adapterVersion, '1.5.0');
     assert.match(syncResult.receipt.writingPolicy.skillHash, /^sha256:/u);
     assert.match(syncResult.receipt.writingPolicy.instructionHash, /^sha256:/u);
     assert.equal(syncResult.progress.phase, 'complete');
@@ -1330,7 +1340,7 @@ test('OpenWiki sync refuses a receipt when regenerated evidence remains invalid'
       assert.equal(result.code, 1);
       assert.equal(payload.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
       assert.match(payload.error, expectedDetail);
-      assert.equal(payload.details.validation, 'evidence_integrity');
+      assert.equal(payload.details.validation, environmentName === 'FAKE_OPENWIKI_CITATION_MODE' ? 'citation_ranges' : 'evidence_integrity');
       assert.equal(
         await fs
           .access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json'))
@@ -1343,7 +1353,7 @@ test('OpenWiki sync refuses a receipt when regenerated evidence remains invalid'
       const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
         .split('\n')
         .filter((entry) => entry === 'code --update --print --language en');
-      assert.equal(invocations.length, 2);
+      assert.equal(invocations.length, environmentName === 'FAKE_OPENWIKI_CITATION_MODE' ? 1 : 2);
     });
   }
 });
@@ -1491,7 +1501,7 @@ test('OpenWiki still rejects reader source ranges beyond the trailing EOF bounda
 
     assert.equal(result.status, 'error');
     assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
-    assert.equal(result.details.validation, 'evidence_integrity');
+    assert.equal(result.details.validation, 'citation_ranges');
     assert.match(result.error, /exceeds README\.md's 3 lines: L1-L5/u);
   });
 });
@@ -1512,7 +1522,7 @@ test('OpenWiki preserves current-policy terminal output for a later validation r
       )
     );
     assert.equal(invalid.status, 'error');
-    assert.equal(invalid.details.validation, 'evidence_integrity');
+    assert.equal(invalid.details.validation, 'citation_ranges');
 
     const pending = json(
       await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json'], fake.env)
@@ -1524,6 +1534,7 @@ test('OpenWiki preserves current-policy terminal output for a later validation r
     );
     assert.match(pending.detail, /completed generation/u);
     assert.doesNotMatch(pending.detail, /before OpenWiki persisted/u);
+    assert.match(pending.interruption.validationFailure.message, /L1-L99/u);
 
     const recovered = json(
       await runCli(
@@ -1541,11 +1552,45 @@ test('OpenWiki preserves current-policy terminal output for a later validation r
     const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
       .split('\n')
       .filter((entry) => entry === 'code --update --print --language en');
-    assert.equal(invocations.length, 3);
+    assert.equal(invocations.length, 2);
   });
 });
 
-test('OpenWiki runs one in-place broken-link repair after a clean evidence retry', async () => {
+test('OpenWiki repairs internal links, missing reader links and citation ranges in one pass', async () => {
+  await withTempDir('lsk-openwiki-combined-repair-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_BROKEN_LINK_MODE: 'always',
+      FAKE_OPENWIKI_OMIT_SOURCE_LINK: '1',
+      FAKE_OPENWIKI_CITATION_MODE: 'stale',
+      FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
+    }, { timeoutMs: 60_000 }));
+    assert.equal(result.status, 'ok', result.error);
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    for (const type of ['internal_links', 'evidence_structure', 'citation_ranges']) assert.ok(log.includes(type), type);
+    await fs.access(path.join(dir, 'openwiki', 'missing.md'));
+  });
+});
+
+test('OpenWiki does not repair mixed document errors with an excluded source', async () => {
+  await withTempDir('lsk-openwiki-combined-block-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_BROKEN_LINK_MODE: 'always',
+      FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'openwiki/index.md',
+    }, { timeoutMs: 60_000 }));
+    assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.match(result.error, /excluded/u);
+    assert.doesNotMatch(await fs.readFile(fake.invocationLog, 'utf-8'), /lee-spec-kit validation repair/u);
+  });
+});
+
+test('OpenWiki sends broken-link diagnostics after a clean evidence retry', async () => {
   await withTempDir('lsk-openwiki-link-repair-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);
     const fake = await setupFakeOpenWiki(dir);
@@ -1557,6 +1602,7 @@ test('OpenWiki runs one in-place broken-link repair after a clean evidence retry
           ...fake.env,
           FAKE_OPENWIKI_CLAIM_MODE: 'stale-first',
           FAKE_OPENWIKI_BROKEN_LINK_MODE: 'second',
+          FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
         },
         { timeoutMs: 60_000 }
       )
@@ -1566,7 +1612,13 @@ test('OpenWiki runs one in-place broken-link repair after a clean evidence retry
     const invocations = (await fs.readFile(fake.invocationLog, 'utf-8'))
       .split('\n')
       .filter((entry) => entry === 'code --update --print --language en');
-    assert.equal(invocations.length, 3);
+    assert.equal(invocations.length, 2);
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /architecture map\.md/);
+    assert.match(log, /\/openwiki\/missing\.md/);
+    await fs.access(path.join(dir, 'openwiki', 'missing.md'));
+    assert.match(await fs.readFile(path.join(dir, 'openwiki', 'architecture map.md'), 'utf-8'), /\[Missing\]\(missing\.md\)/u);
     assert.doesNotMatch(
       await fs.readFile(
         path.join(dir, 'openwiki', 'architecture map.md'),
@@ -1574,6 +1626,82 @@ test('OpenWiki runs one in-place broken-link repair after a clean evidence retry
       ),
       /openwiki: broken internal link/u
     );
+  });
+});
+
+test('OpenWiki repairs existing root-relative Knowledge targets for visualization', async () => {
+  await withTempDir('lsk-openwiki-link-root-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_INDEX_LINK: '/openwiki/architecture%20map.md#overview',
+      FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
+    }, { timeoutMs: 60_000 }));
+    assert.equal(result.status, 'ok', result.error);
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /visualize_root_link/u);
+    assert.match(log, /suggestedHref/u);
+    assert.match(await fs.readFile(path.join(dir, 'openwiki', 'index.md'), 'utf-8'), /\[Architecture\]\(architecture%20map\.md#overview\)/u);
+  });
+});
+
+test('OpenWiki does not certify existing root-relative targets when repair fails', async () => {
+  await withTempDir('lsk-openwiki-link-root-failed-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_INDEX_LINK: '/openwiki/architecture%20map.md',
+    }, { timeoutMs: 60_000 }));
+    assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.match(result.error, /Invalid OpenWiki navigation links/u);
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /visualize_root_link/u);
+    await assert.rejects(fs.access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json')), { code: 'ENOENT' });
+  });
+});
+
+test('OpenWiki stops after one failed internal-link repair without a receipt', async () => {
+  await withTempDir('lsk-openwiki-link-repair-failed-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_BROKEN_LINK_MODE: 'always',
+      FAKE_OPENWIKI_INDEX_LINK: '/openwiki/other-missing.md',
+      FAKE_OPENWIKI_PAGE_PROSE: Array.from({ length: 6 }, (_, i) => `[Topic ${i}](/openwiki/topic-${i}.md)`).join(' '),
+    }, { timeoutMs: 60_000 }));
+    assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
+    assert.match(result.error, /Invalid OpenWiki navigation links/);
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /other-missing\.md/u);
+    assert.match(log, /architecture map\.md/u);
+    assert.match(log, /index\.md/u);
+    assert.match(log, /repairTargets/u);
+    assert.match(log, /topic-5\.md/u);
+    await assert.rejects(fs.access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json')), { code: 'ENOENT' });
+  });
+});
+
+test('OpenWiki repairs an unstamped missing page from generated navigation', async () => {
+  await withTempDir('lsk-openwiki-link-unstamped-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_INDEX_LINK: '/openwiki/missing.md',
+      FAKE_OPENWIKI_BROKEN_LINK_MODE: 'restore-only',
+      FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
+    }, { timeoutMs: 60_000 }));
+    assert.equal(result.status, 'ok', result.error);
+    await fs.access(path.join(dir, 'openwiki', 'missing.md'));
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /index\.md/u);
   });
 });
 
@@ -2134,6 +2262,16 @@ test('OpenWiki interrupted completion reports observed skipped pages without wri
       '/openwiki/architecture map.md',
     ]);
     assert.match(payload.details.interruption.limitation, /source drift/u);
+    const audit = json(await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json']));
+    assert.equal(audit.interruption.reasonCode, 'OPENWIKI_SKIPPED_PAGES_OBSERVED');
+    assert.deepEqual(audit.interruption.observedSkippedPagePaths, payload.details.interruption.observedSkippedPagePaths);
+    assert.match(audit.interruption.limitation, /unavailable from upstream/u);
+    const ownerPath = path.join(dir, '.lee-spec-kit', 'openwiki-run.json');
+    const owner = JSON.parse(await fs.readFile(ownerPath, 'utf-8'));
+    owner.lastProgress.runId = 'other-run';
+    await fs.writeFile(ownerPath, JSON.stringify(owner));
+    const mismatched = json(await runCli(dir, ['knowledge', 'audit', 'F001-alpha', '--json']));
+    assert.equal(mismatched.interruption.observedSkippedPages, null);
     assert.equal(
       await fs
         .access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json'))
@@ -2143,6 +2281,9 @@ test('OpenWiki interrupted completion reports observed skipped pages without wri
         ),
       false
     );
+    const resumed = json(await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], fake.env));
+    assert.equal(resumed.status, 'ok', resumed.error);
+    await assert.rejects(fs.access(ownerPath), { code: 'ENOENT' });
   });
 });
 
@@ -2638,11 +2779,13 @@ test('OpenWiki accepts relative links and reports unsafe links with file locatio
       await runCli(dir, ['knowledge', 'sync', 'F001-alpha', '--json'], {
         ...fake.env,
         FAKE_OPENWIKI_INDEX_LINK: '../../outside.md',
+        FAKE_OPENWIKI_BROKEN_LINK_MODE: 'always',
       })
     );
     assert.equal(unsafe.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
     assert.match(unsafe.error, /index\.md:6:\d+/u);
     assert.match(unsafe.error, /\.\.\/\.\.\/outside\.md/u);
+    assert.doesNotMatch(await fs.readFile(fake.invocationLog, 'utf-8'), /lee-spec-kit validation repair/u);
   });
 });
 

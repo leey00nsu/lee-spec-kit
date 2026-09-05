@@ -2404,7 +2404,7 @@ function createFeatureReviewDelegationContext(
     ),
     createDelegationDocument(
       paths.decisionsPath,
-      'Review recorded decisions, trade-offs, and residual risks.'
+      'Review recorded decisions, trade-offs, and residual risks. Check Curated Documentation Impact evidence, including NONE. Every discovered documentation discrepancy needs a completed correction or a real follow-up task/Feature/issue reference with document paths, evidence, the unresolved question, and the deferral reason. A residual-risk note alone is not follow-up tracking. Report missing disposition as a finding; never infer product intent from code or generated Knowledge.'
     ),
   ];
   for (const target of curatedDocumentationTargets) {

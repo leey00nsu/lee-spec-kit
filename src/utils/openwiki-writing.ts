@@ -51,7 +51,7 @@ export interface ResolvedOpenWikiWritingPolicy {
 
 const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
   id: 'lee-spec-kit.technical-writing',
-  version: '1.4.0',
+  version: '1.5.0',
   skillName: 'lee-spec-kit-technical-writing',
   bundleDirectory: 'lee-spec-kit-technical-writing',
   renderPlannerInstructions() {
@@ -80,9 +80,9 @@ const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
       'Use three stages inside each page job: (1) draft an evidence-backed answer to the assigned reader question; (2) edit the complete draft for one dominant document type, one point per paragraph, consistent natural terminology, and no repeated summaries; (3) reconcile commands, conditions, exceptions, source links and Claims with the edited text, then call submit_page. Do not submit the first draft. Perform the edit within this job without a separate model, score, or review artifact.',
       'Repository evidence and technical accuracy outrank writing style. Never smooth over uncertainty or invent missing facts.',
       'Input visibility is not repository existence. A failed read or absence from the generation input may mean exclusion or access restrictions, not a missing file. Verify existence only with available authoritative tracked-file metadata; otherwise say the file was not available in the generation input. Never read excluded secrets or relax ignore rules to resolve uncertainty.',
-      'Every generated reader-facing page except the index must include at least one descriptive Markdown link to a tracked source file using `repo://path` or `repo://path#Lx-Ly`. Reserve `repo://` for source files included in the repository fingerprint; link Knowledge pages with `/openwiki/...` instead. Claim sidecars and inline code citations do not replace this reader navigation link.',
+      'Every generated reader-facing page except the index must include at least one descriptive Markdown link to a tracked source file using `repo://path` or `repo://path#Lx-Ly`. Reserve `repo://` for source files included in the repository fingerprint. Link Knowledge pages with page-relative Markdown paths, never `/openwiki/...` or `repo://openwiki/...` hrefs. Claim sidecars and inline code citations do not replace this reader navigation link.',
       'Before submitting, check every repo:// target is a regular tracked source file, not a directory or symlink. For a directory, use plain code notation or link a relevant file inside it; never invent a file or line range.',
-      'Knowledge cross-links must use an exact planned page path, including the `.md` suffix. Never guess a shortened slug or omit the suffix.',
+      'Resolve each Knowledge cross-link to the exact planned page path, including `.md`, but express its Markdown href relative to the current page directory. For example, from /openwiki/architecture/system.md to /openwiki/operations/workers.md use ../operations/workers.md. Keep canonical /openwiki/... identifiers in plans and metadata, not Markdown hrefs. Preserve meaningful navigation; do not add unrelated links merely to connect the graph.',
       'Write Markdown URL targets with literal forward slashes. Never insert backslashes before forward slashes.',
     ];
   },
