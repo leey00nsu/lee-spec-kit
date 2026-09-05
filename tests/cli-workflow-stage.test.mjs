@@ -1703,6 +1703,29 @@ test('workflow-stage blocks the next task when the latest task commit boundary i
     assert.equal(payload.nextAction.category, 'task_commit');
     assert.equal(payload.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
     assert.match(payload.nextAction.summary, /latest project commit subject does not match the just-finished task/i);
+
+    // Empty checkpoints must still name the task; an unrelated one is not a
+    // blanket waiver of the strict gate.
+    let checkpoint = await runCommand(dir, 'git', [
+      'commit', '--allow-empty', '-m', 'docs(#123): unrelated checkpoint',
+    ]);
+    assert.equal(checkpoint.code, 0, checkpoint.stderr || checkpoint.stdout);
+    assert.equal((await readStage(dir, fakeGh.env)).stage, 'task_commit');
+
+    checkpoint = await runCommand(dir, 'git', [
+      'commit', '--allow-empty', '-m', 'docs(#123): implement alpha shell',
+    ]);
+    assert.equal(checkpoint.code, 0, checkpoint.stderr || checkpoint.stdout);
+    const continued = await readStage(dir, fakeGh.env);
+    assert.equal(continued.stage, 'implementation');
+    assert.equal(continued.nextAction.taskId, 'T-F001-alpha-02');
+
+    // Only HEAD counts. Do not search past a later unrelated empty checkpoint.
+    checkpoint = await runCommand(dir, 'git', [
+      'commit', '--allow-empty', '-m', 'docs(#123): later unrelated checkpoint',
+    ]);
+    assert.equal(checkpoint.code, 0, checkpoint.stderr || checkpoint.stdout);
+    assert.equal((await readStage(dir, fakeGh.env)).stage, 'task_commit');
   });
 });
 

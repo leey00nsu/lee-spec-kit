@@ -1510,7 +1510,20 @@ function checkTaskCommitGate(
     ':(exclude)CLAUDE.md'
   );
 
-  const latestProjectSubject = runGitCapture(args, effectiveProjectGitCwd);
+  // Path-filtered history deliberately ignores docs/derived changes, but also
+  // hides explicit empty checkpoints for documentation-only tasks. Honor only
+  // an empty, single-parent HEAD; never search backwards for a matching title.
+  const head = runGitCapture(
+    ['show', '-s', '--format=%s%n%T%n%P', 'HEAD'],
+    effectiveProjectGitCwd
+  )?.split('\n');
+  const parents = head?.[2]?.trim().split(/\s+/).filter(Boolean) ?? [];
+  const parentTree = parents.length === 1
+    ? runGitCapture(['rev-parse', `${parents[0]}^{tree}`], effectiveProjectGitCwd)
+    : undefined;
+  const latestProjectSubject = parentTree && head?.[1] === parentTree
+    ? head[0]
+    : runGitCapture(args, effectiveProjectGitCwd);
   if (latestProjectSubject === undefined) {
     return { pass: false, reason: 'PROJECT_LOG_UNAVAILABLE' };
   }
