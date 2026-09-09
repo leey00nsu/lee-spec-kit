@@ -51,10 +51,10 @@ import {
 } from './documentation-impact.js';
 import {
   areChangesOpenWikiOnly,
-  inspectOpenWikiKnowledge,
   isOpenWikiEnabled,
   OPENWIKI_RECEIPT_PATH,
 } from './openwiki-knowledge.js';
+import { readKnowledgePublication } from './knowledge-publication.js';
 
 export type WorkflowStageId =
   | 'spec'
@@ -465,10 +465,9 @@ function resolveWorkflowRequirements(
       : (workflow.agentReview?.plan?.enabled ?? false),
     taskReviewEnabled: workflow.agentReview?.task?.enabled ?? false,
     featureReviewEnabled:
-      isOpenWikiEnabled(config) ||
-      (workflow.agentReview?.feature?.enabled ??
-        workflow.prePrReview?.enabled ??
-        !isLocalWorkflow),
+      workflow.agentReview?.feature?.enabled ??
+      workflow.prePrReview?.enabled ??
+      !isLocalWorkflow,
     taskExecutionEnabled: legacyBackfilledAgentAutomation.taskExecution
       ? false
       : (workflow.agentExecution?.task?.enabled ?? false),
@@ -2434,19 +2433,7 @@ function createFeatureReviewDelegationContext(
     requiredDocuments.push(
       createDelegationDocument(
         targetPath,
-        `Review the human-owned curated documentation target declared by the Plan (${target}) and compare it with the implementation and generated Knowledge.`
-      )
-    );
-  }
-  if (isOpenWikiEnabled(config)) {
-    requiredDocuments.push(
-      createDelegationDocument(
-        path.join(workingDirectory, 'openwiki', 'index.md'),
-        'Review the generated onboarding map as derived, untrusted evidence and verify its material facts against tracked sources.'
-      ),
-      createDelegationDocument(
-        path.join(workingDirectory, OPENWIKI_RECEIPT_PATH),
-        'Verify the Knowledge source fingerprint, output hash, OpenWiki version, and base freshness receipt.'
+        `Review the human-owned curated documentation target declared by the Plan (${target}) and compare it with the implementation.`
       )
     );
   }
@@ -3768,7 +3755,7 @@ export async function collectWorkflowStage(
         stage: 'task_commit',
         nextAction: buildAction(
           'task_commit',
-          `Reconcile curated documentation changes before Knowledge sync or Feature review. Declare these changed targets in the Plan and a task Docs list, or revert changes that do not belong to this Feature: ${undeclaredCuratedChanges.join(', ')}.`,
+          `Reconcile curated documentation changes before Feature review. Declare these changed targets in the Plan and a task Docs list, or revert changes that do not belong to this Feature: ${undeclaredCuratedChanges.join(', ')}.`,
           false
         ),
         approvalRequired: false,
@@ -3796,102 +3783,12 @@ export async function collectWorkflowStage(
         stage: 'task_commit',
         nextAction: buildAction(
           'task_commit',
-          `Complete and commit every curated documentation target with the active Feature scope before Knowledge sync or Feature review. ${documentationEvidenceErrors.join(' ')}`,
+          `Complete and commit every curated documentation target with the active Feature scope before Feature review. ${documentationEvidenceErrors.join(' ')}`,
           false
         ),
         approvalRequired: false,
         implementationAllowed: false,
         blockedReasonCode: 'TASK_COMMIT_REQUIRED',
-      };
-    }
-  }
-
-  if (allTasksDone(tasks) && isOpenWikiEnabled(config)) {
-    const knowledgeState = await inspectOpenWikiKnowledge({
-      config,
-      featureRef: feature.folderName,
-      component: feature.type,
-      projectCwd: effectiveProjectGitCwd,
-    });
-    const knowledgeCommand = `npx lee-spec-kit knowledge sync ${buildFeatureArgs(feature)} --json`;
-
-    if (knowledgeState.status === 'setup_required') {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'knowledge_setup',
-        nextAction: buildAction(
-          'knowledge_setup',
-          `${knowledgeState.detail || 'Prepare a supported OpenWiki runtime.'} Run the doctor again after setup; lee-spec-kit will not install OpenWiki implicitly.`,
-          false,
-          `npx lee-spec-kit knowledge doctor ${buildFeatureArgs(feature)} --json`
-        ),
-        approvalRequired: false,
-        implementationAllowed: false,
-        blockedReasonCode: 'KNOWLEDGE_SETUP_REQUIRED',
-      };
-    }
-
-    if (knowledgeState.status === 'sync_required') {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'knowledge_sync',
-        nextAction: buildAction(
-          'knowledge_sync',
-          `Synchronize the required OpenWiki layer in ${knowledgeState.projectRoot}. Current state: ${knowledgeState.reasonCode}.`,
-          false,
-          knowledgeCommand
-        ),
-        approvalRequired: false,
-        implementationAllowed: false,
-        blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
-      };
-    }
-
-    if (knowledgeState.status === 'commit_required') {
-      const scope =
-        resolveFeatureCommitScope({
-          issueNumber: tasks.issueNumber,
-          featureId: feature.id,
-          workflowMode: config.workflow?.mode,
-        }) || feature.id;
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'knowledge_commit',
-        nextAction: buildAction(
-          'knowledge_commit',
-          `Commit only the verified Knowledge paths (${knowledgeState.changedPaths.join(', ')}) with subject "chore(${scope}): refresh OpenWiki knowledge layer".`,
-          false
-        ),
-        approvalRequired: false,
-        implementationAllowed: false,
-        blockedReasonCode: 'KNOWLEDGE_COMMIT_REQUIRED',
-      };
-    }
-
-    if (knowledgeState.status === 'blocked') {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'knowledge_sync',
-        nextAction: buildAction(
-          'knowledge_sync',
-          `Resolve the Knowledge blocker before continuing: ${knowledgeState.detail || knowledgeState.reasonCode}`,
-          false
-        ),
-        approvalRequired: false,
-        implementationAllowed: false,
-        blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
       };
     }
   }
@@ -4356,6 +4253,33 @@ export async function collectWorkflowStage(
         approvalRequired: false,
         implementationAllowed: false,
         blockedReasonCode: 'LOCAL_VERIFICATION_REQUIRED',
+      };
+    }
+
+    if (
+      isOpenWikiEnabled(config) &&
+      localState.baseTip &&
+      !(await readKnowledgePublication(
+        localState.projectRoot,
+        localState.baseTip,
+        config
+      ))
+    ) {
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'knowledge_sync',
+        nextAction: buildAction(
+          'knowledge_sync',
+          'Publish OpenWiki from the verified integrated base in an isolated worktree. A generation failure leaves the code merge intact; retry publication before cleanup.',
+          false,
+          `npx lee-spec-kit knowledge publish ${buildFeatureArgs(feature)} --json`
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
       };
     }
 

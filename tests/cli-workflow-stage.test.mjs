@@ -1,3 +1,4 @@
+import { setupFakeOpenWiki } from './helpers/fake-openwiki.mjs';
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
@@ -26,6 +27,7 @@ async function initRepo(dir, options = {}) {
   const gitUserEmail = await runCommand(dir, 'git', ['config', 'user.email', 'test@example.com']);
   assert.equal(gitUserEmail.code, 0, gitUserEmail.stderr || gitUserEmail.stdout);
 
+  if (options.openwiki) await fs.writeFile(path.join(dir, 'README.md'), '# Project\n');
   const initResult = await runCli(dir, [
     'init',
     '--non-interactive',
@@ -313,12 +315,13 @@ async function readStage(dir, env = {}) {
 }
 
 async function prepareCompletedLocalFeature(dir, options = {}) {
-  await initRepo(dir, { workflow: 'local' });
+  await initRepo(dir, { workflow: 'local', openwiki: options.openwiki });
   const branch = await runCommand(dir, 'git', ['checkout', '-b', 'feat/alpha']);
   assert.equal(branch.code, 0, branch.stderr || branch.stdout);
 
   const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+  config.experimental.openwiki = options.openwiki ?? false;
   if (options.postMergeChecks) {
     config.workflow.postMergeChecks = options.postMergeChecks;
   }
@@ -401,12 +404,13 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
 
 async function prepareCompletedStandaloneLocalFeature(
   dir,
-  { projectCommit = true } = {}
+  { projectCommit = true, openwiki = false } = {}
 ) {
   const { projectRoot } = await initStandaloneRepo(dir, { workflow: 'local' });
   const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
   config.workflow.agentReview.feature.enabled = false;
+  config.experimental.openwiki = openwiki;
   await fs.writeFile(
     configPath,
     `${JSON.stringify(config, null, 2)}\n`,
@@ -4793,5 +4797,68 @@ test('workflow-stage reports FEATURE_SELECTION_REQUIRED when multiple features e
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'error');
     assert.equal(payload.reasonCode, 'FEATURE_SELECTION_REQUIRED');
+  });
+});
+
+for (const completionStrategy of ['local-ff', 'local-squash']) {
+  test(`OpenWiki publishes after ${completionStrategy} verification and retries without rolling back code`, async () => {
+    await withTempDir('lsk-local-publication-', async (dir) => {
+      await prepareCompletedLocalFeature(dir, { openwiki: true, completionStrategy });
+      const fake = await setupFakeOpenWiki(dir);
+      // The fake generator cites README.md, which is part of this source snapshot.
+      const before = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env);
+      assert.equal(JSON.parse(before.stdout).reasonCode, 'OPENWIKI_INTEGRATION_REQUIRED');
+      const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
+      assert.equal(merge.code, 0, merge.stdout);
+      const head = (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+      assert.equal((await readStage(dir)).stage, 'knowledge_sync');
+      assert.match((await readStage(dir)).nextAction.command, /knowledge publish/u);
+      const failed = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], { ...fake.env, FAKE_OPENWIKI_FAIL: '1' });
+      assert.equal(failed.code, 1);
+      assert.match(JSON.parse(failed.stdout).details.resumeCommand, /--component single/u);
+      assert.equal((await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim(), head);
+      assert.equal((await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(), '');
+      assert.equal((await readStage(dir)).stage, 'knowledge_sync');
+      const result = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env);
+      assert.equal(result.code, 0, result.stdout);
+      const published = JSON.parse(result.stdout);
+      assert.equal(published.sourceHead, head);
+      await fs.access(path.join(published.artifactPath, 'openwiki', 'index.md'));
+      await fs.access(path.join(published.artifactPath, '.lee-spec-kit', 'openwiki-sync.json'));
+      assert.equal((await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(), '');
+      assert.equal((await readStage(dir)).stage, 'local_cleanup');
+      // A damaged artifact cannot satisfy completion.
+      const index = path.join(published.artifactPath, 'openwiki', 'index.md');
+      const saved = await fs.readFile(index);
+      await fs.appendFile(index, '\ncorruption');
+      assert.equal((await readStage(dir)).stage, 'knowledge_sync');
+      await fs.writeFile(index, saved);
+      const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
+      assert.equal(cleanup.code, 0, cleanup.stdout);
+      assert.equal((await readStage(dir)).stage, 'done');
+    });
+  });
+}
+
+test('standalone publication uses the integrated project without modifying docs or its Feature worktree', async () => {
+  await withTempDir('lsk-standalone-publication-', async (dir) => {
+    const { projectRoot, worktreePath } = await prepareCompletedStandaloneLocalFeature(dir, { openwiki: true });
+    const fake = await setupFakeOpenWiki(projectRoot);
+    const verify = await runCli(dir, ['local', 'verify', 'F001-alpha', '--json']);
+    assert.equal(verify.code, 0, verify.stdout);
+    const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
+    assert.equal(merge.code, 0, merge.stdout);
+    assert.equal((await readStage(dir)).stage, 'knowledge_sync');
+    const result = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env);
+    assert.equal(result.code, 0, result.stdout);
+    const publication = JSON.parse(result.stdout);
+    assert.equal(publication.sourceHead, (await runCommand(projectRoot, 'git', ['rev-parse', 'main'])).stdout.trim());
+    for (const cwd of [projectRoot, worktreePath, path.join(dir, 'docs')]) {
+      assert.equal((await runCommand(cwd, 'git', ['status', '--porcelain'])).stdout.trim(), '');
+      assert.equal(await fs.access(path.join(cwd, 'openwiki')).then(() => true, () => false), false);
+    }
+    const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
+    assert.equal(cleanup.code, 0, cleanup.stdout);
+    assert.equal((await readStage(dir)).stage, 'done');
   });
 });

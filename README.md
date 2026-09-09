@@ -104,7 +104,7 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 npx lee-spec-kit config --openwiki true
 ```
 
-활성화하면 task 커밋 이후 Feature 리뷰 전에 OpenWiki 동기화와 전용 Knowledge 커밋이 필수가 됩니다. 권한은 주장 유형별로 나뉩니다. PRD는 장기 요구사항, 활성 Feature SDD는 현재 변경의 범위와 결정, 사람이 관리하는 상위 문서는 프로젝트 전체 설명과 정책, tracked 코드·스키마·설정은 실행 사실의 기준이며 `openwiki/`는 이를 바탕으로 다시 검증하는 파생 온보딩 자료입니다. 모든 Plan의 Schema 2 `Curated Documentation Impact`는 네 기본 영역과 필요한 추가 유형을 판정하고, 완료 시 실제 Feature diff와 선언 대상을 대조합니다. 현재 계약은 OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 OpenWiki 실행 파일이나 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+활성화하면 통합 후 OpenWiki를 생성합니다. local은 머지 검증 후 `knowledge publish`를 실행하고, GitHub는 `knowledge ci`로 생성한 기준 브랜치 push CI에서 실행합니다. 생성물과 receipt는 코드 revision별 artifact로 저장하며 Feature 커밋·리뷰에 포함하지 않습니다. 실패하면 머지와 마지막 정상 게시본을 유지하고 재시도합니다. 권한은 주장 유형별로 나뉩니다. PRD는 장기 요구사항, 활성 Feature SDD는 현재 변경의 범위와 결정, 사람이 관리하는 상위 문서는 프로젝트 전체 설명과 정책, tracked 코드·스키마·설정은 실행 사실의 기준이며 `openwiki/`는 이를 바탕으로 다시 검증하는 파생 온보딩 자료입니다. 모든 Plan의 Schema 2 `Curated Documentation Impact`는 네 기본 영역과 필요한 추가 유형을 판정하고, 완료 시 실제 Feature diff와 선언 대상을 대조합니다. 현재 계약은 OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 OpenWiki 실행 파일이나 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
 
 `knowledge sync`는 lee-spec-kit에 포함된 `lee-spec-kit-technical-writing` 스킬을 OpenWiki의 `skills/` 디렉터리에 설치하고, `openwiki/INSTRUCTIONS.md`의 표시된 관리 블록에서 이 스킬을 사용하도록 지시합니다. 사용자와 프로젝트가 작성한 지침은 관리 블록 밖에 그대로 남습니다. 설치 스킬은 생성 전후에 hash를 확인하며, 설정 디렉터리와 지침이 실행 중 바뀌면 receipt를 기록하지 않습니다. 스킬 내용이나 어댑터 버전이 바뀌면 receipt 검증이 이를 감지하고 다음 동기화에서 Knowledge 전체를 새 글쓰기 정책으로 다시 생성합니다. 별도의 스타일 설정은 추가하지 않으며 기능 제어는 계속 `experimental.openwiki` boolean 하나만 사용합니다.
 
@@ -112,7 +112,7 @@ OpenWiki 도입만으로 기존 문서의 낡은 내용이 자동 복구되지�
 
 동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. `sync`와 `audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 증분 갱신이 완료됐더라도 이 근거 검증이 실패하면 `INSTRUCTIONS.md`를 보존한 채 생성물만 비우고 같은 update 경로를 한 번 재실행하며, 그래도 실패하면 receipt를 갱신하지 않습니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge sync`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 
-생성된 Knowledge는 프로젝트 루트에서 `openwiki visualize ./openwiki`로 그래프와 문서 리더를 열어 확인할 수 있습니다. 이 명령은 read-only 시각화이므로 직접 실행해도 되지만, 생성·갱신은 계속 `lee-spec-kit knowledge sync`를 사용합니다. 브라우저 자동 실행을 막으려면 `--no-open`, 포트를 고정하려면 `--port 4400`을 추가합니다. `visualize --export`는 파일을 쓰므로 출력 위치와 커밋 정책을 검토한 뒤 신뢰할 수 있는 터미널에서 별도로 실행합니다.
+`knowledge publish` 결과의 `artifactPath` 안에서 `openwiki visualize ./openwiki`로 게시본을 확인합니다. `knowledge status`는 마지막 실행과 정상 게시 기록을 보여 줍니다. 기존 `knowledge sync`/`audit`는 in-place 생성물 호환용이며 Feature 자동 흐름에서 사용하지 않습니다.
 
 OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에 접근하는 외부 에이전트입니다. lee-spec-kit은 변경 경로·보호 파일·출력 내 고신뢰 secret 패턴을 검증하지만 OS sandbox는 제공하지 않으므로, 신뢰할 수 있는 저장소와 격리된 실행 환경에서만 활성화하고 로컬·ignored secret 관리는 운영자가 책임져야 합니다.
 

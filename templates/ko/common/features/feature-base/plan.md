@@ -69,7 +69,7 @@ src/
 - **Reason**: -
 - **Targets**: -
   - UPDATE 또는 ADD가 하나라도 있으면 쉼표로 구분한 `docs:<path>`와 `project:<path>` 대상을 기록합니다.
-  - 모든 대상은 task `Docs` 목록에 연결하고 Knowledge 동기화 또는 Feature 리뷰 전에 활성 Feature scope로 커밋합니다.
+  - 모든 대상은 task `Docs` 목록에 연결하고 Feature 리뷰 전에 활성 Feature scope로 커밋합니다.
 
 ---
 

@@ -84,7 +84,7 @@ The hook installer warns when a target `AGENTS.md` does not contain the current 
 - Runs `workflow-audit --json`
 - `workflow-audit` returns an exact `expectedWorkflowSyncMarker` bound to the current code-content fingerprint. After code/doc sync, copy it into one active Feature doc and replace any prior marker; duplicate, legacy timestamp, or stale fingerprints fail the audit.
 - If docs are not synced with code changes, it continues Codex for one more pass instead of letting the turn stop early
-- When OpenWiki is enabled, it also continues while `knowledge_setup`, `knowledge_sync`, or `knowledge_commit` is still pending
+- When OpenWiki is enabled, it continues at the post-integration `knowledge_sync` action, which invokes `knowledge publish`; a failed publication preserves the verified code merge and can be retried. There is no pre-review Knowledge commit gate
 
 ## Optional Global Bootstrap
 

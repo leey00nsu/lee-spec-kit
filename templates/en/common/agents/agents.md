@@ -56,8 +56,8 @@ This document defines workflow policy, not a custom runtime loop.
 - Human-owned architecture, onboarding, operations, design, and agent-policy docs are authoritative for curated project-wide explanations and policy. Executable claims in them must agree with tracked code, schemas, migrations, and configuration; tests provide verification evidence.
 - OpenWiki is derived onboarding and code-navigation evidence, never a source of requirements, policy, or runtime truth.
 - Complete `Curated Documentation Impact` in every Plan, including explicit `NONE` decisions. Link every `UPDATE` or `ADD` target from at least one task `Docs` entry and commit the target with the active Feature scope.
-- `experimental.openwiki` is one switch: missing or `false` adds no OpenWiki behavior; `true` makes Knowledge setup, sync, a dedicated Knowledge commit, and Feature review mandatory.
-- When enabled, run repository Knowledge generation and updates only through `npx lee-spec-kit knowledge sync <featureRef> --json`. The read-only `openwiki visualize ./openwiki` command may be invoked directly to inspect generated output, but do not hand-edit generated pages.
+- `experimental.openwiki=true` publishes Knowledge after integration: local workflows run the returned `knowledge publish` action after verified merge and before cleanup; GitHub workflows use the post-push CI created by `knowledge ci`. Missing or false disables this lifecycle.
+- Generate in an isolated worktree and publish revision-bound artifacts outside the source branch. Do not add generated Wiki or receipts to Feature commits or Feature review required documents. Keep curated PRD/architecture updates in the Feature.
 
 ## Optional UI/UX Design Policy
 
@@ -81,7 +81,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not interrupt, replace, or abandon a running subagent solely because it has been quiet or has not changed files. Stop it only after an explicit user request, a terminal failure/cancellation, or an unrecoverable runtime status.
 - `workflow.agentReview.maxRounds` is the maximum number of fresh reviews for each Plan/task/Feature gate. A `changes_requested` decision on the final allowed review is remediated once, but the changed target is not reviewed again; preserve remaining findings and the post-review target change as residual risks and automatically complete the gate without asking for a user review-approval token. For example, `maxRounds=1` means review round 1, remediate once, then continue with no round 2. A `blocked` decision never auto-completes.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
-- Follow `knowledge_setup`, `knowledge_sync`, and `knowledge_commit` exactly when returned. Commit only the verified Knowledge surface with the exact returned subject before Feature review.
+- Follow the post-integration `knowledge_sync` action (`knowledge publish`). Failures leave the verified merge and last good publication intact; inspect `knowledge status` and retry. `knowledge sync` is a legacy in-place tool, not the Feature workflow.
 - In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
 - In local mode, do not stop after implementation approval. Follow the exact `local verify`, `local merge`, and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`. A `feature_remediation` stage explicitly permits fixes in the Feature worktree.
 - In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.

@@ -880,7 +880,7 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
     assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
     let payload = JSON.parse(hookResult.stdout.trim());
     assert.equal(payload.decision, 'block');
-    assert.match(payload.reason, /lee-spec-kit knowledge sync/);
+    assert.match(payload.reason, /lee-spec-kit knowledge publish/);
 
     for (const command of [
       'npx --yes openwiki@0.5.0 code --update --print',
@@ -909,7 +909,7 @@ test('generated pre-tool hook blocks direct OpenWiki only when the single experi
       assert.equal(hookResult.code, 0, hookResult.stderr || hookResult.stdout);
       payload = JSON.parse(hookResult.stdout.trim());
       assert.equal(payload.decision, 'block', command);
-      assert.match(payload.reason, /lee-spec-kit knowledge sync/);
+      assert.match(payload.reason, /lee-spec-kit knowledge publish/);
     }
 
     for (const command of [

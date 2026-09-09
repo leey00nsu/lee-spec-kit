@@ -69,7 +69,7 @@ Do not close a discovered documentation discrepancy with a decisions.md note alo
 - **Reason**: -
 - **Targets**: -
   - Use comma-separated `docs:<path>` and `project:<path>` targets when any decision is UPDATE or ADD.
-  - Every target must be linked from a task `Docs` list and committed with the active Feature scope before Knowledge sync or Feature review.
+  - Every target must be linked from a task `Docs` list and committed with the active Feature scope before Feature review.
 
 ---
 

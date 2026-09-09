@@ -68,7 +68,7 @@ Every Plan must complete `Curated Documentation Impact`, including explicit `NON
 
 Schema 2 keeps four common surfaces in the core assessment and uses `Additional Curated Impacts` only for typed project-specific surfaces such as security, API/data contracts, design systems, release operations, observability, or agent policy. At completion, lee-spec-kit reconciles recognized curated files changed in the actual Feature diff against the declared targets before OpenWiki generation or Feature review. This prevents silent changes; it does not decide whether an unchanged document is semantically stale. After adoption, perform one manual baseline reconciliation of existing PRD, architecture, onboarding, operations, design, and agent-policy docs.
 
-When `experimental.openwiki` is `true`, task checkpoints are followed by required Knowledge setup/sync/commit stages and a Feature review. Missing or `false` adds none of those stages. Use `lee-spec-kit knowledge sync`; never hand-edit generated pages or invoke OpenWiki directly from the workflow.
+When `experimental.openwiki` is true, local workflows publish an isolated, revision-bound Knowledge artifact after verified integration and before cleanup. GitHub uses the base-branch push CI scaffolded by `knowledge ci`. Feature commits and review do not contain generated Wiki. Use the returned `knowledge publish` command and inspect failures with `knowledge status`.
 
 OpenWiki is an external agent, not a sandboxed renderer. Enable it only for trusted repositories in an appropriately isolated runtime, and keep local or ignored secrets outside its accessible environment.
 
@@ -156,7 +156,7 @@ The OpenWiki experiment is controlled separately with the single `--openwiki tru
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `experimental.openwiki` (boolean): one switch for the complete required OpenWiki Knowledge flow; missing/`false` disables it, and `true` requires Node.js 22+, OpenWiki `>=0.5.0 <1.0.0`, Knowledge sync/receipt/commit, and Feature review
+- `experimental.openwiki` (boolean): enables post-integration Knowledge artifacts; requires Node.js 22+ and OpenWiki `>=0.5.0 <0.6.0`. No generated Knowledge commit or forced Feature review.
 - `workflow.agentExecution.task` (object): task implementation delegation settings
   - `enabled`: delegates each `task_execute` action to a subagent; new projects default to `true`, while projects created before this setting existed keep it disabled until explicitly enabled
   - `type`: currently only `"subagent"` is supported

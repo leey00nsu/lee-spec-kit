@@ -56,8 +56,8 @@
 - 사람이 관리하는 아키텍처·온보딩·운영·디자인·에이전트 정책 문서는 프로젝트 전체 설명과 정책의 기준입니다. 실행 가능한 사실은 tracked 코드·스키마·마이그레이션·설정과 일치해야 하며, 테스트는 검증 증거입니다.
 - OpenWiki는 파생된 온보딩·코드 탐색 증거이며 요구사항·정책·런타임 사실의 기준이 아닙니다.
 - 모든 Plan에서 명시적인 `NONE`을 포함해 `Curated Documentation Impact` 판정을 완료합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 항목에서 연결하고 활성 Feature scope로 커밋합니다.
-- `experimental.openwiki`는 단일 스위치입니다. 누락 또는 `false`면 OpenWiki 동작이 없고, `true`면 Knowledge 준비·동기화·전용 커밋·Feature 리뷰가 모두 필수입니다.
-- 활성화된 경우 저장소 Knowledge 생성·갱신은 `npx lee-spec-kit knowledge sync <featureRef> --json`로만 실행합니다. 생성된 결과를 확인하는 read-only `openwiki visualize ./openwiki`는 직접 실행할 수 있지만 생성 페이지를 손으로 수정하지 않습니다.
+- `experimental.openwiki=true`이면 통합 후 Knowledge를 게시합니다. local은 머지 검증 후 cleanup 전에 반환된 `knowledge publish`를 실행하고, GitHub는 `knowledge ci`로 준비한 기준 브랜치 push CI에서 실행합니다. 누락 또는 false이면 이 흐름을 사용하지 않습니다.
+- 별도 worktree에서 생성하고 코드 revision별 artifact로 저장합니다. 생성 Wiki와 receipt를 Feature 커밋이나 Feature 리뷰 필수 문서에 추가하지 않습니다. PRD·아키텍처 등 사람이 관리하는 문서는 Feature에서 함께 수정합니다.
 
 ## 선택적 UI/UX 디자인 정책
 
@@ -81,7 +81,7 @@
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 서브에이전트를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.
 - `workflow.agentReview.maxRounds`는 Plan/task/Feature 게이트별 fresh 리뷰의 최대 실행 횟수입니다. 마지막 허용 리뷰가 `changes_requested`이면 지적을 한 번 반영하지만 변경된 target을 다시 리뷰하지 않으며, 남은 finding과 리뷰 이후 target 변경을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 게이트를 자동 완료합니다. 예를 들어 `maxRounds=1`이면 Round 1 리뷰와 지적 반영 후 Round 2 없이 계속합니다. `blocked` 결정은 자동 완료하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
-- `knowledge_setup`, `knowledge_sync`, `knowledge_commit`이 반환되면 그대로 수행합니다. Feature 리뷰 전에 검증된 Knowledge surface만 반환된 정확한 subject로 커밋합니다.
+- 통합 후 `knowledge_sync` action의 `knowledge publish` 명령을 따릅니다. 생성 실패 시 검증된 머지와 마지막 정상 게시본을 유지합니다. `knowledge status`로 확인하고 재시도합니다. `knowledge sync`는 기존 in-place 호환 명령이며 Feature workflow에서 사용하지 않습니다.
 - standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.
 - `local-ff` 또는 `local-squash` workflow에서 `local_merge` 승인이 필요하면 구현 승인과 local merge 승인을 구분합니다. 첫 번째 승인은 구현 결과를 수락하고, 두 번째 승인은 설정된 통합 전략, post-merge 검사, local cleanup을 허가합니다.

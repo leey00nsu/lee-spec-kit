@@ -68,7 +68,7 @@ export interface ProjectConfig {
   projectRoot?: string | Record<string, string>;
   allowedDocsEntries?: AllowedDocsEntriesConfig;
   experimental?: {
-    /** Enables the required OpenWiki knowledge synchronization lifecycle. */
+    /** Enables post-integration OpenWiki artifact publication. */
     openwiki?: boolean;
   };
   pr?: {

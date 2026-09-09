@@ -1115,7 +1115,7 @@ function classifyOpenWikiInvocation(value, depth = 0) {
 if (detected?.experimentalOpenwiki === true) {
   const openWikiPolicy = classifyOpenWikiInvocation(command);
   if (openWikiPolicy === 'blocked') {
-    printBlock('OpenWiki repository generation must run through the exact lee-spec-kit knowledge sync nextAction. Only simple --help, auth, and read-only visualize commands for ./openwiki are allowed directly.');
+    printBlock('OpenWiki repository generation must run through the exact lee-spec-kit knowledge publish nextAction. Only simple --help, auth, and read-only visualize commands for ./openwiki are allowed directly.');
     process.exit(0);
   }
   if (openWikiPolicy === 'safe' && !isDangerousCommandWithoutOpenWiki) {
@@ -1311,7 +1311,7 @@ if (detected?.experimentalOpenwiki === true) {
   const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
   const category = stageResult.ok ? stageResult.data?.nextAction?.category : null;
   if (category === 'knowledge_setup' || category === 'knowledge_sync' || category === 'knowledge_commit') {
-    printBlock('Complete the required OpenWiki Knowledge nextAction before stopping. Partial or stale generated Knowledge cannot pass the workflow.');
+    printBlock('Complete the post-integration Knowledge publication nextAction before stopping. Failed generation preserves the merge; inspect knowledge status and retry publication.');
     process.exit(0);
   }
 }

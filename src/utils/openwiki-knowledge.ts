@@ -345,6 +345,8 @@ interface OpenWikiVerificationContext {
 }
 
 export interface OpenWikiSyncOptions {
+  /** Internal immutable integration target used by artifact publication. */
+  baseTarget?: { ref: string; head: string };
   lockTimeoutMs?: number;
   idleTimeoutMs?: number;
   absoluteTimeoutMs?: number;
@@ -987,7 +989,7 @@ export async function runOpenWikiSync(
       const sourceHead =
         runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
       const sourceFingerprint = computeSourceFingerprint(projectRoot, docsDir);
-      const base = resolveBaseTarget(projectRoot, input.config);
+      const base = input.baseTarget ?? resolveBaseTarget(projectRoot, input.config);
       if (!sourceHead || !sourceFingerprint || !base) {
         throw createCliError(
           'OPENWIKI_GIT_STATE_UNAVAILABLE',
