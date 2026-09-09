@@ -239,7 +239,13 @@ export async function writeLocalIntegrationState(
 ): Promise<void> {
   const statePath = resolveStatePath(projectRoot, feature);
   await fs.ensureDir(path.dirname(statePath));
-  await fs.writeJson(statePath, state, { spaces: 2 });
+  const temporaryPath = `${statePath}.${crypto.randomUUID()}.tmp`;
+  try {
+    await fs.writeJson(temporaryPath, state, { spaces: 2 });
+    await fs.rename(temporaryPath, statePath);
+  } finally {
+    await fs.remove(temporaryPath);
+  }
 }
 
 export async function readLocalIntegrationState(

@@ -8,10 +8,7 @@
 
 1. `npx lee-spec-kit detect --json`를 실행합니다.
 2. 감지되면 `npx lee-spec-kit docs get agents --json`과 아직 읽지 않은 후속 문서를 확인합니다.
-3. 아직 feature 폴더가 없다면:
-   - 사용자가 실제로 `I001`, `I001-slug`, `docs/ideas/...` 같은 explicit Idea ref를 말한 경우에만 그 ref를 유지합니다
-   - 그럴 때만 `npx lee-spec-kit feature <name> --idea <ref>`를 사용합니다
-   - 그 외에는 `npx lee-spec-kit feature <name> -d "<설명>"`으로 생성합니다
+3. Feature 폴더가 없다면 GitHub 모드에서는 `feature <name> --issue <number>`로 Issue를 먼저 연결합니다. 새 Issue가 필요하면 제목·본문을 공유하고 승인받은 뒤 `--create-issue --desc "<요약>" --confirm OK`로 생성합니다. local 모드는 `feature <name> -d "<설명>"`으로 무작위 ID를 생성합니다. 사용자가 Idea를 명시한 경우에만 `--idea <ref>`를 추가합니다. 새 F번호를 배정하지 않습니다.
 4. 활성 feature를 정하고 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 읽습니다.
 5. 다음 workflow 액션을 시작하기 전에 `npx lee-spec-kit workflow-stage <feature-ref> --json`를 실행합니다.
 
@@ -36,3 +33,11 @@
 1. 이슈/PR 번호나 상태를 임의로 만들지 않습니다.
 2. 범위, 동작, evidence가 바뀌었는데 필요한 문서 업데이트를 건너뛰지 않습니다.
 3. unmanaged docs 산출물은 feature 폴더로 정규화하거나 allowlist하기 전까지 active workflow SSOT로 취급하지 않습니다.
+
+## Single-owner collaboration
+
+- Select the Feature by ID or an unambiguous branch; never choose by recency or numeric order.
+- New Features use code worktrees. For standalone docs, commit the seed and follow `workspace prepare`; work from the returned docsDirectory. Follow returned docs integration/cleanup steps after code integration.
+- Claim one owner session with `task claim`; use `task status` or workflow-stage's tasksHash and `task transition --session <token> --expected-hash <hash>`. Release the session at handoff. Never run two DOING/REVIEW tasks in one Feature.
+- Run `feature-audit --enforce --json` alongside workflow-audit; use `--base-ref <fetched-base>` in CI to check immutable identity. Resolve sharedDocumentationWarnings against the latest base.
+- If the base advances, sync it explicitly in the Feature worktree and reverify/review. Never automatically rebase and force-push during merge retries.

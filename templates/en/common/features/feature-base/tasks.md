@@ -92,10 +92,11 @@
 
 ---
 
-## Knowledge Sync
+## Knowledge Publication
 
 - **Policy**: Derived from `.lee-spec-kit.json` `experimental.openwiki`
-- **Receipt**: `.lee-spec-kit/openwiki-sync.json`
+- **Lifecycle**: After verified local integration, follow `knowledge publish` before cleanup. GitHub uses explicitly configured base-branch push CI (`knowledge ci`). With local completion strategy `none`, no automatic publication runs.
+- **Receipt**: Stored inside the returned publication artifact; do not add generated Wiki or receipts to Feature commits or reviews.
 
 ---
 

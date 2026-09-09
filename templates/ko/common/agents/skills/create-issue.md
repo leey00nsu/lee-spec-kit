@@ -1,11 +1,13 @@
+> 새 Feature는 SDD 문서보다 GitHub Issue를 먼저 생성하거나 선택합니다. `feature <slug> --issue <number> --owner <email>`을 사용합니다. 새 Issue가 필요하면 제목·본문을 공유하고 승인받은 뒤 `--create-issue --desc <본문> --confirm OK`로 생성합니다. 아래 절차는 기존 F번호 Feature 전용이며, Issue 생성은 구현 승인이 아닙니다.
+
 # GitHub Issue 생성 프로세스
 
 GitHub Issue를 생성할 때 따르는 가이드입니다.
-실행 상태 SSOT는 Feature 폴더의 `issue.md`입니다.
+아래 레거시 절차의 실행 상태 SSOT는 Feature 폴더의 `issue.md`입니다. 새 Feature의 Issue 접수에는 아래 SDD 작성 완료 조건을 적용하지 않습니다.
 
 ---
 
-## 사전 조건
+## 기존 F번호 Feature의 사전 조건
 
 - [ ] `spec.md` 작성 완료
 - [ ] `plan.md` 작성 완료
@@ -15,7 +17,7 @@ GitHub Issue를 생성할 때 따르는 가이드입니다.
 
 ---
 
-## 단계
+## 기존 Feature의 단계
 
 ### 1. `issue.md` 초안 준비
 

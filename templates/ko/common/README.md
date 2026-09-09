@@ -66,7 +66,7 @@ npx lee-spec-kit docs get agents --json
 
 모든 Plan은 명시적인 `NONE`까지 포함해 `Curated Documentation Impact`를 완료해야 합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 목록에 연결하고 완료 전에 활성 Feature scope로 커밋합니다. 이 전파 규칙은 OpenWiki 활성화 여부와 무관하게 적용됩니다.
 
-Schema 2는 자주 쓰는 네 영역을 기본 판정으로 유지하고, 보안·API/데이터 계약·디자인 시스템·릴리스 운영·관측성·에이전트 정책 같은 프로젝트별 문서만 `Additional Curated Impacts`에 유형을 지정해 선언합니다. 완료 시 lee-spec-kit은 실제 Feature diff에서 바뀐 주요 curated 파일을 선언 대상과 대조한 뒤 OpenWiki 생성 또는 Feature 리뷰로 넘어갑니다. 이 검사는 조용히 바뀐 문서를 잡지만, 변경되지 않은 문서가 의미상 낡았는지 판단하지는 않습니다. 도입 시 기존 PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 한 번 수동으로 기준선 점검해야 합니다.
+Schema 2는 자주 쓰는 네 영역을 기본 판정으로 유지하고, 보안·API/데이터 계약·디자인 시스템·릴리스 운영·관측성·에이전트 정책 같은 프로젝트별 문서만 `Additional Curated Impacts`에 유형을 지정해 선언합니다. 완료 시 lee-spec-kit은 실제 Feature diff에서 바뀐 주요 curated 파일을 선언 대상과 대조한 뒤 Feature 리뷰로 넘어갑니다. OpenWiki 생성은 별도로 통합 후 실행합니다. 이 검사는 조용히 바뀐 문서를 잡지만, 변경되지 않은 문서가 의미상 낡았는지 판단하지는 않습니다. 도입 시 기존 PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 한 번 수동으로 기준선 점검해야 합니다.
 
 `experimental.openwiki`가 true이면 local은 통합 검증 후 cleanup 전에 revision별 Knowledge artifact를 게시합니다. GitHub는 `knowledge ci`로 준비한 기준 브랜치 push CI에서 생성합니다. 생성 Wiki는 Feature 커밋·리뷰에 포함하지 않습니다. 반환된 `knowledge publish`를 실행하고 실패는 `knowledge status`로 확인합니다.
 

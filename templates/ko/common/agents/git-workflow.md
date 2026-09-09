@@ -65,11 +65,11 @@ Feature scope는 아래 canonical 형식 중 하나만 사용하며, 에이전�
 ```text
 feat(#123): 사용자 인증 구현
 docs(#123): 인증 스펙 명확화
-feat(F027): 알림 설정 구현
-docs(F027): 알림 문서 업데이트
+feat(K7M2Q9RX4DAB): 알림 설정 구현
+docs(K7M2Q9RX4DAB): 알림 문서 업데이트
 ```
 
-local Feature의 scope는 안정적인 Feature ID(`F027`)입니다. 전체 폴더 ref인 `F027-notification-settings`를 scope로 사용하지 않으며, `docs: F027 ...`처럼 Feature scope를 생략한 커밋도 canonical 형식이 아닙니다.
+local Feature의 scope는 안정적인 Feature ID(`K7M2Q9RX4DAB`)입니다. 전체 폴더 ref인 `K7M2Q9RX4DAB-notification-settings`를 scope로 사용하지 않으며, `docs: K7M2Q9RX4DAB ...`처럼 Feature scope를 생략한 커밋도 canonical 형식이 아닙니다.
 
 ### Type 목록
 
@@ -109,14 +109,8 @@ worktree 경로를 직접 만들지 말고 반환된 `nextAction.command`를 실
 아래에 worktree를 만들고, Git에 등록되지 않은 이전 managed 디렉터리를 정리하며,
 새 worktree에 대상 파일이 없을 때 프로젝트 루트의 기존 `.env`/`.env.*` 파일을 복사합니다.
 
-```bash
-# embedded fallback 전용: 전용 worktree + 브랜치 생성
-mkdir -p .worktrees
-git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-number}-{feature-name}
+새 embedded Feature는 `workspace_checkpoint` 안내에 따라 해당 Feature의 계획 문서를 먼저 커밋합니다. 이후 반환된 worktree 생성 명령을 실행하고 지정된 작업 경로에서 이어갑니다. Feature 문서가 없는 HEAD에서 worktree를 직접 만들지 않습니다.
 
-# 이미 브랜치가 존재하면 worktree만 연결
-git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-number}-{feature-name}
-```
 
 > 이후 작업은 `workflow-stage`가 반환한 worktree 경로에서 진행하세요.
 
@@ -131,17 +125,17 @@ git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-numbe
 
 #### Standalone 모드 커밋 가이드
 
-workflow에 따라 scope를 선택합니다. Issue가 연결되어 있으면 `#123`, Issue 없는 local Feature라면 `F027` 같은 Feature ID를 사용합니다.
+workflow에 따라 scope를 선택합니다. Issue가 연결되어 있으면 `#123`, Issue 없는 local Feature라면 `K7M2Q9RX4DAB` 같은 Feature ID를 사용합니다.
 
 1. **Project 커밋** (코드 변경사항이 있는 경우)
 
    ```bash
-   git commit -m "feat(F027): 기능 구현"
+   git commit -m "feat(K7M2Q9RX4DAB): 기능 구현"
    ```
 
 2. **Docs 커밋** (문서 변경사항이 있는 경우 - **Docs 레포에서 실행**)
    ```bash
-   git commit -m "docs(F027): 기능 구현 문서 업데이트"
+   git commit -m "docs(K7M2Q9RX4DAB): 기능 구현 문서 업데이트"
    ```
 
 > 💡 **Core Rule**: 태스크 완료 시점에는 **변경된 모든 레포지토리**가 커밋되어야 합니다.
@@ -178,3 +172,11 @@ workflow에 따라 scope를 선택합니다. Issue가 연결되어 있으면 `#1
 
 - [ ] Auto-delete head branches
 - [ ] Squash merging only
+
+## Feature 격리와 통합
+
+새 GitHub Feature는 SDD 계획 전에 선택한 Issue 번호를 ID로 사용합니다. local ID는 12자리 무작위 값이며 기존 F번호 문서는 호환됩니다. 한 Feature는 한 담당자가 한 Task씩 진행하고, 다른 Feature끼리는 병렬로 개발할 수 있습니다.
+
+새 standalone Feature는 초기 문서를 커밋한 뒤 `workspace prepare`가 반환한 docsDirectory에서 문서를 작성합니다. 기본 문서 체크아웃은 base 브랜치를 유지합니다. local은 코드 통합 검증 → 문서 통합 → 활성화된 경우 OpenWiki 발행 → 정리 순서를 따릅니다. 문서 통합 기록은 내용 변경 없는 Git 커밋으로 남아 문서 저장소 clone 후에도 복원됩니다. base가 앞서가면 `workspace sync-docs`로 반영하고 충돌을 재검증합니다. 중간 실패를 완료로 처리하지 않습니다.
+
+명시적 Task ID에는 task claim/status/transition/release와 최신 해시·세션 토큰을 사용합니다. ID 없는 레거시 Task는 문서에서 상태를 변경합니다. CI에서 feature-audit를 실행하고 sharedDocumentationWarnings의 공통 문서 수정 대상을 검토합니다. PR 병합 재시도 중 자동 rebase·force-push를 하지 않습니다.

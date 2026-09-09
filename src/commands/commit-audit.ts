@@ -79,9 +79,9 @@ interface CommitAuditPayload {
 }
 
 const CANONICAL_FEATURE_DOC_PATTERN =
-  /^features\/(?:[^/]+\/)?F\d{3,}[^/]*\/(spec|plan|tasks|decisions|issue|pr)\.md$/i;
+  /^features\/(?:[^/]+\/)?(?:F\d{3,}|[1-9]\d*|[A-HJ-NP-Z2-9]{12})-[^/]+\/(spec|plan|tasks|decisions|issue|pr)\.md$/i;
 const FEATURE_DOC_CANDIDATE_PATTERN =
-  /^features\/(?:[^/]+\/)?F\d{3,}[^/]*\/(.+)$/i;
+  /^features\/(?:[^/]+\/)?(?:F\d{3,}|[1-9]\d*|[A-HJ-NP-Z2-9]{12})-[^/]+\/(.+)$/i;
 
 export function commitAuditCommand(program: Command): void {
   program
@@ -467,7 +467,8 @@ function collectCommitViolations(
     if (
       topLevel === 'features' &&
       FEATURE_DOC_CANDIDATE_PATTERN.test(relativeToDocs) &&
-      !CANONICAL_FEATURE_DOC_PATTERN.test(relativeToDocs)
+      !CANONICAL_FEATURE_DOC_PATTERN.test(relativeToDocs) &&
+      !relativeToDocs.endsWith('/.feature.json')
     ) {
       violations.set(stagedPath, {
         path: stagedPath,

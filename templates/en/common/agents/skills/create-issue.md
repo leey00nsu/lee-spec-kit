@@ -1,11 +1,13 @@
+> New Features: create/select the GitHub Issue before generating Feature docs. Use `npx lee-spec-kit feature <slug> --issue <number> --owner <email>`, or share the title/body and use `--create-issue --desc <body> --confirm OK`. The legacy `github issue F001` flow below remains for existing F-number Features. Issue creation is intake, not implementation approval.
+
 # GitHub Issue Creation Process
 
 Guide for creating GitHub Issues.
-Execution-state SSOT is the feature-local `issue.md`.
+For the legacy flow below, execution-state SSOT is the feature-local `issue.md`. New Features use Issue intake before SDD planning; the following completed-SDD prerequisites do not apply to intake.
 
 ---
 
-## Prerequisites
+## Legacy F-number workflow prerequisites
 
 - [ ] `spec.md` completed
 - [ ] `plan.md` completed
@@ -15,7 +17,7 @@ Execution-state SSOT is the feature-local `issue.md`.
 
 ---
 
-## Steps
+## Legacy steps
 
 ### 1. Prepare `issue.md` Draft
 

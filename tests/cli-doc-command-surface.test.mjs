@@ -17,6 +17,8 @@ const supportedRootCommands = new Set([
   'docs',
   'docs-audit',
   'feature',
+  'feature-audit',
+  'workspace',
   'github',
   'help',
   'idea',

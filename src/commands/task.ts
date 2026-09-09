@@ -1,3 +1,4 @@
+import { taskStateCommands } from './task-state.js';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import { Command } from 'commander';
@@ -178,6 +179,7 @@ export function taskCommand(program: Command): void {
   const task = program
     .command('task')
     .description('Patch feature task docs');
+  taskStateCommands(task);
 
   task
     .command('add [feature-name]')

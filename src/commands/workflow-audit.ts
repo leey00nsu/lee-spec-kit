@@ -72,7 +72,7 @@ interface WorkflowSyncMarkerState {
 }
 
 const FEATURE_DOC_FILE_PATTERN =
-  /^features\/(?:[^/]+\/)?F\d{3,}[^/]*\/(spec|plan|tasks|decisions|issue|pr)\.md$/i;
+  /^features\/(?:[^/]+\/)?(?:F\d{3,}|[1-9]\d*|[A-HJ-NP-Z2-9]{12})-[^/]+\/(spec|plan|tasks|decisions|issue|pr)\.md$/i;
 const CODE_FILE_PATTERN =
   /(^|\/)(Dockerfile|Gemfile|Makefile|Podfile|Procfile)$|\.(c|cc|cjs|conf|cpp|cs|css|cts|gql|go|gradle|graphql|h|hcl|hpp|html|ini|java|js|json|jsx|kt|kts|lock|mdx|mjs|mts|php|prisma|proto|py|rb|rs|scss|sh|sql|swift|tf|toml|ts|tsx|vue|xml|yaml|yml|zsh)$/i;
 const WORKFLOW_SYNC_MARKER_PATTERN =
@@ -374,7 +374,7 @@ function isFeatureDocChange(record: ChangedPathRecord): boolean {
 function featureRefFromDocPath(relativeToDocs: string | null): string | null {
   if (!relativeToDocs) return null;
   const match = relativeToDocs.match(
-    /^features\/(?:[^/]+\/)?(F\d{3,}[^/]+)\//i
+    /^features\/(?:[^/]+\/)?((?:F\d{3,}|[1-9]\d*|[A-HJ-NP-Z2-9]{12})-[^/]+)\//i
   );
   return match?.[1] ?? null;
 }

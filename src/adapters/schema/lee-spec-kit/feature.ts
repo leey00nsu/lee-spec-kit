@@ -1,3 +1,4 @@
+import { FEATURE_FOLDER_PATTERN, newLocalFeatureId } from '../../../utils/feature-identity.js';
 import path from 'path';
 import fs from 'fs-extra';
 import type { ProjectType } from '../../../utils/project-type.js';
@@ -41,40 +42,16 @@ export async function getNextLeeSpecFeatureId(
   projectType: ProjectType,
   components: string[]
 ): Promise<string> {
-  const featuresDir = path.join(docsDir, 'features');
-  let max = 0;
-  const scanDirs: string[] = [];
-
-  if (projectType === 'multi') {
-    scanDirs.push(
-      ...components.map((component) => path.join(featuresDir, component))
-    );
-  } else {
-    scanDirs.push(featuresDir);
-  }
-
-  for (const dir of scanDirs) {
-    if (!(await fs.pathExists(dir))) continue;
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const match = entry.name.match(/^F(\d+)-/);
-      if (!match) continue;
-      const num = parseInt(match[1], 10);
-      if (num > max) max = num;
-    }
-  }
-
-  const next = max + 1;
-  const width = Math.max(3, String(next).length);
-  return `F${String(next).padStart(width, '0')}`;
+  // Retain the adapter signature for callers; allocation no longer depends on directory order.
+  void docsDir; void projectType; void components;
+  return newLocalFeatureId();
 }
 
 function parseFeatureFolderName(
   folderName: string,
   component?: string
 ): SchemaFeatureRef | null {
-  const match = folderName.match(/^(F\d+)-(.+)$/);
+  const match = folderName.match(FEATURE_FOLDER_PATTERN);
   if (!match) return null;
   const featureRef: SchemaFeatureRef = {
     id: match[1],

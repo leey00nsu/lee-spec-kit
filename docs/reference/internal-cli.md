@@ -9,15 +9,22 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `detect`
 - `docs`
 - `task add`
+- `task status|claim|transition|release`
+- `feature-audit`
+- `workspace prepare|sync-docs|merge-docs|cleanup-docs`
 - `decision add`
 - `workflow-stage`
 - `knowledge doctor`
 - `knowledge migrate` (dry-run by default; explicit `--apply` for eligible legacy Plans)
-- `knowledge sync`
-- `knowledge audit`
+- `knowledge publish` (post-integration artifact)
+- `knowledge status`
+- `knowledge ci` (explicit CI scaffold)
+- `knowledge sync` (legacy in-place compatibility)
+- `knowledge audit` (legacy in-place compatibility)
 - `workflow-audit`
 - `commit-audit`
 - `integrations`
+- `local sync`
 - `local verify`
 - `local merge`
 - `local cleanup`

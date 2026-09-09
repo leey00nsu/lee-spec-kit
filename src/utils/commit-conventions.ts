@@ -1,3 +1,4 @@
+import { isFeatureId } from './feature-identity.js';
 export const PROJECT_COMMIT_TYPES = [
   'feat',
   'fix',
@@ -24,7 +25,7 @@ export function resolveFeatureCommitScope(input: {
   }
 
   const featureId = String(input.featureId || '').trim().toUpperCase();
-  return /^F\d{3,}$/.test(featureId) ? featureId : null;
+  return isFeatureId(featureId) ? featureId : null;
 }
 
 export function matchesProjectCommitConvention(
@@ -52,7 +53,7 @@ function matchesCommitConvention(
 
   const typePattern = types.join('|');
   const match = normalized.match(
-    new RegExp(`^(${typePattern})\\((#[0-9]+|F[0-9]{3,})\\):\\s+\\S.+$`, 'i')
+    new RegExp(`^(${typePattern})\\((#[0-9]+|F[0-9]{3,}|[A-HJ-NP-Z2-9]{12})\\):\\s+\\S.+$`, 'i')
   );
   if (!match) return false;
   return match[2].toLowerCase() === normalizedScope.toLowerCase();

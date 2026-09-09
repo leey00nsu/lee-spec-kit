@@ -46,13 +46,14 @@ export interface FeatureSelectionState {
 
 const BRANCH_LABELS = ['Branch', '브랜치'];
 
-export function requiresManagedFeatureWorktree(config: ProjectConfig): boolean {
+export function requiresManagedFeatureWorktree(config: ProjectConfig, featureId?: string): boolean {
   const workflow = config.workflow || {};
   const hasCanonicalMode =
     workflow.mode === 'github' || workflow.mode === 'local';
   const legacyStrictRequiresWorktree =
     !hasCanonicalMode && workflow.preset === 'strict';
   return (
+    !!featureId && !/^F\d{3,}$/.test(featureId) ||
     config.docsRepo === 'standalone' ||
     (workflow.requireWorktree ?? legacyStrictRequiresWorktree)
   );
@@ -72,14 +73,14 @@ function matchesFeatureSelector(
   return (
     feature.folderName.toLowerCase() === normalized ||
     feature.slug.toLowerCase() === normalized ||
-    feature.id.toLowerCase() === normalized
+    feature.id.toLowerCase() === normalized.replace(/^#/, '')
   );
 }
 
 function parseFeatureBranchTarget(branchName: string): string | null {
   const trimmed = branchName.trim();
   if (!trimmed) return null;
-  const match = trimmed.match(/^feat\/(?:\d+-)?(.+)$/i);
+  const match = trimmed.match(/^feat\/(.+)$/i);
   return match?.[1]?.trim().toLowerCase() || null;
 }
 
@@ -210,7 +211,7 @@ async function listResolvedFeatures(
       const issueNumber = await extractIssueNumber(featureDir);
       const branchName = await extractBranchName(featureDir);
       const projectGitCwdBase = resolveProjectGitCwd(cwd, config, type);
-      const managedWorktreeRequired = requiresManagedFeatureWorktree(config);
+      const managedWorktreeRequired = requiresManagedFeatureWorktree(config, ref.id);
       const worktreeLookupRoot = managedWorktreeRequired
         ? resolveGitPrimaryWorktreeRoot(projectGitCwdBase)
         : projectGitCwdBase;
@@ -286,10 +287,10 @@ function matchFeaturesFromBranches(
 
     for (const feature of features) {
       if (
-        feature.slug.toLowerCase() === target ||
-        feature.folderName.toLowerCase() === target
+        feature.folderName.toLowerCase() === target ||
+        (feature.issueNumber ? `${feature.issueNumber}-${feature.slug}` : feature.slug).toLowerCase() === target
       ) {
-        matched.set(feature.folderName, feature);
+        matched.set(`${feature.type}:${feature.folderName}`, feature);
       }
     }
   }

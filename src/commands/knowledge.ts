@@ -641,7 +641,7 @@ async function resolveKnowledgeContext(
   const feature = selection.matchedFeature;
   if (
     requireExecutionWorktree &&
-    requiresManagedFeatureWorktree(config) &&
+    requiresManagedFeatureWorktree(config, feature.id) &&
     !feature.git.managedWorktree
   ) {
     throw createCliError(

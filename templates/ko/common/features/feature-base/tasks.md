@@ -92,10 +92,11 @@
 
 ---
 
-## Knowledge Sync
+## Knowledge Publication
 
 - **Policy**: `.lee-spec-kit.json`의 `experimental.openwiki`에서 파생
-- **Receipt**: `.lee-spec-kit/openwiki-sync.json`
+- **Lifecycle**: local은 통합 검증 후 cleanup 전에 `knowledge publish`를 실행합니다. GitHub는 `knowledge ci`로 별도 준비한 기준 브랜치 push CI를 사용합니다. local completion strategy가 `none`이면 자동 발행하지 않습니다.
+- **Receipt**: 반환된 게시 artifact 안에 저장합니다. 생성 Wiki와 receipt를 Feature 커밋·리뷰에 넣지 않습니다.
 
 ---
 

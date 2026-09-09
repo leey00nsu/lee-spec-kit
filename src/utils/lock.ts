@@ -64,6 +64,14 @@ export function getRuntimeStateDir(cwd: string): string {
   return resolveGitRuntimeDir(resolved) ?? getTempRuntimeDir(resolved);
 }
 
+// Shared by every linked worktree; per-worktree runtime paths cannot serialize integration.
+export function getRepositoryLockPath(cwd: string, name = 'integration'): string {
+  const common = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+  return path.join(path.resolve(cwd, common), 'lee-spec-kit.runtime', 'locks', `${name}.lock`);
+}
+
 export function getDocsLockPath(docsDir: string): string {
   return path.join(
     getRuntimeStateDir(docsDir),

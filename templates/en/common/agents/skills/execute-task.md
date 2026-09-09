@@ -60,3 +60,7 @@ Do not close a discovered documentation discrepancy with a decisions.md note alo
 2. Do not rewrite `[DONE]` tasks.
 3. Do not treat unmanaged docs artifacts as active workflow state until they are normalized or allowlisted.
 4. Do not start implementation while the workflow is still blocked on issue creation, branch creation, or any earlier stage gate.
+
+## Session and state commands
+
+For tasks with explicit IDs, the main agent claims the Feature with `task claim <id> --json`, reads `task status <id> --json`, and calls `task transition <id> <task-id> --from <state> --to <state> --session <token> --expected-hash <hash> --json`. Use the task selected by workflow-stage. Update acceptance/checklist/review evidence first, then read a fresh hash for the transition. Stale hashes, other owners, and competing sessions block mutations. Release with `task release <id> --session <token>` at handoff. These commands do not add approval boundaries. Legacy lines without explicit task IDs continue using document edits under the existing workflow gates.

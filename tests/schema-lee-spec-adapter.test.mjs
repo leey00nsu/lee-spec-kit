@@ -65,7 +65,7 @@ test('detectLeeSpecProject falls back to heuristic docs layout detection', async
   });
 });
 
-test('getNextLeeSpecFeatureId scans multi component roots', async () => {
+test('getNextLeeSpecFeatureId allocates independent local IDs alongside legacy roots', async () => {
   await withTempDir('lsk-schema-adapter-next-id-', async (dir) => {
     const docsDir = path.join(dir, 'docs');
     await fs.mkdir(path.join(docsDir, 'features', 'app', 'F003-alpha'), {
@@ -79,7 +79,8 @@ test('getNextLeeSpecFeatureId scans multi component roots', async () => {
       'app',
       'api',
     ]);
-    assert.equal(nextId, 'F011');
+    assert.match(nextId, /^[A-HJ-NP-Z][A-HJ-NP-Z2-9]{11}$/);
+    assert.notEqual(nextId, await getNextLeeSpecFeatureId(docsDir, 'multi', ['app', 'api']));
   });
 });
 

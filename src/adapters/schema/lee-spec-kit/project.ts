@@ -1,3 +1,5 @@
+import { resolveGitPrimaryWorktreeRoot, resolveGitTopLevelOrNull } from '../../../utils/standalone-workspace.js';
+import { FEATURE_FOLDER_PATTERN } from '../../../utils/feature-identity.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { resolveProjectComponents } from '../../../utils/components.js';
@@ -66,7 +68,7 @@ function getSearchBaseDirs(cwd: string): string[] {
   return ancestors.slice(0, boundaryIndex + 1);
 }
 
-const FEATURE_FOLDER_PATTERN = /^F\d{3,}-/i;
+
 
 function normalizeComponentKeys(value: unknown): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
@@ -108,7 +110,9 @@ function toProjectConfig(
     components: projectType === 'multi' ? components : undefined,
     lang: configFile.lang,
     docsRepo: configFile.docsRepo,
-    workspaceRoot: configFile.workspaceRoot,
+    workspaceRoot: configFile.docsRepo === 'standalone' && configFile.workspaceRoot
+      ? path.resolve(resolveGitPrimaryWorktreeRoot(docsDir), path.relative(resolveGitTopLevelOrNull(docsDir) || docsDir, docsDir), configFile.workspaceRoot)
+      : configFile.workspaceRoot,
     pushDocs: configFile.pushDocs,
     docsRemote: configFile.docsRemote,
     projectRoot: configFile.projectRoot,

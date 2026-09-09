@@ -1,3 +1,4 @@
+import { isFeatureId } from './feature-identity.js';
 /**
  * 입력 검증 및 보안 유틸리티
  */
@@ -156,11 +157,10 @@ export function validateFeatureIdWithLang(id: string, lang: Lang): ValidationRes
     return { valid: false, error: tr(lang, 'cli', 'validation.featureIdEmpty') };
   }
 
-  const featureIdPattern = /^F\d{3,}$/;
-  if (!featureIdPattern.test(id)) {
+  if (!isFeatureId(id)) {
     return {
       valid: false,
-      error: tr(lang, 'cli', 'validation.featureIdFormat'),
+      error: 'Expected an issue number, a 12-character local ID, or a legacy F001 ID.',
     };
   }
 

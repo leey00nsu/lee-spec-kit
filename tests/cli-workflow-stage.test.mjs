@@ -4527,7 +4527,7 @@ test('local squash refuses a Feature whose base has diverged', async () => {
   });
 });
 
-test('local squash rolls the base branch back when its integration commit fails', async () => {
+test('local squash preserves working changes when its integration commit fails', async () => {
   await withTempDir('lsk-workflow-stage-local-squash-commit-failed-', async (dir) => {
     await prepareCompletedLocalFeature(dir, {
       completionStrategy: 'local-squash',
@@ -4536,7 +4536,7 @@ test('local squash rolls the base branch back when its integration commit fails'
       await runCommand(dir, 'git', ['rev-parse', 'main'])
     ).stdout.trim();
     const hookPath = path.join(dir, '.git', 'hooks', 'pre-commit');
-    await fs.writeFile(hookPath, '#!/bin/sh\nexit 1\n', 'utf-8');
+    await fs.writeFile(hookPath, '#!/bin/sh\nprintf external > external-note.txt\nexit 1\n', 'utf-8');
     await fs.chmod(hookPath, 0o755);
 
     const result = await runCli(dir, [
@@ -4556,10 +4556,8 @@ test('local squash rolls the base branch back when its integration commit fails'
       (await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout.trim(),
       originalBaseTip
     );
-    assert.equal(
-      (await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(),
-      ''
-    );
+    assert.match((await runCommand(dir, 'git', ['status', '--porcelain'])).stdout, /A {2}src\/alpha.ts/);
+    assert.equal(await fs.readFile(path.join(dir, 'external-note.txt'), 'utf8'), 'external');
   });
 });
 
@@ -4860,5 +4858,157 @@ test('standalone publication uses the integrated project without modifying docs 
     const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
     assert.equal(cleanup.code, 0, cleanup.stdout);
     assert.equal((await readStage(dir)).stage, 'done');
+  });
+});
+
+test('standalone docs workspace integrates and cleans up before done', async () => {
+  await withTempDir('lsk-docs-isolation-', async (dir) => {
+    await prepareCompletedStandaloneLocalFeature(dir);
+    const docs = path.join(dir, 'docs');
+    await fs.writeFile(path.join(featureDir(dir), '.feature.json'), JSON.stringify({ version: 1, id: 'F001', owner: 'test@example.com', branch: 'feat/alpha' }));
+    await runCommand(docs, 'git', ['add', '.']);
+    await runCommand(docs, 'git', ['commit', '-m', 'docs(F001): enable isolated workspace']);
+    assert.equal((await readStage(dir)).nextAction.category, 'workspace_prepare');
+    const prepared = await runCli(dir, ['workspace', 'prepare', 'F001', '--json']);
+    assert.equal(prepared.code, 0, prepared.stdout);
+    const isolated = JSON.parse(prepared.stdout).docsDirectory;
+    const isolationStage = await readStage(isolated);
+    assert.equal(isolationStage.nextAction.category, 'feature_verify', JSON.stringify(isolationStage));
+    let result = await runCli(isolated, ['local', 'verify', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    result = await runCli(isolated, ['local', 'merge', 'F001', '--confirm', 'OK', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(isolated)).nextAction.category, 'workspace_merge_docs');
+    result = await runCli(isolated, ['workspace', 'merge-docs', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(isolated)).nextAction.category, 'workspace_cleanup_docs');
+    result = await runCli(isolated, ['workspace', 'cleanup-docs', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    result = await runCli(dir, ['local', 'cleanup', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(dir)).stage, 'done');
+    await fs.rm(path.join(docs, '.git', 'lee-spec-kit.runtime', 'locks', 'docs-workspace-single-F001.json'));
+    assert.equal((await readStage(dir)).stage, 'done', 'Git receipt must survive local cache loss');
+    const clonedDocs = path.join(dir, 'cloned-docs');
+    const cloned = await runCommand(dir, 'git', ['clone', '--no-local', docs, clonedDocs]);
+    assert.equal(cloned.code, 0, cloned.stderr);
+    assert.equal((await readStage(clonedDocs)).stage, 'done', 'A fresh docs clone must recover its integration receipt');
+  });
+});
+
+for (const fails of [false, true]) {
+  test(`local integration preserves external commits during ${fails ? 'failing' : 'passing'} checks`, async () => {
+    await withTempDir('lsk-integration-drift-', async (dir) => {
+      await prepareCompletedLocalFeature(dir, {
+        featureChecks: [{ command: process.execPath, args: ['-e', 'process.exit(0)'] }],
+        postMergeChecks: [{ command: process.execPath, args: ['-e', `require('node:child_process').execFileSync('git', ['commit', '--allow-empty', '-m', 'external-change']); process.exit(${fails ? 1 : 0})`] }],
+      });
+      const result = await runCli(dir, ['local', 'merge', 'F001', '--confirm', 'OK', '--json']);
+      assert.equal(result.code, 1, result.stdout);
+      assert.equal(JSON.parse(result.stdout).reasonCode, 'LOCAL_INTEGRATION_CHANGED_DURING_CHECKS');
+      const head = await runCommand(dir, 'git', ['log', '-1', '--format=%s', 'main']);
+      assert.equal(head.stdout.trim(), 'external-change');
+    });
+  });
+}
+
+test('task transitions require a matching owner session, fresh hash, and completed checklist', async () => {
+  await withTempDir('lsk-task-transition-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    await writePlanningReadyDocs(dir);
+    const taskPath = path.join(featureDir(dir), 'tasks.md');
+    await fs.writeFile(taskPath, (await fs.readFile(taskPath, 'utf8')).replace('feat/-alpha', 'feat/alpha'));
+    await runCommand(dir, 'git', ['checkout', '-b', 'feat/alpha']);
+    await runCommand(dir, 'git', ['add', '.']);
+    await runCommand(dir, 'git', ['commit', '-m', 'docs(F001): prepare alpha']);
+    const claim = await runCli(dir, ['task', 'claim', 'F001', '--json']);
+    assert.equal(claim.code, 0, claim.stdout);
+    const session = JSON.parse(claim.stdout).session;
+    const change = async (from, to) => {
+      const status = JSON.parse((await runCli(dir, ['task', 'status', 'F001', '--json'])).stdout);
+      return runCli(dir, ['task', 'transition', 'F001', 'T-F001-alpha-01', '--from', from, '--to', to, '--session', session, '--expected-hash', status.hash, '--json']);
+    };
+    let result = await change('TODO', 'DOING');
+    assert.equal(result.code, 0, result.stdout);
+    result = await change('DOING', 'DONE');
+    assert.equal(result.code, 1, result.stdout);
+    assert.match(result.stdout, /checklist/);
+    await fs.writeFile(taskPath, (await fs.readFile(taskPath, 'utf8')).replace('- [ ] add UI', '- [x] add UI'));
+    result = await change('DOING', 'DONE');
+    assert.equal(result.code, 0, result.stdout);
+  });
+});
+
+test('new standalone Features isolate planning docs before implementation', async () => {
+  await withTempDir('lsk-new-docs-workspace-', async (dir) => {
+    await initStandaloneRepo(dir, { workflow: 'local' });
+    const created = await runCli(dir, ['feature', 'beta', '--json']);
+    assert.equal(created.code, 0, created.stdout);
+    const feature = JSON.parse(created.stdout);
+    const docsRoot = path.join(dir, 'docs');
+    await runCommand(docsRoot, 'git', ['add', '.']);
+    await runCommand(docsRoot, 'git', ['commit', '-m', `docs(${feature.featureId}): seed beta`]);
+    const prepared = await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']);
+    assert.equal(prepared.code, 0, prepared.stdout);
+    const isolated = JSON.parse(prepared.stdout).docsDirectory;
+    const stage = await runCli(isolated, ['workflow-stage', feature.featureId, '--json']);
+    assert.equal(JSON.parse(stage.stdout).stage, 'spec', stage.stdout);
+    const primarySpec = path.join(feature.featurePath, 'spec.md');
+    const original = await fs.readFile(primarySpec, 'utf8');
+    const isolatedSpec = path.join(isolated, feature.featurePathFromDocs, 'spec.md');
+    await fs.appendFile(isolatedSpec, '\nPlanning only in this Feature.\n');
+    assert.equal(await fs.readFile(primarySpec, 'utf8'), original);
+    const audit = await runCli(isolated, ['feature-audit', '--enforce', '--json']);
+    assert.equal(audit.code, 0, audit.stdout);
+  });
+});
+
+test('new embedded Features require entering the worktree that contains their docs', async () => {
+  await withTempDir('lsk-embedded-isolation-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const created = await runCli(dir, ['feature', 'beta', '--json']);
+    const feature = JSON.parse(created.stdout);
+    assert.equal(created.code, 0, created.stdout);
+    await runCommand(dir, 'git', ['add', '.']);
+    await runCommand(dir, 'git', ['commit', '-m', `docs(${feature.featureId}): seed beta`]);
+    const branch = `feat/${feature.featureId}-beta`;
+    const isolated = path.join(dir, '.worktrees', branch.replace('/', '-'));
+    const added = await runCommand(dir, 'git', ['worktree', 'add', '-b', branch, isolated]);
+    assert.equal(added.code, 0, added.stderr);
+    const fromBase = await runCli(dir, ['workflow-stage', feature.featureId, '--json']);
+    assert.equal(JSON.parse(fromBase.stdout).nextAction.category, 'workspace_enter', fromBase.stdout);
+    const fromFeature = await runCli(isolated, ['workflow-stage', feature.featureId, '--json']);
+    assert.equal(JSON.parse(fromFeature.stdout).stage, 'spec', fromFeature.stdout);
+  });
+});
+
+
+test('new embedded planning is checkpointed before the returned worktree command', async () => {
+  await withTempDir('lsk-embedded-checkpoint-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const created = JSON.parse((await runCli(dir, ['feature', 'beta', '--json'])).stdout);
+    await writePlanningReadyDocs(dir);
+    for (const file of ['spec.md', 'plan.md', 'tasks.md']) {
+      const content = (await fs.readFile(path.join(featureDir(dir), file), 'utf8'))
+        .replaceAll('F001', created.featureId).replaceAll('alpha', 'beta')
+        .replace('feat/-beta', `feat/${created.featureId}-beta`);
+      await fs.writeFile(path.join(created.featurePath, file), content);
+    }
+    await fs.writeFile(path.join(dir, 'unrelated.txt'), 'must not be committed');
+    await runCommand(dir, 'git', ['add', 'unrelated.txt']);
+    const stage = JSON.parse((await runCli(dir, ['workflow-stage', created.featureId, '--json'])).stdout);
+    assert.equal(stage.nextAction.category, 'workspace_checkpoint');
+    const checkpoint = await runCommand(dir, 'sh', ['-c', stage.nextAction.command]);
+    assert.equal(checkpoint.code, 0, checkpoint.stderr);
+    assert.equal((await runCommand(dir, 'git', ['show', 'HEAD:unrelated.txt'])).code, 128);
+    const branch = JSON.parse((await runCli(dir, ['workflow-stage', created.featureId, '--json'])).stdout);
+    assert.equal(branch.nextAction.category, 'branch_create', JSON.stringify(branch));
+    const added = await runCommand(dir, 'sh', ['-c', branch.nextAction.command]);
+    assert.equal(added.code, 0, added.stderr);
+    const isolated = branch.nextAction.command.match(/worktree add "([^"]+)"/)[1];
+    assert.equal(await fs.readFile(path.join(isolated, 'docs', created.featurePathFromDocs, 'spec.md'), 'utf8'),
+      await fs.readFile(path.join(created.featurePath, 'spec.md'), 'utf8'));
+    const after = await runCli(isolated, ['workflow-stage', created.featureId, '--json']);
+    assert.equal(JSON.parse(after.stdout).status, 'ok', after.stdout);
   });
 });

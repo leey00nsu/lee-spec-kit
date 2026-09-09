@@ -1,3 +1,4 @@
+import { runGitCapture } from '../utils/git-run.js';
 import { createHash } from 'crypto';
 import os from 'os';
 import path from 'path';
@@ -2167,73 +2168,6 @@ export function shouldRefreshHeadBranch(
   );
 }
 
-export function refreshPrHeadBranch(
-  prRef: string,
-  cwd: string,
-  lang: Lang
-): void {
-  ensureCleanWorktree(cwd, lang);
-
-  const meta = runGhJson<PrViewMeta>(
-    ['pr', 'view', prRef, '--json', 'url,headRefName,baseRefName'],
-    cwd,
-    lang
-  );
-  const originalBranch = gitCurrentBranch(cwd, lang);
-
-  runProcessOrThrow(
-    'git',
-    ['fetch', 'origin', meta.baseRefName, meta.headRefName],
-    cwd,
-    tg(lang, 'fetchPrBranchesFailed')
-  );
-
-  const hasLocalHead =
-    runProcess(
-      'git',
-      ['show-ref', '--verify', '--quiet', `refs/heads/${meta.headRefName}`],
-      cwd
-    ).code === 0;
-
-  if (hasLocalHead) {
-    runProcessOrThrow(
-      'git',
-      ['checkout', meta.headRefName],
-      cwd,
-      tg(lang, 'checkoutHeadFailed')
-    );
-  } else {
-    runProcessOrThrow(
-      'git',
-      ['checkout', '-B', meta.headRefName, `origin/${meta.headRefName}`],
-      cwd,
-      tg(lang, 'createLocalHeadFailed')
-    );
-  }
-
-  runProcessOrThrow(
-    'git',
-    ['rebase', `origin/${meta.baseRefName}`],
-    cwd,
-    tg(lang, 'rebaseHeadFailed')
-  );
-  runProcessOrThrow(
-    'git',
-    ['push', '--force-with-lease', 'origin', meta.headRefName],
-    cwd,
-    tg(lang, 'pushRebasedHeadFailed')
-  );
-
-  if (originalBranch !== meta.headRefName) {
-    runProcessOrThrow(
-      'git',
-      ['checkout', originalBranch],
-      cwd,
-      tg(lang, 'restoreBranchFailed')
-    );
-  }
-}
-
 export function mergePrWithRetry(
   prRef: string,
   cwd: string,
@@ -2269,10 +2203,11 @@ export function mergePrWithRetry(
 
   const attempts = Number.isFinite(retryCount) ? Math.max(1, retryCount) : 3;
   let lastError = '';
+  const expectedHead = runGitCapture(['rev-parse', 'HEAD'], cwd);
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const merged = runProcess(
       'gh',
-      ['pr', 'merge', prRef, '--squash', '--delete-branch'],
+      ['pr', 'merge', prRef, '--squash', ...(expectedHead ? ['--match-head-commit', expectedHead] : [])],
       cwd
     );
     if (merged.code === 0) {
@@ -2296,8 +2231,8 @@ export function mergePrWithRetry(
       };
     }
     if (shouldRefreshHeadBranch(merged.stderr, merged.stdout)) {
-      refreshPrHeadBranch(prRef, cwd, lang);
-      continue;
+      throw createCliError('PR_BASE_SYNC_REQUIRED',
+        'The PR branch is out of date. Sync the base explicitly, rerun verification and review, then retry merge.');
     }
   }
 

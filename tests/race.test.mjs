@@ -53,7 +53,7 @@ async function withTempRoot(prefix, run) {
 
 test('feature started before init still succeeds via lock/wait', async () => {
   await withTempDir('lsk-race-init-feature-', async (dir) => {
-    const featurePromise = runCli(dir, ['feature', 'race-feature', '--desc', 'race']);
+    const featurePromise = runCli(dir, ['feature', 'race-feature', '--desc', 'race', '--json']);
     await sleep(30);
     const initPromise = runCli(dir, [
       'init',
@@ -74,12 +74,12 @@ test('feature started before init still succeeds via lock/wait', async () => {
     assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
     assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
-    const featureDir = path.join(dir, 'docs', 'features', 'F001-race-feature');
+    const featureDir = JSON.parse(featureResult.stdout).featurePath;
     await fs.access(featureDir);
   });
 });
 
-test('two concurrent feature commands allocate unique sequential IDs', async () => {
+test('two concurrent feature commands allocate independent local IDs', async () => {
   await withTempDir('lsk-race-feature-feature-', async (dir) => {
     const initResult = await runCli(dir, [
       'init',
@@ -104,16 +104,17 @@ test('two concurrent feature commands allocate unique sequential IDs', async () 
     const featuresRoot = path.join(dir, 'docs', 'features');
     const entries = await fs.readdir(featuresRoot, { withFileTypes: true });
     const featureFolders = entries
-      .filter((entry) => entry.isDirectory() && /^F\d+-/.test(entry.name))
+      .filter((entry) => entry.isDirectory() && /^[A-HJ-NP-Z][A-HJ-NP-Z2-9]{11}-/.test(entry.name))
       .map((entry) => entry.name)
       .sort();
 
     assert.equal(featureFolders.length, 2);
 
-    const ids = featureFolders.map((name) => name.match(/^F\d+/)?.[0]).sort();
-    assert.deepEqual(ids, ['F001', 'F002']);
+    const ids = featureFolders.map((name) => name.split('-')[0]).sort();
+    assert.equal(new Set(ids).size, 2);
+    for (const id of ids) assert.match(id, /^[A-HJ-NP-Z][A-HJ-NP-Z2-9]{11}$/);
 
-    const names = new Set(featureFolders.map((name) => name.replace(/^F\d+-/, '')));
+    const names = new Set(featureFolders.map((name) => name.replace(/^[A-HJ-NP-Z][A-HJ-NP-Z2-9]{11}-/, '')));
     assert.deepEqual(names, new Set(['alpha', 'beta']));
   });
 });
@@ -131,7 +132,7 @@ test('feature started before init ignores unrelated ancestor docs fallback', asy
       recursive: true,
     });
 
-    const featurePromise = runCli(projectDir, ['feature', 'scoped-feature']);
+    const featurePromise = runCli(projectDir, ['feature', 'scoped-feature', '--json']);
     await sleep(30);
     const initPromise = runCli(projectDir, [
       'init',
@@ -156,14 +157,14 @@ test('feature started before init ignores unrelated ancestor docs fallback', asy
       projectDir,
       'docs',
       'features',
-      'F001-scoped-feature'
+      path.basename(JSON.parse(featureResult.stdout).featurePath)
     );
     await fs.access(expectedFeatureDir);
 
     const wrongFeatureDir = path.join(
       unrelatedDocs,
       'features',
-      'F001-scoped-feature'
+      path.basename(JSON.parse(featureResult.stdout).featurePath)
     );
     await assert.rejects(() => fs.access(wrongFeatureDir));
   });

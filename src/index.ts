@@ -1,3 +1,5 @@
+import { featureAuditCommand } from './commands/feature-audit.js';
+import { workspaceCommand } from './commands/workspace.js';
 import { program, type Command } from 'commander';
 import fs from 'fs-extra';
 import path from 'path';
@@ -117,11 +119,13 @@ if (shouldShowBanner()) {
 initCommand(program);
 ideaCommand(program);
 featureCommand(program);
+featureAuditCommand(program);
 updateCommand(program);
 configCommand(program);
 githubCommand(program);
 docsCommand(program);
 taskCommand(program);
+workspaceCommand(program);
 decisionCommand(program);
 detectCommand(program);
 workflowStageCommand(program);

@@ -1,3 +1,4 @@
+import { resolveDocsWorkspace } from './feature-workspace.js';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -27,6 +28,7 @@ import {
   isRegisteredGitWorktree,
   resolveManagedWorktreePath,
   resolveGitPrimaryWorktreeRoot,
+  resolveGitTopLevelOrNull,
   resolveStandaloneProjectRoots,
 } from './standalone-workspace.js';
 import {
@@ -57,6 +59,7 @@ import {
 import { readKnowledgePublication } from './knowledge-publication.js';
 
 export type WorkflowStageId =
+  | 'workspace'
   | 'spec'
   | 'plan'
   | 'plan_review'
@@ -87,6 +90,11 @@ export type WorkflowStageId =
 
 export interface WorkflowStageAction {
   category:
+    | 'workspace_checkpoint'
+    | 'workspace_enter'
+    | 'workspace_prepare'
+    | 'workspace_merge_docs'
+    | 'workspace_cleanup_docs'
     | 'spec_write'
     | 'spec_approve'
     | 'plan_write'
@@ -227,6 +235,8 @@ export interface WorkflowStagePayload {
     | 'CONFIG_NOT_FOUND'
     | 'NO_FEATURES'
     | 'FEATURE_SELECTION_REQUIRED';
+  tasksHash?: string;
+  sharedDocumentationWarnings?: Array<{ feature: string; targets: string[] }>;
   docsDir: string | null;
   featureRef: string | null;
   stage: WorkflowStageId | null;
@@ -237,6 +247,9 @@ export interface WorkflowStagePayload {
   primaryActionLabel?: string | null;
   actionOptions?: WorkflowStageOption[];
   blockedReasonCode:
+    | 'DOCS_WORKSPACE_REQUIRED'
+    | 'DOCS_INTEGRATION_REQUIRED'
+    | 'TASK_STATE_INVALID'
     | 'SPEC_NOT_APPROVED'
     | 'PLAN_NOT_APPROVED'
     | 'PLAN_REVIEW_NOT_APPROVED'
@@ -1828,7 +1841,7 @@ function resolvePostMergeCleanupState(
       ''
     : '';
   const worktreePath =
-    requiresManagedFeatureWorktree(config) && headBranch
+    requiresManagedFeatureWorktree(config, feature.id) && headBranch
       ? resolveManagedWorktreePath(config, projectRootGitCwd, headBranch)
       : null;
   const managedWorktreeExists = !!worktreePath && fs.existsSync(worktreePath);
@@ -2980,7 +2993,31 @@ function resolvePlanReviewPayload(
   };
 }
 
-export async function collectWorkflowStage(
+export async function collectWorkflowStage(cwd: string, selector?: string, component?: string): Promise<WorkflowStagePayload> {
+  const result = await collectWorkflowStageCore(cwd, selector, component);
+  if (result.status !== 'ok') return result;
+  const selection = await resolveFeatureSelection(cwd, selector, component);
+  const feature = selection.matchedFeature;
+  if (!feature) return result;
+  const tasks = await readFileIfExists(path.join(feature.path, 'tasks.md')) || '';
+  result.tasksHash = createHash('sha256').update(tasks).digest('hex');
+  const ownPlan = await readFileIfExists(path.join(feature.path, 'plan.md')) || '';
+  const targets = new Set(parseCuratedDocumentationImpact(ownPlan).targets);
+  result.sharedDocumentationWarnings = [];
+  for (const other of selection.features) {
+    if (other.path === feature.path) continue;
+    const workspace = await resolveDocsWorkspace(selection.config, other);
+    const otherPath = workspace && await fs.pathExists(workspace.directory)
+      ? path.join(workspace.docsDirectory, other.docs.featurePathFromDocs)
+      : other.path;
+    const plan = await readFileIfExists(path.join(otherPath, 'plan.md')) || '';
+    const overlap = parseCuratedDocumentationImpact(plan).targets.filter((target) => targets.has(target));
+    if (overlap.length) result.sharedDocumentationWarnings.push({ feature: buildFeatureRef(other), targets: overlap });
+  }
+  return result;
+}
+
+async function collectWorkflowStageCore(
   cwd: string,
   selector?: string,
   component?: string
@@ -3006,7 +3043,38 @@ export async function collectWorkflowStage(
   }
 
   const feature = selection.matchedFeature;
+  if (config.docsRepo !== 'standalone' && !/^F\d{3,}$/.test(feature.id) &&
+      feature.git.managedWorktree && resolveGitTopLevelOrNull(config.docsDir) !== feature.git.projectGitCwd) {
+    const action = buildAction('workspace_enter',
+      `Continue from ${feature.git.projectGitCwd} so code and Feature docs use the same isolated worktree.`,
+      false, `npx lee-spec-kit workflow-stage ${buildFeatureArgs(feature)} --json`);
+    action.workingDirectory = feature.git.projectGitCwd;
+    return { status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature), stage: 'workspace', nextAction: action,
+      approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED' };
+  }
+  const docsWorkspace = await resolveDocsWorkspace(config, feature);
+  if (docsWorkspace && !docsWorkspace.current && !docsWorkspace.integrated) {
+    return {
+      status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature), stage: 'workspace',
+      nextAction: buildAction('workspace_prepare',
+        'Commit the Feature seed docs, prepare its isolated docs worktree, then run subsequent commands from the returned docsDirectory.',
+        false, `npx lee-spec-kit workspace prepare ${buildFeatureArgs(feature)} --json`),
+      approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED',
+    };
+  }
+  const docsIntegrationAction = (cleanup = false): WorkflowStagePayload => ({
+    status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+    featureRef: buildFeatureRef(feature), stage: 'workspace',
+    nextAction: buildAction(cleanup ? 'workspace_cleanup_docs' : 'workspace_merge_docs',
+      cleanup ? 'Remove the integrated docs worktree, then continue from the primary docs checkout.' :
+        'Integrate the Feature docs. If the docs base advanced, sync it in this Feature worktree and revalidate conflicts first.',
+      false, `npx lee-spec-kit workspace ${cleanup ? 'cleanup-docs' : 'merge-docs'} ${buildFeatureArgs(feature)} --json`),
+    approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_INTEGRATION_REQUIRED',
+  });
   const requirements = resolveWorkflowRequirements(config);
+  requirements.requireWorktree = requiresManagedFeatureWorktree(config, feature.id);
   const taskCommitGatePolicy = resolveTaskCommitGatePolicy(config);
   const paths = getFeatureDocPaths(feature);
   const specContent = await readFileIfExists(
@@ -3032,6 +3100,14 @@ export async function collectWorkflowStage(
     extractFieldValue(planContent || '', ['Status', '상태']) || undefined
   );
   const tasks = parseTasksDoc(tasksContent || '', feature);
+  if (tasks.tasks.filter((task) => ['DOING', 'REVIEW'].includes(task.status.toUpperCase())).length > 1 ||
+      new Set(tasks.tasks.map((task) => task.taskId)).size !== tasks.tasks.length) {
+    return { status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature), stage: 'tasks',
+      nextAction: buildAction('tasks_write', 'Resolve duplicate task IDs or multiple active tasks. One Feature has one owner and one active task.', false),
+      approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'TASK_STATE_INVALID' };
+  }
+
   const planReview = parsePlanReview(planContent || '');
   const planReviewTarget = buildPlanReviewTarget(
     specContent || '',
@@ -3324,6 +3400,28 @@ export async function collectWorkflowStage(
       } else {
         missingExpectedWorktreeBranch = expectedBranch;
       }
+    }
+  }
+
+  if (missingExpectedWorktreeBranch && config.docsRepo !== 'standalone' && !/^F\d{3,}$/.test(feature.id)) {
+    const root = resolveGitTopLevelOrNull(config.docsDir) || cwd;
+    const relativeFeature = path.relative(root, feature.path).replace(/\\/g, '/');
+    const sourceRef = localBranchExists(root, missingExpectedWorktreeBranch)
+      ? `refs/heads/${missingExpectedWorktreeBranch}` : 'HEAD';
+    const sourceTree = runGitCapture(['rev-parse', `${sourceRef}:${relativeFeature}`], root);
+    const headTree = runGitCapture(['rev-parse', `HEAD:${relativeFeature}`], root);
+    const dirty = runGitCapture(['status', '--porcelain', '--untracked-files=all', '--', relativeFeature], root);
+    if (!sourceTree || !headTree || sourceTree !== headTree || dirty === undefined || dirty.trim()) {
+      const quote = (value: string): string => "'" + value.replaceAll("'", "'\"'\"'") + "'";
+      const scope = resolveFeatureCommitScope({ issueNumber: feature.issueNumber, featureId: feature.id, workflowMode: config.workflow?.mode });
+      const command = dirty?.trim() && scope
+        ? `git -C ${quote(root)} add -- ${quote(relativeFeature)} && git -C ${quote(root)} commit --only -m ${quote(`docs(${scope}): checkpoint ${feature.slug} planning`)} -- ${quote(relativeFeature)}`
+        : null;
+      return { status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature), stage: 'workspace',
+        nextAction: buildAction('workspace_checkpoint',
+          'Commit the Feature planning docs before creating its worktree. If the Feature branch already exists, synchronize the committed docs into that branch and rerun workflow-stage.', false, command),
+        approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED' };
     }
   }
 
@@ -4130,6 +4228,8 @@ export async function collectWorkflowStage(
     const localMergeBaseCommand = `npx lee-spec-kit local merge ${buildFeatureArgs(feature)} --json`;
 
     if (localState.cleanedIntegrationStillValid) {
+      if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
+      if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -4256,6 +4356,8 @@ export async function collectWorkflowStage(
       };
     }
 
+    if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
+
     if (
       isOpenWikiEnabled(config) &&
       localState.baseTip &&
@@ -4282,6 +4384,8 @@ export async function collectWorkflowStage(
         blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
       };
     }
+
+    if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
 
     if (!localCleanupComplete(localState)) {
       return {
@@ -4365,6 +4469,8 @@ export async function collectWorkflowStage(
     currentReviewState === 'merged' &&
     reviewApprovedInDocs
   ) {
+    if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
+    if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
     const cleanupState = resolvePostMergeCleanupState(config, feature, tasks);
     if (!cleanupState.complete) {
       return {

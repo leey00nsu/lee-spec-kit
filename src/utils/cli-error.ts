@@ -1,6 +1,9 @@
 import { DEFAULT_LANG, normalizeLang, tr, type Lang } from './i18n.js';
 
 export type CliReasonCode =
+  | 'ISSUE_REQUIRED'
+  | 'FEATURE_ID_EXISTS'
+  | 'PR_BASE_SYNC_REQUIRED'
   | 'PROMPT_BLOCKED'
   | 'CONFIG_NOT_FOUND'
   | 'DOCS_NOT_FOUND'

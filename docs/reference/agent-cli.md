@@ -116,15 +116,15 @@ Approval note:
 
 ### `commit-audit`
 
-Commit-time docs-path and canonical commit-subject validator. Feature-scoped subjects use `#123` when a GitHub Issue is linked and the stable Feature ID such as `F027` for issue-less local workflows.
+Commit-time docs-path and canonical commit-subject validator. Feature-scoped subjects use `#123` when a GitHub Issue is linked and the stable Feature ID such as `K7M2Q9RX4DAB` for issue-less local workflows.
 
 ```bash
 npx lee-spec-kit commit-audit --json
-npx lee-spec-kit commit-audit --message "feat(F027): implement notification settings" --json
+npx lee-spec-kit commit-audit --message "feat(K7M2Q9RX4DAB): implement notification settings" --json
 npx lee-spec-kit commit-audit --message-file "$1" --enforce --json
 ```
 
-`--message-file` is intended for Git `commit-msg` hooks and reads the first non-empty, non-comment subject line. Add `--enforce` in Git hooks or CI so a blocked audit exits non-zero. Do not use full refs such as `F027-notification-settings` as commit scopes.
+`--message-file` is intended for Git `commit-msg` hooks and reads the first non-empty, non-comment subject line. Add `--enforce` in Git hooks or CI so a blocked audit exits non-zero. Do not use full refs such as `K7M2Q9RX4DAB-notification-settings` as commit scopes.
 
 ## Runtime Policy
 
@@ -144,3 +144,11 @@ npx lee-spec-kit commit-audit --message-file "$1" --enforce --json
 ## Important Rule
 
 If the user gives a generic request such as continuing the next feature according to the rules, interpret that request through the detected lee-spec-kit workflow automatically.
+
+## Feature collaboration actions
+
+GitHub Feature creation starts with `feature <slug> --issue <number>`; local creation generates a 12-character ID. Existing F-number references remain compatible. Claim one session with `task claim`; use `tasksHash` from workflow-stage or task status as `--expected-hash` for task transition. Record evidence before rereading the hash. Release at handoff. Legacy task lines without explicit IDs use existing document transitions.
+
+Follow `workspace_checkpoint` before creating an embedded worktree; it commits only the selected Feature docs. `workspace_enter` requires running from the returned workingDirectory. New standalone Features use workspace prepare and the returned docsDirectory; merge-docs and cleanup-docs are required after project integration. Docs integration receipts travel in Git history. Other project verification state remains local.
+
+Run feature-audit in CI against the fetched docs base. Inspect sharedDocumentationWarnings and coordinate shared PRD/architecture changes. Local sessions do not provide cross-machine locks. Sync advanced bases explicitly and rerun verification/review; merge retries do not rebase or force-push.

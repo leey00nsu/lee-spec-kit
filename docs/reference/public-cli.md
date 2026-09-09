@@ -62,9 +62,44 @@ npx lee-spec-kit idea improve-auth-flow
 Create a concrete feature folder that becomes the working SSOT.
 
 ```bash
-npx lee-spec-kit feature user-auth
-npx lee-spec-kit feature payment --id F123
+# GitHub: select an existing Issue before planning
+npx lee-spec-kit feature user-auth --issue 123
+# Local: generate an independent 12-character ID
+npx lee-spec-kit feature payment
+# Legacy import only
+npx lee-spec-kit feature imported-payment --id F123
 ```
+
+GitHub creation can also use `--create-issue --desc "<approved issue body>" --confirm OK` after sharing the title/body. Issue intake does not approve implementation. New Feature metadata lives in `.feature.json`; `--owner` defaults to Git email. Folder order does not determine execution order.
+
+### `task status|claim|transition|release`
+
+One owner session and one active task per Feature. Read `task status <id> --json` for the current tasks hash, claim with `task claim <id> --json`, then use:
+
+```bash
+npx lee-spec-kit task transition <id> <task-id> --from TODO --to DOING --session <token> --expected-hash <hash> --json
+npx lee-spec-kit task release <id> --session <token> --json
+```
+
+The main agent owns transitions. Update acceptance/checklist evidence first, reread the hash, then transition. REVIEW is used only when task review is enabled. Sessions coordinate a local repository's worktrees; use Issue assignment and PR review between machines. Legacy task lines without explicit IDs retain the existing document-edit workflow.
+
+### `workspace`
+
+For new standalone Features, commit seed docs and run the returned `workspace prepare <id>` action. Continue from its `docsDirectory`. After code integration is verified, follow `workspace merge-docs <id>` and `workspace cleanup-docs <id>`. Use `workspace sync-docs <id>` to merge an advanced docs base into the Feature worktree and resolve conflicts there. A Git receipt preserves docs integration evidence across docs clones; it does not replace project verification records.
+
+New embedded Features use `workspace_checkpoint` before worktree creation and `workspace_enter` when they must switch execution directories. These are workflow action categories, not `workspace` subcommands. Follow the returned command and workingDirectory.
+
+### `feature-audit`
+
+```bash
+npx lee-spec-kit feature-audit --base-ref origin/main --enforce --json
+```
+
+Fetch the correct docs repository base first. Checks identity uniqueness/immutability, metadata consistency, and multiple active tasks. Does not lock remote users or resolve semantic document conflicts. `workflow-stage` reports visible shared document targets in `sharedDocumentationWarnings`.
+
+### `local sync`
+
+Run `local sync <id>` in the local workflow to merge the current base into the clean Feature worktree. Resolve conflicts there, then reverify/review. This does not authorize remote pushes.
 
 ### `task add`
 
@@ -121,7 +156,7 @@ npx lee-spec-kit local merge F001-alpha --json
 npx lee-spec-kit local cleanup F001-alpha --json
 ```
 
-`local verify` runs `workflow.featureChecks` in the Feature worktree and records diagnostics against its exact commit and tree. A failure enters `feature_remediation`. `local merge` then uses `workflow.completionStrategy`: `local-ff` moves the base to the verified SHA, while `local-squash` creates one commit whose tree matches the verified source and preserves that source under `refs/lee-spec-kit/integrations/*`. Optional `workflow.postMergeChecks` run only after integration; a failure rolls the base back before remediation. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when configured.
+`local verify` runs `workflow.featureChecks` in the Feature worktree and records diagnostics against its exact commit and tree. A failure enters `feature_remediation`. `local merge` then uses `workflow.completionStrategy`: `local-ff` moves the base to the verified SHA, while `local-squash` creates one commit whose tree matches the verified source and preserves that source under `refs/lee-spec-kit/integrations/*`. Optional `workflow.postMergeChecks` run only after integration. A failure rolls back only when the expected repository state is intact; concurrent changes are preserved and require inspection before retry. `local cleanup` removes a clean managed worktree and deletes the local Feature branch only when configured.
 
 ### `knowledge`
 
@@ -129,8 +164,6 @@ Publish the optional OpenWiki onboarding layer from integrated code. Local compl
 
 ```bash
 npx lee-spec-kit knowledge doctor F001-alpha --json
-npx lee-spec-kit knowledge sync F001-alpha --json
-npx lee-spec-kit knowledge audit F001-alpha --enforce --json
 npx lee-spec-kit knowledge migrate --json
 npx lee-spec-kit knowledge migrate --apply --json
 ```
@@ -149,9 +182,16 @@ Publication creates a detached worktree for the exact integration commit under t
 
 The generated GitHub.com workflow uses Node.js 22, OpenWiki 0.5.0, the generating toolkit's exact version, and an `OPENAI_API_KEY` repository secret. Change the provider configuration explicitly if using another provider. Artifacts have GitHub retention limits and are not a permanent hosted Wiki; a deployment destination can consume a successful SHA-bound artifact separately. Standalone projects scaffold into the selected project repository; CI can publish without the external docs repository using explicit base/language options. External curated docs are not included in that source snapshot. When a checked-out config disables OpenWiki, CI skips generation and upload. A standalone CI checkout without its external docs config is explicitly opted in by the scaffolded command; disable or remove that workflow to stop publication.
 
+Legacy in-place compatibility commands (not the Feature publication flow):
+
+```bash
+npx lee-spec-kit knowledge sync <feature-ref> --json
+npx lee-spec-kit knowledge audit <feature-ref> --enforce --json
+```
+
 Existing tracked Wiki output is not deleted automatically. Remove obsolete generated pages, manifests, receipts, and generated agent blocks in a reviewed migration commit, preserving user-owned `openwiki/INSTRUCTIONS.md` and ignore policies. Do not regenerate or hand-merge old Wiki output inside concurrent Feature branches. The low-level generation adapter still validates source fingerprints, source citations, Claims, protected instructions, and writing-policy hashes before producing a receipt.
 
-Before generation, `knowledge sync` installs the bundled `lee-spec-kit-technical-writing` skill under `~/.openwiki/skills/` or `OPENWIKI_CONFIG_DIR/skills/`. A relative config path is resolved once from the lee-spec-kit invocation directory and passed to OpenWiki as the same absolute path. A config directory inside the project must be ignored by Git; otherwise sync rejects it before installation. A same-name directory without lee-spec-kit ownership metadata is never overwritten. The installed skill is hash-checked immediately before and after generation, and a concurrent change prevents receipt creation. The sync also creates or updates only the marked writing-policy block in `openwiki/INSTRUCTIONS.md`; project-specific content outside the block is preserved and a concurrent edit aborts the managed update. An older receipt or a changed adapter, skill, or managed instruction marks Knowledge stale and causes the generated surface to be rebuilt under the current writing policy. For current OKF 0.2 output, every manifest-backed reader page must contain at least one descriptive Markdown link to tracked source using `repo://path` or `repo://path#Lx-Ly`; Knowledge verification resolves those links against the receipt source snapshot and rejects missing, unsafe, excluded, or stale targets. Reader-link parsing follows balanced Markdown path parentheses, and a range may end at the empty EOF boundary immediately after a final newline; hashed claim evidence remains exact. `repo://` is reserved for source included in the repository fingerprint, while Knowledge cross-links resolve to the exact planned page using page-relative Markdown hrefs, including `.md` and literal forward slashes. For example, `architecture/system.md` links to `operations/workers.md` as `../operations/workers.md`. Canonical `/openwiki/...md` identifiers remain in plans and metadata, not reader-facing hrefs. Existing root-leading Knowledge page links fail navigation validation because OpenWiki 0.5.0 visualization resolves them as filesystem-root paths. The bounded repair supplies the original target and a relative href suggestion, preserving meaningful relationships without adding artificial graph edges. This checks the root-path mismatch, not every upstream graph-parser limitation (such as percent-encoded filenames). Claim sidecars and inline code citations do not satisfy this reader-navigation requirement. This behavior is part of the single OpenWiki feature flag rather than a separate style setting.
+The shared generation adapter, used inside isolated `knowledge publish` runs and legacy in-place `knowledge sync`, installs the bundled `lee-spec-kit-technical-writing` skill under `~/.openwiki/skills/` or `OPENWIKI_CONFIG_DIR/skills/`. A relative config path is resolved once from the lee-spec-kit invocation directory and passed to OpenWiki as the same absolute path. A config directory inside the project must be ignored by Git; otherwise sync rejects it before installation. A same-name directory without lee-spec-kit ownership metadata is never overwritten. The installed skill is hash-checked immediately before and after generation, and a concurrent change prevents receipt creation. The sync also creates or updates only the marked writing-policy block in `openwiki/INSTRUCTIONS.md`; project-specific content outside the block is preserved and a concurrent edit aborts the managed update. An older receipt or a changed adapter, skill, or managed instruction marks Knowledge stale and causes the generated surface to be rebuilt under the current writing policy. For current OKF 0.2 output, every manifest-backed reader page must contain at least one descriptive Markdown link to tracked source using `repo://path` or `repo://path#Lx-Ly`; Knowledge verification resolves those links against the receipt source snapshot and rejects missing, unsafe, excluded, or stale targets. Reader-link parsing follows balanced Markdown path parentheses, and a range may end at the empty EOF boundary immediately after a final newline; hashed claim evidence remains exact. `repo://` is reserved for source included in the repository fingerprint, while Knowledge cross-links resolve to the exact planned page using page-relative Markdown hrefs, including `.md` and literal forward slashes. For example, `architecture/system.md` links to `operations/workers.md` as `../operations/workers.md`. Canonical `/openwiki/...md` identifiers remain in plans and metadata, not reader-facing hrefs. Existing root-leading Knowledge page links fail navigation validation because OpenWiki 0.5.0 visualization resolves them as filesystem-root paths. The bounded repair supplies the original target and a relative href suggestion, preserving meaningful relationships without adding artificial graph edges. This checks the root-path mismatch, not every upstream graph-parser limitation (such as percent-encoded filenames). Claim sidecars and inline code citations do not satisfy this reader-navigation requirement. This behavior is part of the single OpenWiki feature flag rather than a separate style setting.
 
 The default writing adapter plans Knowledge around a new developer's purpose: tutorials, how-to guides, explanations, and references. These are navigation defaults rather than mandatory directories or a page-count target. The planner includes a reader question and document type in each job and copies the page-worker contract into its instructions. OpenWiki owns generated directory indexes; quickstart provides the human task-routing entrypoint. The page-worker contract requires three stages within the same job: draft an evidence-backed answer, edit the complete draft for the reader goal and natural terminology, then reconcile exact commands, exceptions, source links and Claims before submission. This is an instruction contract, not proof of semantic editorial quality; no extra model, score, or config flag is introduced. Unavailable generation input must not be described as an absent repository file: use available tracked-file metadata to distinguish existence from visibility, or state the visibility limit without relaxing secret exclusions. Directory references use plain code notation or a relevant regular-file link, never a directory repo:// target. Korean prose uses natural Korean for ordinary explanatory terms while retaining actual code identifiers, product names, and commands. The default voice is consistent `해요체` explanations and `-하세요` actions. Post-generation verification detects clear declarative or formal Korean endings in prose and single-line frontmatter descriptions; it is a limited heuristic, not a readability or semantic-quality guarantee. Code and quoted text are excluded. A writing adapter, bundled skill, or managed-instruction change updates the policy hash and requires regeneration. Policy design and validation belong to lee-spec-kit; consumer Features record installation, application, and observed output quality without duplicating the writing policy as consumer requirements.
 
@@ -167,20 +207,20 @@ Internal-link repair diagnostics include `repairTargets`, grouping every missing
 
 Post-generation checks collect independently repairable internal links, writing-style violations, reader-link structure errors, and unhashed Markdown citation-range errors before requesting one correction pass. Source, protected-content, provenance, and unsafe-evidence failures still block repair. A mixed repair payload includes the diagnostics from each check; truncated or oversized collections are not automatically repaired. Markdown citation ranges use `citation_ranges`, distinct from hashed Claim `evidence_integrity` failures. OpenWiki must re-read the intended evidence to correct a range, not mechanically clamp it to EOF. After correction the entire output is verified again, with no additional retry following a failed feedback pass. The latest eligible validation failure is saved against the run ID in the owner and exposed by later audit as `interruption.validationFailure` when generation completed but validation did not. A new child clears the previous failure, and success removes the owner. These records do not certify semantic completeness or human readability.
 
-The `/skills/lee-spec-kit-technical-writing/SKILL.md` instruction uses OpenWiki's virtual filesystem, not a host-root `/skills` directory. lee-spec-kit ships the skill and references in its package `resources/openwiki-skills/` and installs them before generation into `~/.openwiki/skills/lee-spec-kit-technical-writing/` (or `OPENWIKI_CONFIG_DIR/skills/lee-spec-kit-technical-writing/`). OpenWiki maps that directory under `/skills/`. A fresh machine does not need a separate writing-skill installation when using `knowledge sync`; it still needs a supported OpenWiki installation and provider setup. Copying INSTRUCTIONS alone or running OpenWiki directly on another machine does not install the lee-spec-kit skill. User-owned same-name skills remain protected against overwrite.
+The `/skills/lee-spec-kit-technical-writing/SKILL.md` instruction uses OpenWiki's virtual filesystem, not a host-root `/skills` directory. lee-spec-kit ships the skill and references in its package `resources/openwiki-skills/` and installs them before generation into `~/.openwiki/skills/lee-spec-kit-technical-writing/` (or `OPENWIKI_CONFIG_DIR/skills/lee-spec-kit-technical-writing/`). OpenWiki maps that directory under `/skills/`. A fresh machine does not need a separate writing-skill installation when using `knowledge publish`; it still needs a supported OpenWiki installation and provider setup. Copying INSTRUCTIONS alone or running OpenWiki directly on another machine does not install the lee-spec-kit skill. User-owned same-name skills remain protected against overwrite.
 
-Generated Knowledge can be inspected without changing it:
+Run the following from the returned `artifactPath` to inspect published Knowledge without changing it:
 
 ```bash
 openwiki visualize ./openwiki
 openwiki visualize ./openwiki --port 4400 --no-open
 ```
 
-Read-only visualization is allowed directly and does not replace `knowledge sync`. The Codex hook limits this exception to `./openwiki`, an optional numeric `--port`, and `--no-open`. `visualize --export` writes a static site and remains blocked in the automated path; run it manually only after reviewing its destination and commit policy.
+Read-only visualization is allowed directly and does not replace `knowledge publish`. The Codex hook limits this exception to `./openwiki`, an optional numeric `--port`, and `--no-open`. `visualize --export` writes a static site and remains blocked in the automated path; run it manually only after reviewing its destination and commit policy.
 
 `knowledge doctor` is read-only and can run without selecting a Feature when only runtime setup is being checked. It verifies Node, executable identity/version, OKF capability, selected provider/model, required credential-field presence, and—when a Feature is selected—the current Knowledge state. OpenWiki remains the configuration owner: values come from the current process and `~/.openwiki/.env` (or `OPENWIKI_CONFIG_DIR/.env`), and lee-spec-kit returns only status, required key names, and a setup command—never secret values. API-key providers can be configured by running `openwiki` in a trusted terminal and using `/provider`, `/api-key`, and `/model`. Connector OAuth uses `openwiki auth <provider>`.
 
-OpenWiki 0.5.x does not expose a provider-auth-only command for the `openai-chatgpt` model provider. Its supported login entrypoint is `OPENWIKI_PROVIDER=openai-chatgpt openwiki code --init`, which also starts an initial generation. Run that command manually in a trusted terminal, then run `lee-spec-kit knowledge sync` to revalidate the managed surface and establish the authoritative receipt. The Codex guardrail continues to block `--init` from agent-issued shell commands because it cannot distinguish login from repository generation; simple help and connector-auth commands remain allowed. `/provider` only changes the provider/model selection and does not itself complete ChatGPT OAuth.
+OpenWiki 0.5.x does not expose a provider-auth-only command for the `openai-chatgpt` model provider. Its supported login entrypoint is `OPENWIKI_PROVIDER=openai-chatgpt openwiki code --init`, which also starts an initial generation. Run that command manually in a trusted terminal, then check `knowledge doctor` and follow post-integration `knowledge publish`. Any output produced during manual login is not the managed publication and must not be added to Feature commits. The Codex guardrail continues to block `--init` from agent-issued shell commands because it cannot distinguish login from repository generation; simple help and connector-auth commands remain allowed. `/provider` only changes the provider/model selection and does not itself complete ChatGPT OAuth.
 
 `knowledge migrate` defaults to a zero-write dry-run. `--apply` adds only a provenance-bound policy-cutover marker to approved, terminal, fully committed legacy Plans whose impact assessment is either absent or a complete pre-Schema-2 assessment. The marker is bound to the canonical Feature-document content and becomes invalid if the Feature is reopened or those documents change. Migration never invents `NONE` decisions, never runs OpenWiki, and leaves active, dirty, malformed, or partially assessed Features for manual review.
 

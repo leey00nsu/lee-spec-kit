@@ -1,3 +1,5 @@
+import { resolveStandaloneProjectRoots } from '../utils/standalone-workspace.js';
+import { getRepositoryLockPath, withFileLock } from '../utils/lock.js';
 import { Command } from 'commander';
 import { toCliError } from '../utils/cli-error.js';
 import { getConfig } from '../utils/config.js';
@@ -20,6 +22,7 @@ import { resolveFeatureCommitScope } from '../utils/commit-conventions.js';
 
 interface LocalActionOptions {
   component?: string;
+  featureName?: string;
   confirm?: string;
   json?: boolean;
 }
@@ -42,6 +45,24 @@ export function localCommand(program: Command): void {
     .command('local')
     .description('Integrate and clean up local workflow feature branches');
 
+  local.command('sync <feature-name>')
+    .description('Merge the current base into an isolated Feature branch, then reverify and review')
+    .option('--component <component>').option('--json')
+    .action(async (featureName: string, options: LocalActionOptions) => {
+      await runLocalAction({ ...options, featureName }, async () => {
+        const selection = await resolveFeatureSelection(process.cwd(), featureName, options.component);
+        const config = await getConfig(process.cwd());
+        if (!config || config.workflow?.mode !== 'local' || !selection.matchedFeature) return blocked('LOCAL_WORKFLOW_REQUIRED', featureName);
+        const context = await resolveLocalIntegrationContext(config, selection.matchedFeature);
+        if (!context.featureWorktreeClean || currentGitBranch(context.featureWorktree) !== context.featureBranch || context.featureBranch === context.baseBranch) {
+          return blocked('LOCAL_FEATURE_VERIFY_DIRTY_WORKTREE', featureName, 'Use the clean Feature worktree; do not sync in the shared base checkout.');
+        }
+        const merged = gitRun(context.featureWorktree, ['merge', '--no-edit', `refs/heads/${context.baseBranch}`]);
+        if (merged.code) return blocked('LOCAL_BASE_SYNC_CONFLICT', featureName, 'Resolve the merge conflict in this Feature worktree. Existing changes were preserved.');
+        return { status: 'ok', reasonCode: 'LOCAL_BASE_SYNCED_REVERIFY_REQUIRED', featureRef: featureName };
+      });
+    });
+
   local
     .command('verify [feature-name]')
     .description('Verify the exact Feature tip before local integration')
@@ -49,7 +70,7 @@ export function localCommand(program: Command): void {
     .option('--json', 'Output JSON for agents and hooks')
     .action(
       async (featureName: string | undefined, options: LocalActionOptions) => {
-        await runLocalAction(options, () =>
+        await runLocalAction({ ...options, featureName }, () =>
           runLocalVerify(featureName, options)
         );
       }
@@ -66,7 +87,7 @@ export function localCommand(program: Command): void {
     .option('--json', 'Output JSON for agents and hooks')
     .action(
       async (featureName: string | undefined, options: LocalActionOptions) => {
-        await runLocalAction(options, () =>
+        await runLocalAction({ ...options, featureName }, () =>
           runLocalMerge(featureName, options)
         );
       }
@@ -79,7 +100,7 @@ export function localCommand(program: Command): void {
     .option('--json', 'Output JSON for agents and hooks')
     .action(
       async (featureName: string | undefined, options: LocalActionOptions) => {
-        await runLocalAction(options, () =>
+        await runLocalAction({ ...options, featureName }, () =>
           runLocalCleanup(featureName, options)
         );
       }
@@ -149,7 +170,7 @@ async function runLocalVerify(
   const changedDuringVerification =
     refreshed.featureTip !== targetTip ||
     refreshed.featureTree !== targetTree ||
-    !refreshed.featureWorktreeClean;
+    !refreshed.featureWorktreeClean || !refreshed.docsClean || refreshed.baseTip !== context.baseTip;
   const failed = verification.some((entry) => entry.exitCode !== 0);
   const baseState: LocalIntegrationState = {
     version: 1,
@@ -216,7 +237,14 @@ async function runLocalAction(
   action: () => Promise<LocalActionPayload>
 ): Promise<void> {
   try {
-    const payload = await action();
+    const config = await getConfig(process.cwd());
+    const selection = await resolveFeatureSelection(process.cwd(), options.featureName, options.component);
+    const root = selection.matchedFeature?.git.projectGitCwd;
+    // With an explicit selector, resolution is repeated inside the protected action.
+    const lockRoot = root || (config?.docsRepo === 'standalone'
+      ? resolveStandaloneProjectRoots(config, options.component)[0] : process.cwd());
+    if (!lockRoot) throw new Error('Project repository is required for local integration.');
+    const payload = await withFileLock(getRepositoryLockPath(lockRoot), action, { owner: 'local integration' });
     if (options.json) {
       console.log(JSON.stringify(payload, null, 2));
     } else {
@@ -322,7 +350,7 @@ async function runLocalMerge(
   }
 
   const now = new Date().toISOString();
-  const originalBaseTip = context.baseTip;
+  const originalBaseTip = context.integrationComplete ? context.state?.originalBaseTip || context.baseTip : context.baseTip;
   const previousStateStrategy = context.state?.strategy || 'local-ff';
   let state: LocalIntegrationState =
     context.state &&
@@ -382,7 +410,7 @@ async function runLocalMerge(
           ? 'LOCAL_SQUASH_BASE_NOT_ANCESTOR'
           : 'LOCAL_MERGE_NOT_FAST_FORWARD',
         feature.folderName,
-        `${context.baseBranch} is not an ancestor of ${context.featureBranch}.`
+        `${context.baseBranch} advanced. Run local sync ${feature.folderName}, resolve any conflicts, and rerun verification/review.`
       );
     }
     if (currentGitBranch(context.projectRoot) !== context.baseBranch) {
@@ -456,8 +484,18 @@ async function runLocalMerge(
     state.featureVerification || context.state?.featureVerification || [];
   const verification = [...featureVerification, ...postMergeVerification];
   const failedCheck = postMergeVerification.find((entry) => entry.exitCode !== 0);
+  const afterChecks = await resolveLocalIntegrationContext(config, feature);
+  if (afterChecks.baseTip !== verificationTarget ||
+      afterChecks.featureTip !== context.featureTip ||
+      !afterChecks.projectRootClean || !afterChecks.featureWorktreeClean || !afterChecks.docsClean ||
+      currentGitBranch(context.projectRoot) !== context.baseBranch) {
+    return { ...blocked('LOCAL_INTEGRATION_CHANGED_DURING_CHECKS', feature.folderName,
+      'Repository changed during checks. Changes were preserved; inspect and reverify before integration or cleanup.'), verification };
+  }
   if (failedCheck) {
-    rollbackLocalIntegration(context, originalBaseTip);
+    if (!rollbackLocalIntegration(context, originalBaseTip)) {
+      return { ...blocked('LOCAL_ROLLBACK_FAILED', feature.folderName, 'Integration state was preserved. Inspect the repository before retrying.'), verification };
+    }
     await writeLocalIntegrationState(context.projectRoot, feature, {
       ...state,
       status: 'feature_failed',
@@ -515,14 +553,16 @@ async function runLocalMerge(
 function rollbackLocalIntegration(
   context: Awaited<ReturnType<typeof resolveLocalIntegrationContext>>,
   originalBaseTip: string
-): void {
-  gitRun(context.projectRoot, ['reset', '--hard', originalBaseTip]);
+): boolean {
+  const reset = gitRun(context.projectRoot, ['reset', '--keep', originalBaseTip]);
+  if (reset.code !== 0) return false;
   if (context.completionStrategy === 'local-squash') {
     gitRun(context.projectRoot, ['update-ref', '-d', context.evidenceRef]);
   }
   if (!context.managedFeatureWorktree) {
     gitRun(context.projectRoot, ['checkout', context.featureBranch]);
   }
+  return true;
 }
 
 async function runLocalCleanup(
@@ -666,7 +706,6 @@ function integrateLocalSquash(
     context.featureBranch,
   ]);
   if (squash.code !== 0) {
-    rollbackSquash(context.projectRoot, originalBaseTip);
     return {
       status: 'blocked',
       payload: blocked('LOCAL_SQUASH_FAILED', featureRef, squash.stderr),
@@ -678,7 +717,6 @@ function integrateLocalSquash(
     workflowMode: 'local',
   });
   if (!scope) {
-    rollbackSquash(context.projectRoot, originalBaseTip);
     return {
       status: 'blocked',
       payload: blocked(
@@ -695,7 +733,6 @@ function integrateLocalSquash(
     `feat(${scope}): integrate ${featureSlug}`,
   ]);
   if (commit.code !== 0) {
-    rollbackSquash(context.projectRoot, originalBaseTip);
     return {
       status: 'blocked',
       payload: blocked('LOCAL_SQUASH_COMMIT_FAILED', featureRef, commit.stderr),
@@ -708,7 +745,6 @@ function integrateLocalSquash(
     ? resolveTree(context.projectRoot, integratedCommit)
     : null;
   if (!integratedCommit || !sourceTree || integratedTree !== sourceTree) {
-    rollbackSquash(context.projectRoot, originalBaseTip);
     return {
       status: 'blocked',
       payload: blocked('LOCAL_SQUASH_TREE_MISMATCH', featureRef),
@@ -721,7 +757,6 @@ function integrateLocalSquash(
     context.featureTip
   );
   if (evidence.code !== 0) {
-    rollbackSquash(context.projectRoot, originalBaseTip);
     return {
       status: 'blocked',
       payload: blocked(
@@ -733,10 +768,6 @@ function integrateLocalSquash(
   }
 
   return { status: 'ok' };
-}
-
-function rollbackSquash(projectRoot: string, originalBaseTip: string): void {
-  gitRun(projectRoot, ['reset', '--hard', originalBaseTip]);
 }
 
 function blocked(

@@ -60,3 +60,7 @@
 2. `[DONE]` 태스크를 다시 쓰지 않습니다.
 3. unmanaged docs 산출물은 정규화하거나 allowlist하기 전까지 active workflow 상태로 취급하지 않습니다.
 4. issue 생성, branch 생성, 그 이전 단계가 막혀 있으면 구현을 시작하지 않습니다.
+
+## 세션과 상태 변경 명령
+
+명시적 Task ID가 있으면 메인 에이전트가 `task claim <id> --json`으로 세션을 확보하고 `task status <id> --json`으로 문서 해시를 읽습니다. `task transition <id> <task-id> --from <상태> --to <상태> --session <토큰> --expected-hash <해시> --json`으로 workflow-stage가 선택한 Task의 상태를 변경합니다. Acceptance·Checklist·리뷰 근거를 먼저 기록하고 변경 후 해시를 다시 읽습니다. 오래된 해시, 담당자 불일치, 다른 활성 세션은 변경을 차단합니다. 인계 시 `task release <id> --session <토큰>`을 실행합니다. 별도 승인 단계를 추가하지 않습니다. 명시적 ID가 없는 레거시 Task는 기존 workflow 게이트에 따라 문서에서 상태를 수정합니다.

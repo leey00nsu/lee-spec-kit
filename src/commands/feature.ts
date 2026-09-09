@@ -1,3 +1,7 @@
+import { newLocalFeatureId } from '../utils/feature-identity.js';
+import { runProcess } from './github/process.js';
+import { runGitCapture } from '../utils/git-run.js';
+import { resolveStandaloneProjectRoots } from '../utils/standalone-workspace.js';
 import { Command } from 'commander';
 import prompts from 'prompts';
 import chalk from 'chalk';
@@ -40,6 +44,10 @@ import {
 export interface FeatureOptions {
   component?: string;
   id?: string;
+  issue?: string;
+  createIssue?: boolean;
+  confirm?: string;
+  owner?: string;
   desc?: string;
   idea?: string;
   nonInteractive?: boolean;
@@ -59,7 +67,11 @@ export function featureCommand(program: Command): void {
     .command('feature <name>')
     .description('Create a new feature folder')
     .option('--component <component>', 'Component name (multi only)')
-    .option('--id <id>', 'Feature ID (default: auto)')
+    .option('--id <id>', 'Explicit local or legacy migration ID')
+    .option('--issue <number>', 'Bind an existing GitHub issue before creating docs')
+    .option('--create-issue', 'Create the GitHub issue first using name and --desc')
+    .option('--confirm <token>', 'OK authorizes --create-issue')
+    .option('--owner <owner>', 'Single Feature owner (default: git user.email)')
     .option('-d, --desc <description>', 'Feature description for spec.md')
     .option('--idea <ref>', 'Idea reference to promote (I001 | I001-slug | docs/ideas/...)')
     .option('--non-interactive', 'Fail instead of prompting for input')
@@ -207,6 +219,47 @@ export async function runFeature(
     assertAllowedComponent(component, configuredComponents);
   }
 
+  const githubMode = config.workflow?.mode !== 'local';
+  if (options.issue && options.createIssue || options.id && (options.issue || options.createIssue)) {
+    throw createCliError('INVALID_ARGUMENT', 'Use exactly one of --id, --issue, or --create-issue.');
+  }
+  if (!githubMode && (options.issue || options.createIssue)) {
+    throw createCliError('INVALID_ARGUMENT', 'Issue binding requires GitHub mode.');
+  }
+  if (githubMode && !options.issue && !options.createIssue && !/^F\d{3,}$/.test(options.id || '')) {
+    throw createCliError('ISSUE_REQUIRED', 'Create/select a GitHub Issue first: feature <name> --issue <number>, or --create-issue --desc <summary> --confirm OK.');
+  }
+  if (!githubMode && options.id && /^[0-9]+$/.test(options.id)) {
+    throw createCliError('INVALID_ARGUMENT', 'Numeric IDs are reserved for GitHub issues. Omit --id to generate a local ID.');
+  }
+  const projectCwd = config.docsRepo === 'standalone'
+    ? resolveStandaloneProjectRoots(config, component || undefined)[0]
+    : cwd;
+  if (!projectCwd) throw createCliError('PRECONDITION_FAILED', 'Project repository is required.');
+  const owner = options.owner?.trim() || runGitCapture(['config', 'user.email'], projectCwd) || null;
+  let issue: { number: number; url: string; title: string } | null = null;
+  if (options.issue || options.createIssue) {
+    const gh = (args: string[]): string => {
+      const result = runProcess('gh', args, projectCwd);
+      if (result.code !== 0) throw createCliError('EXECUTION_FAILED', result.stderr || result.stdout);
+      return result.stdout.trim();
+    };
+    let issueRef = options.issue;
+    if (issueRef && !/^[1-9]\d*$/.test(issueRef)) {
+      throw createCliError('INVALID_ARGUMENT', '--issue must be a positive issue number.');
+    }
+    if (options.createIssue) {
+      if (options.confirm !== 'OK' || !options.desc?.trim()) {
+        throw createCliError('APPROVAL_REQUIRED', 'Share the issue title (name) and body (--desc), then use --create-issue --confirm OK.');
+      }
+      issueRef = gh(['issue', 'create', '--title', name, '--body', options.desc]);
+    }
+    issue = JSON.parse(gh(['issue', 'view', issueRef!, '--json', 'number,url,title']));
+    if (!issue || !Number.isSafeInteger(issue.number) || issue.number <= 0 || !/^https:\/\//.test(issue.url)) {
+      throw createCliError('PRECONDITION_FAILED', 'Invalid GitHub issue response.');
+    }
+  }
+
   const docsLockPath = getDocsLockPath(docsDir);
   return withFileLock(
     docsLockPath,
@@ -221,18 +274,9 @@ export async function runFeature(
         );
         featureId = options.id;
       } else {
-        if (!schemaAdapter?.getNextFeatureId) {
-          throw createCliError(
-            'PRECONDITION_FAILED',
-            `Schema "${config.schemaId || 'unknown'}" does not support feature ID allocation.`
-          );
-        }
-        featureId = await schemaAdapter.getNextFeatureId({
-          docsDir,
-          projectType,
-          components: configuredComponents,
-        });
+        featureId = issue ? String(issue.number) : newLocalFeatureId();
       }
+
 
       if (!schemaAdapter?.resolveFeaturePaths) {
         throw createCliError(
@@ -250,6 +294,11 @@ export async function runFeature(
           featureName: name,
         });
 
+      // Identity must be unique even when the slug differs.
+      const siblings = await fs.readdir(path.dirname(featureDir)).catch(() => [] as string[]);
+      if (siblings.some((entry) => entry.toLowerCase().startsWith(`${featureId.toLowerCase()}-`))) {
+        throw createCliError('FEATURE_ID_EXISTS', `Feature ${featureId} already exists in this component.`);
+      }
       // 중복 확인
       if (await fs.pathExists(featureDir)) {
         throw createCliError(
@@ -286,20 +335,22 @@ export async function runFeature(
         '{{projectName}}': projectName ?? '{{projectName}}',
         // ko placeholders
         '{기능명}': name,
+        'F{번호}': featureId,
         '{번호}': idNumber,
         '{결정 제목}': `${name} 결정`,
         '{YYYY-MM-DD}': getLocalDateString(),
         '{component}': component || '',
         '{{projectName}}-{component}': repoName,
         '{be|fe}': component || '',
-        '{이슈번호}': '',
+        '{이슈번호}': issue ? String(issue.number) : '',
         '{{description}}': options.desc || '',
 
         // en placeholders
         '{feature-name}': name,
+        'F{number}': featureId,
         '{number}': idNumber,
         '{Decision Title}': `${name} design decision`,
-        '{issue-number}': '',
+        '{issue-number}': issue ? String(issue.number) : '',
         '{{projectName}}-{be|fe}': repoName,
       };
 
@@ -326,6 +377,22 @@ export async function runFeature(
 
       if (config.workflow?.mode === 'local') {
         await applyLocalWorkflowTemplateToFeatureDir(featureDir, lang);
+      }
+
+      if (!/^F\d{3,}$/.test(featureId)) {
+        const branch = `feat/${featureId}-${name}`;
+        const tasksPath = path.join(featureDir, 'tasks.md');
+        const tasks = await fs.readFile(tasksPath, 'utf8');
+        await fs.writeFile(tasksPath, tasks.replace(/^(- \*\*(?:Branch|브랜치)\*\*:) .*$/m, `$1 \`${branch}\``));
+        await fs.writeJson(path.join(featureDir, '.feature.json'), {
+          version: 1, id: featureId, owner, branch,
+          identity: issue ? issue.url : `local:${featureId}`,
+          issue: issue ? { number: issue.number, url: issue.url } : null,
+        }, { spaces: 2 });
+      }
+      if (issue) {
+        await fs.writeFile(path.join(featureDir, 'issue.md'),
+          `# Issue: ${issue.title}\n\n- **Status**: Ready\n- **Title**: ${issue.title}\n- **Issue**: ${issue.url}\n\n${options.desc || ''}\n\n## Related Docs\n\n- [Spec](spec.md)\n- [Plan](plan.md)\n- [Tasks](tasks.md)\n\nIssue binding does not approve implementation; follow the Spec and Plan gates.\n`);
       }
 
       if (!options.json) {

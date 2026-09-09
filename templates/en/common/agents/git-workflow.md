@@ -65,11 +65,11 @@ Examples:
 ```text
 feat(#123): implement user auth
 docs(#123): clarify auth spec
-feat(F027): implement notification settings
-docs(F027): update notification docs
+feat(K7M2Q9RX4DAB): implement notification settings
+docs(K7M2Q9RX4DAB): update notification docs
 ```
 
-For local Features, the scope is the stable Feature ID (`F027`), not the full folder ref (`F027-notification-settings`). Feature-scoped commits without a scope, such as `docs: F027 ...`, are not canonical.
+For local Features, the scope is the stable Feature ID (`K7M2Q9RX4DAB`), not the full folder ref (`K7M2Q9RX4DAB-notification-settings`). Feature-scoped commits without a scope, such as `docs: K7M2Q9RX4DAB ...`, are not canonical.
 
 ### Type List
 
@@ -110,14 +110,7 @@ Run the returned `nextAction.command` instead of hand-writing the worktree path.
 that are no longer registered Git worktrees, and copies existing `.env`/`.env.*` files
 from the project root into the new worktree when the target file is absent.
 
-```bash
-# Embedded fallback only: create dedicated worktree + branch
-mkdir -p .worktrees
-git worktree add -b feat/{issue-number}-{feature-name} .worktrees/feat-{issue-number}-{feature-name}
-
-# If branch already exists, attach worktree only
-git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-number}-{feature-name}
-```
+For new embedded Features, follow `workspace_checkpoint` before branch creation. It commits only that Feature's planning docs. Then use the returned worktree command and continue from its workingDirectory. Do not manually create a worktree from a HEAD that lacks the Feature docs.
 
 > Continue implementation from the worktree path returned by `workflow-stage`.
 
@@ -132,17 +125,17 @@ git worktree add .worktrees/feat-{issue-number}-{feature-name} feat/{issue-numbe
 
 #### Standalone Mode Commit Guide
 
-Use the scope selected by the workflow: `#123` when an Issue is linked, otherwise the local Feature ID such as `F027`.
+Use the scope selected by the workflow: `#123` when an Issue is linked, otherwise the local Feature ID such as `K7M2Q9RX4DAB`.
 
 1. **Project Commit** (If code changed)
 
    ```bash
-   git commit -m "feat(F027): implement feature"
+   git commit -m "feat(K7M2Q9RX4DAB): implement feature"
    ```
 
 2. **Docs Commit** (If docs changed - **Run in Docs Repo**)
    ```bash
-   git commit -m "docs(F027): update feature docs"
+   git commit -m "docs(K7M2Q9RX4DAB): update feature docs"
    ```
 
 > 💡 **Core Rule**: At task completion, **all changed repositories** must be committed.
@@ -179,3 +172,11 @@ Use the scope selected by the workflow: `#123` when an Issue is linked, otherwis
 
 - [ ] Auto-delete head branches
 - [ ] Squash merging only
+
+## Feature isolation and integration
+
+New GitHub Feature IDs come from Issues selected before SDD planning; new local IDs are 12-character random values. Existing F-number documents remain compatible. One Feature has one owner and one active task; different Features can proceed independently.
+
+New standalone Features keep the primary docs checkout on its base branch and use `workspace prepare` for their docs worktree. Commit seed docs first and work from the returned docsDirectory. Project and docs integration are separate. In local mode, verify code integration, merge docs, publish OpenWiki when enabled, then clean up. GitHub publication runs independently on code base-branch pushes. The docs receipt is an empty Git commit and survives a docs clone. Use `workspace sync-docs` when the base advances and revalidate conflicts before integration. Failed integration never implies completion.
+
+Use task claim/status/transition/release for explicit task IDs, with the current tasks hash and session token. Legacy task lines without IDs retain document transitions. Run feature-audit in CI; review sharedDocumentationWarnings for shared curated targets. PR merge retries do not automatically rebase or force-push.

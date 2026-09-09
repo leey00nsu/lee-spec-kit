@@ -155,6 +155,9 @@ export function githubCommand(program: Command): void {
           let issueUrl: string | undefined;
           let syncChanged = false;
           if (options.create) {
+            if (await fs.pathExists(path.join(feature.path, '.feature.json')) && feature.issueNumber) {
+              throw createCliError('PRECONDITION_FAILED', 'This Feature is already bound to an Issue. Keep the original identity; do not create a replacement Issue.');
+            }
             const projectGitCwd = ghService.resolveGithubProjectCwd(
               config,
               feature

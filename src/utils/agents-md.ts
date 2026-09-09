@@ -41,7 +41,7 @@ Before taking the next workflow step:
 
 These orchestration steps belong to the primary agent unless an explicit delegation contract says otherwise.
 
-1. Confirm the active feature from the request, docs tree, issue/PR context, or the most recently active feature folder
+1. Select the Feature explicitly by ID or unambiguous current branch; never select by recency. GitHub Features begin with an Issue via feature --issue or feature --create-issue; local Features use generated IDs.
 2. Read the active feature docs as the SSOT: \`spec.md\`, \`plan.md\`, \`tasks.md\`, and \`decisions.md\`
 3. When relevant, also read \`issue.md\` and \`pr.md\`
 4. Run \`npx lee-spec-kit workflow-stage <feature-ref> --json\` and follow only the returned \`nextAction\`
@@ -52,10 +52,10 @@ These orchestration steps belong to the primary agent unless an explicit delegat
    - issue preparation / issue creation
    - branch creation
    - task commit checkpoints after each completed task
-8. In standalone mode, keep the docs repo on its docs branch and do not create feature branches or worktrees there
+8. For new standalone Features, keep the primary docs checkout on its base branch and use the isolated docs worktree returned by workspace prepare; legacy F-number Features retain their existing docs layout
 9. In standalone mode, use the project repo through its managed feature worktree under the shared workspace \`.worktrees/\` root instead of checking the feature branch out in the main project repo
 10. In standalone mode, do not hand-write \`git worktree add\`; run the exact \`nextAction.command\` from \`workflow-stage\` so the managed workspace path, stale directory cleanup, and \`.env\` / \`.env.*\` copy step stay consistent
-11. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
+11. Use task claim/status/transition/release for owner sessions and hash-checked task state changes. One Feature has one owner and one active task. Keep docs and code synchronized; if code changes materially, update the active feature docs in the same turn before stopping
 12. When docs are synced to code, run \`npx lee-spec-kit workflow-audit --json\` and copy its exact \`expectedWorkflowSyncMarker\` into one active feature doc (prefer \`tasks.md\` or \`decisions.md\`): replace an existing marker or remove duplicates instead of appending another marker, so the marker is bound to the current code-content fingerprint
    - Before Plan review or approval, complete \`Curated Documentation Impact\`; every \`UPDATE\` or \`ADD\` target must be linked from at least one task \`Docs\` entry and committed with the active Feature scope. \`NONE\` is an explicit reviewed decision, not an omitted check
    - Keep authority claim-specific: PRD owns durable requirements; the active Feature SDD owns the current change scope and decisions; curated project-wide docs own explanations and policy; tracked code/schema/config own executable runtime facts; OpenWiki is derived onboarding evidence
@@ -79,7 +79,7 @@ Approval and remote actions:
 - If \`workflow-stage --json\` reports \`approvalRequired === true\`, stop at that boundary and ask the user before proceeding
 - If \`workflow-stage --json\` returns labeled \`actionOptions\` at any approval boundary, keep the same option labels and exact \`reply\` tokens in the user prompt and do not improvise different reply formats
 - If \`workflow-stage --json\` reports \`nextAction.category === "task_commit"\`, make the docs commit and project commit for the just-finished task before starting the next task or moving to the next stage
-- Before \`git commit\`, prefer \`npx lee-spec-kit commit-audit --json\`; Feature-scoped commits use \`#123\` when an Issue is linked and the stable Feature ID such as \`F027\` for issue-less local workflows
+- Before \`git commit\`, prefer \`npx lee-spec-kit commit-audit --json\`; Feature-scoped commits use \`#123\` when an Issue is linked and the stable Feature ID such as \`K7M2Q9RX4DAB\` for issue-less local workflows
 - Before remote GitHub actions, share the plan or artifact being sent
 - Respect repo policy from docs and config first; hooks only enforce guardrails and continuation checks
 
