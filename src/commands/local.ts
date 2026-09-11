@@ -6,6 +6,7 @@ import { getConfig } from '../utils/config.js';
 import { resolveFeatureSelection } from '../utils/feature-resolver.js';
 import { collectWorkflowStage } from '../utils/workflow-stage.js';
 import {
+  isFeatureVerificationCurrent,
   currentGitBranch,
   gitRun,
   isAncestor,
@@ -37,6 +38,7 @@ interface LocalActionPayload {
   baseTip?: string | null;
   completionStrategy?: 'local-ff' | 'local-squash';
   verification?: LocalIntegrationState['verification'];
+  checksSkippedReason?: string;
   error?: string;
 }
 
@@ -116,7 +118,7 @@ async function runLocalVerify(
   if (
     stage.status !== 'ok' ||
     !stage.nextAction ||
-    !['feature_verify', 'feature_remediation'].includes(stage.nextAction.category)
+    !['feature_checks_configure', 'feature_verify', 'feature_remediation'].includes(stage.nextAction.category)
   ) {
     return blocked(
       'LOCAL_FEATURE_VERIFY_STAGE_REQUIRED',
@@ -151,6 +153,13 @@ async function runLocalVerify(
     );
   }
 
+  if (!context.featureChecks.length && !context.featureChecksSkipReason) {
+    return blocked('FEATURE_CHECKS_NOT_CONFIGURED', feature.folderName,
+      'Configure workflow.featureChecks or an explicit featureChecksSkipReason before verification.');
+  }
+  if (!isAncestor(context.projectRoot, `refs/heads/${context.baseBranch}`, context.featureTip)) {
+    return blocked('LOCAL_BASE_SYNC_REQUIRED', feature.folderName, 'Run local sync, resolve conflicts, and reverify/review before integration.');
+  }
   const targetTip = context.featureTip;
   const targetTree = context.featureTree;
   const now = new Date().toISOString();
@@ -166,11 +175,13 @@ async function runLocalVerify(
     logDir,
     'feature'
   );
-  const refreshed = await resolveLocalIntegrationContext(config, feature);
+  const refreshedConfig = await getConfig(cwd);
+  if (!refreshedConfig) return blocked('CONFIG_NOT_FOUND', feature.folderName);
+  const refreshed = await resolveLocalIntegrationContext(refreshedConfig, feature);
   const changedDuringVerification =
     refreshed.featureTip !== targetTip ||
     refreshed.featureTree !== targetTree ||
-    !refreshed.featureWorktreeClean || !refreshed.docsClean || refreshed.baseTip !== context.baseTip;
+    !refreshed.featureWorktreeClean || !refreshed.docsClean || refreshed.baseTip !== context.baseTip || refreshed.featureChecksHash !== context.featureChecksHash;
   const failed = verification.some((entry) => entry.exitCode !== 0);
   const baseState: LocalIntegrationState = {
     version: 1,
@@ -194,6 +205,8 @@ async function runLocalVerify(
           verifiedFeatureTip: targetTip,
           verifiedFeatureTree: targetTree,
         }),
+    verifiedChecksHash: context.featureChecksHash,
+    ...(context.featureChecksSkipReason ? { checksSkippedReason: context.featureChecksSkipReason } : {}),
     featureVerification: verification,
     postMergeVerification: [],
     verification,
@@ -221,7 +234,8 @@ async function runLocalVerify(
 
   return {
     status: 'ok',
-    reasonCode: 'LOCAL_FEATURE_VERIFIED',
+    reasonCode: context.featureChecksSkipReason ? 'LOCAL_FEATURE_CHECKS_SKIPPED' : 'LOCAL_FEATURE_VERIFIED',
+    ...(context.featureChecksSkipReason ? { checksSkippedReason: context.featureChecksSkipReason } : {}),
     featureRef: feature.folderName,
     baseBranch: context.baseBranch,
     featureBranch: context.featureBranch,
@@ -274,6 +288,7 @@ async function runLocalMerge(
 ): Promise<LocalActionPayload> {
   const cwd = process.cwd();
   const stage = await collectWorkflowStage(cwd, featureName, options.component);
+  if (stage.blockedReasonCode === 'LOCAL_BASE_SYNC_REQUIRED') return blocked('LOCAL_BASE_SYNC_REQUIRED', stage.featureRef, stage.nextAction?.summary);
   if (
     stage.status !== 'ok' ||
     !stage.nextAction ||
@@ -324,12 +339,7 @@ async function runLocalMerge(
   }
   if (
     !context.integrationComplete &&
-    (!context.state ||
-      !['feature_verified', 'merged', 'verified', 'cleaned'].includes(
-        context.state.status
-      ) ||
-      context.state.verifiedFeatureTip !== context.featureTip ||
-      context.state.verifiedFeatureTree !== context.featureTree)
+    !isFeatureVerificationCurrent(context)
   ) {
     return blocked(
       'LOCAL_FEATURE_VERIFICATION_REQUIRED',
@@ -484,9 +494,12 @@ async function runLocalMerge(
     state.featureVerification || context.state?.featureVerification || [];
   const verification = [...featureVerification, ...postMergeVerification];
   const failedCheck = postMergeVerification.find((entry) => entry.exitCode !== 0);
-  const afterChecks = await resolveLocalIntegrationContext(config, feature);
+  const afterChecksConfig = await getConfig(cwd);
+  if (!afterChecksConfig) return blocked('CONFIG_NOT_FOUND', feature.folderName);
+  const afterChecks = await resolveLocalIntegrationContext(afterChecksConfig, feature);
   if (afterChecks.baseTip !== verificationTarget ||
       afterChecks.featureTip !== context.featureTip ||
+      afterChecks.featureChecksHash !== context.featureChecksHash ||
       !afterChecks.projectRootClean || !afterChecks.featureWorktreeClean || !afterChecks.docsClean ||
       currentGitBranch(context.projectRoot) !== context.baseBranch) {
     return { ...blocked('LOCAL_INTEGRATION_CHANGED_DURING_CHECKS', feature.folderName,

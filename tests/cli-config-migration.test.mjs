@@ -757,7 +757,9 @@ test('update migrates legacy post-merge checks to Feature checks', async () => {
 
     assert.equal(updated.workflow.completionStrategy, 'none');
     assert.deepEqual(updated.workflow.featureChecks, [
-      { command: 'pnpm', args: ['test'] },
+      { command: '  pnpm  ', args: ['test', 42] },
+      { command: '   ' },
+      'pnpm lint',
     ]);
     assert.deepEqual(updated.workflow.postMergeChecks, []);
   });
@@ -775,5 +777,22 @@ test('update preserves the local squash completion strategy', async () => {
     const updated = await runConfigUpdate(dir);
 
     assert.equal(updated.workflow.completionStrategy, 'local-squash');
+  });
+});
+
+test('config saves reviewed checks and an explicit skip without erasing component policies', async () => {
+  await withTempDir('lsk-config-checks-', async (dir) => {
+    await writeProjectConfig(dir, { workflow: { mode: 'local', postMergeChecks: [{ command: 'old' }] } });
+    const checksFile = path.join(dir, 'checks.json');
+    await fs.writeFile(checksFile, JSON.stringify([{ command: 'pnpm', args: ['test'] }]));
+    let result = await runCli(dir, ['config', '--checks-file', checksFile]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const read = async () => JSON.parse(await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf8'));
+    assert.deepEqual((await read()).workflow.featureChecks, [{ command: 'pnpm', args: ['test'] }]);
+    assert.deepEqual((await read()).workflow.postMergeChecks, []);
+    result = await runCli(dir, ['config', '--checks-skip-reason', 'Documentation only']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    assert.equal((await read()).workflow.featureChecksSkipReason, 'Documentation only');
+    assert.deepEqual((await read()).workflow.featureChecks, []);
   });
 });

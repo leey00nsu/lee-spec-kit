@@ -116,3 +116,5 @@
 | Command | Last Run (Local, YYYY-MM-DD) | Result |
 | --- | --- | --- |
 | `{test command you ran}` | `-` | `{PASS/FAIL summary}` |
+
+Completion evidence includes all planned checks (build, typecheck, lint, tests) and manual verification. The executable baseline is workflow.featureChecks. Record an explicit skip reason instead of claiming unexecuted checks passed.

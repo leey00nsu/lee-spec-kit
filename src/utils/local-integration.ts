@@ -1,3 +1,4 @@
+import { resolveFeatureCheckPolicy } from './feature-checks.js';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'fs-extra';
@@ -37,6 +38,8 @@ export interface LocalIntegrationState {
   cleanedAt: string | null;
   verifiedFeatureTip?: string;
   verifiedFeatureTree?: string;
+  verifiedChecksHash?: string;
+  checksSkippedReason?: string;
   originalBaseTip?: string;
   featureVerification?: LocalCheckResult[];
   postMergeVerification?: LocalCheckResult[];
@@ -87,6 +90,8 @@ export interface LocalIntegrationContext {
   managedFeatureWorktree: boolean;
   featureBranchExists: boolean;
   featureChecks: LocalWorkflowCheck[];
+  featureChecksHash: string;
+  featureChecksSkipReason: string;
   postMergeChecks: LocalWorkflowCheck[];
   deleteFeatureBranchAfterMerge: boolean;
 }
@@ -106,6 +111,7 @@ export async function resolveLocalIntegrationContext(
   config: ProjectConfig,
   feature: ResolvedFeature
 ): Promise<LocalIntegrationContext> {
+  const checkPolicy = resolveFeatureCheckPolicy(config, feature.type);
   const projectRoot = resolveProjectRoot(config, feature);
   const featureWorktree = path.resolve(feature.git.projectGitCwd);
   const baseBranch =
@@ -219,14 +225,10 @@ export async function resolveLocalIntegrationContext(
     docsClean: isClean(feature.git.docsGitCwd),
     managedFeatureWorktree,
     featureBranchExists: !!featureBranchTip,
-    featureChecks: Array.isArray(config.workflow?.featureChecks)
-      ? normalizeWorkflowChecks(config.workflow.featureChecks)
-      : normalizeWorkflowChecks(config.workflow?.postMergeChecks),
-    // Compatibility: pre-0.9.2 postMergeChecks are treated as Feature checks.
-    // Projects can opt into true post-integration checks by defining featureChecks.
-    postMergeChecks: Array.isArray(config.workflow?.featureChecks)
-      ? normalizeWorkflowChecks(config.workflow?.postMergeChecks)
-      : [],
+    featureChecks: checkPolicy.checks,
+    featureChecksHash: checkPolicy.hash,
+    featureChecksSkipReason: checkPolicy.skipReason,
+    postMergeChecks: checkPolicy.postMergeChecks,
     deleteFeatureBranchAfterMerge:
       config.workflow?.deleteFeatureBranchAfterMerge !== false,
   };
@@ -508,18 +510,10 @@ function resolveRegisteredBranchWorktree(
   return null;
 }
 
-function normalizeWorkflowChecks(value: unknown): LocalWorkflowCheck[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter(
-      (entry): entry is LocalWorkflowCheck =>
-        !!entry &&
-        typeof entry === 'object' &&
-        typeof (entry as LocalWorkflowCheck).command === 'string' &&
-        !!(entry as LocalWorkflowCheck).command.trim()
-    )
-    .map((entry) => ({
-      command: entry.command.trim(),
-      args: Array.isArray(entry.args) ? entry.args.map(String) : [],
-    }));
+export function isFeatureVerificationCurrent(context: LocalIntegrationContext): boolean {
+  const state = context.state;
+  return !!state && ['feature_verified', 'merged', 'verified', 'cleaned'].includes(state.status)
+    && state.verifiedFeatureTip === context.featureTip
+    && state.verifiedFeatureTree === context.featureTree
+    && state.verifiedChecksHash === context.featureChecksHash;
 }

@@ -1,3 +1,5 @@
+import { resolveStandaloneProjectRoots, resolveGitTopLevelOrNull } from '../utils/standalone-workspace.js';
+import { detectFeatureChecks, validateChecks } from '../utils/feature-checks.js';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
@@ -24,6 +26,9 @@ import {
 import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
 
 interface ConfigOptions {
+  checksDetect?: boolean;
+  checksFile?: string;
+  checksSkipReason?: string;
   dir?: string;
   projectRoot?: string;
   component?: string;
@@ -113,6 +118,9 @@ export function configCommand(program: Command): void {
   program
     .command('config')
     .description('View or modify project configuration')
+    .option('--checks-detect', 'Print suggested Feature checks without executing or saving them')
+    .option('--checks-file <path>', 'Save a JSON array of Feature checks; use --component for an override')
+    .option('--checks-skip-reason <reason>', 'Explicitly skip Feature checks with a reason')
     .option('--dir <dir>', 'Docs directory or project path to target')
     .option('--project-root <path>', 'Set project root path')
     .option('--component <component>', 'Component name for multi projects')
@@ -173,6 +181,20 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     );
   }
 
+  if (options.checksDetect) {
+    const roots = resolveStandaloneProjectRoots(config, options.component);
+    const root = options.projectRoot ? path.resolve(targetCwd, options.projectRoot)
+      : config.docsRepo === 'standalone' ? roots.length === 1 ? roots[0] : null
+        : resolveGitTopLevelOrNull(config.docsDir) || path.dirname(config.docsDir);
+    if (!root) throw createCliError('INVALID_ARGUMENT', 'Specify --project-root or select a configured component.');
+    console.log(JSON.stringify({ projectRoot: root, checks: await detectFeatureChecks(root), note: 'Suggestions only. Review build coverage before saving with --checks-file.' }, null, 2));
+    return;
+  }
+  if (options.checksFile && options.checksSkipReason !== undefined) throw createCliError('INVALID_ARGUMENT', 'Choose checks or a skip reason.');
+  if (options.checksSkipReason !== undefined && !options.checksSkipReason.trim()) throw createCliError('INVALID_ARGUMENT', 'A nonempty skip reason is required.');
+  const hasChecksOptions = options.checksFile !== undefined || options.checksSkipReason !== undefined;
+  const checks = options.checksFile ? validateChecks(await fs.readJson(path.resolve(cwd, options.checksFile))) : [];
+  if (options.checksFile && !checks.length) throw createCliError('INVALID_ARGUMENT', 'Use --checks-skip-reason to explicitly skip checks.');
   const configPath = path.join(config.docsDir, '.lee-spec-kit.json');
   const hasWorkflowOptions =
     typeof options.taskAgent !== 'undefined' ||
@@ -183,7 +205,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   const hasExperimentalOptions = typeof options.openwiki !== 'undefined';
 
   // 옵션 없이 실행: 현재 설정 출력
-  if (!options.projectRoot && !hasWorkflowOptions && !hasExperimentalOptions) {
+  if (!options.projectRoot && !hasWorkflowOptions && !hasExperimentalOptions && !hasChecksOptions) {
     console.log();
     console.log(chalk.blue(tr(config.lang, 'cli', 'config.currentTitle')));
     console.log();
@@ -211,6 +233,20 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         );
       }
 
+      if (hasChecksOptions) {
+        const workflow = ensureWorkflow(configFile);
+        if (options.component) {
+          assertAllowedComponent(options.component, resolveProjectComponents(config.projectType, config.components));
+          const overrides = isPlainObject(workflow.featureChecksByComponent) ? workflow.featureChecksByComponent : {};
+          overrides[options.component] = { checks, ...(options.checksSkipReason ? { skipReason: options.checksSkipReason.trim() } : {}) };
+          workflow.featureChecksByComponent = overrides;
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(workflow, 'featureChecks')) workflow.postMergeChecks = [];
+          workflow.featureChecks = checks;
+          delete workflow.featureChecksSkipReason;
+          if (options.checksSkipReason) workflow.featureChecksSkipReason = options.checksSkipReason.trim();
+        }
+      }
       if (options.projectRoot) {
         await updateProjectRoot(configFile, options, config.lang);
       }

@@ -93,6 +93,9 @@ Each `DECLARED` row uses `UPDATE` or `ADD` and a `docs:<path>` or `project:<path
 
 ## Verification Contract
 
+Reference the effective workflow.featureChecks baseline, including component overrides. Register additional automatic checks in the executable configuration. State build coverage, reasons for avoiding duplicate builds, and manual verification evidence.
+
+
 ### Change Classification
 
 - **Type**: COPY | REFACTOR | BUG_FIX | NEW_BEHAVIOR | HIGH_RISK

@@ -41,6 +41,7 @@ import { isPrePrEvidenceSatisfied } from './pre-pr-evidence.js';
 import { parseTaskLine } from './task-lines.js';
 import {
   isAncestor,
+  isFeatureVerificationCurrent,
   localCleanupComplete,
   resolveLocalCompletionStrategy,
   resolveLocalIntegrationContext,
@@ -115,6 +116,7 @@ export interface WorkflowStageAction {
     | 'knowledge_sync'
     | 'knowledge_commit'
     | 'implementation_approve'
+    | 'feature_checks_configure'
     | 'feature_verify'
     | 'feature_remediation'
     | 'local_merge'
@@ -262,7 +264,9 @@ export interface WorkflowStagePayload {
     | 'KNOWLEDGE_SYNC_REQUIRED'
     | 'KNOWLEDGE_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
+    | 'FEATURE_CHECKS_NOT_CONFIGURED'
     | 'FEATURE_VERIFICATION_REQUIRED'
+    | 'LOCAL_BASE_SYNC_REQUIRED'
     | 'FEATURE_REMEDIATION_REQUIRED'
     | 'LOCAL_MERGE_REQUIRED'
     | 'LOCAL_VERIFICATION_REQUIRED'
@@ -4243,14 +4247,27 @@ async function collectWorkflowStageCore(
       };
     }
 
+    if (!localState.integrationComplete && !localState.featureChecks.length && !localState.featureChecksSkipReason) {
+      return {
+        status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature), stage: 'feature_verify',
+        nextAction: buildAction('feature_checks_configure', 'Review suggested checks, then save a JSON array with config --checks-file <path>, or specify config --checks-skip-reason <reason>. Do not report empty checks as passed.', false,
+          'npx lee-spec-kit config --checks-detect'),
+        approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'FEATURE_CHECKS_NOT_CONFIGURED',
+      };
+    }
+    if (!localState.integrationComplete && !localState.squashCommitMatchesSource && localState.featureTip &&
+        !isAncestor(localState.projectRoot, `refs/heads/${localState.baseBranch}`, localState.featureTip)) {
+      return {
+        status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature), stage: 'feature_remediation',
+        nextAction: buildAction('feature_remediation', 'Sync the local base into the Feature, resolve conflicts, and repeat review and verification.', false,
+          `npx lee-spec-kit local sync ${buildFeatureArgs(feature)} --json`),
+        approvalRequired: false, implementationAllowed: true, blockedReasonCode: 'LOCAL_BASE_SYNC_REQUIRED',
+      };
+    }
     if (!localState.integrationComplete) {
-      const featureVerified =
-        !!localState.state &&
-        ['feature_verified', 'merged', 'verified', 'cleaned'].includes(
-          localState.state.status
-        ) &&
-        localState.state.verifiedFeatureTip === localState.featureTip &&
-        localState.state.verifiedFeatureTree === localState.featureTree;
+      const featureVerified = isFeatureVerificationCurrent(localState);
       const featureVerificationFailed =
         localState.state?.status === 'feature_failed' &&
         localState.state.featureTip === localState.featureTip;
@@ -4283,7 +4300,7 @@ async function collectWorkflowStageCore(
           stage: 'feature_verify',
           nextAction: buildAction(
             'feature_verify',
-            `Run the configured Feature checks in ${localState.featureBranch} before integration and bind the result to its exact commit and tree.`,
+            `Run the configured Feature checks in ${localState.featureBranch} before integration and bind the result to its exact commit, tree, and check definition. If no checks are configured, use config --checks-detect then config --checks-file, or document an explicit --checks-skip-reason.`,
             false,
             localVerifyCommand
           ),

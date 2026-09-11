@@ -1,3 +1,4 @@
+import { detectFeatureChecks } from '../utils/feature-checks.js';
 import { Command } from 'commander';
 import prompts from 'prompts';
 import chalk from 'chalk';
@@ -1064,6 +1065,14 @@ async function runInit(options: InitOptions): Promise<void> {
         )
       );
       if (workflowMode === 'local') {
+        if (docsRepo === 'embedded') {
+          try {
+            const suggestions = await detectFeatureChecks(getGitTopLevelOrNull(cwd) || cwd);
+            if (suggestions.length) console.log(JSON.stringify({ suggestedFeatureChecks: suggestions }));
+          } catch {
+            console.log('Could not discover checks. Configure them explicitly with config --checks-file.');
+          }
+        }
         console.log(
           chalk.gray(
             `  ${tr(lang, 'cli', 'init.log.completionStrategyLabel')}: ${completionStrategy}`
@@ -1198,6 +1207,11 @@ async function runInit(options: InitOptions): Promise<void> {
 
       const configPath = path.join(targetDir, '.lee-spec-kit.json');
       await fs.writeJson(configPath, config, { spaces: 2 });
+      if (workflowMode === 'local') {
+        console.log(lang === 'ko'
+          ? '완료 검사 설정이 필요합니다: config --checks-detect로 후보를 확인하고 config --checks-file <path>로 등록하세요. 검사가 없으면 --checks-skip-reason <reason>을 명시하세요.'
+          : 'Configure completion checks: config --checks-detect, then config --checks-file <path>. For no checks, specify --checks-skip-reason <reason>.');
+      }
 
       // Ensure agent entrypoint exists (idempotent managed block).
       // - embedded: write to repo root (git toplevel when available) so it can be committed.

@@ -295,3 +295,29 @@ OpenWiki 실험 기능은 별도의 단일 옵션 `--openwiki true|false`로 제
   }
 }
 ```
+
+
+### Feature 완료 검사 설정 (0.9.14)
+
+`workflow.featureChecks`는 로컬 완료 시 실행할 프로젝트 공통 검사입니다.
+빈 목록은 검사 통과를 뜻하지 않으며, 완료 전에 설정해야 합니다.
+`npx lee-spec-kit config --checks-detect`로 Node 프로젝트의 검사 후보를 확인하고,
+검토한 JSON 배열을 `config --checks-file <path>`로 저장합니다.
+프로젝트 경로가 모호하면 감지 시 `--project-root <path>`를 지정합니다.
+감지는 파일만 읽으며 스크립트를 실행하지 않습니다.
+
+빌드 결과물을 만드는 프로젝트는 build를 포함합니다. test가 이미 build를 실행한다면
+Plan에 근거를 기록하고 중복 명령을 제외합니다. 중첩된 스크립트의 실행 범위는 자동 추정하지 않습니다.
+실행할 검사가 없는 프로젝트는 `config --checks-skip-reason <reason>`으로 사유를 명시합니다.
+컴포넌트별 설정은 `--component <name>`으로 저장합니다(`workflow.featureChecksByComponent`).
+별도 설정이 없는 컴포넌트는 공통 검사를 사용합니다.
+
+`featureChecks`가 없을 때만 구형 `postMergeChecks`를 완료 전 검사로 읽습니다.
+`update`는 기존 목록을 이전하며 명령을 추가하거나 기존 Feature 검사 목록을 덮어쓰지 않습니다.
+잘못된 항목은 삭제하지 않고 검증 오류로 드러냅니다. 검사 설정을 변경하면 통합 전 Feature는
+재검증해야 합니다. 정리까지 끝난 Feature의 과거 완료 상태는 유지합니다.
+
+Plan의 Verification Contract에는 실제 적용되는 공통 검사와 추가 검사를 적습니다.
+추가 자동 검사는 실행 설정에도 등록하고 수동/UI 검증은 별도 증거를 기록합니다.
+설정 변경은 최종 리뷰와 검증 전에 완료합니다. 로컬 main 동기화는 검사 전에 수행하며,
+이 단계가 원격 브랜치를 자동 fetch하는 것은 아닙니다.

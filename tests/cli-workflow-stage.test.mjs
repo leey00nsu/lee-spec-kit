@@ -322,11 +322,13 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
   const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
   config.experimental.openwiki = options.openwiki ?? false;
+  config.workflow.featureChecksSkipReason = 'Fixture exercises integration lifecycle without project checks';
   if (options.postMergeChecks) {
     config.workflow.postMergeChecks = options.postMergeChecks;
   }
   if (options.featureChecks) {
     config.workflow.featureChecks = options.featureChecks;
+    delete config.workflow.featureChecksSkipReason;
   }
   if (options.completionStrategy) {
     config.workflow.completionStrategy = options.completionStrategy;
@@ -411,6 +413,7 @@ async function prepareCompletedStandaloneLocalFeature(
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
   config.workflow.agentReview.feature.enabled = false;
   config.experimental.openwiki = openwiki;
+  config.workflow.featureChecksSkipReason = 'Fixture has no executable project checks';
   await fs.writeFile(
     configPath,
     `${JSON.stringify(config, null, 2)}\n`,
@@ -4115,7 +4118,7 @@ test('local workflow fast-forwards, verifies, cleans up, and only then reaches d
     assert.equal(deleteMain.code, 0, deleteMain.stderr || deleteMain.stdout);
     const renameMain = await runCommand(dir, 'git', ['branch', '-m', 'main']);
     assert.equal(renameMain.code, 0, renameMain.stderr || renameMain.stdout);
-    assert.equal((await readStage(dir)).stage, 'local_merge');
+    assert.equal((await readStage(dir)).blockedReasonCode, 'LOCAL_BASE_SYNC_REQUIRED');
   });
 }, 60_000);
 
@@ -4273,6 +4276,7 @@ test('standalone local workflow merges the managed worktree branch in the main p
     const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
     config.workflow.agentReview.feature.enabled = false;
+    config.workflow.featureChecksSkipReason = 'Fixture verifies worktree integration only';
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
     const base = featureDir(dir);
     await setStatus(path.join(base, 'spec.md'), 'Status', 'Approved');
@@ -4457,8 +4461,8 @@ test('local workflow requires reintegration when the base branch advances after 
     assert.equal(commit.code, 0, commit.stderr || commit.stdout);
 
     const stage = await readStage(dir);
-    assert.equal(stage.stage, 'local_merge');
-    assert.equal(stage.nextAction.category, 'local_merge');
+    assert.equal(stage.stage, 'feature_remediation');
+    assert.equal(stage.blockedReasonCode, 'LOCAL_BASE_SYNC_REQUIRED');
   });
 });
 
@@ -4491,7 +4495,7 @@ test('local workflow stops when the base and Feature branches have diverged', as
     assert.equal(result.code, 1);
     const payload = JSON.parse(result.stdout.trim());
     assert.equal(payload.status, 'blocked');
-    assert.equal(payload.reasonCode, 'LOCAL_MERGE_NOT_FAST_FORWARD');
+    assert.equal(payload.reasonCode, 'LOCAL_BASE_SYNC_REQUIRED');
   });
 });
 
@@ -4522,7 +4526,7 @@ test('local squash refuses a Feature whose base has diverged', async () => {
     assert.equal(result.code, 1);
     assert.equal(
       JSON.parse(result.stdout.trim()).reasonCode,
-      'LOCAL_SQUASH_BASE_NOT_ANCESTOR'
+      'LOCAL_BASE_SYNC_REQUIRED'
     );
   });
 });
@@ -5010,5 +5014,52 @@ test('new embedded planning is checkpointed before the returned worktree command
       await fs.readFile(path.join(created.featurePath, 'spec.md'), 'utf8'));
     const after = await runCli(isolated, ['workflow-stage', created.featureId, '--json']);
     assert.equal(JSON.parse(after.stdout).status, 'ok', after.stdout);
+  });
+});
+
+test('empty Feature checks block verification and leave main unchanged', async () => {
+  await withTempDir('lsk-empty-checks-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, { featureChecks: [], autoVerify: false });
+    const before = await runCommand(dir, 'git', ['rev-parse', 'main']);
+    const result = await runCli(dir, ['local', 'verify', 'F001-alpha', '--json']);
+    assert.notEqual(result.code, 0);
+    assert.equal(JSON.parse(result.stdout).reasonCode, 'FEATURE_CHECKS_NOT_CONFIGURED');
+    assert.equal((await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout, before.stdout);
+  });
+});
+
+test('changing checks invalidates a verified Feature and a failing build cannot merge', async () => {
+  await withTempDir('lsk-changed-checks-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, { featureChecks: [{ command: process.execPath, args: ['-e', 'process.exit(0)'] }] });
+    // Embedded configuration edits must first pass the existing commit checkpoint.
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
+    config.workflow.featureChecks.push({ command: process.execPath, args: ['-e', 'process.exit(7)'] });
+    await fs.writeFile(configPath, JSON.stringify(config));
+    assert.equal((await readStage(dir)).stage, 'task_commit');
+    const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
+    assert.notEqual(merge.code, 0);
+    await runCommand(dir, 'git', ['add', '.']);
+    await runCommand(dir, 'git', ['commit', '-m', 'test(F001): add failing build check']);
+    assert.equal((await readStage(dir)).stage, 'feature_verify');
+    const before = await runCommand(dir, 'git', ['rev-parse', 'main']);
+    const verify = await runCli(dir, ['local', 'verify', 'F001-alpha', '--json']);
+    assert.notEqual(verify.code, 0);
+    assert.equal((await readStage(dir)).stage, 'feature_remediation');
+    assert.equal((await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout, before.stdout);
+  });
+});
+
+test('verification rejects a check that changes its own configuration', async () => {
+  await withTempDir('lsk-check-mutates-policy-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, {
+      autoVerify: false,
+      featureChecks: [{ command: process.execPath, args: ['-e', `const fs = require('node:fs'); const p = 'docs/.lee-spec-kit.json'; const c = JSON.parse(fs.readFileSync(p)); c.workflow.featureChecks.push({command: 'new-build'}); fs.writeFileSync(p, JSON.stringify(c));`] }],
+    });
+    const before = await runCommand(dir, 'git', ['rev-parse', 'main']);
+    const result = await runCli(dir, ['local', 'verify', 'F001-alpha', '--json']);
+    assert.notEqual(result.code, 0);
+    assert.equal(JSON.parse(result.stdout).reasonCode, 'LOCAL_FEATURE_CHANGED_DURING_VERIFICATION');
+    assert.equal((await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout, before.stdout);
   });
 });

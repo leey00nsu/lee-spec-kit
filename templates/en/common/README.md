@@ -296,3 +296,30 @@ New projects delegate task implementation and enable Plan review by default. Exi
   }
 }
 ```
+
+
+### Feature check configuration (0.9.14)
+
+`workflow.featureChecks` is the executable project baseline for local completion.
+An empty list requires configuration; it does not mean that tests passed.
+Use `npx lee-spec-kit config --checks-detect` to print read-only Node script suggestions,
+then save a reviewed JSON array with `config --checks-file <path>`.
+Use `--project-root <path>` for discovery when the project root is ambiguous.
+Include build when the project produces build artifacts. If a selected test already
+runs build, document that coverage in the Plan and omit the duplicate command.
+Discovery does not infer nested script coverage or execute scripts.
+For projects without executable checks, use `config --checks-skip-reason <reason>`.
+Use `--component <name>` with the configuration commands for component overrides
+(`workflow.featureChecksByComponent`); otherwise the common baseline applies.
+
+Legacy `postMergeChecks` are read as Feature checks only when `featureChecks` is
+absent. `update` migrates that list without adding commands or overwriting an
+existing Feature list. Invalid entries remain visible and cause a validation error.
+Changing checks invalidates verification for pending integration. Completed,
+cleaned Features retain their historical completion state.
+
+The Plan's Verification Contract must reference the effective baseline and list
+Feature-specific extra checks in the executable configuration before verification.
+Record manual/UI evidence separately. Update the configuration before final review
+and verification, not after verification. Local base synchronization happens before
+checks; this does not fetch remote branches.

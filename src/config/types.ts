@@ -90,6 +90,8 @@ export interface ProjectConfig {
     completionStrategy?: 'local-ff' | 'local-squash' | 'none';
     deleteFeatureBranchAfterMerge?: boolean;
     featureChecks?: LocalWorkflowCheck[];
+    featureChecksSkipReason?: string;
+    featureChecksByComponent?: Record<string, { checks: LocalWorkflowCheck[]; skipReason?: string }>;
     postMergeChecks?: LocalPostMergeCheck[];
     codeDirtyScope?: 'repo' | 'component' | 'auto';
     componentPaths?: Record<string, string[]>;

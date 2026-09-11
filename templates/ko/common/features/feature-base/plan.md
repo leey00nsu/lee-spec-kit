@@ -93,6 +93,9 @@ src/
 
 ## Verification Contract
 
+Feature 완료 전 검사는 실제 `workflow.featureChecks`(컴포넌트 override 포함)를 기준으로 작성합니다. 추가 자동 검사는 실행 설정에도 등록하세요. build 포함 여부와 중복 생략 근거, 수동 검증 증거를 명시하세요.
+
+
 ### 변경 분류
 
 - **유형**: COPY | REFACTOR | BUG_FIX | NEW_BEHAVIOR | HIGH_RISK
