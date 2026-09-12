@@ -1,3 +1,4 @@
+import { isToolingOnlyRevisionChange } from './knowledge-scope.js';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -8,6 +9,7 @@ import { runGitCapture } from './git-run.js';
 import { withFileLock } from './lock.js';
 import {
   runOpenWikiSync,
+  computeSourceFingerprintAtRef,
   isOpenWikiEnabled,
   OPENWIKI_RECEIPT_PATH,
   type OpenWikiSyncOptions,
@@ -112,17 +114,24 @@ export async function readKnowledgePublication(
   const root = knowledgePublicationRoot(projectRoot);
   try {
     const latest = readLatestKnowledgePublication(projectRoot);
-    if (!latest || latest.sourceHead !== sourceHead) return null;
+    if (!latest) return null;
     const artifactPath = path.join(root, 'artifacts', latest.id);
     const manifest = await fs.readJson(
       path.join(artifactPath, 'publication.json')
     );
     if (
       manifest.id !== latest.id ||
-      manifest.sourceHead !== sourceHead ||
+      typeof manifest.sourceHead !== 'string' ||
+      !latest.id.startsWith(`${manifest.sourceHead}-`) ||
       manifest.artifactHash !== (await artifactHash(artifactPath))
     )
       return null;
+    if (manifest.sourceHead !== sourceHead) {
+      if (!config || manifest.sourceScopeVersion !== 2 || !isToolingOnlyRevisionChange(projectRoot, manifest.sourceHead, sourceHead)) return null;
+      const previous = computeSourceFingerprintAtRef(projectRoot, config.docsDir, manifest.sourceHead);
+      const current = computeSourceFingerprintAtRef(projectRoot, config.docsDir, sourceHead);
+      if (!previous || previous !== current || previous !== manifest.receipt?.sourceFingerprint) return null;
+    }
     if (config) {
       const policy = await resolveOpenWikiWritingPolicy(config.lang);
       if (
@@ -132,7 +141,7 @@ export async function readKnowledgePublication(
       )
         return null;
     }
-    return { ...manifest, artifactPath };
+    return { ...manifest, artifactPath, appliedSourceHead: sourceHead };
   } catch {
     return null;
   }
@@ -245,6 +254,7 @@ export async function publishKnowledge(
         );
         const manifest = {
           schemaVersion: 1,
+          sourceScopeVersion: 2,
           id,
           sourceHead,
           baseRef,

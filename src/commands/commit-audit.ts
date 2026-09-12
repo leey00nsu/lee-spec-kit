@@ -1,3 +1,4 @@
+import { isKnowledgeChange } from '../utils/knowledge-scope.js';
 import { Command } from 'commander';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -26,7 +27,6 @@ import {
   isOpenWikiKnowledgePath,
   inspectOpenWikiKnowledge,
   OPENWIKI_RECEIPT_PATH,
-  OPENWIKI_RUN_OWNER_PATH,
   readOpenWikiReceipt,
 } from '../utils/openwiki-knowledge.js';
 
@@ -530,7 +530,7 @@ async function collectCommitMessageViolation(
   if (!scope) {
     return null;
   }
-  if (isOpenWikiEnabled(config) && isKnowledgeCommit(stagedEntries)) {
+  if (isOpenWikiEnabled(config) && isKnowledgeCommit(stagedEntries, repoRoot)) {
     const expected = `chore(${scope}): refresh OpenWiki knowledge layer`;
     if (normalizedMessage === expected) return null;
     return {
@@ -587,12 +587,12 @@ async function collectKnowledgeCommitViolations(
   cwd: string,
   repoRoot: string
 ): Promise<CommitAuditViolation[]> {
-  if (!isOpenWikiEnabled(config) || !isKnowledgeCommit(stagedEntries))
+  if (!isOpenWikiEnabled(config) || !isKnowledgeCommit(stagedEntries, repoRoot))
     return [];
   const violations: CommitAuditViolation[] = [];
   const stagedPaths = new Set(stagedEntries.map((entry) => entry.path));
   const changedKnowledgePaths = collectGitChangedPaths(repoRoot).filter(
-    isOpenWikiKnowledgePath
+    (file) => isKnowledgeChange(repoRoot, file, 'HEAD', 'worktree')
   );
   for (const changedPath of changedKnowledgePaths) {
     if (stagedPaths.has(changedPath)) continue;
@@ -662,7 +662,7 @@ async function resolveCommitFeatureSelection(
   repoRoot: string,
   stagedEntries: StagedPathEntry[]
 ): Promise<Awaited<ReturnType<typeof resolveFeatureSelection>>> {
-  if (isKnowledgeCommit(stagedEntries)) {
+  if (isKnowledgeCommit(stagedEntries, repoRoot)) {
     const receipt = await readOpenWikiReceipt(repoRoot);
     if (receipt) {
       return resolveFeatureSelection(
@@ -675,17 +675,8 @@ async function resolveCommitFeatureSelection(
   return resolveFeatureSelection(cwd);
 }
 
-function isKnowledgeCommit(stagedEntries: StagedPathEntry[]): boolean {
-  return stagedEntries.some(
-    (entry) =>
-      entry.path === OPENWIKI_RECEIPT_PATH ||
-      entry.path === OPENWIKI_RUN_OWNER_PATH ||
-      entry.path === '.openwikiignore' ||
-      entry.path === 'AGENTS.md' ||
-      entry.path === 'CLAUDE.md' ||
-      entry.path === 'openwiki' ||
-      entry.path.startsWith('openwiki/')
-  );
+function isKnowledgeCommit(stagedEntries: StagedPathEntry[], repoRoot: string): boolean {
+  return stagedEntries.some((entry) => isKnowledgeChange(repoRoot, entry.path));
 }
 
 function collectUnstagedKnowledgePaths(repoRoot: string): string[] {
@@ -700,7 +691,7 @@ function collectUnstagedKnowledgePaths(repoRoot: string): string[] {
     );
     for (const entry of output.split('\0')) {
       const normalized = normalizeSlashes(entry.trim());
-      if (normalized && isOpenWikiKnowledgePath(normalized)) {
+      if (normalized && isKnowledgeChange(repoRoot, normalized, 'index', 'worktree')) {
         paths.add(normalized);
       }
     }

@@ -106,3 +106,5 @@ This document defines workflow policy, not a custom runtime loop.
 - Replies: English unless project policy overrides it
 - Code and filenames: English
 - Dates and times: use the user's local system time
+
+When chaining audit and commit in a shell, use `commit-audit --json --enforce`. With `--json` alone, inspect the JSON status: a blocked audit can exit zero. Changes limited to lee-spec-kit managed rules and tooling configuration are not Knowledge output changes.
