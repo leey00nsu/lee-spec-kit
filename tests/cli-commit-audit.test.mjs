@@ -237,6 +237,28 @@ test('commit-audit blocks staged non-canonical feature docs files', async () => 
   });
 });
 
+test('commit-audit allows nested Feature artifacts but blocks sibling reports', async () => {
+  await withTempDir('lsk-commit-audit-artifacts-', async (dir) => {
+    await initRepo(dir);
+    const feature = 'docs/features/F001-alpha';
+    for (const name of ['artifacts/report.md', 'artifacts/screenshots/ui.svg']) {
+      await fs.mkdir(path.dirname(path.join(dir, feature, name)), { recursive: true });
+      await fs.writeFile(path.join(dir, feature, name), 'evidence\n');
+      await stage(dir, `${feature}/${name}`);
+    }
+    const allowed = await runCli(dir, ['commit-audit', '--json', '--enforce']);
+    assert.equal(allowed.code, 0, allowed.stderr || allowed.stdout);
+    assert.deepEqual(JSON.parse(allowed.stdout).blockedPaths, []);
+
+    await fs.mkdir(path.join(dir, feature, 'reports'), { recursive: true });
+    await fs.writeFile(path.join(dir, feature, 'reports/report.md'), 'misplaced\n');
+    await stage(dir, `${feature}/reports/report.md`);
+    const blocked = await runCli(dir, ['commit-audit', '--json', '--enforce']);
+    assert.notEqual(blocked.code, 0);
+    assert.deepEqual(JSON.parse(blocked.stdout).blockedPaths, [`${feature}/reports/report.md`]);
+  });
+});
+
 test('commit-audit blocks staged deletions of canonical feature docs', async () => {
   await withTempDir('lsk-commit-audit-feature-delete-', async (dir) => {
     await initRepo(dir);

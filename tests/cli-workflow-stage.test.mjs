@@ -2158,6 +2158,13 @@ test('workflow-stage runs Feature review before implementation approval', async 
       (document) => document.path.endsWith('/decisions.md')
     );
     assert.match(decisionReview.purpose, /including NONE/u);
+    assert.match(decisionReview.purpose, /README protection takes precedence/u);
+    assert.match(decisionReview.purpose, /only on an explicit user request to edit it/u);
+    assert.match(decisionReview.purpose, /path, evidence, and deferral reason recorded in decisions\.md/u);
+    assert.match(decisionReview.purpose, /only this deferred README impact may use NONE/u);
+    assert.match(decisionReview.purpose, /requires no separate follow-up task\/Feature\/issue or README edit approval/u);
+    assert.match(decisionReview.purpose, /do not block solely because the README remains unchanged/u);
+    assert.match(decisionReview.purpose, /Every other discovered documentation discrepancy needs a completed correction/u);
     assert.match(decisionReview.purpose, /real follow-up task\/Feature\/issue reference/u);
     assert.match(decisionReview.purpose, /A residual-risk note alone is not follow-up tracking/u);
     assert.match(decisionReview.purpose, /never infer product intent/u);

@@ -17,6 +17,8 @@ Pull Request를 생성할 때 따르는 가이드입니다.
 
 ## Pre-PR 기본 체크리스트(`builtin-checklist`)
 
+README 보호와 보조 산출물 위치는 `agents` 문서의 해당 규칙을 우선합니다. README 불일치는 수정 요청이 없으면 `decisions.md`의 경로·근거·보류 사유를 참조하는 `NONE`으로 기록할 수 있으며, 이 예외에 별도 후속 항목이나 수정 승인을 요구하지 않습니다. 보존할 Feature 보조 산출물은 활성 Feature의 `artifacts/`에 저장하고 상대경로로 연결합니다.
+
 Pre-PR 리뷰에서 서브에이전트가 항상 수행하는 최소 기준입니다. 리뷰 스킬 이름에 의존하지 않습니다.
 
 Curated Documentation Impact의 NONE을 포함한 근거를 검토합니다. 발견한 불일치마다 수정 완료 또는 실제 후속 task/Feature/issue 연결을 확인하고 문서 경로·근거·미해결 질문·보류 이유를 점검합니다. 잔여 위험 문구만으로는 후속 추적이 아닙니다. 처리 누락은 finding으로 보고하며 코드나 파생 Knowledge로 제품 의도를 추정하지 않습니다. 기존 리뷰 횟수와 승인 정책은 그대로 적용합니다.
@@ -95,7 +97,7 @@ PR 본문에 결과물을 포함합니다.
 - 기본값은 `pr.screenshots.upload: false`입니다. 업로드/URL 포함이 필요하다면 `.lee-spec-kit.json`에서 `true`로 켜세요.
 - `.lee-spec-kit.json`에서 `pr.screenshots.upload: false`라면 **업로드/URL 포함을 하지 않으며**, PR 본문에서도 **"스크린샷" 섹션을 만들지 않습니다.**
 - `agent-browser`로 스크린샷을 생성합니다.
-- 스크린샷 파일은 로컬 임시 폴더(`/tmp/lee-spec-kit/pr-assets/`)에 저장합니다.
+- 보존할 스크린샷은 활성 Feature의 `artifacts/screenshots/`에 저장합니다. 아래 `FEATURE_DOC_DIR`에는 실제 활성 Feature 문서 디렉터리의 절대경로를 지정합니다.
 - 릴리스 자산(Release assets)으로 업로드한 뒤, 생성된 이미지 URL을 PR 본문 "스크린샷" 섹션에 넣습니다.
 - 스크린샷을 업로드하기 전에 **이미지 파일을 직접 열어** 다음을 확인하고, PR 생성 전 사용자에게도 검증받습니다.
   - 로그인 화면/권한 오류/에러 화면/빈 화면이 아닌지
@@ -121,15 +123,17 @@ DEV_PID=$!
 PREVIEW_URL=\"http://127.0.0.1:${PORT}\"
 
 # (예시) 미리보기 URL을 정해 스크린샷 생성
-mkdir -p /tmp/lee-spec-kit/pr-assets
+FEATURE_DOC_DIR="/absolute/path/to/active-feature"
+PR_ASSET_DIR="$FEATURE_DOC_DIR/artifacts/screenshots"
+mkdir -p "$PR_ASSET_DIR"
 agent-browser open "$PREVIEW_URL"
-agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
+agent-browser screenshot "$PR_ASSET_DIR/ui-1.png" --full
 agent-browser close
 
 # (필수) 스크린샷 파일을 열어 검증 (로그인/에러/빈 화면이면 재촬영)
-ls -lh /tmp/lee-spec-kit/pr-assets/ui-1.png
-# macOS: open /tmp/lee-spec-kit/pr-assets/ui-1.png
-# Linux: xdg-open /tmp/lee-spec-kit/pr-assets/ui-1.png
+ls -lh "$PR_ASSET_DIR/ui-1.png"
+# macOS: open "$PR_ASSET_DIR/ui-1.png"
+# Linux: xdg-open "$PR_ASSET_DIR/ui-1.png"
 
 # (권장) 스크린샷을 위해 띄운 개발 서버는 작업이 끝나면 종료합니다.
 kill \"$DEV_PID\" >/dev/null 2>&1 || true
@@ -145,7 +149,7 @@ TAG="pr-assets/${SAFE_BRANCH}"
 gh release view "$TAG" >/dev/null 2>&1 || \
   gh release create "$TAG" --prerelease --title "pr-assets: ${SAFE_BRANCH}" --notes ""
 
-gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
+gh release upload "$TAG" "$PR_ASSET_DIR"/* --clobber
 
 echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 ```

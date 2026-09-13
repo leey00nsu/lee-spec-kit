@@ -49,6 +49,16 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not use `docs/designs/` for system architecture, data/API design, technical research, or implementation plans.
 - Follow the detailed routing rules in `docs/README.md`.
 
+## README protection and Feature supporting artifacts
+
+- Modify an existing README (including root, nested, and localized variants) only when the user explicitly requests README changes, and only within that scope. Generic implementation or documentation-sync requests and agent-authored Plans do not authorize README edits. Reading and referencing remain allowed.
+- When README editing is requested, update the relevant existing explanation; do not continually append feature implementation details, verification logs, or version-by-version change notes.
+- README protection takes precedence over documentation sync and Curated Documentation Impact. Without a README edit request, record a discovered discrepancy's path, evidence, and deferral reason in `decisions.md`. Assess other documentation changes independently. Use `NONE` for a surface with only this deferred README impact to mean no edit in this change, with a reference to that record; do not claim the discrepancy is absent or resolved. For this exception only, do not require a separate follow-up task/Feature/issue or README edit approval to complete the work. Reviewers must not block solely because the README remains unchanged.
+- Store retained Feature supporting artifacts (explanatory diagrams, verification reports, screenshots) in `artifacts/` beside the active Feature's `spec.md`, `plan.md`, `tasks.md`, and `decisions.md`. Create the directory only when needed and link files relatively from `tasks.md` or `decisions.md`. Do not create separate reports that duplicate sufficient existing documentation.
+- Resolve the actual active Feature docs path: in standalone mode this is inside its docs worktree. Never guess from the current working directory or the most recent Feature. Implementation workers retain their no-docs-write contract and hand necessary artifacts to the primary agent for storage.
+- Explicit user destinations and tool-required output locations take precedence. Product code/assets use project paths; build output, caches, and disposable debugging files use existing output or temporary locations; shared authoritative docs follow existing routing. OpenWiki publications and receipts retain their Knowledge storage policy. Without an active Feature, use existing documentation or temporary storage rather than inventing or selecting a Feature.
+- Do not create arbitrary root-level `reports/`, `screenshots/`, or `artifacts/` instead of the default destination. Include only necessary, committable artifacts in the Feature; exclude secrets and temporary large outputs.
+
 ## Knowledge Architecture
 
 - Product intent and durable requirements belong to PRD; an active Feature links and narrows them, and requirement changes must be backfilled to PRD.

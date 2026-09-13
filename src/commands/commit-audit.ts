@@ -468,13 +468,16 @@ function collectCommitViolations(
       topLevel === 'features' &&
       FEATURE_DOC_CANDIDATE_PATTERN.test(relativeToDocs) &&
       !CANONICAL_FEATURE_DOC_PATTERN.test(relativeToDocs) &&
+      !/^artifacts\/.+/i.test(
+        relativeToDocs.match(FEATURE_DOC_CANDIDATE_PATTERN)?.[1] || ''
+      ) &&
       !relativeToDocs.endsWith('/.feature.json')
     ) {
       violations.set(stagedPath, {
         path: stagedPath,
         kind: 'non_canonical_feature_doc',
         detail:
-          'Feature-local files must use the canonical file names only: spec.md, plan.md, tasks.md, decisions.md, issue.md, pr.md',
+          'Feature-local files must use canonical names (spec.md, plan.md, tasks.md, decisions.md, issue.md, pr.md) or be supporting files under artifacts/',
       });
     }
   }

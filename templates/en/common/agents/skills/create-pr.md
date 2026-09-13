@@ -17,6 +17,8 @@ Execution-state SSOT is the feature-local `pr.md`.
 
 ## Pre-PR Baseline Checklist (`builtin-checklist`)
 
+Apply the README protection and supporting-artifact rules in the `agents` document first. Without an explicit README edit request, a README discrepancy may use `NONE` referencing its path, evidence, and deferral reason in `decisions.md`; this exception requires no separate follow-up item or edit approval. Store retained Feature supporting artifacts in the active Feature’s `artifacts/` and link them relatively.
+
 The Pre-PR subagent must always run this minimum baseline. Do not depend on a named review skill.
 
 Review Curated Documentation Impact evidence, including NONE. For each discovered discrepancy, verify a completed correction or a real follow-up task/Feature/issue with document paths, evidence, the unresolved question, and the deferral reason. A residual-risk note alone is not follow-up tracking. Report missing disposition as a finding; do not infer product intent from code or generated Knowledge. Existing review-round and approval policies still apply.
@@ -95,7 +97,7 @@ Include the artifacts in the PR body.
 - Default is `pr.screenshots.upload: false`. If you need upload/URL inclusion, enable it in `.lee-spec-kit.json`.
 - If `.lee-spec-kit.json` has `pr.screenshots.upload: false`, **do not upload/include URLs**, and **do not include a "Screenshots" section** in the PR body.
 - Use `agent-browser` to generate screenshots.
-- Save files under a local temp folder (`/tmp/lee-spec-kit/pr-assets/`).
+- Save retained screenshots in the active Feature’s `artifacts/screenshots/`. Set `FEATURE_DOC_DIR` below to the absolute path of the actual active Feature docs directory.
 - Upload them as Release assets, then put the image URLs into the "Screenshots" section of the PR body.
 - Before uploading, **open the image file** and verify, then ask the user to validate before PR creation:
   - It is not a login/permission/error/blank page
@@ -121,15 +123,17 @@ DEV_PID=$!
 PREVIEW_URL=\"http://127.0.0.1:${PORT}\"
 
 # (example) capture from a preview URL
-mkdir -p /tmp/lee-spec-kit/pr-assets
+FEATURE_DOC_DIR="/absolute/path/to/active-feature"
+PR_ASSET_DIR="$FEATURE_DOC_DIR/artifacts/screenshots"
+mkdir -p "$PR_ASSET_DIR"
 agent-browser open "$PREVIEW_URL"
-agent-browser screenshot /tmp/lee-spec-kit/pr-assets/ui-1.png --full
+agent-browser screenshot "$PR_ASSET_DIR/ui-1.png" --full
 agent-browser close
 
 # (required) open and validate the screenshot (re-capture if login/error/blank)
-ls -lh /tmp/lee-spec-kit/pr-assets/ui-1.png
-# macOS: open /tmp/lee-spec-kit/pr-assets/ui-1.png
-# Linux: xdg-open /tmp/lee-spec-kit/pr-assets/ui-1.png
+ls -lh "$PR_ASSET_DIR/ui-1.png"
+# macOS: open "$PR_ASSET_DIR/ui-1.png"
+# Linux: xdg-open "$PR_ASSET_DIR/ui-1.png"
 
 # (recommended) stop the dev server you started for screenshots
 kill \"$DEV_PID\" >/dev/null 2>&1 || true
@@ -145,7 +149,7 @@ TAG="pr-assets/${SAFE_BRANCH}"
 gh release view "$TAG" >/dev/null 2>&1 || \
   gh release create "$TAG" --prerelease --title "pr-assets: ${SAFE_BRANCH}" --notes ""
 
-gh release upload "$TAG" /tmp/lee-spec-kit/pr-assets/* --clobber
+gh release upload "$TAG" "$PR_ASSET_DIR"/* --clobber
 
 echo \"![](https://github.com/${REPO}/releases/download/${TAG}/ui-1.png)\"
 ```
