@@ -1,3 +1,4 @@
+import type { KnowledgeExecutionEvent } from '../utils/knowledge-execution.js';
 import { Command } from 'commander';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -25,7 +26,7 @@ import {
 } from '../utils/documentation-impact.js';
 import {
   publishKnowledge,
-  knowledgePublicationRoot,
+  readKnowledgePublicationStatus,
   readLatestKnowledgePublication,
 } from '../utils/knowledge-publication.js';
 import { buildKnowledgeWorkflow } from '../utils/knowledge-ci.js';
@@ -36,6 +37,11 @@ import {
 } from '../utils/standalone-workspace.js';
 import { runGitCapture } from '../utils/git-run.js';
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
+
+function reportKnowledgeProgress(event: KnowledgeExecutionEvent): void {
+  // stderr remains separate from the single final --json result on stdout.
+  process.stderr.write(`[openwiki] ${JSON.stringify(event)}\n`);
+}
 
 interface KnowledgeOptions {
   component?: string;
@@ -68,10 +74,13 @@ export function knowledgeCommand(program: Command): void {
     .option('--base-branch <branch>', 'Integration branch for CI')
     .option('--lang <lang>', 'Knowledge language for CI: ko | en')
     .option('--lock-timeout-ms <milliseconds>', 'Lock acquisition timeout')
-    .option('--idle-timeout-ms <milliseconds>', 'No-progress timeout')
+    .option(
+      '--idle-timeout-ms <milliseconds>',
+      'Optional no-output timeout; disabled by default'
+    )
     .option(
       '--absolute-timeout-ms <milliseconds>',
-      'Absolute generation timeout'
+      'Optional total generation and retry budget; disabled by default'
     )
     .option('--json', 'Output JSON')
     .action(
@@ -161,6 +170,7 @@ export function knowledgeCommand(program: Command): void {
             lockTimeoutMs: parseTimeoutOption(options.lockTimeoutMs),
             idleTimeoutMs: parseTimeoutOption(options.idleTimeoutMs),
             absoluteTimeoutMs: parseTimeoutOption(options.absoluteTimeoutMs),
+            onEvent: reportKnowledgeProgress,
           });
         });
       }
@@ -240,10 +250,7 @@ export function knowledgeCommand(program: Command): void {
             'COMPONENT_SELECTION_REQUIRED',
             'Select exactly one project component.'
           );
-        const root = knowledgePublicationRoot(roots[0]);
-        const attempt = await fs
-          .readJson(path.join(root, 'status.json'))
-          .catch(() => null);
+        const attempt = await readKnowledgePublicationStatus(roots[0]);
         const latest = readLatestKnowledgePublication(roots[0]);
         return {
           status: 'ok',
@@ -359,10 +366,13 @@ export function knowledgeCommand(program: Command): void {
       '--lock-timeout-ms <milliseconds>',
       'Lock acquisition timeout override'
     )
-    .option('--idle-timeout-ms <milliseconds>', 'No-progress timeout override')
+    .option(
+      '--idle-timeout-ms <milliseconds>',
+      'Optional no-output timeout; disabled by default'
+    )
     .option(
       '--absolute-timeout-ms <milliseconds>',
-      'Absolute execution timeout override'
+      'Optional total generation and retry budget; disabled by default'
     )
     .option('--json', 'Output JSON')
     .action(
@@ -378,16 +388,7 @@ export function knowledgeCommand(program: Command): void {
             lockTimeoutMs: parseTimeoutOption(options.lockTimeoutMs),
             idleTimeoutMs: parseTimeoutOption(options.idleTimeoutMs),
             absoluteTimeoutMs: parseTimeoutOption(options.absoluteTimeoutMs),
-            onProgress: options.json
-              ? undefined
-              : (progress) => {
-                  const page = progress.currentPage
-                    ? ` current=${progress.currentPage}`
-                    : '';
-                  process.stderr.write(
-                    `[openwiki] phase=${progress.phase || 'unknown'} pages=${progress.completedPages}/${progress.totalPages}${page}\n`
-                  );
-                },
+            onEvent: reportKnowledgeProgress,
           });
         });
       }

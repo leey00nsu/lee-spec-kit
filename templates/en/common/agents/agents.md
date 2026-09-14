@@ -69,6 +69,15 @@ This document defines workflow policy, not a custom runtime loop.
 - `experimental.openwiki=true` publishes Knowledge after integration: local workflows run the returned `knowledge publish` action after verified merge and before cleanup; GitHub workflows use the post-push CI created by `knowledge ci`. Missing or false disables this lifecycle.
 - Generate in an isolated worktree and publish revision-bound artifacts outside the source branch. Do not add generated Wiki or receipts to Feature commits or Feature review required documents. Keep curated PRD/architecture updates in the Feature.
 
+### Knowledge publication diagnostics and recovery
+
+- `knowledge publish --json` emits one final JSON object on stdout and stage, attempt, observed runId, page progress, elapsed time, and retry reason on stderr. Use `knowledge status --component <name> --json` to inspect the current attempt and the last good publication.
+- Total and no-output timeouts are disabled by default. An explicit `--absolute-timeout-ms` covers preparation, generation, verification, and automatic retries in one invocation; `--idle-timeout-ms` is also opt-in. A slow page alone does not prove a stalled provider. No new retry or publication proceeds after an explicit budget is exhausted. Manual resume starts a new invocation while retaining prior elapsed time and diagnostics.
+- Evidence failures receive one targeted page and Claims repair only when the diagnostics fit a complete bounded request, followed by full validation. Unknown repair scope or failed revalidation stops the run; it never escalates automatically to full regeneration. Full reset is reserved for a changed receipt writing policy that requires every page to be rewritten.
+- Preserve generated output before repair or reset. Per-execution diagnostics remain in the shared Git runtime at `knowledge-executions/<id>/events.jsonl`; follow `diagnosticsPath` and `snapshotPath`. Never log raw prompts, provider output, or credentials. Snapshots contain existing OpenWiki files, so inspect them before sharing externally.
+- SIGINT and SIGTERM produce an interrupted state. Status resolves abandoned `running` records using PID and lock ownership after uncatchable termination such as SIGKILL. Legacy ownership that cannot be proven is `unknown`, not assumed running.
+- Failures preserve the integrated commit and last good publication. A saved queue for the same Feature, component, and integration resumes in its worktree only after owner, writing policy, and completed page/Claims/manifest checks. Mismatches are preserved and blocked. New integrations start from the verified last publication artifact. Follow workflow-stage into cleanup only after publication succeeds; do not automatically repeat verification or merge.
+
 ## Optional UI/UX Design Policy
 
 - Only when the user request explicitly mentions a design system, UI/visual redesign, design consistency, shared UI/component-library consolidation, branding/theme/token redesign, or implementation from Figma/design images, read and apply `npx lee-spec-kit docs get ui-ux-design --json`.

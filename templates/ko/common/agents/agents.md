@@ -69,6 +69,15 @@
 - `experimental.openwiki=true`이면 통합 후 Knowledge를 게시합니다. local은 머지 검증 후 cleanup 전에 반환된 `knowledge publish`를 실행하고, GitHub는 `knowledge ci`로 준비한 기준 브랜치 push CI에서 실행합니다. 누락 또는 false이면 이 흐름을 사용하지 않습니다.
 - 별도 worktree에서 생성하고 코드 revision별 artifact로 저장합니다. 생성 Wiki와 receipt를 Feature 커밋이나 Feature 리뷰 필수 문서에 추가하지 않습니다. PRD·아키텍처 등 사람이 관리하는 문서는 Feature에서 함께 수정합니다.
 
+### Knowledge 게시 진단과 복구
+
+- `knowledge publish --json`은 stdout에 최종 JSON 하나를 반환하며 stderr에 단계·실행 차수·runId(관찰된 경우)·페이지 진행·경과 시간·재시도 이유를 출력합니다. `knowledge status --component <name> --json`으로 현재 게시 상태와 마지막 정상 게시본을 확인합니다.
+- 총 시간 제한과 무출력 시간 제한은 기본으로 꺼져 있습니다. `--absolute-timeout-ms`를 명시하면 준비·생성·검증·자동 재시도를 합친 한 번의 호출에 적용합니다. `--idle-timeout-ms`도 명시할 때만 적용하며, 페이지가 오래 걸리는 것만으로 정체라고 단정하지 않습니다. 명시한 예산 초과 후 새 재시도나 게시를 진행하지 않습니다. 수동 재개는 새 호출이며 이전 실행 시간과 진단 경로는 보존합니다.
+- evidence 오류는 진단 범위가 한 번의 제한된 수정 요청에 담길 때만 해당 페이지·Claims를 부분 수정한 뒤 전체 검증합니다. 복구 범위가 불명확하거나 재검증이 실패하면 중단하며, 자동 전체 재생성으로 전환하지 않습니다. 기존 receipt의 글쓰기 정책이 바뀌어 모든 페이지를 다시 작성해야 하는 경우에만 전체 초기화를 수행합니다.
+- 수정/초기화 전 기존 생성물을 보존하고, 실행별 진단은 Git 공용 runtime의 `knowledge-executions/<id>/events.jsonl`에 남깁니다. `diagnosticsPath`와 `snapshotPath`를 사용하며 원문 프롬프트·provider 출력·인증정보를 별도 로그에 기록하지 않습니다. 보존 사본은 기존 OpenWiki 파일이므로 외부 공유 전 내용을 확인합니다.
+- SIGINT/SIGTERM은 중단 상태로 종료합니다. SIGKILL 등으로 남은 `running`은 상태 조회 시 PID와 잠금 소유권으로 재판정합니다. 구형 기록의 소유권을 확인할 수 없으면 `unknown`으로 표시하며 실행 중이라고 단정하지 않습니다.
+- 실패해도 통합 커밋과 마지막 정상 게시본은 유지합니다. 같은 Feature/component와 통합 커밋의 저장된 page queue가 있으면 owner·작성 정책·완료 페이지와 Claims/manifest 해시를 먼저 검사한 뒤 기존 worktree에서 이어갑니다. 불일치는 보존 후 차단합니다. 새 통합 커밋의 갱신은 검증한 최근 정상 게시 artifact를 기준으로 시작합니다. 게시 성공 후 workflow-stage의 cleanup을 따르며 통합 검증과 병합을 무조건 반복하지 않습니다.
+
 ## 선택적 UI/UX 디자인 정책
 
 - 사용자 요청에 design system, UI/visual redesign, 디자인 일관성, 공통 UI/component library 정리, branding/theme/token 재설계, Figma/디자인 이미지 기반 구현이 명시된 경우에만 `npx lee-spec-kit docs get ui-ux-design --json`을 읽고 적용합니다.

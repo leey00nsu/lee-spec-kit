@@ -1,3 +1,8 @@
+import {
+  KnowledgeExecution,
+  describeKnowledgeValidation,
+  type KnowledgeExecutionEvent,
+} from './knowledge-execution.js';
 import { knowledgeEntrypointSource } from './knowledge-scope.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
@@ -46,10 +51,7 @@ const OPENWIKI_CAPABILITY = {
   legacyOkfVersions: ['0.1'],
 } as const;
 const DEFAULT_LOCK_TIMEOUT_MS = 30_000;
-const DEFAULT_IDLE_TIMEOUT_MS = 10 * 60_000;
-const DEFAULT_BOOTSTRAP_TIMEOUT_MS = 90 * 60_000;
-const DEFAULT_UPDATE_TIMEOUT_MS = 30 * 60_000;
-const PROGRESS_POLL_MS = 1_000;
+const PROGRESS_POLL_MS = 250;
 const OPENWIKI_EVIDENCE_VALIDATION = 'evidence_integrity';
 const OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION = 'evidence_structure';
 const OPENWIKI_PROVENANCE_VALIDATION = 'provenance_integrity';
@@ -194,6 +196,9 @@ export interface OpenWikiProgress {
   skippedPagePaths?: string[];
   currentPage?: string;
   updatedAt?: string;
+  baselineSourceHead?: string;
+  pagePlan?: Array<{ path: string; action: string; sourcePaths: string[] }>;
+  preservedPages?: string[];
 }
 
 export interface OpenWikiInterruptionDetails {
@@ -210,7 +215,12 @@ export interface OpenWikiInterruptionDetails {
   ownerRunId?: string;
   progress?: OpenWikiProgress;
   limitation?: string;
-  validationFailure?: { ownerId: string; runId?: string; code: string; message: string };
+  validationFailure?: {
+    ownerId: string;
+    runId?: string;
+    code: string;
+    message: string;
+  };
 }
 
 interface OpenWikiRunOwner {
@@ -226,7 +236,12 @@ interface OpenWikiRunOwner {
   runId?: string;
   writingPolicyHash: string;
   lastProgress?: OpenWikiProgress;
-  validationFailure?: { ownerId: string; runId?: string; code: string; message: string };
+  validationFailure?: {
+    ownerId: string;
+    runId?: string;
+    code: string;
+    message: string;
+  };
 }
 
 export type OpenWikiRuntimeProbe =
@@ -352,6 +367,10 @@ export interface OpenWikiSyncOptions {
   idleTimeoutMs?: number;
   absoluteTimeoutMs?: number;
   onProgress?: (progress: OpenWikiProgress) => void;
+  onEvent?: (event: KnowledgeExecutionEvent) => void;
+  executionStartedAt?: number;
+  signal?: globalThis.AbortSignal;
+  initialAttempt?: number;
 }
 
 interface OpenWikiProviderProbeBase {
@@ -583,7 +602,13 @@ export async function inspectOpenWikiKnowledge(input: {
     const interruption = await inspectOpenWikiInterruption(
       projectRoot,
       undefined,
-      ownerMatches ? activeOwner : { ...activeOwner, lastProgress: undefined, validationFailure: undefined }
+      ownerMatches
+        ? activeOwner
+        : {
+            ...activeOwner,
+            lastProgress: undefined,
+            validationFailure: undefined,
+          }
     );
     const base = resolveBaseTarget(projectRoot, input.config);
     const terminalPolicyOwnerCanBeReplaced =
@@ -614,8 +639,8 @@ export async function inspectOpenWikiKnowledge(input: {
             ? interruption.lastUpdateStatus === 'complete'
               ? 'OpenWiki completed generation, but post-generation validation or receipt finalization did not finish. Generated output was preserved; inspect the prior sync error before retrying. Retrying alone may not repair invalid output.'
               : interruption.lastUpdateStatus === 'interrupted'
-              ? 'A prior OpenWiki process ended without a complete update and no active page queue remains. Generated state was preserved; inspect `interruption` and rerun the same sync.'
-              : 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
+                ? 'A prior OpenWiki process ended without a complete update and no active page queue remains. Generated state was preserved; inspect `interruption` and rerun the same sync.'
+                : 'A prior sync stopped before OpenWiki persisted its page queue. Rerun the same sync to resume safely.'
             : 'The pending OpenWiki owner record belongs to another Feature, source snapshot, or writing policy.'
       ),
       sourceFingerprint,
@@ -941,6 +966,7 @@ export async function runOpenWikiSync(
     projectCwd: string;
   } & OpenWikiSyncOptions
 ): Promise<OpenWikiSyncResult> {
+  const executionStartedAt = input.executionStartedAt ?? Date.now();
   if (!isOpenWikiEnabled(input.config)) {
     throw createCliError(
       'OPENWIKI_DISABLED',
@@ -990,7 +1016,8 @@ export async function runOpenWikiSync(
       const sourceHead =
         runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
       const sourceFingerprint = computeSourceFingerprint(projectRoot, docsDir);
-      const base = input.baseTarget ?? resolveBaseTarget(projectRoot, input.config);
+      const base =
+        input.baseTarget ?? resolveBaseTarget(projectRoot, input.config);
       if (!sourceHead || !sourceFingerprint || !base) {
         throw createCliError(
           'OPENWIKI_GIT_STATE_UNAVAILABLE',
@@ -1077,216 +1104,286 @@ export async function runOpenWikiSync(
       };
       await writeOpenWikiRunOwner(projectRoot, owner);
 
-      await ensureSafeDirectory(path.dirname(instructionsPath), projectRoot);
-      await ensureOpenWikiWritingInstructions(
-        instructionsPath,
-        defaultOpenWikiInstructions(),
-        writingPolicy
-      );
-
       const hasIndex = await fs.pathExists(
         path.join(projectRoot, OPENWIKI_DIR, 'index.md')
       );
       const writingPolicyRegenerationRequired =
         hasIndex && !receiptWritingState.current && !existingOwner;
-      if (writingPolicyRegenerationRequired && !existingProgress) {
-        await resetGeneratedOpenWikiOutput(projectRoot);
-      }
-
-      const preserved = await snapshotProtectedContent(projectRoot);
-      const initialized = !hasIndex;
-      // `--init` also creates a scheduled GitHub workflow. The Knowledge layer
-      // deliberately owns only generated docs plus OpenWiki's managed agent
-      // blocks, so use the supported update path for both bootstrap and refresh.
-      const args = [
-        'code',
-        '--update',
-        '--print',
-        '--language',
-        input.config.lang,
-      ];
-      await verifyOpenWikiWritingSkillInstallation(
-        writingPolicy,
-        openWikiConfigDir
-      );
-
-      let progress = await runOpenWikiProcess({
-        executablePath: runtime.executablePath,
-        args,
-        projectRoot,
-        openWikiConfigDir,
-        owner,
-        idleTimeoutMs: input.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
-        absoluteTimeoutMs:
-          input.absoluteTimeoutMs ??
-          (initialized || writingPolicyRegenerationRequired
-            ? DEFAULT_BOOTSTRAP_TIMEOUT_MS
-            : DEFAULT_UPDATE_TIMEOUT_MS),
-        onProgress: input.onProgress,
-      });
-      await verifyOpenWikiWritingSkillInstallation(
-        writingPolicy,
-        openWikiConfigDir
-      );
-
-      await assertManagedOpenWikiPathsSafe(projectRoot, false);
-      const currentSourceFingerprint = computeSourceFingerprint(
-        projectRoot,
-        docsDir
-      );
-      const currentSourceHead =
-        runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
-      if (
-        currentSourceHead !== sourceHead ||
-        currentSourceFingerprint !== sourceFingerprint
-      ) {
-        throw createCliError(
-          'OPENWIKI_SOURCE_STALE',
-          'Tracked source changed while OpenWiki was running. Partial output was preserved, but no receipt was written.'
-        );
-      }
-
-      const verificationContext: OpenWikiVerificationContext = {
-        sourceHead,
-        sourceFingerprint,
-        docsDir,
-        language: input.config.lang,
-        okfVersion: runtime.capability.okfVersion,
-        receiptSchemaVersion: RECEIPT_SCHEMA_VERSION,
-        allowHeadFallback: false,
-      };
-      let evidenceIntegrity: OpenWikiEvidenceIntegritySummary;
-      let evidenceRetryUsed = false;
-      let outputRepairUsed = false;
-      for (;;) {
-        let resetGeneratedOutput = false;
-        let repairMessage: string | undefined;
-        try {
-          evidenceIntegrity = await verifyOpenWikiOutput(
+      const execution = new KnowledgeExecution(
+        path.join(
+          path.resolve(
             projectRoot,
-            preserved,
-            verificationContext,
-            writingPolicy,
-            progress,
-            owner
-          );
-          await normalizeManagedEntrypoints(projectRoot, preserved);
-          break;
-        } catch (error) {
-          if (error instanceof Error && (getOpenWikiOutputRepairMessage(error) || isOpenWikiEvidenceIntegrityError(error))) {
-            owner.validationFailure = { ownerId: owner.ownerId, ...(progress?.runId ? { runId: progress.runId } : {}), code: 'OPENWIKI_OUTPUT_INVALID', message: error.message.slice(0, 8000) };
-            await writeOpenWikiRunOwner(projectRoot, owner);
-          }
-          // One feedback-driven repair only. Never turn a failed repair into
-          // another full regeneration or silently certify its partial output.
-          if (outputRepairUsed) throw error;
-          if (!evidenceRetryUsed && isOpenWikiEvidenceIntegrityError(error)) {
-            // OpenWiki 0.5.x can mark an incremental update complete without
-            // refreshing line-bound claim evidence. Retry once from a clean
-            // generated surface while preserving the user-owned brief.
-            evidenceRetryUsed = true;
-            resetGeneratedOutput = true;
-          } else if ((repairMessage = getOpenWikiOutputRepairMessage(error))) {
-            outputRepairUsed = true;
-          } else {
-            throw error;
-          }
-
-          if (resetGeneratedOutput) {
-            await resetGeneratedOpenWikiOutput(projectRoot);
-          }
+            runGitCapture(['rev-parse', '--git-common-dir'], projectRoot) ||
+              '.git'
+          ),
+          'lee-spec-kit.runtime'
+        ),
+        executionStartedAt,
+        input.absoluteTimeoutMs,
+        input.onEvent,
+        input.signal
+      );
+      execution.attempt = input.initialAttempt ?? 0;
+      try {
+        execution.remaining();
+        if (writingPolicyRegenerationRequired && !existingProgress) {
+          await resetGeneratedOpenWikiOutput(projectRoot, execution);
         }
+        // Archive the old policy alongside its generated pages before replacing
+        // the managed instructions for a policy-wide regeneration.
+        await ensureSafeDirectory(path.dirname(instructionsPath), projectRoot);
+        await ensureOpenWikiWritingInstructions(
+          instructionsPath,
+          defaultOpenWikiInstructions(),
+          writingPolicy
+        );
+
+        const preserved = await snapshotProtectedContent(projectRoot);
+        const initialized = !hasIndex;
+        // `--init` also creates a scheduled GitHub workflow. The Knowledge layer
+        // deliberately owns only generated docs plus OpenWiki's managed agent
+        // blocks, so use the supported update path for both bootstrap and refresh.
+        const args = [
+          'code',
+          '--update',
+          '--print',
+          '--language',
+          input.config.lang,
+        ];
         await verifyOpenWikiWritingSkillInstallation(
           writingPolicy,
           openWikiConfigDir
         );
-        progress = await runOpenWikiProcess({
+
+        let progress = await runOpenWikiProcess({
           executablePath: runtime.executablePath,
-          args: repairMessage ? [...args, repairMessage] : args,
+          args,
           projectRoot,
           openWikiConfigDir,
           owner,
-          idleTimeoutMs: input.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
-          absoluteTimeoutMs:
-            input.absoluteTimeoutMs ??
-            (resetGeneratedOutput
-              ? DEFAULT_BOOTSTRAP_TIMEOUT_MS
-              : DEFAULT_UPDATE_TIMEOUT_MS),
+          idleTimeoutMs: input.idleTimeoutMs,
+          execution,
           onProgress: input.onProgress,
         });
         await verifyOpenWikiWritingSkillInstallation(
           writingPolicy,
           openWikiConfigDir
         );
+
         await assertManagedOpenWikiPathsSafe(projectRoot, false);
-        const retrySourceFingerprint = computeSourceFingerprint(
+        const currentSourceFingerprint = computeSourceFingerprint(
           projectRoot,
           docsDir
         );
-        const retrySourceHead =
+        const currentSourceHead =
           runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
         if (
-          retrySourceHead !== sourceHead ||
-          retrySourceFingerprint !== sourceFingerprint
+          currentSourceHead !== sourceHead ||
+          currentSourceFingerprint !== sourceFingerprint
         ) {
           throw createCliError(
             'OPENWIKI_SOURCE_STALE',
-            'Tracked source changed while OpenWiki was regenerating. Partial output was preserved, but no receipt was written.'
+            'Tracked source changed while OpenWiki was running. Partial output was preserved, but no receipt was written.'
           );
         }
-      }
-      const changedPaths = collectGitChangedPaths(projectRoot);
-      const unexpectedPaths = changedPaths.filter(
-        (entry) => !isOpenWikiKnowledgePath(entry)
-      );
-      if (unexpectedPaths.length > 0) {
-        throw createCliError(
-          'OPENWIKI_OUTPUT_SCOPE_VIOLATION',
-          `OpenWiki changed paths outside its managed surface: ${unexpectedPaths.join(', ')}`
+
+        const verificationContext: OpenWikiVerificationContext = {
+          sourceHead,
+          sourceFingerprint,
+          docsDir,
+          language: input.config.lang,
+          okfVersion: runtime.capability.okfVersion,
+          receiptSchemaVersion: RECEIPT_SCHEMA_VERSION,
+          allowHeadFallback: false,
+        };
+        let evidenceIntegrity: OpenWikiEvidenceIntegritySummary;
+        let outputRepairUsed = false;
+        for (;;) {
+          let repairMessage: string | undefined;
+          execution.remaining();
+          execution.event('validation');
+          try {
+            evidenceIntegrity = await verifyOpenWikiOutput(
+              projectRoot,
+              preserved,
+              verificationContext,
+              writingPolicy,
+              progress,
+              owner
+            );
+            execution.remaining();
+            await normalizeManagedEntrypoints(projectRoot, preserved);
+            break;
+          } catch (error) {
+            const failure = error as {
+              code?: string;
+              details?: { validation?: string; diagnostics?: unknown };
+            };
+            if (
+              failure.code &&
+              failure.code !== 'OPENWIKI_ABSOLUTE_TIMEOUT' &&
+              failure.code !== 'OPENWIKI_SYNC_INTERRUPTED'
+            ) {
+              const { message, paths: diagnosticPaths } =
+                describeKnowledgeValidation(error);
+              if (failure.code === 'OPENWIKI_OUTPUT_INVALID')
+                owner.validationFailure = {
+                  ownerId: owner.ownerId,
+                  ...(execution.runId ? { runId: execution.runId } : {}),
+                  code: 'OPENWIKI_OUTPUT_INVALID',
+                  message,
+                };
+              await writeOpenWikiRunOwner(projectRoot, owner);
+              execution.event('validation_failed', {
+                code: failure.code,
+                message,
+                phase: failure.details?.validation || 'output',
+                paths: [
+                  ...diagnosticPaths,
+                  'openwiki/index.md',
+                  'openwiki/.page-manifest.json',
+                  'openwiki/.claims/',
+                  ...(progress?.currentPage ? [progress.currentPage] : []),
+                ],
+              });
+            }
+            if (
+              outputRepairUsed ||
+              !(repairMessage = getOpenWikiOutputRepairMessage(error))
+            ) {
+              execution.event('repair_unavailable', {
+                retryReason: outputRepairUsed
+                  ? 'The single bounded repair failed revalidation; preserve output for inspection.'
+                  : 'No complete bounded repair target set is available; preserve output rather than regenerate speculatively.',
+              });
+              throw error;
+            }
+            outputRepairUsed = true;
+            execution.remaining();
+            const snapshotPath = await preserveGeneratedOpenWikiOutput(
+              projectRoot,
+              execution
+            );
+            execution.event('retry', {
+              retryReason:
+                'Repair the diagnosed pages and associated evidence in place; full validation will run again.',
+              snapshotPath,
+            });
+          }
+          await verifyOpenWikiWritingSkillInstallation(
+            writingPolicy,
+            openWikiConfigDir
+          );
+          progress = await runOpenWikiProcess({
+            executablePath: runtime.executablePath,
+            args: repairMessage ? [...args, repairMessage] : args,
+            projectRoot,
+            openWikiConfigDir,
+            owner,
+            idleTimeoutMs: input.idleTimeoutMs,
+            execution,
+            onProgress: input.onProgress,
+          });
+          await verifyOpenWikiWritingSkillInstallation(
+            writingPolicy,
+            openWikiConfigDir
+          );
+          await assertManagedOpenWikiPathsSafe(projectRoot, false);
+          const retrySourceFingerprint = computeSourceFingerprint(
+            projectRoot,
+            docsDir
+          );
+          const retrySourceHead =
+            runGitCapture(['rev-parse', 'HEAD'], projectRoot) || '';
+          if (
+            retrySourceHead !== sourceHead ||
+            retrySourceFingerprint !== sourceFingerprint
+          ) {
+            throw createCliError(
+              'OPENWIKI_SOURCE_STALE',
+              'Tracked source changed while OpenWiki was regenerating. Partial output was preserved, but no receipt was written.'
+            );
+          }
+        }
+        const changedPaths = collectGitChangedPaths(projectRoot);
+        const unexpectedPaths = changedPaths.filter(
+          (entry) => !isOpenWikiKnowledgePath(entry)
         );
-      }
+        if (unexpectedPaths.length > 0) {
+          throw createCliError(
+            'OPENWIKI_OUTPUT_SCOPE_VIOLATION',
+            `OpenWiki changed paths outside its managed surface: ${unexpectedPaths.join(', ')}`
+          );
+        }
 
-      const outputHash = await computeOpenWikiOutputHash(projectRoot);
-      if (!outputHash) {
-        throw createCliError(
-          'OPENWIKI_OUTPUT_INVALID',
-          'The generated OpenWiki output could not be hashed.'
+        const outputHash = await computeOpenWikiOutputHash(projectRoot);
+        if (!outputHash) {
+          throw createCliError(
+            'OPENWIKI_OUTPUT_INVALID',
+            'The generated OpenWiki output could not be hashed.'
+          );
+        }
+
+        const receipt: OpenWikiReceipt = {
+          schemaVersion: RECEIPT_SCHEMA_VERSION,
+          triggerFeatureRef: input.featureRef,
+          triggerComponent: input.component,
+          language: input.config.lang,
+          sourceHead,
+          sourceFingerprint,
+          baseRef: base.ref,
+          baseHead: base.head,
+          openwikiVersion: runtime.version,
+          okfVersion: runtime.capability.okfVersion,
+          outputHash,
+          verifiedAt: new Date().toISOString(),
+          writingPolicy: writingPolicy.receipt,
+        };
+        execution.remaining();
+        const receiptPath = path.join(projectRoot, OPENWIKI_RECEIPT_PATH);
+        await writeJsonAtomic(receiptPath, receipt, projectRoot);
+        await verifyKnowledgeSurfaceTrackable(projectRoot);
+        await removeOpenWikiRunOwner(projectRoot, owner.ownerId);
+
+        execution.event('complete');
+        return {
+          status: 'ok',
+          reasonCode: 'OPENWIKI_SYNCED',
+          projectRoot,
+          command: `openwiki ${args.join(' ')}`,
+          initialized,
+          openwikiVersion: runtime.version,
+          okfVersion: runtime.capability.okfVersion,
+          receipt,
+          changedPaths: collectGitChangedPaths(projectRoot),
+          progress: normalizeCompletedOpenWikiProgress(progress, owner.runId),
+          evidenceIntegrity,
+        };
+      } catch (error) {
+        const failure = error as {
+          code?: string;
+          details?: Record<string, unknown>;
+        };
+        execution.event(
+          failure.code === 'OPENWIKI_SYNC_INTERRUPTED'
+            ? 'interrupted'
+            : 'failed',
+          {
+            code: failure.code || 'OPENWIKI_SYNC_FAILED',
+            message:
+              'Knowledge execution stopped; generated output and prior diagnostics are preserved.',
+          }
         );
+        if (error instanceof Error) {
+          Object.assign(error, {
+            details: {
+              ...failure.details,
+              diagnosticsPath: execution.diagnosticsPath,
+            },
+          });
+        }
+        throw error;
       }
-
-      const receipt: OpenWikiReceipt = {
-        schemaVersion: RECEIPT_SCHEMA_VERSION,
-        triggerFeatureRef: input.featureRef,
-        triggerComponent: input.component,
-        language: input.config.lang,
-        sourceHead,
-        sourceFingerprint,
-        baseRef: base.ref,
-        baseHead: base.head,
-        openwikiVersion: runtime.version,
-        okfVersion: runtime.capability.okfVersion,
-        outputHash,
-        verifiedAt: new Date().toISOString(),
-        writingPolicy: writingPolicy.receipt,
-      };
-      const receiptPath = path.join(projectRoot, OPENWIKI_RECEIPT_PATH);
-      await writeJsonAtomic(receiptPath, receipt, projectRoot);
-      await verifyKnowledgeSurfaceTrackable(projectRoot);
-      await removeOpenWikiRunOwner(projectRoot, owner.ownerId);
-
-      return {
-        status: 'ok',
-        reasonCode: 'OPENWIKI_SYNCED',
-        projectRoot,
-        command: `openwiki ${args.join(' ')}`,
-        initialized,
-        openwikiVersion: runtime.version,
-        okfVersion: runtime.capability.okfVersion,
-        receipt,
-        changedPaths: collectGitChangedPaths(projectRoot),
-        progress: normalizeCompletedOpenWikiProgress(progress, owner.runId),
-        evidenceIntegrity,
-      };
     },
     {
       owner: `openwiki:${input.featureRef}`,
@@ -1766,14 +1863,18 @@ async function runOpenWikiProcess(input: {
   projectRoot: string;
   openWikiConfigDir: string;
   owner: OpenWikiRunOwner;
-  idleTimeoutMs: number;
-  absoluteTimeoutMs: number;
+  idleTimeoutMs: number | undefined;
+  execution: KnowledgeExecution;
   onProgress?: (progress: OpenWikiProgress) => void;
 }): Promise<OpenWikiProgress | undefined> {
   // Each child is a new observation window, even when resuming the same run.
   delete input.owner.lastProgress;
-  delete input.owner.validationFailure;
+  input.execution.remaining();
+  input.execution.attempt += 1;
+  input.execution.runId = undefined;
+  input.execution.event('generation');
   await writeOpenWikiRunOwner(input.projectRoot, input.owner);
+  input.execution.remaining();
   const child = spawn(input.executablePath, input.args, {
     cwd: input.projectRoot,
     detached: process.platform !== 'win32',
@@ -1788,6 +1889,9 @@ async function runOpenWikiProcess(input: {
   let lastProgressAt: number | undefined;
   let lastProgressSignature = '';
   let latestProgress: OpenWikiProgress | undefined;
+  let pageStartedAt = startedAt;
+  let observedOutputChunks = 0;
+  let planReported = false;
   let timeoutCode:
     | ''
     | 'OPENWIKI_IDLE_TIMEOUT'
@@ -1800,6 +1904,7 @@ async function runOpenWikiProcess(input: {
 
   const appendDiagnostic = (chunk: unknown) => {
     void chunk;
+    observedOutputChunks += 1;
     lastActivityAt = Date.now();
   };
   child.stdout?.on('data', appendDiagnostic);
@@ -1816,6 +1921,7 @@ async function runOpenWikiProcess(input: {
   };
 
   const onInterrupt = () => {
+    if (timeoutCode) return;
     timeoutCode = 'OPENWIKI_SYNC_INTERRUPTED';
     terminate('SIGTERM');
     interruptKillTimer = setTimeout(() => terminate('SIGKILL'), 2_000);
@@ -1823,6 +1929,9 @@ async function runOpenWikiProcess(input: {
   };
   process.once('SIGINT', onInterrupt);
   process.once('SIGTERM', onInterrupt);
+  input.execution.signal?.addEventListener('abort', onInterrupt, {
+    once: true,
+  });
 
   return new Promise<OpenWikiProgress | undefined>((resolve, reject) => {
     const forceKill = () => {
@@ -1839,38 +1948,78 @@ async function runOpenWikiProcess(input: {
       forceKillTimer.unref();
     };
 
+    const deadlineTimer =
+      input.execution.budgetMs === undefined
+        ? undefined
+        : setTimeout(
+            () => requestStop('OPENWIKI_ABSOLUTE_TIMEOUT'),
+            Math.max(1, input.execution.remaining())
+          );
     const interval = setInterval(() => {
       if (checkingProgress || closed) return;
       checkingProgress = true;
       pendingProgress = (async () => {
-      try {
-        const progress = await readOpenWikiProgress(input.projectRoot);
-        if (progress) {
-          const signature = JSON.stringify(progress);
-          if (signature !== lastProgressSignature) {
-            lastProgressSignature = signature;
-            latestProgress = progress;
-            lastActivityAt = Date.now();
-            lastProgressAt = lastActivityAt;
-            if (progress.runId && input.owner.runId !== progress.runId) {
-              input.owner.runId = progress.runId;
-              await writeOpenWikiRunOwner(input.projectRoot, input.owner);
+        try {
+          const progress = await readOpenWikiProgress(input.projectRoot);
+          if (progress) {
+            const signature = JSON.stringify(progress);
+            if (signature !== lastProgressSignature) {
+              lastProgressSignature = signature;
+              if (
+                latestProgress?.currentPage &&
+                latestProgress.currentPage !== progress.currentPage
+              ) {
+                input.execution.event('page_finished', {
+                  currentPage: latestProgress.currentPage,
+                  pageElapsedMs: Date.now() - pageStartedAt,
+                  observedOutputChunks,
+                });
+              }
+              if (latestProgress?.currentPage !== progress.currentPage)
+                pageStartedAt = Date.now();
+              latestProgress = progress;
+              lastActivityAt = Date.now();
+              lastProgressAt = lastActivityAt;
+              if (progress.runId && input.owner.runId !== progress.runId) {
+                input.owner.runId = progress.runId;
+                await writeOpenWikiRunOwner(input.projectRoot, input.owner);
+              }
+              input.execution.runId = progress.runId;
+              if (!planReported && progress.pagePlan) {
+                input.execution.event('scope', {
+                  baselineSourceHead: progress.baselineSourceHead,
+                  pagePlan: progress.pagePlan,
+                  preservedPages: progress.preservedPages,
+                });
+                planReported = true;
+              }
+              input.execution.event('generation', {
+                phase: progress.phase,
+                currentPage: progress.currentPage,
+                completedPages: progress.completedPages,
+                totalPages: progress.totalPages,
+              });
+              input.onProgress?.(progress);
             }
-            input.onProgress?.(progress);
           }
+          const now = Date.now();
+          if (
+            input.execution.budgetMs !== undefined &&
+            now >= input.execution.startedAt + input.execution.budgetMs
+          ) {
+            requestStop('OPENWIKI_ABSOLUTE_TIMEOUT');
+          } else if (
+            input.idleTimeoutMs !== undefined &&
+            now - lastActivityAt > input.idleTimeoutMs
+          ) {
+            requestStop('OPENWIKI_IDLE_TIMEOUT');
+          }
+        } catch {
+          // A transient atomic rename or partial metadata write is not progress and
+          // must not terminate an otherwise healthy child.
+        } finally {
+          checkingProgress = false;
         }
-        const now = Date.now();
-        if (now - startedAt > input.absoluteTimeoutMs) {
-          requestStop('OPENWIKI_ABSOLUTE_TIMEOUT');
-        } else if (now - lastActivityAt > input.idleTimeoutMs) {
-          requestStop('OPENWIKI_IDLE_TIMEOUT');
-        }
-      } catch {
-        // A transient atomic rename or partial metadata write is not progress and
-        // must not terminate an otherwise healthy child.
-      } finally {
-        checkingProgress = false;
-      }
       })();
     }, PROGRESS_POLL_MS);
     interval.unref();
@@ -1878,10 +2027,12 @@ async function runOpenWikiProcess(input: {
     const finish = () => {
       closed = true;
       clearInterval(interval);
+      if (deadlineTimer) clearTimeout(deadlineTimer);
       if (forceKillTimer) clearTimeout(forceKillTimer);
       if (interruptKillTimer) clearTimeout(interruptKillTimer);
       process.off('SIGINT', onInterrupt);
       process.off('SIGTERM', onInterrupt);
+      input.execution.signal?.removeEventListener('abort', onInterrupt);
     };
 
     const failureDetails = () => {
@@ -1892,7 +2043,10 @@ async function runOpenWikiProcess(input: {
         // The primary error remains more useful than a secondary Git failure.
       }
       return {
-        elapsedMs: Date.now() - startedAt,
+        elapsedMs: Date.now() - input.execution.startedAt,
+        attemptElapsedMs: Date.now() - startedAt,
+        currentPageElapsedMs: Date.now() - pageStartedAt,
+        observedOutputChunks,
         lastObservedActivityAt: new Date(lastActivityAt).toISOString(),
         lastProgressAt: lastProgressAt
           ? new Date(lastProgressAt).toISOString()
@@ -1907,7 +2061,7 @@ async function runOpenWikiProcess(input: {
         resumeCommand: `npx lee-spec-kit knowledge sync ${input.owner.featureRef}${input.owner.component === 'root' ? '' : ` --component ${input.owner.component}`}`,
         timeout: {
           idleTimeoutMs: input.idleTimeoutMs,
-          absoluteTimeoutMs: input.absoluteTimeoutMs,
+          absoluteTimeoutMs: input.execution.budgetMs,
         },
       };
     };
@@ -1926,12 +2080,46 @@ async function runOpenWikiProcess(input: {
       finish();
       // Join the last poll so it cannot overwrite terminal observations later.
       await pendingProgress;
+      try {
+        latestProgress =
+          (await readOpenWikiProgress(input.projectRoot)) || latestProgress;
+        if (!latestProgress?.runId && code === 0 && !timeoutCode) {
+          const manifest = await fs.readJson(
+            path.join(input.projectRoot, OPENWIKI_DIR, '.page-manifest.json')
+          );
+          const ids = new Set<string>(
+            (manifest.pages && typeof manifest.pages === 'object'
+              ? Object.values(manifest.pages)
+              : []
+            )
+              .map((page: unknown) =>
+                page && typeof page === 'object'
+                  ? (page as { completedRunId?: unknown }).completedRunId
+                  : undefined
+              )
+              .filter((id: unknown): id is string => typeof id === 'string')
+          );
+          if (ids.size === 1) input.execution.runId = [...ids][0];
+        }
+      } catch {
+        /* Missing terminal metadata does not replace the process result. */
+      }
+      if (latestProgress?.runId) {
+        input.execution.runId = latestProgress.runId;
+        input.owner.runId = latestProgress.runId;
+      }
       if (latestProgress?.runId && latestProgress.runId === input.owner.runId) {
         input.owner.lastProgress = latestProgress;
         try {
           await writeOpenWikiRunOwner(input.projectRoot, input.owner);
         } catch {
-          reject(createCliError('OPENWIKI_SYNC_FAILED', 'OpenWiki run observations could not be persisted. No receipt was written.', failureDetails()));
+          reject(
+            createCliError(
+              'OPENWIKI_SYNC_FAILED',
+              'OpenWiki run observations could not be persisted. No receipt was written.',
+              failureDetails()
+            )
+          );
           return;
         }
       }
@@ -1939,7 +2127,7 @@ async function runOpenWikiProcess(input: {
         reject(
           createCliError(
             timeoutCode,
-            `${timeoutCode === 'OPENWIKI_IDLE_TIMEOUT' ? 'OpenWiki stopped making observable progress' : timeoutCode === 'OPENWIKI_ABSOLUTE_TIMEOUT' ? 'OpenWiki exceeded its absolute execution deadline' : 'OpenWiki was interrupted'}. Partial state was preserved; rerun the same Knowledge sync to resume.`,
+            `${timeoutCode === 'OPENWIKI_IDLE_TIMEOUT' ? 'OpenWiki stopped making observable progress' : timeoutCode === 'OPENWIKI_ABSOLUTE_TIMEOUT' ? 'OpenWiki exceeded its absolute execution deadline' : 'OpenWiki was interrupted'}. Partial state and diagnostics were preserved.`,
             failureDetails()
           )
         );
@@ -1949,7 +2137,7 @@ async function runOpenWikiProcess(input: {
         reject(
           createCliError(
             'OPENWIKI_SYNC_FAILED',
-            `OpenWiki exited with ${signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`}. Partial state was preserved; inspect OpenWiki's own diagnostics and rerun the same sync to resume.`,
+            `OpenWiki exited with ${signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`}. Partial state and diagnostics were preserved.`,
             failureDetails()
           )
         );
@@ -1982,7 +2170,16 @@ async function readOpenWikiProgress(
       runId?: unknown;
       mode?: unknown;
       phase?: unknown;
-      plan?: { pages?: Array<{ path?: unknown; status?: unknown }> };
+      baseGitHead?: string;
+      initialPages?: string[];
+      plan?: {
+        pages?: Array<{
+          path?: unknown;
+          status?: unknown;
+          seedPaths?: unknown;
+        }>;
+        deletePages?: string[];
+      };
     };
     const pages = Array.isArray(value?.plan?.pages) ? value.plan.pages : [];
     const completedPages = pages.filter(
@@ -2005,6 +2202,36 @@ async function readOpenWikiProgress(
         ? { currentPage: current.path }
         : {}),
       updatedAt: new Date(stat.mtimeMs).toISOString(),
+      ...(value.plan
+        ? {
+            baselineSourceHead: value.baseGitHead,
+            pagePlan: pages
+              .filter((page) => typeof page.path === 'string')
+              .map((page) => ({
+                path: page.path as string,
+                action: value.initialPages?.includes(page.path as string)
+                  ? 'review-existing'
+                  : 'create-or-review',
+                sourcePaths: Array.isArray(page.seedPaths)
+                  ? page.seedPaths
+                      .filter(
+                        (entry): entry is string =>
+                          typeof entry === 'string' &&
+                          !entry.includes('://') &&
+                          !entry.includes('..') &&
+                          !entry.startsWith('/') &&
+                          !/(^|\/)\.env(?:\.|$)/u.test(entry)
+                      )
+                      .slice(0, 64)
+                  : [],
+              })),
+            preservedPages: (value.initialPages || []).filter(
+              (entry) =>
+                !pages.some((page) => page.path === entry) &&
+                !value.plan?.deletePages?.includes(entry)
+            ),
+          }
+        : {}),
     };
   } catch (error) {
     if ((error as { code?: string }).code === 'ENOENT') return null;
@@ -2035,25 +2262,175 @@ async function readOpenWikiRunOwner(
       return null;
     }
     const observation = value.lastProgress;
-    if (value.validationFailure && (
-      value.validationFailure.ownerId !== value.ownerId ||
-      (value.validationFailure.runId !== undefined && value.validationFailure.runId !== value.runId) ||
-      value.validationFailure.code !== 'OPENWIKI_OUTPUT_INVALID' ||
-      typeof value.validationFailure.message !== 'string' ||
-      value.validationFailure.message.length > 8000
-    )) delete value.validationFailure;
-    if (observation && (
-      observation.runId !== value.runId ||
-      !Number.isSafeInteger(observation.completedPages) || observation.completedPages < 0 ||
-      !Number.isSafeInteger(observation.totalPages) || observation.totalPages < observation.completedPages ||
-      !Number.isSafeInteger(observation.skippedPages) || (observation.skippedPages ?? -1) < 0 ||
-      !Array.isArray(observation.skippedPagePaths) ||
-      observation.skippedPages !== observation.skippedPagePaths.length ||
-      observation.skippedPagePaths.some((p) => typeof p !== 'string' || !p.startsWith('/openwiki/') || hasControlCharacter(p))
-    )) delete value.lastProgress;
+    if (
+      value.validationFailure &&
+      (value.validationFailure.ownerId !== value.ownerId ||
+        value.validationFailure.code !== 'OPENWIKI_OUTPUT_INVALID' ||
+        typeof value.validationFailure.message !== 'string' ||
+        value.validationFailure.message.length > 8000)
+    )
+      delete value.validationFailure;
+    if (
+      observation &&
+      (observation.runId !== value.runId ||
+        !Number.isSafeInteger(observation.completedPages) ||
+        observation.completedPages < 0 ||
+        !Number.isSafeInteger(observation.totalPages) ||
+        observation.totalPages < observation.completedPages ||
+        !Number.isSafeInteger(observation.skippedPages) ||
+        (observation.skippedPages ?? -1) < 0 ||
+        !Array.isArray(observation.skippedPagePaths) ||
+        observation.skippedPages !== observation.skippedPagePaths.length ||
+        observation.skippedPagePaths.some(
+          (p) =>
+            typeof p !== 'string' ||
+            !p.startsWith('/openwiki/') ||
+            hasControlCharacter(p)
+        ))
+    )
+      delete value.lastProgress;
     return value as OpenWikiRunOwner;
   } catch {
     return null;
+  }
+}
+
+/** Read-only admission check for a publisher reusing a durable OpenWiki queue.
+ * Full Claims, provenance, links and writing validation still run before publish.
+ */
+export async function inspectOpenWikiResume(input: {
+  projectRoot: string;
+  sourceHead: string;
+  featureRef: string;
+  component: string;
+  config: ProjectConfig;
+}): Promise<{ runId: string; completedPages: number } | null> {
+  const root = input.projectRoot;
+  await assertManagedOpenWikiPathsReadSafe(root);
+  const owner = await readOpenWikiRunOwner(root);
+  const runPath = path.join(root, OPENWIKI_DIR, '.run.json');
+  if (!owner || !(await fs.pathExists(runPath))) return null;
+  if (
+    owner.featureRef !== input.featureRef ||
+    owner.component !== input.component ||
+    owner.sourceHead !== input.sourceHead
+  )
+    return null;
+  const policy = await resolveOpenWikiWritingPolicy(input.config.lang);
+  const docsDir = resolveOpenWikiDocsDir(root, input.config.docsDir);
+  if (
+    owner.language !== input.config.lang ||
+    owner.baseHead !== input.sourceHead ||
+    owner.writingPolicyHash !== policy.policyHash ||
+    owner.sourceFingerprint !== computeSourceFingerprint(root, docsDir) ||
+    runGitCapture(['rev-parse', 'HEAD'], root) !== input.sourceHead
+  ) {
+    throw createCliError(
+      'OPENWIKI_RUN_OWNER_MISMATCH',
+      'Saved publication inputs no longer match. The run is preserved; inspect its source and writing policy before retrying.'
+    );
+  }
+  await verifyProtectedEntrypointsAgainstHead(root);
+  const changes = collectGitChangedPaths(root).filter(
+    (entry) => !isOpenWikiKnowledgePath(entry)
+  );
+  if (changes.length)
+    throw createCliError(
+      'OPENWIKI_PROJECT_NOT_CLEAN',
+      'Saved publication contains source changes; it was preserved for inspection.'
+    );
+  const instructions = await inspectOpenWikiWritingPolicy(
+    path.join(root, OPENWIKI_DIR, 'INSTRUCTIONS.md'),
+    policy,
+    policy.receipt
+  );
+  if (!instructions.current)
+    throw createCliError(
+      'OPENWIKI_PROTECTED_CONTENT_CHANGED',
+      'Saved publication writing instructions changed; no generation was started.'
+    );
+  const run = await fs.readJson(runPath);
+  if (
+    typeof run.runId !== 'string' ||
+    !run.runId ||
+    (owner.runId && run.runId !== owner.runId) ||
+    (run.targetGitHead && run.targetGitHead !== input.sourceHead)
+  ) {
+    throw createCliError(
+      'OPENWIKI_RUN_OWNER_MISMATCH',
+      'Saved page queue does not match its recorded owner and source.'
+    );
+  }
+  const complete = (run.plan?.pages || []).filter(
+    (page: { status?: string }) => page.status === 'complete'
+  );
+  if (complete.length) {
+    // Reject symlinks and path escapes before reading any completed content.
+    await assertOpenWikiTreeSafe(path.join(root, OPENWIKI_DIR));
+    const manifest = await fs.readJson(
+      path.join(root, OPENWIKI_DIR, '.page-manifest.json')
+    );
+    for (const page of complete) {
+      const relative =
+        typeof page.path === 'string'
+          ? page.path.slice('/openwiki/'.length)
+          : '';
+      if (
+        !page.path?.startsWith('/openwiki/') ||
+        !relative.endsWith('.md') ||
+        relative
+          .split('/')
+          .some((part: string) => part === '..' || part === '.') ||
+        relative.includes('\\')
+      ) {
+        throw createCliError(
+          'OPENWIKI_OUTPUT_INVALID',
+          'Invalid path in saved page queue.'
+        );
+      }
+      const entry = manifest.pages?.[page.path];
+      const content = await fs.readFile(
+        path.join(root, OPENWIKI_DIR, relative)
+      );
+      const version =
+        'sha256:' + createHash('sha256').update(content).digest('hex');
+      const claims = await fs.readJson(
+        path.join(
+          root,
+          OPENWIKI_DIR,
+          '.claims',
+          relative.replace(/\.md$/u, '.json')
+        )
+      );
+      if (
+        !entry ||
+        entry.pageVersion !== version ||
+        claims.pageVersion !== version ||
+        entry.gitHead !== input.sourceHead ||
+        entry.completedRunId !== run.runId
+      ) {
+        throw createCliError(
+          'OPENWIKI_OUTPUT_INVALID',
+          'Saved completed page does not match its Claims and source checkpoint.',
+          { paths: ['openwiki/' + relative] }
+        );
+      }
+    }
+  }
+  return { runId: run.runId, completedPages: complete.length };
+}
+
+async function assertOpenWikiTreeSafe(directory: string): Promise<void> {
+  for (const name of await fs.readdir(directory)) {
+    const target = path.join(directory, name);
+    const stat = await fs.lstat(target);
+    if (stat.isSymbolicLink() || (!stat.isDirectory() && !stat.isFile())) {
+      throw createCliError(
+        'OPENWIKI_OUTPUT_INVALID',
+        'Saved Knowledge contains an unsafe filesystem entry.'
+      );
+    }
+    if (stat.isDirectory()) await assertOpenWikiTreeSafe(target);
   }
 }
 
@@ -2651,9 +3028,10 @@ async function inspectOpenWikiInterruption(
   progress?: OpenWikiProgress,
   owner?: OpenWikiRunOwner | null
 ): Promise<OpenWikiInterruptionDetails> {
-  progress ??= owner?.lastProgress?.runId === owner?.runId
-    ? owner?.lastProgress
-    : undefined;
+  progress ??=
+    owner?.lastProgress?.runId === owner?.runId
+      ? owner?.lastProgress
+      : undefined;
   const activePageQueue = await fs.pathExists(
     path.join(projectRoot, OPENWIKI_DIR, '.run.json')
   );
@@ -2708,8 +3086,10 @@ async function inspectOpenWikiInterruption(
     observedSkippedPagePaths,
     ...(owner?.runId ? { ownerRunId: owner.runId } : {}),
     ...(progress ? { progress } : {}),
-    ...(lastUpdateStatus === 'complete' && owner?.validationFailure?.ownerId === owner?.ownerId
-      ? { validationFailure: owner?.validationFailure } : {}),
+    ...(lastUpdateStatus === 'complete' &&
+    owner?.validationFailure?.ownerId === owner?.ownerId
+      ? { validationFailure: owner?.validationFailure }
+      : {}),
   };
 }
 
@@ -2880,15 +3260,32 @@ async function verifyOpenWikiOutput(
     () => verifyOpenWikiTree(projectRoot, [context.okfVersion]),
     () => verifyOpenWikiWritingStyle(projectRoot, writingPolicy),
   ]) {
-    try { await check(); } catch (error) { collect(error); }
+    try {
+      await check();
+    } catch (error) {
+      collect(error);
+    }
   }
-  const evidence = await verifyOpenWikiEvidenceIntegrity(projectRoot, context, collect);
+  const evidence = await verifyOpenWikiEvidenceIntegrity(
+    projectRoot,
+    context,
+    collect
+  );
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1) {
-    const diagnostics = failures.map((error) => ({ message: error.message, details: (error as Error & { details?: unknown }).details }));
-    throw createCliError('OPENWIKI_OUTPUT_INVALID', failures.map((error) => error.message).join('\n'), {
-      validation: 'document_repair', repairable: JSON.stringify(diagnostics).length <= 24000, diagnostics,
-    });
+    const diagnostics = failures.map((error) => ({
+      message: error.message,
+      details: (error as Error & { details?: unknown }).details,
+    }));
+    throw createCliError(
+      'OPENWIKI_OUTPUT_INVALID',
+      failures.map((error) => error.message).join('\n'),
+      {
+        validation: 'document_repair',
+        repairable: JSON.stringify(diagnostics).length <= 24000,
+        diagnostics,
+      }
+    );
   }
   return evidence;
 }
@@ -2988,7 +3385,9 @@ async function verifyOpenWikiWritingStyle(
       validation: OPENWIKI_WRITING_STYLE_VALIDATION,
       failureCount,
       violations: failures,
-      repairable: failureCount === failures.length && JSON.stringify(failures).length <= 24000,
+      repairable:
+        failureCount === failures.length &&
+        JSON.stringify(failures).length <= 24000,
     }
   );
 }
@@ -3048,24 +3447,38 @@ async function verifyOpenWikiTree(
       references.push(link);
       targets.set(link.target, references);
     }
-    const repairTargets = [...targets].map(([target, references]) => ({ target, references }));
+    const repairTargets = [...targets].map(([target, references]) => ({
+      target,
+      references,
+    }));
     // Do not silently omit targets or reference locations from a bounded prompt.
     const repairable = JSON.stringify(repairTargets).length <= 24000;
-    throw createCliError('OPENWIKI_OUTPUT_INVALID',
-      `Invalid OpenWiki navigation links (${missingLinks.length}): ${missingLinks.slice(0, 5).map((link) => `${link.page}:${link.line}:${link.column}: ${link.href}`).join('; ')}`,
-      { validation: 'internal_links', repairable, repairTargets });
+    throw createCliError(
+      'OPENWIKI_OUTPUT_INVALID',
+      `Invalid OpenWiki navigation links (${missingLinks.length}): ${missingLinks
+        .slice(0, 5)
+        .map((link) => `${link.page}:${link.line}:${link.column}: ${link.href}`)
+        .join('; ')}`,
+      { validation: 'internal_links', repairable, repairTargets }
+    );
   }
 }
 
-function createOpenWikiValidationFailures(): {
-  record: (message: string, repairable?: boolean) => void;
+function createOpenWikiValidationFailures(defaultRepairable = false): {
+  record: (message: string, repairable?: boolean, paths?: string[]) => void;
   throwIfAny: (label: string, validation: string) => void;
 } {
   const failures: string[] = [];
+  const paths = new Set<string>();
   let failureCount = 0;
   let allRepairable = true;
   return {
-    record(message: string, repairable = false) {
+    record(
+      message: string,
+      repairable = defaultRepairable,
+      relatedPaths: string[] = []
+    ) {
+      for (const entry of relatedPaths) paths.add(entry);
       failureCount += 1;
       allRepairable &&= repairable;
       if (failures.length < 128) {
@@ -3078,7 +3491,16 @@ function createOpenWikiValidationFailures(): {
       throw createCliError(
         'OPENWIKI_OUTPUT_INVALID',
         `${label} (${failureCount}): ${failures.join('; ')}${omitted > 0 ? `; ${omitted} more` : ''}`,
-        { validation, failureCount, repairable: allRepairable && omitted === 0 && JSON.stringify(failures).length <= 24000, diagnostics: failures }
+        {
+          validation,
+          failureCount,
+          repairable:
+            allRepairable &&
+            omitted === 0 &&
+            JSON.stringify(failures).length <= 24000,
+          diagnostics: failures,
+          paths: [...paths],
+        }
       );
     },
   };
@@ -3343,7 +3765,7 @@ async function verifyOpenWikiEvidenceIntegrity(
     context.receiptSchemaVersion >= 2 && context.okfVersion === '0.2'
       ? await verifyModernOpenWikiProvenance(projectRoot, context)
       : undefined;
-  const staleFailures = createOpenWikiValidationFailures();
+  const staleFailures = createOpenWikiValidationFailures(true);
   const citationFailures = createOpenWikiValidationFailures();
   const structuralFailures = createOpenWikiValidationFailures();
   const sourceCache = new Map<string, GitRegularFileRead>();
@@ -3408,14 +3830,17 @@ async function verifyOpenWikiEvidenceIntegrity(
       input.endLine < input.startLine
     ) {
       (input.expectedHash ? structuralFailures : citationFailures).record(
-        `${input.location} has an invalid line range: L${input.startLine}-L${input.endLine}`, !input.expectedHash
+        `${input.location} has an invalid line range: L${input.startLine}-L${input.endLine}`,
+        !input.expectedHash
       );
       return false;
     }
     const source = readSource(relativePath);
     if (source.status === 'missing') {
       staleFailures.record(
-        `${input.location} references a file absent from source ${snapshot.resolvedHead.slice(0, 12)}: ${relativePath}`
+        `${input.location} references a file absent from source ${snapshot.resolvedHead.slice(0, 12)}: ${relativePath}`,
+        true,
+        [`openwiki/${input.location}`, relativePath]
       );
       return false;
     }
@@ -3440,7 +3865,9 @@ async function verifyOpenWikiEvidenceIntegrity(
       content.endsWith('\n');
     if (input.endLine > lines.length && !usesTrailingEofBoundary) {
       (input.expectedHash ? staleFailures : citationFailures).record(
-        `${input.location} exceeds ${relativePath}'s ${lines.length} lines: L${input.startLine}-L${input.endLine}`, !input.expectedHash
+        `${input.location} exceeds ${relativePath}'s ${lines.length} lines: L${input.startLine}-L${input.endLine}`,
+        !input.expectedHash,
+        [`openwiki/${input.location}`, relativePath]
       );
       return false;
     }
@@ -3450,7 +3877,9 @@ async function verifyOpenWikiEvidenceIntegrity(
         .digest('hex');
       if (actualHash !== input.expectedHash) {
         staleFailures.record(
-          `${input.location} has stale line evidence for ${relativePath}#L${input.startLine}-L${input.endLine}`
+          `${input.location} has stale line evidence for ${relativePath}#L${input.startLine}-L${input.endLine}`,
+          true,
+          [`openwiki/${input.location}`, relativePath]
         );
         return false;
       }
@@ -3509,7 +3938,9 @@ async function verifyOpenWikiEvidenceIntegrity(
             const source = readSource(relativeSourcePath);
             if (source.status === 'missing') {
               staleFailures.record(
-                `${location} references a file absent from source ${snapshot.resolvedHead.slice(0, 12)}: ${relativeSourcePath}`
+                `${location} references a file absent from source ${snapshot.resolvedHead.slice(0, 12)}: ${relativeSourcePath}`,
+                true,
+                [`openwiki/${location}`, relativeSourcePath]
               );
               return;
             }
@@ -3524,7 +3955,9 @@ async function verifyOpenWikiEvidenceIntegrity(
               .digest('hex');
             if (actualHash !== fileVersionMatch[1]) {
               staleFailures.record(
-                `${location} has stale file evidence for ${relativeSourcePath}`
+                `${location} has stale file evidence for ${relativeSourcePath}`,
+                true,
+                [`openwiki/${location}`, relativeSourcePath]
               );
               return;
             }
@@ -3646,15 +4079,32 @@ async function verifyOpenWikiEvidenceIntegrity(
   );
 
   try {
-    structuralFailures.throwIfAny('OpenWiki evidence structure failed', OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION);
-  } catch (error) { if (collect) collect(error); else throw error; }
-  staleFailures.throwIfAny(
-    'OpenWiki evidence integrity failed',
-    OPENWIKI_EVIDENCE_VALIDATION
-  );
+    structuralFailures.throwIfAny(
+      'OpenWiki evidence structure failed',
+      OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION
+    );
+  } catch (error) {
+    if (collect) collect(error);
+    else throw error;
+  }
   try {
-    citationFailures.throwIfAny('OpenWiki Markdown citation ranges failed', 'citation_ranges');
-  } catch (error) { if (collect) collect(error); else throw error; }
+    staleFailures.throwIfAny(
+      'OpenWiki evidence integrity failed',
+      OPENWIKI_EVIDENCE_VALIDATION
+    );
+  } catch (error) {
+    if (collect) collect(error);
+    else throw error;
+  }
+  try {
+    citationFailures.throwIfAny(
+      'OpenWiki Markdown citation ranges failed',
+      'citation_ranges'
+    );
+  } catch (error) {
+    if (collect) collect(error);
+    else throw error;
+  }
 
   return {
     ...snapshot,
@@ -3731,29 +4181,36 @@ function splitSourceLinesPreservingEndings(content: string): string[] {
   return content.match(/[^\n]*\n|[^\n]+$/gu) || [];
 }
 
-function isOpenWikiEvidenceIntegrityError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const details = (error as { details?: { validation?: unknown } }).details;
-  return details?.validation === OPENWIKI_EVIDENCE_VALIDATION;
-}
-
 function getOpenWikiOutputRepairMessage(error: unknown): string | undefined {
   if (!(error instanceof Error)) return undefined;
   const candidate = error as Error & {
     code?: string;
-    details?: { validation?: string; repairable?: boolean; repairTargets?: unknown; diagnostics?: unknown };
+    details?: {
+      validation?: string;
+      repairable?: boolean;
+      repairTargets?: unknown;
+      diagnostics?: unknown;
+    };
   };
   if (
     candidate.code !== 'OPENWIKI_OUTPUT_INVALID' ||
     !(
-      (candidate.details?.validation === OPENWIKI_WRITING_STYLE_VALIDATION && candidate.details.repairable !== false) ||
-      (['document_repair', 'citation_ranges'].includes(candidate.details?.validation || '') && candidate.details?.repairable === true) ||
+      (candidate.details?.validation === OPENWIKI_WRITING_STYLE_VALIDATION &&
+        candidate.details.repairable !== false) ||
+      ([
+        'document_repair',
+        'citation_ranges',
+        OPENWIKI_EVIDENCE_VALIDATION,
+      ].includes(candidate.details?.validation || '') &&
+        candidate.details?.repairable === true) ||
       (candidate.details?.validation === 'internal_links' &&
         candidate.details.repairable === true) ||
-      (candidate.details?.validation === OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION &&
+      (candidate.details?.validation ===
+        OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION &&
         candidate.details.repairable === true)
     )
-  ) return undefined;
+  )
+    return undefined;
 
   return [
     'lee-spec-kit validation repair (one bounded pass).',
@@ -3762,14 +4219,49 @@ function getOpenWikiOutputRepairMessage(error: unknown): string | undefined {
     'For missing internal pages, inspect all generated navigation, not only the listed examples. Restore the missing source-grounded page with its Claims and manifest entry, or correct an erroneous href to an existing equivalent page. Preserve the intended topic coverage; do not simply remove links or pages to pass validation. Remove broken-link stamps only after resolving their targets.',
     'For visualize_root_link findings, the target already exists: express the href relative to the referring page directory, preserving the target and fragment. Use suggestedHref as diagnostic guidance, not an instruction. All repaired Knowledge hrefs must be page-relative with the exact .md filename; canonical /openwiki/... identifiers remain valid in plans and metadata. Do not create redundant pages or unrelated edges merely to connect the graph.',
     'Follow the installed writing skill: draft the correction, edit for the assigned reader goal and terminology, reconcile Claims and links, then submit the corrected page. Do not certify your own result; lee-spec-kit will revalidate it.',
+    'For stale hashed evidence, re-read the source snapshot, re-evaluate each affected claim, and regenerate its evidence through the normal page workflow. Never just replace a hash to certify an unverified claim.',
     'For citation range errors, re-read the intended source evidence and correct the citation and associated Claims. Never mechanically clamp a line number to the file length or weaken hashed Claim evidence.',
-    JSON.stringify({ validation: candidate.details?.validation, diagnostic: error.message.slice(0, 8000), repairTargets: candidate.details?.repairTargets, diagnostics: candidate.details?.diagnostics }),
+    JSON.stringify({
+      validation: candidate.details?.validation,
+      diagnostic: error.message.slice(0, 8000),
+      repairTargets: candidate.details?.repairTargets,
+      diagnostics: candidate.details?.diagnostics,
+    }),
   ].join('\n');
 }
 
+async function preserveGeneratedOpenWikiOutput(
+  projectRoot: string,
+  execution: KnowledgeExecution
+): Promise<string> {
+  await assertManagedOpenWikiPathsSafe(projectRoot, false);
+  const snapshotPath = path.join(
+    execution.directory,
+    `before-attempt-${execution.attempt + 1}`
+  );
+  // Preserve the existing generated surface before any repair or policy reset.
+  // Do not capture process output, credentials, or the repair prompt.
+  await fs.copy(path.join(projectRoot, OPENWIKI_DIR), snapshotPath, {
+    dereference: false,
+    errorOnExist: true,
+  });
+  return snapshotPath;
+}
+
 async function resetGeneratedOpenWikiOutput(
-  projectRoot: string
+  projectRoot: string,
+  execution: KnowledgeExecution
 ): Promise<void> {
+  const snapshotPath = await preserveGeneratedOpenWikiOutput(
+    projectRoot,
+    execution
+  );
+  execution.event('regeneration', {
+    retryReason:
+      'The installed writing policy differs from the previous receipt; every generated page must be regenerated under the current policy.',
+    snapshotPath,
+  });
+  execution.remaining();
   const wikiRoot = path.join(projectRoot, OPENWIKI_DIR);
   await assertOpenWikiRootSafe(projectRoot, false);
   for (const entry of await fs.readdir(wikiRoot, { withFileTypes: true })) {
@@ -4335,15 +4827,24 @@ async function assertValidMarkdownLinks(
       );
     }
     if (!(await fs.pathExists(absoluteTarget))) {
-      const wikiTarget = normalizeGitPath(path.relative(wikiRoot, absoluteTarget));
+      const wikiTarget = normalizeGitPath(
+        path.relative(wikiRoot, absoluteTarget)
+      );
       if (
         !path.isAbsolute(wikiTarget) &&
         !wikiTarget.split('/').some((part) => part.startsWith('.')) &&
         wikiTarget.toLowerCase().endsWith('.md') &&
         !isUnmanifestedOpenWikiMarkdownAllowed(wikiTarget) &&
-        normalizeGitPath(path.relative(wikiRoot, markdownPath)) !== 'INSTRUCTIONS.md'
+        normalizeGitPath(path.relative(wikiRoot, markdownPath)) !==
+          'INSTRUCTIONS.md'
       ) {
-        missingLinks.push({ target: `/openwiki/${wikiTarget}`, page: normalizeGitPath(path.relative(wikiRoot, markdownPath)), line, column, href: rawTarget });
+        missingLinks.push({
+          target: `/openwiki/${wikiTarget}`,
+          page: normalizeGitPath(path.relative(wikiRoot, markdownPath)),
+          line,
+          column,
+          href: rawTarget,
+        });
         continue;
       }
       throw createCliError(
@@ -4369,15 +4870,26 @@ async function assertValidMarkdownLinks(
       !relativeToWiki.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relativeToWiki);
     if (
-      insideWiki && relativeTarget.startsWith('/') &&
+      insideWiki &&
+      relativeTarget.startsWith('/') &&
       relativeToWiki.toLowerCase().endsWith('.md') &&
-      normalizeGitPath(path.relative(wikiRoot, markdownPath)) !== 'INSTRUCTIONS.md'
+      normalizeGitPath(path.relative(wikiRoot, markdownPath)) !==
+        'INSTRUCTIONS.md'
     ) {
       missingLinks.push({
         target: `/openwiki/${normalizeGitPath(relativeToWiki)}`,
-        page: normalizeGitPath(path.relative(wikiRoot, markdownPath)), line, column, href: rawTarget,
+        page: normalizeGitPath(path.relative(wikiRoot, markdownPath)),
+        line,
+        column,
+        href: rawTarget,
         reason: 'visualize_root_link',
-        suggestedHref: normalizeGitPath(path.relative(path.dirname(markdownPath), absoluteTarget)).split('/').map(encodeURIComponent).join('/') + (rawTarget.match(/[?#].*$/u)?.[0] || ''),
+        suggestedHref:
+          normalizeGitPath(
+            path.relative(path.dirname(markdownPath), absoluteTarget)
+          )
+            .split('/')
+            .map(encodeURIComponent)
+            .join('/') + (rawTarget.match(/[?#].*$/u)?.[0] || ''),
       });
     }
     if (

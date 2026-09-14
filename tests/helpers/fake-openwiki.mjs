@@ -66,18 +66,35 @@ if (!fs.existsSync(path.join(wiki, 'INSTRUCTIONS.md'))) {
   process.stderr.write('missing protected instructions');
   process.exit(3);
 }
-if (process.env.FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE === '1' && !fs.existsSync(path.join(wiki, 'architecture map.md'))) {
+if ((process.env.FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE === '1' || (isRepair && process.env.FAKE_OPENWIKI_REPAIR_REQUIRE_EXISTING_PAGE === '1')) && !fs.existsSync(path.join(wiki, 'architecture map.md'))) {
   process.stderr.write('existing terminal page was reset before retry');
   process.exit(11);
 }
+const savedRun = fs.existsSync(path.join(wiki, '.run.json')) ? JSON.parse(fs.readFileSync(path.join(wiki, '.run.json'), 'utf8')) : null;
+if (process.env.FAKE_OPENWIKI_EXPECT_BASELINE_HEAD) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(wiki, '.page-manifest.json'), 'utf8'));
+  if (manifest.pages['/openwiki/architecture map.md'].gitHead !== process.env.FAKE_OPENWIKI_EXPECT_BASELINE_HEAD) process.exit(31);
+}
+if (process.env.FAKE_OPENWIKI_EXPECT_RESUME === '1') {
+  if (!savedRun || savedRun.plan.pages[0].status !== 'complete') process.exit(32);
+  const last = JSON.parse(fs.readFileSync(path.join(wiki, '.last-update.json'), 'utf8'));
+  last.status = 'complete';
+  fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify(last));
+  fs.unlinkSync(path.join(wiki, '.run.json'));
+  finalizeEntrypoints();
+  process.exit(0);
+}
+const runId = (isRepair ? process.env.FAKE_OPENWIKI_REPAIR_RUN_ID : savedRun?.runId || process.env.FAKE_OPENWIKI_RUN_ID) || 'fake-run';
 const interruptedMode = process.env.FAKE_OPENWIKI_INTERRUPTED || '';
-const pageStatus = interruptedMode === 'skipped' ? 'skipped' : 'complete';
-fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId: 'fake-run', mode: 'update', phase: 'generating', plan: { pages: [{ path: '/openwiki/architecture map.md', status: pageStatus }] } }, null, 2) + '\\n');
+const pageStatus = interruptedMode === 'skipped' ? 'skipped' : (!isRepair && (process.env.FAKE_OPENWIKI_FAIL === '1' || process.env.FAKE_OPENWIKI_SLEEP_MS) ? 'pending' : 'complete');
+const initialPages = fs.existsSync(path.join(wiki, 'architecture map.md')) ? ['/openwiki/architecture map.md'] : [];
+const baseGitHead = fs.existsSync(path.join(wiki, '.last-update.json')) ? JSON.parse(fs.readFileSync(path.join(wiki, '.last-update.json'), 'utf8')).gitHead : undefined;
+fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId, mode: 'update', phase: 'generating', initialPages, baseGitHead, plan: { pages: [{ path: '/openwiki/architecture map.md', status: pageStatus, seedPaths: ['README.md#L1-L1'], instructions: [process.env.FAKE_OPENWIKI_PLAN_SECRET || ''] }] } }, null, 2) + '\\n');
 if (process.env.FAKE_OPENWIKI_FAIL === '1') {
   process.stderr.write('simulated provider failure\\n');
   process.exit(7);
 }
-const sleepMs = Number(process.env.FAKE_OPENWIKI_SLEEP_MS || 0);
+const sleepMs = Number((isRepair ? process.env.FAKE_OPENWIKI_REPAIR_SLEEP_MS : undefined) || process.env.FAKE_OPENWIKI_SLEEP_MS || 0);
 if (sleepMs > 0) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sleepMs);
 }
@@ -90,7 +107,7 @@ if (process.env.FAKE_OPENWIKI_ASSERT_RUN_OWNER_IGNORE === '1') {
     process.exit(8);
   }
   const owner = JSON.parse(fs.readFileSync(path.join(root, '.lee-spec-kit', 'openwiki-run.json'), 'utf8'));
-  if (owner.runId !== 'fake-run') {
+  if (owner.runId !== runId) {
     process.stderr.write('lee-spec-kit did not persist the observed OpenWiki run id\\n');
     process.exit(9);
   }
@@ -121,7 +138,7 @@ const claimMode = process.env.FAKE_OPENWIKI_CLAIM_MODE || 'valid';
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const firstLine = (readme.match(/[^\\n]*\\n|[^\\n]+$/gu) || [])[0] || '';
 const validHash = crypto.createHash('sha256').update(firstLine).digest('hex');
-const staleClaim = claimMode === 'stale' || (claimMode === 'stale-first' && updateInvocationCount === 1);
+const staleClaim = claimMode === 'stale' || (claimMode === 'stale-first' && !isRepair && updateInvocationCount === 1);
 const evidenceMode = process.env.FAKE_OPENWIKI_EVIDENCE_MODE || 'line';
 const evidencePath = process.env.FAKE_OPENWIKI_EVIDENCE_PATH || 'README.md';
 let evidenceResource = 'repo://README.md#L1-L1';
@@ -154,7 +171,7 @@ const manifestPages = {
   '/openwiki/architecture map.md': {
     pageVersion,
     completedBy: 'openwiki/0.5.0',
-    completedRunId: 'fake-run',
+    completedRunId: runId,
     gitHead: sourceHead,
     sourceFingerprint: openwikiSourceFingerprint
   }
@@ -201,7 +218,22 @@ fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify({
   status: interruptedMode ? 'interrupted' : 'complete',
   language
 }, null, 2) + '\\n');
+if (process.env.FAKE_OPENWIKI_FAIL_AFTER_PAGE === '1' || process.env.FAKE_OPENWIKI_PAUSE_AFTER_PAGE_MS) {
+  const durable = JSON.parse(fs.readFileSync(path.join(wiki, '.run.json'), 'utf8'));
+  durable.plan.pages[0].status = 'complete';
+  durable.phase = 'finalizing';
+  fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify(durable));
+  const last = JSON.parse(fs.readFileSync(path.join(wiki, '.last-update.json'), 'utf8'));
+  last.status = 'interrupted';
+  fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify(last));
+  if (process.env.FAKE_OPENWIKI_FAIL_AFTER_PAGE === '1') process.exit(7);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.FAKE_OPENWIKI_PAUSE_AFTER_PAGE_MS));
+  last.status = 'complete';
+  fs.writeFileSync(path.join(wiki, '.last-update.json'), JSON.stringify(last));
+}
 fs.unlinkSync(path.join(wiki, '.run.json'));
+finalizeEntrypoints();
+function finalizeEntrypoints() {
 const begin = '<!-- OPENWIKI:START -->';
 const end = '<!-- OPENWIKI:END -->';
 const block = begin + '\\n## OpenWiki\\n\\nRead openwiki/index.md as derived evidence.\\n' + end;
@@ -214,6 +246,7 @@ for (const fileName of ['AGENTS.md', 'CLAUDE.md']) {
     ? current.slice(0, start) + block + current.slice(finish + end.length)
     : current.trimEnd() + (current.trim() ? '\\n\\n' : '') + block + '\\n';
   fs.writeFileSync(target, next);
+}
 }
 if (process.env.FAKE_OPENWIKI_TAMPER_WRITING_SKILL === '1') {
   fs.appendFileSync(path.join(process.env.OPENWIKI_CONFIG_DIR, 'skills', 'lee-spec-kit-technical-writing', 'SKILL.md'), '\\nconcurrent tamper\\n');
