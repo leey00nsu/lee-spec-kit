@@ -608,7 +608,7 @@ async function runLocalCleanup(
   }
 
   const feature = selection.matchedFeature;
-  let context = await resolveLocalIntegrationContext(config, feature);
+  const context = await resolveLocalIntegrationContext(config, feature);
   if (
     !context.integrationComplete ||
     !context.state ||
@@ -663,7 +663,9 @@ async function runLocalCleanup(
     status: 'cleaned',
     cleanedAt: new Date().toISOString(),
   });
-  context = await resolveLocalIntegrationContext(config, feature);
+  // Every cleanup operation and the durable state write succeeded. The resolved
+  // Feature paths may now be deleted, so report the verified integration identity
+  // captured above instead of trying to resolve Git through that removed worktree.
 
   return {
     status: 'ok',

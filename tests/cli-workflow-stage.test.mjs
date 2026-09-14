@@ -4849,6 +4849,32 @@ for (const completionStrategy of ['local-ff', 'local-squash']) {
   });
 }
 
+test('local cleanup returns success after removing its own embedded Feature worktree', async () => {
+  await withTempDir('lsk-cleanup-own-worktree-', async (dir) => {
+    await prepareCompletedLocalFeature(dir);
+    await ignoreGitArtifacts(dir, ['/.worktrees/']);
+    const worktree = path.join(dir, '.worktrees', 'feat-alpha');
+    for (const args of [
+      ['checkout', 'main'],
+      ['worktree', 'add', worktree, 'feat/alpha'],
+    ]) {
+      const result = await runCommand(dir, 'git', args);
+      assert.equal(result.code, 0, result.stderr);
+    }
+    const merge = await runCli(worktree, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
+    assert.equal(merge.code, 0, merge.stdout);
+    const head = (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+    assert.equal((await readStage(worktree)).stage, 'local_cleanup');
+    const cleanup = await runCli(worktree, ['local', 'cleanup', 'F001-alpha', '--json']);
+    assert.equal(cleanup.code, 0, cleanup.stdout);
+    assert.equal(JSON.parse(cleanup.stdout).reasonCode, 'LOCAL_CLEANUP_COMPLETE');
+    assert.equal(await fs.access(worktree).then(() => true, () => false), false);
+    assert.equal((await readStage(dir)).stage, 'done');
+    assert.equal((await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim(), head);
+    assert.equal((await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(), '');
+  });
+});
+
 test('standalone publication uses the integrated project without modifying docs or its Feature worktree', async () => {
   await withTempDir('lsk-standalone-publication-', async (dir) => {
     const { projectRoot, worktreePath } = await prepareCompletedStandaloneLocalFeature(dir, { openwiki: true });
