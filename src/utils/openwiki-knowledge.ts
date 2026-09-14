@@ -1,3 +1,4 @@
+import { matchesKnowledgeLineEvidence } from './knowledge-line-evidence.js';
 import {
   KnowledgeExecution,
   describeKnowledgeValidation,
@@ -1155,16 +1156,28 @@ export async function runOpenWikiSync(
           openWikiConfigDir
         );
 
-        let progress = await runOpenWikiProcess({
-          executablePath: runtime.executablePath,
-          args,
-          projectRoot,
-          openWikiConfigDir,
-          owner,
-          idleTimeoutMs: input.idleTimeoutMs,
-          execution,
-          onProgress: input.onProgress,
-        });
+        const completedOutput =
+          input.baseTarget &&
+          existingOwner &&
+          !existingProgress &&
+          !writingPolicyRegenerationRequired &&
+          (await readOpenWikiLastUpdateStatus(projectRoot)) === 'complete';
+        if (completedOutput) {
+          execution.runId = owner.runId;
+          execution.event('validating_saved_output');
+        }
+        let progress = completedOutput
+          ? undefined
+          : await runOpenWikiProcess({
+              executablePath: runtime.executablePath,
+              args,
+              projectRoot,
+              openWikiConfigDir,
+              owner,
+              idleTimeoutMs: input.idleTimeoutMs,
+              execution,
+              onProgress: input.onProgress,
+            });
         await verifyOpenWikiWritingSkillInstallation(
           writingPolicy,
           openWikiConfigDir
@@ -2083,7 +2096,10 @@ async function runOpenWikiProcess(input: {
       try {
         latestProgress =
           (await readOpenWikiProgress(input.projectRoot)) || latestProgress;
-        if (!latestProgress?.runId && code === 0 && !timeoutCode) {
+        if (
+          !latestProgress?.runId &&
+          (await readOpenWikiLastUpdateStatus(input.projectRoot)) === 'complete'
+        ) {
           const manifest = await fs.readJson(
             path.join(input.projectRoot, OPENWIKI_DIR, '.page-manifest.json')
           );
@@ -2099,7 +2115,11 @@ async function runOpenWikiProcess(input: {
               )
               .filter((id: unknown): id is string => typeof id === 'string')
           );
-          if (ids.size === 1) input.execution.runId = [...ids][0];
+          if (ids.size === 1) {
+            input.execution.runId = [...ids][0];
+            input.owner.runId = input.execution.runId;
+            await writeOpenWikiRunOwner(input.projectRoot, input.owner);
+          }
         }
       } catch {
         /* Missing terminal metadata does not replace the process result. */
@@ -2309,7 +2329,10 @@ export async function inspectOpenWikiResume(input: {
   await assertManagedOpenWikiPathsReadSafe(root);
   const owner = await readOpenWikiRunOwner(root);
   const runPath = path.join(root, OPENWIKI_DIR, '.run.json');
-  if (!owner || !(await fs.pathExists(runPath))) return null;
+  if (!owner) return null;
+  const hasQueue = await fs.pathExists(runPath);
+  if (!hasQueue && (await readOpenWikiLastUpdateStatus(root)) !== 'complete')
+    return null;
   if (
     owner.featureRef !== input.featureRef ||
     owner.component !== input.component ||
@@ -2349,6 +2372,19 @@ export async function inspectOpenWikiResume(input: {
       'OPENWIKI_PROTECTED_CONTENT_CHANGED',
       'Saved publication writing instructions changed; no generation was started.'
     );
+  if (!hasQueue) {
+    if (!owner.runId) return null;
+    return {
+      runId: owner.runId,
+      completedPages: Object.keys(
+        (
+          await fs.readJson(
+            path.join(root, OPENWIKI_DIR, '.page-manifest.json')
+          )
+        ).pages || {}
+      ).length,
+    };
+  }
   const run = await fs.readJson(runPath);
   if (
     typeof run.runId !== 'string' ||
@@ -3819,6 +3855,7 @@ async function verifyOpenWikiEvidenceIntegrity(
     endLine: number;
     location: string;
     expectedHash?: string;
+    evidenceVersion?: string;
     allowTrailingEofBoundary?: boolean;
   }): boolean => {
     const relativePath = resolveEvidencePath(input.rawPath, input.location);
@@ -3863,7 +3900,11 @@ async function verifyOpenWikiEvidenceIntegrity(
       input.startLine <= lines.length &&
       input.endLine === lines.length + 1 &&
       content.endsWith('\n');
-    if (input.endLine > lines.length && !usesTrailingEofBoundary) {
+    if (
+      !input.expectedHash &&
+      input.endLine > lines.length &&
+      !usesTrailingEofBoundary
+    ) {
       (input.expectedHash ? staleFailures : citationFailures).record(
         `${input.location} exceeds ${relativePath}'s ${lines.length} lines: L${input.startLine}-L${input.endLine}`,
         !input.expectedHash,
@@ -3872,10 +3913,15 @@ async function verifyOpenWikiEvidenceIntegrity(
       return false;
     }
     if (input.expectedHash) {
-      const actualHash = createHash('sha256')
-        .update(lines.slice(input.startLine - 1, input.endLine).join(''))
-        .digest('hex');
-      if (actualHash !== input.expectedHash) {
+      if (
+        !matchesKnowledgeLineEvidence(
+          lines,
+          input.startLine,
+          input.endLine,
+          input.expectedHash,
+          input.evidenceVersion || ''
+        )
+      ) {
         staleFailures.record(
           `${input.location} has stale line evidence for ${relativePath}#L${input.startLine}-L${input.endLine}`,
           true,
@@ -3923,6 +3969,7 @@ async function verifyOpenWikiEvidenceIntegrity(
                 endLine: Number(lineResourceMatch[3] || lineResourceMatch[2]),
                 location,
                 expectedHash: lineVersionMatch[1],
+                evidenceVersion: version,
               })
             ) {
               repoLineEvidenceValidated += 1;

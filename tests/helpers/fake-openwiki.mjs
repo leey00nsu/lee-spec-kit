@@ -143,7 +143,13 @@ const evidenceMode = process.env.FAKE_OPENWIKI_EVIDENCE_MODE || 'line';
 const evidencePath = process.env.FAKE_OPENWIKI_EVIDENCE_PATH || 'README.md';
 let evidenceResource = 'repo://README.md#L1-L1';
 let evidenceVersion = 'repo-lines-v1:sha256:' + (staleClaim ? '0'.repeat(64) : validHash) + ':fixture';
-if (evidenceMode === 'file' || evidenceMode === 'file-stale') {
+if (evidenceMode === 'relocated') {
+  const lines = readme.match(/[^\\n]*\\n|[^\\n]+$/gu) || [];
+  const index = lines.findIndex(line => line === '# Demo\\n');
+  const hash = text => crypto.createHash('sha256').update(text).digest('hex');
+  const metadata = { selectedLineCount: 1, firstSelectedLineHash: hash(lines[index]), lastSelectedLineHash: hash(lines[index]), precedingContextLineCount: Math.min(index, 3), precedingContextHash: hash(lines.slice(Math.max(0,index-3),index).join('')), followingContextLineCount: Math.min(lines.length-index-1,3), followingContextHash: hash(lines.slice(index+1,index+4).join('')) };
+  evidenceVersion = 'repo-lines-v1:sha256:' + hash(lines[index]) + ':' + Buffer.from(JSON.stringify(metadata)).toString('base64url');
+} else if (evidenceMode === 'file' || evidenceMode === 'file-stale') {
   const fileHash = crypto.createHash('sha256').update(fs.readFileSync(path.join(root, evidencePath))).digest('hex');
   evidenceResource = 'repo://' + evidencePath;
   evidenceVersion = 'repo-file-v1:sha256:' + (evidenceMode === 'file-stale' ? '0'.repeat(64) : fileHash);
@@ -254,6 +260,7 @@ if (process.env.FAKE_OPENWIKI_TAMPER_WRITING_SKILL === '1') {
 if (isRepair && process.env.FAKE_OPENWIKI_REPAIR_SOURCE_DRIFT === '1') {
   fs.appendFileSync(path.join(root, 'README.md'), '\\nsource drift during repair\\n');
 }
+if (process.env.FAKE_OPENWIKI_FAIL_AFTER_FINISH === '1') process.exit(7);
 process.stdout.write('updated\\n');
 `,
     'utf-8'

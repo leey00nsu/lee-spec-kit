@@ -3589,3 +3589,68 @@ test('publication refuses a damaged baseline instead of silently regenerating', 
     );
   });
 });
+
+test('publication validates relocated evidence without model repair', async () => {
+  await withTempDir('lsk-relocated-evidence-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const fake = await setupFakeOpenWiki(dir);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
+    await fs.writeFile(
+      path.join(dir, 'README.md'),
+      'Prepended\n# Demo\nTail\n'
+    );
+    await git(dir, ['add', 'README.md']);
+    await git(dir, ['commit', '-m', 'docs: prepend introduction']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const result = await runCli(
+      dir,
+      ['knowledge', 'publish', '--ci', '--json'],
+      {
+        ...fake.env,
+        FAKE_OPENWIKI_EVIDENCE_MODE: 'relocated',
+      }
+    );
+    assert.equal(json(result).status, 'ok', result.stdout);
+    assert.doesNotMatch(result.stderr, /validation_failed|"stage":"retry"/u);
+    assert.equal(
+      (await fs.readFile(fake.invocationLog, 'utf8'))
+        .split('\n')
+        .filter((line) => line.startsWith('code --update')).length,
+      1
+    );
+  });
+});
+
+test('publication verifies a completed saved run without another generation call', async () => {
+  await withTempDir('lsk-verify-completed-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const fake = await setupFakeOpenWiki(dir);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const first = json(
+      await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], {
+        ...fake.env,
+        FAKE_OPENWIKI_FAIL_AFTER_FINISH: '1',
+      })
+    );
+    assert.equal(first.reasonCode, 'OPENWIKI_SYNC_FAILED', first.error);
+    assert.equal(first.details.resumable, true);
+    const before = (await fs.readFile(fake.invocationLog, 'utf8'))
+      .split('\n')
+      .filter((line) => line.startsWith('code --update'));
+    const next = await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], {
+      ...fake.env,
+      FAKE_OPENWIKI_FAIL: '1',
+    });
+    assert.equal(json(next).status, 'ok', next.stdout);
+    assert.match(next.stderr, /validating_saved_output/u);
+    assert.deepEqual(
+      (await fs.readFile(fake.invocationLog, 'utf8'))
+        .split('\n')
+        .filter((line) => line.startsWith('code --update')),
+      before
+    );
+  });
+});
