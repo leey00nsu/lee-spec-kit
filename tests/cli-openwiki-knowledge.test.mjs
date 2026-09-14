@@ -3622,6 +3622,87 @@ test('publication validates relocated evidence without model repair', async () =
   });
 });
 
+test('knowledge apply updates the reader tree without generation and preserves dirty or damaged inputs', async () => {
+  await withTempDir('lsk-apply-publication-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const fake = await setupFakeOpenWiki(dir);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const head = (await git(dir, ['rev-parse', 'HEAD'])).stdout.trim();
+    const published = json(await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env));
+    assert.equal(published.status, 'ok');
+    const calls = await fs.readFile(fake.invocationLog, 'utf8');
+    const status = () => runCli(dir, ['knowledge', 'status', '--json']).then(json);
+    assert.equal((await status()).workingCopy.current, false);
+    await ignoreGitArtifacts(dir, ['/openwiki/local-note.txt']);
+    await fs.mkdir(path.join(dir, 'openwiki'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'openwiki', 'local-note.txt'), 'ignored local notes');
+    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_APPLY_DIRTY_WORKTREE');
+    await fs.rm(path.join(dir, 'openwiki', 'local-note.txt'));
+    await fs.writeFile(path.join(dir, 'uncommitted.txt'), 'preserve me');
+    const dirty = json(await runCli(dir, ['knowledge', 'apply', '--json']));
+    assert.equal(dirty.reasonCode, 'OPENWIKI_APPLY_DIRTY_WORKTREE');
+    assert.equal((await git(dir, ['rev-parse', 'HEAD'])).stdout.trim(), head);
+    await fs.rm(path.join(dir, 'uncommitted.txt'));
+    const index = path.join(published.artifactPath, 'openwiki', 'index.md');
+    const saved = await fs.readFile(index);
+    await fs.appendFile(index, '\ncorrupted artifact');
+    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_PUBLICATION_REQUIRED');
+    await fs.writeFile(index, saved);
+    const applied = json(await runCli(dir, ['knowledge', 'apply', '--json'], { ...fake.env, FAKE_OPENWIKI_FAIL: '1' }));
+    assert.equal(applied.status, 'ok', JSON.stringify(applied));
+    assert.equal(applied.reasonCode, 'OPENWIKI_APPLIED');
+    assert.equal(await fs.readFile(fake.invocationLog, 'utf8'), calls);
+    assert.equal((await status()).workingCopy.current, true);
+    assert.deepEqual(await fs.readFile(path.join(dir, 'openwiki', 'index.md')), saved);
+    assert.equal((await git(dir, ['status', '--porcelain'])).stdout.trim(), '');
+    assert.equal((await git(dir, ['rev-parse', 'HEAD^'])).stdout.trim(), head);
+    const paths = (await git(dir, ['diff', '--name-only', head, 'HEAD'])).stdout.trim().split('\n');
+    assert.ok(paths.every((p) => p.startsWith('openwiki/') || p === '.lee-spec-kit/openwiki-sync.json'));
+    const again = json(await runCli(dir, ['knowledge', 'apply', '--json']));
+    assert.equal(again.unchanged, true);
+    assert.equal(again.commit, applied.commit);
+    await fs.mkdir(path.join(dir, '.codex'), { recursive: true });
+    await fs.writeFile(path.join(dir, '.codex', 'tooling-note.txt'), 'tooling only');
+    await git(dir, ['add', '.codex/tooling-note.txt']);
+    await git(dir, ['commit', '-m', 'chore: update tooling']);
+    assert.equal((await status()).workingCopy.current, true);
+    await fs.appendFile(path.join(dir, 'openwiki', 'index.md'), '\nlocal edit');
+    assert.equal((await status()).workingCopy.current, false);
+    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_APPLY_DIRTY_WORKTREE');
+  });
+});
+
+test('knowledge apply preserves main on commit failure and refuses a newer source revision', async () => {
+  await withTempDir('lsk-apply-failure-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const fake = await setupFakeOpenWiki(dir);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const published = json(await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env));
+    assert.equal(published.status, 'ok');
+    const head = (await git(dir, ['rev-parse', 'HEAD'])).stdout.trim();
+    const ref = (await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])).stdout.trim();
+    const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
+    await git(dir, ['config', 'core.hooksPath', '.git/hooks']);
+    await fs.writeFile(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const failed = json(await runCli(dir, ['knowledge', 'apply', '--json']));
+    assert.equal(failed.reasonCode, 'OPENWIKI_APPLY_FAILED');
+    assert.equal((await git(dir, ['rev-parse', 'HEAD'])).stdout.trim(), head);
+    assert.equal((await git(dir, ['status', '--porcelain'])).stdout.trim(), '');
+    assert.equal((await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])).stdout.trim(), ref);
+    await fs.access(failed.details.worktree);
+    await fs.rm(hook);
+    await fs.appendFile(path.join(dir, 'README.md'), '\nNew source change\n');
+    await git(dir, ['add', 'README.md']);
+    await git(dir, ['commit', '-m', 'feat: newer source']);
+    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_PUBLICATION_REQUIRED');
+    assert.equal((await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])).stdout.trim(), ref);
+  });
+});
+
 test('publication verifies a completed saved run without another generation call', async () => {
   await withTempDir('lsk-verify-completed-', async (dir) => {
     await initializeOpenWikiFeature(dir);

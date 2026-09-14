@@ -4844,6 +4844,9 @@ for (const completionStrategy of ['local-ff', 'local-squash']) {
       await fs.writeFile(index, saved);
       const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
       assert.equal(cleanup.code, 0, cleanup.stdout);
+      assert.equal((await readStage(dir)).stage, 'knowledge_apply');
+      const applied = await runCli(dir, ['knowledge', 'apply', '--json']);
+      assert.equal(applied.code, 0, applied.stdout);
       assert.equal((await readStage(dir)).stage, 'done');
     });
   });
@@ -4894,6 +4897,9 @@ test('standalone publication uses the integrated project without modifying docs 
     }
     const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
     assert.equal(cleanup.code, 0, cleanup.stdout);
+    assert.equal((await readStage(dir)).stage, 'knowledge_apply');
+    const applied = await runCli(dir, ['knowledge', 'apply', '--json']);
+    assert.equal(applied.code, 0, applied.stdout);
     assert.equal((await readStage(dir)).stage, 'done');
   });
 });

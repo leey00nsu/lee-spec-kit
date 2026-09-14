@@ -133,11 +133,11 @@ export async function readKnowledgePublication(
       if (
         !config ||
         manifest.sourceScopeVersion !== 2 ||
-        !isToolingOnlyRevisionChange(
+        (!isToolingOnlyRevisionChange(
           projectRoot,
           manifest.sourceHead,
           sourceHead
-        )
+        ) && !isKnowledgeApplicationRevision(projectRoot, manifest.sourceHead, sourceHead))
       )
         return null;
       const previous = computeSourceFingerprintAtRef(
@@ -170,6 +170,13 @@ export async function readKnowledgePublication(
   } catch {
     return null;
   }
+}
+
+function isKnowledgeApplicationRevision(root: string, before: string, after: string): boolean {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', before, after], { cwd: root, stdio: 'pipe' });
+    return isToolingOnlyRevisionChange(root, before, after, true);
+  } catch { return false; }
 }
 
 /** Resolve stale status without mutating a concurrent publisher's state. */

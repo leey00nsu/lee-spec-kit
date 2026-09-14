@@ -58,6 +58,7 @@ import {
   OPENWIKI_RECEIPT_PATH,
 } from './openwiki-knowledge.js';
 import { readKnowledgePublication } from './knowledge-publication.js';
+import { readKnowledgeView } from './knowledge-apply.js';
 
 export type WorkflowStageId =
   | 'workspace'
@@ -74,6 +75,7 @@ export type WorkflowStageId =
   | 'task_review_fix'
   | 'knowledge_setup'
   | 'knowledge_sync'
+  | 'knowledge_apply'
   | 'knowledge_commit'
   | 'implementation_approve'
   | 'feature_verify'
@@ -114,6 +116,7 @@ export interface WorkflowStageAction {
     | 'task_review_fix'
     | 'knowledge_setup'
     | 'knowledge_sync'
+    | 'knowledge_apply'
     | 'knowledge_commit'
     | 'implementation_approve'
     | 'feature_checks_configure'
@@ -262,6 +265,7 @@ export interface WorkflowStagePayload {
     | 'TASK_REVIEW_NOT_APPROVED'
     | 'KNOWLEDGE_SETUP_REQUIRED'
     | 'KNOWLEDGE_SYNC_REQUIRED'
+    | 'KNOWLEDGE_APPLY_REQUIRED'
     | 'KNOWLEDGE_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
     | 'FEATURE_CHECKS_NOT_CONFIGURED'
@@ -4234,6 +4238,18 @@ async function collectWorkflowStageCore(
     if (localState.cleanedIntegrationStillValid) {
       if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
       if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
+      if (isOpenWikiEnabled(config)) {
+        const view = await readKnowledgeView(localState.projectRoot, config);
+        if (!view.current) return {
+          status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+          featureRef: buildFeatureRef(feature), stage: view.artifactPath ? 'knowledge_apply' : 'knowledge_sync',
+          nextAction: buildAction(view.artifactPath ? 'knowledge_apply' : 'knowledge_sync',
+            view.artifactPath ? 'Apply the verified publication to the project openwiki/ tree as a Knowledge-only commit. No model generation is needed.' : 'Publish Knowledge for the current integrated source before applying it.', false,
+            view.artifactPath ? `npx lee-spec-kit knowledge apply --component ${feature.type} --json` : `npx lee-spec-kit knowledge publish ${buildFeatureArgs(feature)} --json`),
+          approvalRequired: false, implementationAllowed: false,
+          blockedReasonCode: view.artifactPath ? 'KNOWLEDGE_APPLY_REQUIRED' : 'KNOWLEDGE_SYNC_REQUIRED',
+        };
+      }
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',

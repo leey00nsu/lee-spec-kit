@@ -88,7 +88,7 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 - `integrations codex`: 선택적 전역 `[features].hooks` 설정 설치/제거
 - `commit-audit --json`: hooks용 commit-time docs path + canonical commit subject validator
 - `workflow-audit --json`: hooks용 docs sync validator
-- `knowledge doctor|publish|status|ci`: 통합 후 OpenWiki 생성 환경 준비·발행·상태 확인·CI 설정
+- `knowledge doctor|publish|apply|status|ci`: 통합 후 OpenWiki 생성 환경 준비·발행·상태 확인·CI 설정
 - `knowledge migrate [--apply] --json`: 기존 Feature의 문서 영향 판정 도입 상태를 dry-run하고, 안전한 대상만 명시적으로 grandfather 처리
 - `local verify <feature-ref> --json`: local Feature worktree에서 검사를 실행하고 결과를 정확한 tip/tree에 결속
 - `local merge <feature-ref> --json`: 검증된 local Feature를 설정된 fast-forward 또는 squash 전략으로 base branch에 통합
@@ -111,9 +111,9 @@ npx lee-spec-kit config --openwiki true
 
 OpenWiki 도입만으로 기존 문서의 낡은 내용이 자동 복구되지는 않습니다. 기존 프로젝트는 `knowledge migrate`로 workflow 호환 대상을 분류하는 것과 별개로, PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 현재 코드와 한 번 수동 대조해 기준선을 맞춰야 합니다.
 
-동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 게시 과정의 생성 어댑터와 레거시 `sync`·`audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 증분 갱신이 완료됐더라도 이 근거 검증이 실패하면 `INSTRUCTIONS.md`를 보존한 채 생성물만 비우고 같은 update 경로를 한 번 재실행하며, 그래도 실패하면 receipt를 갱신하지 않습니다. 기본값은 lock 획득 30초, 무진행 10분, 최초 생성 절대 상한 90분, 증분 갱신 절대 상한 30분입니다. 필요할 때 `knowledge publish`의 `--lock-timeout-ms`, `--idle-timeout-ms`, `--absolute-timeout-ms`로 한 번만 덮어쓸 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
+동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 게시 과정의 생성 어댑터와 레거시 `sync`·`audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 근거 검증이 실패하면 진단과 생성물을 보존하고, 대상을 특정할 수 있는 오류에만 한 차례 부분 복구를 요청한 뒤 전체 검증을 반복합니다. OpenWiki의 줄 위치 변경 메타데이터를 해석하되 정확한 내용 해시가 일치해야 합니다. 기본 lock 대기는 30초이고 무진행·전체 실행 시간 제한은 기본적으로 없습니다. 필요할 때 `--idle-timeout-ms`, `--absolute-timeout-ms`를 명시하며 전체 제한은 검증과 모든 재시도를 포함합니다. `--lock-timeout-ms`로 lock 대기를 조정할 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 
-`knowledge publish` 결과의 `artifactPath` 안에서 `openwiki visualize ./openwiki`로 게시본을 확인합니다. `knowledge status`는 마지막 실행과 정상 게시 기록을 보여 줍니다. 기존 `knowledge sync`/`audit`는 in-place 생성물 호환용이며 Feature 자동 흐름에서 사용하지 않습니다.
+`knowledge publish`는 검증본을 `artifactPath`에 저장합니다. local workflow는 cleanup 뒤 `knowledge apply`로 검증본을 프로젝트의 `openwiki/`와 receipt에 반영한 다음 완료됩니다. `apply`는 LLM을 호출하지 않고 임시 worktree에서 문서·출처·정책 검증을 다시 수행하며, 문서 전용 커밋을 준비해 기준 브랜치에 fast-forward로 반영합니다. 기존 코드와 사용자 설정은 수정하지 않습니다. 작업 디렉터리가 변경됐거나 게시본이 손상됐으면 덮어쓰지 않고 차단합니다. `knowledge status`의 `workingCopy.current`는 평소 보는 `openwiki/`가 게시본과 같은지도 표시합니다. CI는 계속 artifact만 게시하며, 로컬 반영은 `knowledge apply`로 실행합니다. 기존 `knowledge sync`/`audit`는 in-place 생성물 호환용입니다.
 
 OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에 접근하는 외부 에이전트입니다. lee-spec-kit은 변경 경로·보호 파일·출력 내 고신뢰 secret 패턴을 검증하지만 OS sandbox는 제공하지 않으므로, 신뢰할 수 있는 저장소와 격리된 실행 환경에서만 활성화하고 로컬·ignored secret 관리는 운영자가 책임져야 합니다.
 

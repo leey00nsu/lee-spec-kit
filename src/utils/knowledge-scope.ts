@@ -92,7 +92,8 @@ export function withoutToolingBlock(content: string): string {
 export function isToolingOnlyRevisionChange(
   root: string,
   before: string,
-  after: string
+  after: string,
+  includePublishedKnowledge = false
 ): boolean {
   const changed = runGitCapture(
     ['diff', '--name-only', '--no-renames', '-z', before, after],
@@ -103,6 +104,7 @@ export function isToolingOnlyRevisionChange(
     .split('\0')
     .filter(Boolean)
     .every((file) => {
+      if (includePublishedKnowledge && (file.startsWith('openwiki/') || file === '.lee-spec-kit/openwiki-sync.json')) return true;
       if (
         path.posix.basename(file) === '.lee-spec-kit.json' ||
         file.startsWith('.codex/')

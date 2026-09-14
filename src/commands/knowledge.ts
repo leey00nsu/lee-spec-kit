@@ -1,4 +1,5 @@
 import type { KnowledgeExecutionEvent } from '../utils/knowledge-execution.js';
+import { applyKnowledge, readKnowledgeView } from '../utils/knowledge-apply.js';
 import { Command } from 'commander';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -229,6 +230,23 @@ export function knowledgeCommand(program: Command): void {
     });
 
   knowledge
+    .command('apply')
+    .description('Apply the verified publication to openwiki/ as a Knowledge-only commit; never calls a model')
+    .option('--component <component>', 'Component name for standalone multi projects')
+    .option('--json', 'Output JSON')
+    .action(async (options: KnowledgeOptions) => {
+      await handleKnowledgeAction(options, async () => {
+        const config = await getConfig(process.cwd());
+        if (!config) throw createCliError('CONFIG_NOT_FOUND', 'Run init first.');
+        const roots = config.docsRepo === 'standalone'
+          ? resolveStandaloneProjectRoots(config, options.component)
+          : [resolveGitPrimaryWorktreeRoot(process.cwd())];
+        if (roots.length !== 1) throw createCliError('COMPONENT_SELECTION_REQUIRED', 'Select exactly one project component.');
+        return applyKnowledge(roots[0], config);
+      });
+    });
+
+  knowledge
     .command('status')
     .description(
       'Read the last publication attempt and last successful artifact'
@@ -257,6 +275,7 @@ export function knowledgeCommand(program: Command): void {
           reasonCode: 'OPENWIKI_PUBLICATION_STATUS',
           attempt,
           latest,
+          ...(config ? { workingCopy: await readKnowledgeView(roots[0], config) } : {}),
         };
       });
     });

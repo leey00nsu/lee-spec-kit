@@ -3344,6 +3344,69 @@ async function assertExistingOpenWikiOkfCompatible(
   );
 }
 
+/** Verify in an isolated preparation worktree only. The legacy receipt hash includes
+ * CLI-owned agent/ignore blocks that are not carried in the artifact. Reconstruct
+ * those deterministic blocks for full receipt validation, then restore every byte
+ * of checkout configuration before preparing the Knowledge-only commit.
+ */
+export async function verifyPublishedKnowledgeOutput(
+  projectRoot: string,
+  config: ProjectConfig,
+  receipt: OpenWikiReceipt
+): Promise<void> {
+  await assertManagedOpenWikiPathsReadSafe(projectRoot);
+  const docsDir = resolveOpenWikiDocsDir(projectRoot, config.docsDir);
+  const policy = await resolveOpenWikiWritingPolicy(config.lang);
+  await verifyProtectedEntrypointsAgainstHead(projectRoot);
+  const originalFiles = new Map<string, Buffer | null>();
+  for (const file of ['AGENTS.md', 'CLAUDE.md', OPENWIKI_IGNORE_PATH]) {
+    const target = path.join(projectRoot, file);
+    originalFiles.set(
+      file,
+      (await fs.pathExists(target)) ? await fs.readFile(target) : null
+    );
+  }
+  try {
+    const preserved = await snapshotProtectedContent(projectRoot);
+    for (const file of ['AGENTS.md', 'CLAUDE.md'])
+      if (!originalFiles.get(file))
+        await fs.writeFile(path.join(projectRoot, file), '');
+    await normalizeManagedEntrypoints(projectRoot, preserved);
+    await ensureManagedOpenWikiIgnore(projectRoot, docsDir);
+    await verifyCurrentOpenWikiOutput(projectRoot, docsDir, policy);
+    const instructions = await inspectOpenWikiWritingPolicy(
+      path.join(projectRoot, OPENWIKI_DIR, 'INSTRUCTIONS.md'),
+      policy,
+      receipt.writingPolicy
+    );
+    if (
+      !instructions.current ||
+      receipt.language !== config.lang ||
+      receipt.sourceFingerprint !==
+        computeSourceFingerprint(projectRoot, docsDir) ||
+      receipt.outputHash !== (await computeOpenWikiOutputHash(projectRoot))
+    )
+      throw createCliError(
+        'OPENWIKI_OUTPUT_INVALID',
+        'Copied Knowledge does not match its source, policy or receipt.'
+      );
+    await verifyOpenWikiEvidenceIntegrity(projectRoot, {
+      sourceHead: receipt.sourceHead,
+      sourceFingerprint: receipt.sourceFingerprint,
+      docsDir,
+      language: receipt.language,
+      okfVersion: receipt.okfVersion,
+      receiptSchemaVersion: receipt.schemaVersion,
+      allowHeadFallback: false,
+    });
+  } finally {
+    for (const [file, content] of originalFiles) {
+      if (content === null) await fs.remove(path.join(projectRoot, file));
+      else await fs.writeFile(path.join(projectRoot, file), content);
+    }
+  }
+}
+
 async function verifyCurrentOpenWikiOutput(
   projectRoot: string,
   docsDir: string,
