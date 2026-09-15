@@ -1759,15 +1759,19 @@ function buildManagedWorktreeCreateCommand(
     branchName
   );
   const worktreeParent = path.dirname(worktreePath);
-  const staleCleanupCommand = buildManagedWorktreeStaleCleanupCommand(
-    projectRoot,
-    worktreePath
-  );
+  // Only destructive cleanup is needed when a leftover directory blocks creation.
+  // Emitting it unconditionally makes the command unapprovable in sandboxes that
+  // reject recursive deletes, so keep the common path non-destructive.
+  const staleCleanupCommand =
+    fs.pathExistsSync(worktreePath) &&
+    !isRegisteredGitWorktree(projectRoot, worktreePath)
+      ? `${buildManagedWorktreeStaleCleanupCommand(projectRoot, worktreePath)} && `
+      : '';
   const envCopyCommand = buildManagedWorktreeEnvCopyCommand(
     projectRoot,
     worktreePath
   );
-  return `${staleCleanupCommand} && mkdir -p "${worktreeParent}" && (git -C "${projectRoot}" worktree add "${worktreePath}" "${branchName}" || git -C "${projectRoot}" worktree add -b "${branchName}" "${worktreePath}") && ${envCopyCommand}`;
+  return `${staleCleanupCommand}mkdir -p "${worktreeParent}" && (git -C "${projectRoot}" worktree add "${worktreePath}" "${branchName}" || git -C "${projectRoot}" worktree add -b "${branchName}" "${worktreePath}") && ${envCopyCommand}`;
 }
 
 function resolveRemotePrMergeMeta(

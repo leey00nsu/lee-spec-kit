@@ -1887,6 +1887,8 @@ test('workflow-stage uses managed worktree creation for standalone projects', as
         `git -C "${normalizedProjectRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" worktree add "${path.join(normalizedWorkspaceRoot, '.worktrees', path.basename(normalizedProjectRoot)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
       )
     );
+    // A fresh Feature must not require a recursive delete to create its worktree.
+    assert.doesNotMatch(payload.nextAction.command || '', /rm -rf/u);
     assert.equal(payload.approvalRequired, false);
     assert.equal(payload.implementationAllowed, false);
   });
