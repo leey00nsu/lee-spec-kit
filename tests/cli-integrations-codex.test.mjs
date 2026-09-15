@@ -1851,6 +1851,84 @@ Alpha issue draft.
   );
 });
 
+test('generated pre-tool hook resolves isolated local Feature planning for an exact worktree command', async () => {
+  await withTempDir('lsk-hook-isolated-local-feature-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    const docsRoot = path.join(dir, 'docs');
+    await fs.mkdir(projectRoot, { recursive: true });
+    for (const root of [projectRoot]) {
+      await fs.mkdir(root, { recursive: true });
+      assert.equal((await runCommand(root, 'git', ['init', '-b', 'main'])).code, 0);
+      await fs.writeFile(path.join(root, '.gitignore'), 'node_modules/\n');
+      assert.equal((await runCommand(root, 'git', ['add', '.'])).code, 0);
+      assert.equal((await runCommand(root, 'git', ['commit', '-m', 'baseline'])).code, 0);
+    }
+    const init = await runCli(dir, [
+      'init', '--non-interactive', '--name', 'demo', '--type', 'single',
+      '--lang', 'en', '--workflow', 'local', '--docs-repo', 'standalone',
+      '--project-root', './project', '--dir', './docs',
+    ]);
+    assert.equal(init.code, 0, init.stderr || init.stdout);
+    assert.equal((await runCommand(docsRoot, 'git', ['init', '-b', 'main'])).code, 0);
+    const configPath = path.join(docsRoot, '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
+    config.workflow.agentReview.plan.enabled = false;
+    await fs.writeFile(configPath, JSON.stringify(config));
+    const created = await runCli(dir, ['feature', 'production-readiness-p0-p1', '--non-interactive', '--json']);
+    assert.equal(created.code, 0, created.stderr || created.stdout);
+    const feature = JSON.parse(created.stdout);
+    assert.equal((await runCommand(docsRoot, 'git', ['add', '.'])).code, 0);
+    assert.equal((await runCommand(docsRoot, 'git', ['commit', '-m', `docs(${feature.featureId}): seed`])).code, 0);
+    const prepared = await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']);
+    assert.equal(prepared.code, 0, prepared.stderr || prepared.stdout);
+    const isolatedDocs = JSON.parse(prepared.stdout).docsDirectory;
+    const featureDir = path.join(isolatedDocs, 'features', `${feature.featureId}-production-readiness-p0-p1`);
+    for (const filename of ['spec.md', 'plan.md']) {
+      const filepath = path.join(featureDir, filename);
+      let content = (await fs.readFile(filepath, 'utf8')).replace(/- \*\*Status\*\*: .*/u, '- **Status**: Approved');
+      if (filename === 'plan.md') content = completeNoImpactAssessment(content);
+      await fs.writeFile(filepath, content);
+    }
+    await fs.writeFile(path.join(featureDir, 'tasks.md'), `# Tasks\n\n- **문서 상태**: Approved\n- **브랜치**: \`feat/${feature.featureId}-production-readiness-p0-p1\`\n\n## 태스크 목록\n\n- [TODO][NON-PRD] T-${feature.featureId}-01 implement limits\n  - Acceptance:\n    - rejects excess requests\n  - Checklist:\n    - [ ] add bounded admission\n`);
+    const installed = await runCli(dir, ['integrations', 'codex-hooks']);
+    assert.equal(installed.code, 0, installed.stderr || installed.stdout);
+    const stageResult = await runCli(isolatedDocs, ['workflow-stage', feature.featureId, '--json']);
+    assert.equal(stageResult.code, 0, stageResult.stderr || stageResult.stdout);
+    const stage = JSON.parse(stageResult.stdout);
+    assert.equal(stage.nextAction.category, 'branch_create', stageResult.stdout);
+    const primaryStage = JSON.parse((await runCli(dir, ['workflow-stage', feature.featureId, '--json'])).stdout);
+    assert.equal(primaryStage.nextAction.category, 'workspace_enter');
+    assert.equal(primaryStage.nextAction.docsDirectory, isolatedDocs);
+    const hookPath = path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs');
+    for (const cwd of [dir, isolatedDocs, projectRoot]) {
+      const result = await runCommand(dir, process.execPath, [hookPath], {
+        input: JSON.stringify({ cwd, tool_input: { command: stage.nextAction.command } }),
+      });
+      assert.equal(result.code, 0, result.stderr || result.stdout);
+      assert.equal(result.stdout.trim(), '', `cwd=${cwd}: ${result.stdout}`);
+    }
+    const tampered = await runCommand(dir, process.execPath, [hookPath], {
+      input: JSON.stringify({ cwd: isolatedDocs, tool_input: { command: `${stage.nextAction.command} && git push` } }),
+    });
+    assert.equal(JSON.parse(tampered.stdout).decision, 'block');
+    const specPath = path.join(featureDir, 'spec.md');
+    const approvedSpec = await fs.readFile(specPath, 'utf8');
+    await fs.writeFile(specPath, approvedSpec.replace('- **Status**: Approved', '- **Status**: Review'));
+    const unapproved = await runCommand(dir, process.execPath, [hookPath], {
+      input: JSON.stringify({ cwd: dir, tool_input: { command: stage.nextAction.command } }),
+    });
+    assert.equal(JSON.parse(unapproved.stdout).decision, 'block');
+    await fs.writeFile(specPath, approvedSpec);
+    assert.equal((await runCommand(isolatedDocs, 'git', ['checkout', '--detach'])).code, 0);
+    const mismatched = JSON.parse((await runCli(dir, ['workflow-stage', feature.featureId, '--json'])).stdout);
+    assert.equal(mismatched.nextAction.category, 'workspace_prepare');
+    const wrongBranch = await runCommand(dir, process.execPath, [hookPath], {
+      input: JSON.stringify({ cwd: dir, tool_input: { command: stage.nextAction.command } }),
+    });
+    assert.equal(JSON.parse(wrongBranch.stdout).decision, 'block');
+  });
+});
+
 test('generated pre-tool hook blocks project commit from workspace root when standalone docs are not synced', async () => {
   await withTempDir(
     'lsk-codex-hook-pre-tool-standalone-project-',

@@ -87,7 +87,7 @@ The main agent owns transitions. Update acceptance/checklist evidence first, rer
 
 For new standalone Features, commit seed docs and run the returned `workspace prepare <id>` action. Continue from its `docsDirectory`. After code integration is verified, follow `workspace merge-docs <id>` and `workspace cleanup-docs <id>`. Use `workspace sync-docs <id>` to merge an advanced docs base into the Feature worktree and resolve conflicts there. A Git receipt preserves docs integration evidence across docs clones; it does not replace project verification records.
 
-New embedded Features use `workspace_checkpoint` before worktree creation and `workspace_enter` when they must switch execution directories. These are workflow action categories, not `workspace` subcommands. Follow the returned command and workingDirectory.
+New embedded Features use `workspace_checkpoint` before worktree creation and `workspace_enter` when they must switch execution directories. These are workflow action categories, not `workspace` subcommands. Follow the returned command and workingDirectory. A prepared standalone Feature reports `workspace_enter` with its docs worktree `docsDirectory`; run subsequent Feature commands from there.
 
 ### `feature-audit`
 

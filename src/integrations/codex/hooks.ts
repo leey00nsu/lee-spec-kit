@@ -1179,7 +1179,26 @@ if (stageBoundAction || isPotentialMergeCleanupCommand || hasUnsupportedShellWra
   const stageArgs = commandFeatureRef
     ? ['workflow-stage', commandFeatureRef, '--json']
     : ['workflow-stage', '--json'];
-  const stageResult = runLeeSpecKitJson(stageArgs, workflowCwd);
+  let stageResult = runLeeSpecKitJson(stageArgs, workflowCwd);
+  const handoff = stageResult.ok ? stageResult.data : null;
+  if (
+    commandFeatureRef && handoff?.status === 'ok' &&
+    handoff?.nextAction?.category === 'workspace_enter' &&
+    handoff.nextAction.approvalRequired === false &&
+    typeof handoff.nextAction.docsDirectory === 'string' &&
+    handoff.nextAction.docsDirectory === handoff.nextAction.workingDirectory
+  ) {
+    const isolatedResult = runLeeSpecKitJson(stageArgs, handoff.nextAction.docsDirectory);
+    if (
+      !isolatedResult.ok || isolatedResult.data?.status !== 'ok' ||
+      isolatedResult.data.featureRef !== handoff.featureRef ||
+      normalizeResolvedPath(isolatedResult.data.docsDir || '') !== normalizeResolvedPath(handoff.nextAction.docsDirectory)
+    ) {
+      printBlock('The isolated Feature workspace could not be verified. Resolve its workflow stage before continuing.');
+      process.exit(0);
+    }
+    stageResult = isolatedResult;
+  }
   if (!stageResult.ok) {
     printBlock('lee-spec-kit workflow-stage failed inside the Codex hook. Resolve the workflow stage before running this stage-bound command.');
     process.exit(0);

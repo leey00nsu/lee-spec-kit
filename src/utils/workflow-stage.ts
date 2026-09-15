@@ -3063,6 +3063,25 @@ async function collectWorkflowStageCore(
   }
   const docsWorkspace = await resolveDocsWorkspace(config, feature);
   if (docsWorkspace && !docsWorkspace.current && !docsWorkspace.integrated) {
+    // Planning belongs to the registered Feature worktree, not its seed on main.
+    // Expose a read-only handoff so hooks can evaluate the same approved docs.
+    if (
+      isRegisteredGitWorktree(docsWorkspace.root, docsWorkspace.directory) &&
+      runGitCapture(['branch', '--show-current'], docsWorkspace.directory) === docsWorkspace.branch &&
+      await fs.pathExists(path.join(docsWorkspace.docsDirectory, feature.docs.featurePathFromDocs, '.feature.json'))
+    ) {
+      const action = buildAction('workspace_enter',
+        `Continue from ${docsWorkspace.docsDirectory} to use this Feature's isolated planning documents.`,
+        false, `npx lee-spec-kit workflow-stage ${buildFeatureArgs(feature)} --json`);
+      action.workingDirectory = docsWorkspace.docsDirectory;
+      action.docsDirectory = docsWorkspace.docsDirectory;
+      return {
+        status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature), stage: 'workspace', nextAction: action,
+        approvalRequired: false, implementationAllowed: false,
+        blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED',
+      };
+    }
     return {
       status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
       featureRef: buildFeatureRef(feature), stage: 'workspace',
