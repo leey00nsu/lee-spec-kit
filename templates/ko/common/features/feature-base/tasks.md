@@ -68,7 +68,7 @@
   - Checklist:
     - [ ] (서브 태스크)
   - Docs:
-    - (`docs:<path>` 또는 `project:<path>` 대상을 사용하거나 이 섹션을 생략)
+    - (docs 디렉터리 기준 `docs:<path>` 또는 프로젝트 루트 기준 `project:<path>` 대상을 사용하거나 이 섹션을 생략)
   - Review Evidence: -
   - Review Decision: -
   - Review Round: -

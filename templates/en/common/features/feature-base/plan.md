@@ -71,6 +71,7 @@ Do not close a discovered documentation discrepancy with a decisions.md note alo
 - **Reason**: -
 - **Targets**: -
   - Use comma-separated `docs:<path>` and `project:<path>` targets when any decision is UPDATE or ADD.
+  - `docs:<path>` is relative to the configured docs directory; `project:<path>` is relative to the project repository root. Do not repeat the root name (for example, use `docs:agents/constitution.md`, not `docs:docs/agents/constitution.md`).
   - Every target must be linked from a task `Docs` list and committed with the active Feature scope before Feature review.
 
 ---
@@ -90,6 +91,7 @@ Do not close a discovered documentation discrepancy with a decisions.md note alo
 Allowed kinds: `engineering-agent-policy`, `design-system-ux`, `api-data-contract`, `security-privacy`, `release-deployment`, `observability`, `other-curated`
 
 Each `DECLARED` row uses `UPDATE` or `ADD` and a `docs:<path>` or `project:<path>` target. Link every target from a task `Docs` list.
+Resolve `docs:<path>` from the configured docs directory and `project:<path>` from the project repository root.
 
 ---
 

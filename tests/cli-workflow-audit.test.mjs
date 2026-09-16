@@ -68,6 +68,69 @@ test('workflow-audit reports docs sync required when code changes exist without 
   });
 });
 
+test('workflow-audit requires a workflow-sync marker for a clean completed feature', async () => {
+  await withTempDir('lsk-workflow-audit-complete-marker-', async (dir) => {
+    let result = await runCommand(dir, 'git', ['init']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(dir, 'git', ['config', 'user.name', 'Test User']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(dir, 'git', ['config', 'user.email', 'test@example.com']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    const initResult = await runCli(dir, [
+      'init',
+      '--non-interactive',
+      '--name',
+      'demo',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'local',
+      '--dir',
+      './docs',
+    ]);
+    assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+
+    const featureResult = await runCli(dir, [
+      'feature',
+      'alpha',
+      '--id',
+      'F001',
+      '--non-interactive',
+    ]);
+    assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+    await setFeatureAsDone(dir, 'F001-alpha');
+
+    result = await runCommand(dir, 'git', ['add', '.']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    result = await runCommand(dir, 'git', ['commit', '-m', 'docs(F001): complete alpha']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+
+    let auditResult = await runCli(dir, ['workflow-audit', '--json']);
+    assert.equal(auditResult.code, 0, auditResult.stderr || auditResult.stdout);
+    let payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'needs_sync');
+    assert.equal(payload.reasonCode, 'CODE_WITHOUT_DOCS_SYNC');
+    assert.match(
+      payload.expectedWorkflowSyncMarker,
+      /^<!-- lee-spec-kit:workflow-sync sha256:[a-f0-9]{64} -->$/u
+    );
+
+    await fs.appendFile(
+      path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md'),
+      `\n${payload.expectedWorkflowSyncMarker}\n`,
+      'utf-8'
+    );
+    auditResult = await runCli(dir, ['workflow-audit', '--json']);
+    assert.equal(auditResult.code, 0, auditResult.stderr || auditResult.stdout);
+    payload = JSON.parse(auditResult.stdout.trim());
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.reasonCode, 'WORKFLOW_IN_SYNC');
+  });
+});
+
 test('workflow-audit ignores untouched canonical feature docs even if their mtime changes', async () => {
   await withTempDir('lsk-workflow-audit-touch-only-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

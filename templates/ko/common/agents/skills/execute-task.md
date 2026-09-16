@@ -14,7 +14,7 @@
   - 없으면 가장 우선순위가 높은 `[TODO]` 태스크를 `[DOING]`으로 바꿉니다
 - 한 번에 하나의 태스크만 진행합니다.
 - `nextAction.executor === "subagent"`이면 반환된 `workingDirectory`에서 해당 태스크의 구현과 태스크 범위 검증을 fresh 서브에이전트에게 반환된 `model`, `reasoningEffort`, `onUnavailable` 설정, 정확한 `workerContract`, 정확한 `delegationContext`로 위임합니다. 컨텍스트를 재구성하거나 누락하거나 넓히지 않습니다. 지정 모델을 사용할 수 없을 때 `inherit`은 현재 모델을 상속해 다시 위임하고, `error`는 중단 후 실패를 보고한다는 뜻입니다.
-- 구현 worker는 할당된 태스크를 직접 실행합니다. `workflow-stage` 재호출, 재위임, lee-spec-kit 문서 수정, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 프로젝트 코드 수정과 태스크 범위 검사만 수행합니다.
+- 구현 worker는 할당된 태스크를 직접 실행합니다. `workflow-stage` 재호출, 재위임, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 프로젝트 코드 수정과 태스크 범위 검사를 수행하고, `workerContract.editDocs === true`일 때만 `workerContract.allowedWritePaths`의 정확한 curated 문서 경로를 편집할 수 있습니다. `editFeatureDocs`가 false이므로 Feature 문서 편집은 계속 금지됩니다.
 - 위임한 뒤 메인 에이전트는 worker의 종결 상태를 기다립니다. worker가 실행 중이면 가급적 긴 bounded wait를 반복하며, 한 번의 대기가 새 소식 없이 끝난 것, 상태 메시지가 없는 것, 파일 변경이 없는 것은 실패나 정체의 증거가 아닙니다.
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 worker를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.
 - 구현 worker는 승인된 `plan.md` Verification Contract를 따릅니다. `NONE`이면 영구 테스트를 추가하지 않고, `UPDATE`이면 계약을 소유한 기존 테스트만 최소 수정하며, `ADD`이면 계약에 연결된 테스트만 추가합니다. 승인된 결정이 충분하지 않다면 테스트 범위를 임의로 넓히지 말고 메인 에이전트에 보고합니다.

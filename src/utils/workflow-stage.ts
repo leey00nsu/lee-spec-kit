@@ -59,6 +59,7 @@ import {
 } from './openwiki-knowledge.js';
 import { readKnowledgePublication } from './knowledge-publication.js';
 import { readKnowledgeView } from './knowledge-apply.js';
+import { collectWorkflowAudit } from '../commands/workflow-audit.js';
 
 export type WorkflowStageId =
   | 'workspace'
@@ -71,6 +72,7 @@ export type WorkflowStageId =
   | 'branch'
   | 'implementation'
   | 'task_commit'
+  | 'workflow_sync'
   | 'task_review'
   | 'task_review_fix'
   | 'knowledge_setup'
@@ -111,6 +113,7 @@ export interface WorkflowStageAction {
     | 'branch_create'
     | 'task_execute'
     | 'task_commit'
+    | 'workflow_sync'
     | 'task_review'
     | 'task_review_complete'
     | 'task_review_fix'
@@ -154,6 +157,16 @@ export interface WorkflowStageAction {
   docsDirectory?: string;
   workerContract?: WorkflowTaskWorkerContract;
   delegationContext?: WorkflowDelegationContext;
+  diagnostics?: WorkflowStageDiagnostic[];
+  primaryActionLabel?: string;
+  actionOptions?: WorkflowStageOption[];
+}
+
+export interface WorkflowStageDiagnostic {
+  code: 'REVIEW_TARGET_MISMATCH';
+  scope: 'plan' | 'task' | 'feature';
+  expected: Record<string, string>;
+  recorded: Record<string, string | null>;
 }
 
 export interface WorkflowDelegationDocument {
@@ -179,6 +192,7 @@ export interface WorkflowDelegationContext {
     title: string;
     instructions: string;
     acceptanceCriteria: string[];
+    documentationTargets: string[];
   };
   verificationContract?: string;
   reviewTarget?: {
@@ -199,7 +213,9 @@ export interface WorkflowTaskWorkerContract {
   runTaskScopedVerification: true;
   followVerificationContract: true;
   addUnplannedDurableTests: false;
-  editDocs: false;
+  editDocs: boolean;
+  editFeatureDocs: false;
+  allowedWritePaths: string[];
   changeTaskState: false;
   commit: false;
   requestApproval: false;
@@ -262,6 +278,7 @@ export interface WorkflowStagePayload {
     | 'ISSUE_NOT_CREATED'
     | 'BRANCH_NOT_READY'
     | 'TASK_COMMIT_REQUIRED'
+    | 'WORKFLOW_SYNC_REQUIRED'
     | 'TASK_REVIEW_NOT_APPROVED'
     | 'KNOWLEDGE_SETUP_REQUIRED'
     | 'KNOWLEDGE_SYNC_REQUIRED'
@@ -1231,6 +1248,62 @@ async function collectDocumentationTargetEvidenceErrors(input: {
   return errors;
 }
 
+async function collectDocumentationTargetResolutionErrors(input: {
+  config: ProjectConfig;
+  projectGitCwd: string;
+  targets: string[];
+}): Promise<string[]> {
+  const errors: string[] = [];
+  const projectRoot = resolveProjectRootFromGitCwd(input.projectGitCwd);
+
+  for (const target of input.targets) {
+    const separator = target.indexOf(':');
+    const namespace = target.slice(0, separator);
+    const relativeTarget = target.slice(separator + 1);
+    const namespaceRoot = namespace === 'docs' ? input.config.docsDir : projectRoot;
+    const absoluteTarget = path.resolve(namespaceRoot, relativeTarget);
+    const containment = path.relative(namespaceRoot, absoluteTarget);
+    if (
+      !relativeTarget ||
+      containment === '..' ||
+      containment.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(containment)
+    ) {
+      errors.push(`${target} escapes its declared documentation namespace.`);
+      continue;
+    }
+
+    const existingPath = (await fs.pathExists(absoluteTarget))
+      ? absoluteTarget
+      : path.dirname(absoluteTarget);
+    if (!(await fs.pathExists(existingPath))) {
+      errors.push(
+        `${target} cannot be resolved because its parent directory does not exist.`
+      );
+      continue;
+    }
+    try {
+      const [realNamespaceRoot, realExistingPath] = await Promise.all([
+        fs.realpath(namespaceRoot),
+        fs.realpath(existingPath),
+      ]);
+      const realContainment = path.relative(realNamespaceRoot, realExistingPath);
+      if (
+        realContainment === '..' ||
+        realContainment.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(realContainment)
+      ) {
+        errors.push(
+          `${target} escapes its declared documentation namespace through a symbolic-link parent.`
+        );
+      }
+    } catch {
+      errors.push(`${target} could not be resolved safely.`);
+    }
+  }
+  return errors;
+}
+
 function resolveFeatureDiffBase(
   config: ProjectConfig,
   gitRoot: string,
@@ -1488,8 +1561,10 @@ function resolveTaskCommitGatePolicy(
 }
 
 function checkTaskCommitGate(
+  config: ProjectConfig,
   feature: ResolvedFeature,
   effectiveProjectGitCwd: string,
+  tasks: ParsedTasks,
   lastDoneTask: ParsedTasks['tasks'][number] | null
 ): TaskCommitGateCheck {
   const doneTransitions = countDoneTransitionsInLatestTasksCommit(feature);
@@ -1507,6 +1582,60 @@ function checkTaskCommitGate(
   const lastDoneTopic = normalizeTaskTopic(lastDoneTask?.title || '');
   if (!effectiveProjectGitCwd || !lastDoneTopic) {
     return { pass: true };
+  }
+
+  const onlyDocsTargets =
+    !!lastDoneTask &&
+    lastDoneTask.documentationTargets.length > 0 &&
+    lastDoneTask.documentationTargets.every((target) =>
+      target.startsWith('docs:')
+    );
+  if (onlyDocsTargets && lastDoneTask) {
+    const taskIndex = tasks.tasks.indexOf(lastDoneTask);
+    const previousProjectCheckpoint = tasks.tasks
+      .slice(0, taskIndex)
+      .reverse()
+      .find(
+        (task) =>
+          task.status === 'DONE' &&
+          !!task.reviewedHead &&
+          runGitCapture(
+            ['rev-parse', `${task.reviewedHead}^{commit}`],
+            effectiveProjectGitCwd
+          ) !== undefined
+      );
+    const currentProjectTarget = resolveProjectReviewTarget(
+      config,
+      effectiveProjectGitCwd,
+      'task'
+    );
+    const unchangedSincePrevious =
+      !!previousProjectCheckpoint?.reviewedHead &&
+      currentProjectTarget?.targetSha === previousProjectCheckpoint.reviewedHead;
+    const baseBranch = config.workflow?.baseBranch?.trim() || 'main';
+    const currentTargetAlreadyOnBase =
+      !!currentProjectTarget &&
+      [`origin/${baseBranch}`, baseBranch].some((candidate) => {
+        const baseTip = runGitCapture(
+          ['rev-parse', candidate],
+          effectiveProjectGitCwd
+        );
+        return (
+          !!baseTip &&
+          isAncestor(
+            effectiveProjectGitCwd,
+            currentProjectTarget.targetSha,
+            baseTip
+          )
+        );
+      });
+    if (
+      !currentProjectTarget ||
+      unchangedSincePrevious ||
+      (!previousProjectCheckpoint && currentTargetAlreadyOnBase)
+    ) {
+      return { pass: true, doneTransitions };
+    }
   }
 
   const args = ['log', '-n', '1', '--pretty=%s', '--', '.'];
@@ -1972,12 +2101,34 @@ type ReviewTarget = {
   baseSha: string;
   targetSha: string;
   targetTree: string;
+  workingDirectory: string;
 };
 
 type TaskReviewBase = {
   reviewedHead: string;
   reviewedTree: string;
 };
+
+function buildReviewTargetMismatchDiagnostic(input: {
+  scope: 'plan' | 'task' | 'feature';
+  expected: Record<string, string>;
+  recorded: Record<string, string | null>;
+  hasRecordedDecision: boolean;
+}): WorkflowStageDiagnostic[] | undefined {
+  if (!input.hasRecordedDecision) return undefined;
+  const matches = Object.entries(input.expected).every(
+    ([key, value]) => input.recorded[key] === value
+  );
+  if (matches) return undefined;
+  return [
+    {
+      code: 'REVIEW_TARGET_MISMATCH',
+      scope: input.scope,
+      expected: input.expected,
+      recorded: input.recorded,
+    },
+  ];
+}
 
 function resolveAgentReviewPhase(
   config: ProjectConfig,
@@ -2058,7 +2209,98 @@ function resolveProjectReviewTarget(
       runGitCapture(['rev-parse', `${targetSha}^`], projectGitCwd) || targetSha;
   }
 
-  return { baseSha, targetSha, targetTree };
+  return { baseSha, targetSha, targetTree, workingDirectory: projectGitCwd };
+}
+
+function resolveDocumentationTaskReviewTarget(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  task: ParsedTasks['tasks'][number]
+): ReviewTarget | null {
+  const documentationTargets = task.documentationTargets.filter((target) =>
+    target.startsWith('docs:')
+  );
+  if (documentationTargets.length === 0) return null;
+
+  const docsGitCwd =
+    resolveGitTopLevelOrNull(config.docsDir) || feature.git.docsGitCwd;
+  const targetPaths = documentationTargets.map((target) => {
+    const relativeToDocs = target.slice('docs:'.length);
+    return normalizeGitRelativePath(
+      path.relative(docsGitCwd, path.resolve(config.docsDir, relativeToDocs))
+    );
+  });
+  const targetSha =
+    runGitCapture(
+      ['log', '-n', '1', '--pretty=%H', '--', ...targetPaths],
+      docsGitCwd
+    ) || '';
+  if (!targetSha) return null;
+  const targetTree =
+    runGitCapture(['rev-parse', `${targetSha}^{tree}`], docsGitCwd) || '';
+  if (!targetTree) return null;
+
+  const baseBranch = config.workflow?.baseBranch?.trim() || 'main';
+  let baseSha = '';
+  for (const candidate of [`origin/${baseBranch}`, baseBranch]) {
+    const candidateBase =
+      runGitCapture(['merge-base', candidate, targetSha], docsGitCwd) || '';
+    if (candidateBase && candidateBase !== targetSha) {
+      baseSha = candidateBase;
+      break;
+    }
+  }
+  if (!baseSha) {
+    baseSha =
+      runGitCapture(['rev-parse', `${targetSha}^`], docsGitCwd) || targetSha;
+  }
+  return { baseSha, targetSha, targetTree, workingDirectory: docsGitCwd };
+}
+
+function resolveTaskReviewTarget(
+  config: ProjectConfig,
+  feature: ResolvedFeature,
+  task: ParsedTasks['tasks'][number],
+  projectGitCwd: string,
+  taskBase: TaskReviewBase | null
+): ReviewTarget | null {
+  const projectTarget = resolveProjectReviewTarget(
+    config,
+    projectGitCwd,
+    'task',
+    taskBase
+  );
+  const documentationTarget = resolveDocumentationTaskReviewTarget(
+    config,
+    feature,
+    task
+  );
+  const onlyDocsTargets =
+    task.documentationTargets.length > 0 &&
+    task.documentationTargets.every((target) => target.startsWith('docs:'));
+  const projectUnchangedSincePreviousTask =
+    !!taskBase && projectTarget?.targetSha === taskBase.reviewedHead;
+  const baseBranch = config.workflow?.baseBranch?.trim() || 'main';
+  const projectTargetAlreadyOnBase =
+    !!projectTarget &&
+    [`origin/${baseBranch}`, baseBranch].some((candidate) => {
+      const baseTip = runGitCapture(['rev-parse', candidate], projectGitCwd);
+      return (
+        !!baseTip &&
+        isAncestor(projectGitCwd, projectTarget.targetSha, baseTip)
+      );
+    });
+
+  if (
+    documentationTarget &&
+    onlyDocsTargets &&
+    (!projectTarget ||
+      projectUnchangedSincePreviousTask ||
+      projectTargetAlreadyOnBase)
+  ) {
+    return documentationTarget;
+  }
+  return projectTarget || documentationTarget;
 }
 
 function reviewEvidenceSatisfied(
@@ -2252,6 +2494,7 @@ function buildAction(
     docsDirectory?: string;
     workerContract?: WorkflowTaskWorkerContract;
     delegationContext?: WorkflowDelegationContext;
+    diagnostics?: WorkflowStageDiagnostic[];
   }
 ): WorkflowStageAction {
   return {
@@ -2318,7 +2561,30 @@ function resolveTaskExecutor(config: ProjectConfig): AgentExecutorConfig {
   };
 }
 
-function createTaskWorkerContract(): WorkflowTaskWorkerContract {
+function resolveTaskDocumentationPaths(
+  config: ProjectConfig,
+  task: ParsedTasks['tasks'][number],
+  workingDirectory: string
+): string[] {
+  return task.documentationTargets.map((target) => {
+    const separator = target.indexOf(':');
+    const namespace = target.slice(0, separator);
+    const relativeTarget = target.slice(separator + 1);
+    const root = namespace === 'docs' ? config.docsDir : workingDirectory;
+    return path.resolve(root, relativeTarget);
+  });
+}
+
+function createTaskWorkerContract(
+  config: ProjectConfig,
+  task: ParsedTasks['tasks'][number],
+  workingDirectory: string
+): WorkflowTaskWorkerContract {
+  const allowedWritePaths = resolveTaskDocumentationPaths(
+    config,
+    task,
+    workingDirectory
+  );
   return {
     role: 'task_implementation_worker',
     executeDirectly: true,
@@ -2328,7 +2594,9 @@ function createTaskWorkerContract(): WorkflowTaskWorkerContract {
     runTaskScopedVerification: true,
     followVerificationContract: true,
     addUnplannedDurableTests: false,
-    editDocs: false,
+    editDocs: allowedWritePaths.length > 0,
+    editFeatureDocs: false,
+    allowedWritePaths,
     changeTaskState: false,
     commit: false,
     requestApproval: false,
@@ -2381,6 +2649,11 @@ function createTaskDelegationContext(
   reviewTarget?: { baseSha: string; targetSha: string; targetTree: string }
 ): WorkflowDelegationContext {
   const paths = getFeatureDocPaths(feature);
+  const documentationPaths = resolveTaskDocumentationPaths(
+    config,
+    task,
+    workingDirectory
+  );
   return {
     version: 1,
     role,
@@ -2395,6 +2668,14 @@ function createTaskDelegationContext(
       createDelegationDocument(
         paths.planPath,
         'Use the approved Verification Contract and implementation constraints.'
+      ),
+      ...documentationPaths.map((documentPath) =>
+        createDelegationDocument(
+          documentPath,
+          role === 'task_reviewer'
+            ? 'Review this declared curated documentation deliverable at the returned review target.'
+            : 'This is an explicitly allowed curated documentation output. Edit only this path when the task requires it.'
+        )
       ),
     ],
     referenceDocuments: [
@@ -2412,12 +2693,21 @@ function createTaskDelegationContext(
       title: task.title,
       instructions: task.instructions,
       acceptanceCriteria: task.acceptanceCriteria,
+      documentationTargets: [...task.documentationTargets],
     },
     verificationContract: extractMarkdownSection(
       planContent,
       'Verification Contract'
     ),
-    ...(reviewTarget ? { reviewTarget } : {}),
+    ...(reviewTarget
+      ? {
+          reviewTarget: {
+            baseSha: reviewTarget.baseSha,
+            targetSha: reviewTarget.targetSha,
+            targetTree: reviewTarget.targetTree,
+          },
+        }
+      : {}),
   };
 }
 
@@ -2469,7 +2759,11 @@ function createFeatureReviewDelegationContext(
     docsDirectory: config.docsDir,
     workingDirectory,
     requiredDocuments,
-    reviewTarget,
+    reviewTarget: {
+      baseSha: reviewTarget.baseSha,
+      targetSha: reviewTarget.targetSha,
+      targetTree: reviewTarget.targetTree,
+    },
   };
 }
 
@@ -2900,6 +3194,18 @@ function resolvePlanReviewPayload(
   const requestedReviewRound =
     !targetMatches && review.decisionOutcome ? reviewRound + 1 : reviewRound;
   const nextReviewRound = Math.min(requestedReviewRound, maxReviewRounds);
+  const targetDiagnostics = buildReviewTargetMismatchDiagnostic({
+    scope: 'plan',
+    expected: {
+      specHash: target.specHash,
+      planHash: target.planHash,
+    },
+    recorded: {
+      specHash: review.reviewedSpecHash,
+      planHash: review.reviewedPlanHash,
+    },
+    hasRecordedDecision: !!review.decisionOutcome,
+  });
   const actionContext = {
     reviewScope: 'plan' as const,
     reviewRound: nextReviewRound,
@@ -2912,6 +3218,7 @@ function resolvePlanReviewPayload(
       feature,
       target
     ),
+    ...(targetDiagnostics ? { diagnostics: targetDiagnostics } : {}),
   };
 
   if (review.decisionOutcome === 'changes_requested') {
@@ -2993,7 +3300,7 @@ function resolvePlanReviewPayload(
     stage: 'plan_review',
     nextAction: buildAction(
       'plan_review',
-      `Delegate fresh read-only Plan review round ${nextReviewRound} of spec.md and plan.md. Verify the Verification Contract, NONE/UPDATE/ADD decisions, requirement coverage, independent oracles, stable observation boundaries, realistic failure/rollback cases, exclusions, and focused/full verification scope. Record Plan Review Round, status, evidence, decision, reviewer metadata, Reviewed Spec Hash, and Reviewed Plan Hash without modifying the documents.`,
+      `${targetDiagnostics ? 'The recorded Plan review target does not match the current spec.md/plan.md hashes. Inspect nextAction.diagnostics and correct a transcription error or review the current hashes. ' : ''}Delegate fresh read-only Plan review round ${nextReviewRound} of spec.md and plan.md. Verify the Verification Contract, NONE/UPDATE/ADD decisions, requirement coverage, independent oracles, stable observation boundaries, realistic failure/rollback cases, exclusions, and focused/full verification scope. Record Plan Review Round, status, evidence, decision, reviewer metadata, Reviewed Spec Hash, and Reviewed Plan Hash without modifying the documents.`,
       false,
       null,
       resolveAgentReviewer(config, 'plan'),
@@ -3007,6 +3314,10 @@ function resolvePlanReviewPayload(
 
 export async function collectWorkflowStage(cwd: string, selector?: string, component?: string): Promise<WorkflowStagePayload> {
   const result = await collectWorkflowStageCore(cwd, selector, component);
+  if (result.nextAction && result.primaryActionLabel && result.actionOptions) {
+    result.nextAction.primaryActionLabel = result.primaryActionLabel;
+    result.nextAction.actionOptions = result.actionOptions;
+  }
   if (result.status !== 'ok') return result;
   const selection = await resolveFeatureSelection(cwd, selector, component);
   const feature = selection.matchedFeature;
@@ -3150,6 +3461,15 @@ async function collectWorkflowStageCore(
   const curatedDocumentationImpactErrors = [
     ...curatedDocumentationImpact.errors,
   ];
+  if (curatedDocumentationImpact.valid) {
+    curatedDocumentationImpactErrors.push(
+      ...(await collectDocumentationTargetResolutionErrors({
+        config,
+        projectGitCwd: feature.git.projectGitCwd,
+        targets: curatedDocumentationImpact.targets,
+      }))
+    );
+  }
   if (curatedDocumentationImpact.grandfathered) {
     const terminal = isTerminalFeatureForCuratedImpact({
       spec: specContent || '',
@@ -3529,20 +3849,25 @@ async function collectWorkflowStageCore(
   const lastDoneTask = getLastDoneTask(tasks);
   const docsDirty = hasUncommittedChanges(feature.git.docsGitCwd);
   const projectDirty = hasUncommittedChanges(effectiveProjectGitCwd);
-  const currentTaskReviewTip = requirements.taskReviewEnabled
-    ? resolveProjectReviewTarget(config, effectiveProjectGitCwd, 'task')
-    : null;
   const unreviewedDoneTask = requirements.taskReviewEnabled
     ? tasks.tasks.find(
-        (task) =>
-          task.status === 'DONE' &&
-          !recordedTaskReviewSatisfied(
+        (task) => {
+          if (task.status !== 'DONE') return false;
+          const target = resolveTaskReviewTarget(
             config,
             feature,
-            effectiveProjectGitCwd,
             task,
-            currentTaskReviewTip?.targetSha || null
-          )
+            effectiveProjectGitCwd,
+            resolvePreviousTaskReviewBase(config, feature, tasks, task)
+          );
+          return !recordedTaskReviewSatisfied(
+            config,
+            feature,
+            target?.workingDirectory || effectiveProjectGitCwd,
+            task,
+            target?.targetSha || null
+          );
+        }
       ) || null
     : null;
   const reviewTask =
@@ -3577,10 +3902,11 @@ async function collectWorkflowStageCore(
       };
     }
 
-    const reviewTarget = resolveProjectReviewTarget(
+    const reviewTarget = resolveTaskReviewTarget(
       config,
+      feature,
+      reviewTask,
       effectiveProjectGitCwd,
-      'task',
       resolvePreviousTaskReviewBase(config, feature, tasks, reviewTask)
     );
     if (!reviewTarget) {
@@ -3600,6 +3926,21 @@ async function collectWorkflowStageCore(
         blockedReasonCode: 'TASK_COMMIT_REQUIRED',
       };
     }
+    const evidenceMatchesTarget =
+      reviewTask.reviewedHead === reviewTarget.targetSha &&
+      reviewTask.reviewedTree === reviewTarget.targetTree;
+    const targetDiagnostics = buildReviewTargetMismatchDiagnostic({
+      scope: 'task',
+      expected: {
+        head: reviewTarget.targetSha,
+        tree: reviewTarget.targetTree,
+      },
+      recorded: {
+        head: reviewTask.reviewedHead,
+        tree: reviewTask.reviewedTree,
+      },
+      hasRecordedDecision: !!reviewTask.reviewDecisionOutcome,
+    });
     const reviewContext = {
       reviewScope: 'task' as const,
       reviewRound: reviewTask.reviewRound || 1,
@@ -3610,15 +3951,13 @@ async function collectWorkflowStageCore(
         config,
         feature,
         reviewTask,
-        effectiveProjectGitCwd,
+        reviewTarget.workingDirectory,
         planContent || '',
         'task_reviewer',
         reviewTarget
       ),
+      ...(targetDiagnostics ? { diagnostics: targetDiagnostics } : {}),
     };
-    const evidenceMatchesTarget =
-      reviewTask.reviewedHead === reviewTarget.targetSha &&
-      reviewTask.reviewedTree === reviewTarget.targetTree;
 
     if (reviewTask.reviewDecisionOutcome === 'changes_requested') {
       if (
@@ -3737,7 +4076,7 @@ async function collectWorkflowStageCore(
       stage: 'task_review',
       nextAction: buildAction(
         'task_review',
-        `Delegate fresh read-only review round ${evidenceMatchesTarget ? reviewContext.reviewRound : reviewTask.reviewDecisionOutcome ? Math.min(reviewContext.reviewRound + 1, reviewContext.maxReviewRounds) : reviewContext.reviewRound} of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
+        `${targetDiagnostics ? `The recorded review target for ${reviewTask.taskId || reviewTask.title} does not match the current target. Inspect nextAction.diagnostics and correct a transcription error or review the current target. ` : ''}Delegate fresh read-only review round ${evidenceMatchesTarget ? reviewContext.reviewRound : reviewTask.reviewDecisionOutcome ? Math.min(reviewContext.reviewRound + 1, reviewContext.maxReviewRounds) : reviewContext.reviewRound} of ${reviewTask.taskId || reviewTask.title} for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, evidence, decision, reviewer metadata, Reviewed Head, and Reviewed Tree without modifying code.`,
         false,
         null,
         resolveAgentReviewer(config, 'task'),
@@ -3802,7 +4141,13 @@ async function collectWorkflowStageCore(
 
   const committedTaskGate =
     taskCommitGatePolicy !== 'off' && lastDoneTask
-      ? checkTaskCommitGate(feature, effectiveProjectGitCwd, lastDoneTask)
+      ? checkTaskCommitGate(
+          config,
+          feature,
+          effectiveProjectGitCwd,
+          tasks,
+          lastDoneTask
+        )
       : { pass: true };
   const committedTaskGateRequiresCheckpoint =
     taskCommitGatePolicy === 'strict' ||
@@ -3966,12 +4311,65 @@ async function collectWorkflowStageCore(
         blockedReasonCode: 'BRANCH_NOT_READY',
       };
     }
+  }
 
+  if (
+    allTasksDone(tasks) &&
+    !resolvedLocalState?.integrationComplete &&
+    !localIntegrationReachedBase &&
+    !remoteReviewAlreadyComplete
+  ) {
+    const workflowAudit = await collectWorkflowAudit(
+      config.docsDir,
+      feature.folderName
+    );
+    if (workflowAudit.status === 'needs_sync') {
+      const expectedMarker = workflowAudit.expectedWorkflowSyncMarker
+        ? ` Copy this exact marker into exactly one active Feature document: ${workflowAudit.expectedWorkflowSyncMarker}`
+        : '';
+      return {
+        status: 'ok',
+        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+        docsDir: config.docsDir,
+        featureRef: buildFeatureRef(feature),
+        stage: 'workflow_sync',
+        nextAction: buildAction(
+          'workflow_sync',
+          `Synchronize the current code state with the active Feature docs before Feature review or completion. workflow-audit reported ${workflowAudit.reasonCode}.${expectedMarker} Replace any stale marker and remove duplicates, then rerun workflow-stage.`,
+          false,
+          'npx lee-spec-kit workflow-audit --json'
+        ),
+        approvalRequired: false,
+        implementationAllowed: false,
+        blockedReasonCode: 'WORKFLOW_SYNC_REQUIRED',
+      };
+    }
+  }
+
+  if (featureReviewNeededForLifecycle) {
     const reviewTarget = resolveProjectReviewTarget(
       config,
       effectiveProjectGitCwd,
       'feature'
     );
+    const evidenceMatchesTarget =
+      !!reviewTarget &&
+      tasks.prePrReviewedHead === reviewTarget.targetSha &&
+      tasks.prePrReviewedTree === reviewTarget.targetTree;
+    const targetDiagnostics = reviewTarget
+      ? buildReviewTargetMismatchDiagnostic({
+          scope: 'feature',
+          expected: {
+            head: reviewTarget.targetSha,
+            tree: reviewTarget.targetTree,
+          },
+          recorded: {
+            head: tasks.prePrReviewedHead,
+            tree: tasks.prePrReviewedTree,
+          },
+          hasRecordedDecision: !!tasks.prePrDecisionOutcome,
+        })
+      : undefined;
     const reviewContext = reviewTarget
       ? {
           reviewScope: 'feature' as const,
@@ -3985,12 +4383,9 @@ async function collectWorkflowStageCore(
             reviewTarget,
             curatedDocumentationImpact.targets
           ),
+          ...(targetDiagnostics ? { diagnostics: targetDiagnostics } : {}),
         }
       : null;
-    const evidenceMatchesTarget =
-      !!reviewTarget &&
-      tasks.prePrReviewedHead === reviewTarget.targetSha &&
-      tasks.prePrReviewedTree === reviewTarget.targetTree;
 
     if (reviewContext && tasks.prePrDecisionOutcome === 'changes_requested') {
       if (
@@ -4071,7 +4466,7 @@ async function collectWorkflowStageCore(
           reviewLimitExhausted
             ? `The Feature review round limit was reached at round ${reviewContext.reviewRound}. Do not delegate another review. Repair or record the final-round evidence if needed and preserve the remaining findings and any post-review target changes as residual risks before continuing automatically.`
             : reviewTarget
-              ? `Delegate independent read-only Feature review round ${requestedRound} to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
+              ? `${targetDiagnostics ? 'The recorded Feature review target does not match the current target. Inspect nextAction.diagnostics and correct a transcription error or review the current target. ' : ''}Delegate independent read-only Feature review round ${requestedRound} to a fresh subagent for ${reviewTarget.baseSha}..${reviewTarget.targetSha}. Record Review Round, findings, decision, reviewer metadata, Pre-PR Reviewed Head, and Pre-PR Reviewed Tree as evidence.`
               : 'Create a project commit before requesting the independent Feature review.',
           false,
           null,
@@ -4145,7 +4540,11 @@ async function collectWorkflowStageCore(
           ...(requirements.taskExecutionEnabled
             ? {
                 docsDirectory: config.docsDir,
-                workerContract: createTaskWorkerContract(),
+                workerContract: createTaskWorkerContract(
+                  config,
+                  currentTask,
+                  effectiveProjectGitCwd
+                ),
                 delegationContext: createTaskDelegationContext(
                   config,
                   feature,

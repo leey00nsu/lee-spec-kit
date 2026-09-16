@@ -110,7 +110,7 @@ npx lee-spec-kit decision add <featureRef> --title "..." --context "..." --decis
 
 Approval note:
 
-- When `workflow-stage --json` returns `primaryActionLabel` together with `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
+- `primaryActionLabel` and `actionOptions` are canonical payload-level siblings of `nextAction` and are mirrored inside `nextAction` for single-object consumers. Treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 - Local approval checkpoints typically use reply tokens like `A` and `B`.
 - Remote execution checkpoints typically use reply tokens like `A OK` and `B`.
 
@@ -138,7 +138,7 @@ npx lee-spec-kit commit-audit --message-file "$1" --enforce --json
 - Standalone execution policy: use the project repo through its managed feature worktree under the shared workspace `.worktrees/` root instead of checking the feature branch out in the main project root
 - Standalone branch command policy: run the exact `workflow-stage --json` `nextAction.command`; it creates/reuses the managed worktree path, clears stale managed directories that are no longer registered Git worktrees, and copies existing project-root `.env`/`.env.*` files into a new worktree when absent
 - Local completion policy: the default for newly initialized local workflows is `local-ff`; `local-squash` is an explicit opt-in that creates one integration commit while retaining the source Feature tip as an internal Git ref. Existing local projects updated without an explicit strategy receive `none` for compatibility. `none` is the explicit exception that may finish on the Feature branch.
-- Docs sync proof: after syncing code back into the active Feature docs, run `workflow-audit --json` and copy its exact `expectedWorkflowSyncMarker` into `tasks.md`, `decisions.md`, or another canonical Feature doc. Keep exactly one marker; it binds the sync claim to the current code-content fingerprint and detects later committed or uncommitted code drift.
+- Docs sync proof: after syncing code back into the active Feature docs, run `workflow-audit --json` and copy its exact `expectedWorkflowSyncMarker` into `tasks.md`, `decisions.md`, or another canonical Feature doc. Keep exactly one marker; it binds the sync claim to the current code-content fingerprint and detects later committed or uncommitted code drift. Once all tasks are `DONE`, `workflow-stage` enforces this as the `workflow_sync` hard gate before Feature review or completion.
 - Knowledge authority: PRD owns durable requirements; the active Feature SDD owns the current change scope and decisions; curated project-wide docs own explanations and policy; tracked code/schema/config own executable facts; OpenWiki is derived onboarding evidence. With `experimental.openwiki=true`, post-integration artifact publication is required for local integration and is provided through GitHub CI, while missing or `false` adds no OpenWiki behavior.
 
 ## Important Rule

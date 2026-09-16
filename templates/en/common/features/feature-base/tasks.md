@@ -68,7 +68,7 @@
   - Checklist:
     - [ ] (subtask)
   - Docs:
-    - (use a `docs:<path>` or `project:<path>` target, or omit this section)
+    - (use a docs-directory-relative `docs:<path>` or project-root-relative `project:<path>` target, or omit this section)
   - Review Evidence: -
   - Review Decision: -
   - Review Round: -

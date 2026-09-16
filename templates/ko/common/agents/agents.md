@@ -32,7 +32,7 @@
 - 최소 기준 문서는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`입니다.
 - GitHub 워크플로우가 얽히면 `issue.md`, `pr.md`도 함께 봅니다.
 - 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
-- `workflow-stage --json`가 `primaryActionLabel`과 `actionOptions`를 같이 반환하면, `primaryActionLabel`은 기본 옵션 라벨로 보고 사용자에게는 `actionOptions[*].reply` 값을 그대로 보여줍니다.
+- `workflow-stage --json`가 payload 최상위 `primaryActionLabel`과 `actionOptions`를 같이 반환하면(`nextAction` 안에도 동일하게 미러링됨), `primaryActionLabel`은 기본 옵션 라벨로 보고 사용자에게는 `actionOptions[*].reply` 값을 그대로 보여줍니다.
 
 ## 문서 라우팅
 
@@ -91,7 +91,7 @@
 - `implementationAllowed === true`일 때만 구현 코드를 수정합니다. 일반 태스크 구현은 `stage === "implementation"`에서, 리뷰 수정은 `task_review_fix` 또는 `feature_review_fix`에서, 검증 수정은 `feature_remediation`에서만 수행합니다.
 - `nextAction.category`가 `plan_review`이고 `executor`가 `subagent`이면 정확히 반환된 `delegationContext`, `specHash`, `planHash`로 fresh 읽기 전용 서브에이전트에게 검수를 위임합니다. 메인 에이전트가 반환된 `reviewRound`, Plan 검수 evidence, decision, reviewer metadata와 두 hash를 기록하며 이후 spec/plan 내용 변경은 기존 검수를 무효화합니다.
 - `nextAction.category`가 `task_execute`이고 `executor`가 `subagent`이면 해당 태스크 하나를 활성화한 뒤, 반환된 `workingDirectory`에서 fresh 서브에이전트에게 반환된 모델·추론도·unavailability 정책, 정확한 `workerContract`, 정확한 `delegationContext`로 구현과 태스크 범위 검증을 위임합니다. 컨텍스트를 재구성하거나 누락하거나 넓히지 않습니다. 특정 이름의 실행 스킬은 요구하지 않습니다.
-- 구현 worker는 승인된 Verification Contract를 따르고 계획되지 않은 영구 테스트를 추가하지 않으며 직접 실행합니다. `workflow-stage`를 호출하거나 다른 서브에이전트를 생성하지 않습니다. 프로젝트 코드 수정과 범위 내 검사는 수행할 수 있지만 lee-spec-kit 문서 수정, 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 메인 에이전트가 결과를 확인하고 문서 동기화, 태스크 전환, 커밋, 후속 workflow를 소유하며, 공식 hook은 `task_execute`가 활성화된 동안 커밋을 차단합니다.
+- 구현 worker는 승인된 Verification Contract를 따르고 계획되지 않은 영구 테스트를 추가하지 않으며 직접 실행합니다. `workflow-stage`를 호출하거나 다른 서브에이전트를 생성하지 않습니다. 프로젝트 코드 수정과 범위 내 검사를 수행할 수 있고, `workerContract.editDocs === true`일 때만 `workerContract.allowedWritePaths`에 반환된 정확한 curated 문서 경로를 편집할 수 있습니다. `editFeatureDocs`는 항상 false이므로 Feature 문서와 목록에 없는 문서는 메인 에이전트 소유입니다. 태스크 상태 변경, 커밋, 승인 요청, 원격/파괴적 작업은 하지 않습니다. 메인 에이전트가 결과를 확인하고 Feature 문서 동기화, 태스크 전환, 커밋, 후속 workflow를 소유하며, 공식 hook은 `task_execute`가 활성화된 동안 커밋을 차단합니다.
 - `nextAction.category`가 `task_review`이고 `executor`가 `subagent`이면 정확히 반환된 `delegationContext`, task ID, SHA/tree 범위로 fresh context의 읽기 전용 리뷰를 위임하고 반환된 `reviewRound`를 기록합니다.
 - `nextAction.category`가 `pre_pr_review`이고 `executor`가 `subagent`이면 정확히 반환된 `delegationContext`, 모델·추론도·`reviewRound`·SHA/tree 범위로 fresh context의 읽기 전용 Feature 리뷰를 실행합니다. 리뷰 스킬 이름을 선택하거나 요구하지 않습니다.
 - 리뷰 서브에이전트는 finding만 반환하고 코드를 수정하지 않습니다. 메인 에이전트가 finding을 반영하고 reviewer metadata, reviewed scope, evidence, decision, 정확한 hash/SHA/tree target metadata를 기록합니다.
@@ -106,7 +106,7 @@
 - `local-ff` 또는 `local-squash` workflow에서 `local_merge` 승인이 필요하면 구현 승인과 local merge 승인을 구분합니다. 첫 번째 승인은 구현 결과를 수락하고, 두 번째 승인은 설정된 통합 전략, post-merge 검사, local cleanup을 허가합니다.
 - 동작이나 범위가 바뀌는 코드 변경이 있으면 같은 턴 안에서 feature 문서를 같이 동기화합니다.
 - `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용합니다. Feature-scoped commit은 Issue가 연결되어 있으면 `#123`, Issue 없는 local workflow에서는 `K7M2Q9RX4DAB` 같은 안정적인 Feature ID를 scope로 사용합니다.
-- 기본 docs sync 검사는 `npx lee-spec-kit workflow-audit --json`를 사용합니다.
+- 기본 docs sync 검사는 `npx lee-spec-kit workflow-audit --json`를 사용합니다. 완료된 Feature는 canonical 문서에 현재 marker가 정확히 하나 기록되기 전까지 `workflow_sync` 게이트를 통과할 수 없습니다.
 
 ## 승인 규칙
 

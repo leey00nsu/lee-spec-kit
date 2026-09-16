@@ -32,7 +32,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Minimum active feature docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
 - When GitHub workflow is involved, also use `issue.md` and `pr.md`.
 - After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
-- If `workflow-stage --json` also returns `primaryActionLabel` and `actionOptions`, treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
+- If `workflow-stage --json` also returns payload-level `primaryActionLabel` and `actionOptions` (mirrored inside `nextAction`), treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 
 ## Document Routing
 
@@ -91,7 +91,7 @@ This document defines workflow policy, not a custom runtime loop.
 - Modify implementation code only when `implementationAllowed === true`. Normal task work uses `stage === "implementation"`; review fixes use `task_review_fix` or `feature_review_fix`, and verification fixes use `feature_remediation`.
 - When `nextAction.category` is `plan_review` with `executor: subagent`, delegate a fresh read-only review using the exact returned `delegationContext`, `specHash`, and `planHash`. The main agent records the returned `reviewRound`, Plan Review evidence, decision, reviewer metadata, and both hashes. Any later spec/plan content change invalidates that review.
 - When `nextAction.category` is `task_execute` with `executor: subagent`, mark that one task active, then delegate its implementation and task-scoped checks to a fresh subagent in the returned `workingDirectory` with the returned model, reasoning effort, unavailability policy, exact `workerContract`, and exact `delegationContext`. Do not reconstruct, omit, or broaden that context. No named execution skill is required.
-- The implementation worker executes directly, follows the approved Verification Contract, and does not add unplanned durable tests. It must not run `workflow-stage` or spawn another subagent. It may edit project code and run scoped checks, but it must not edit lee-spec-kit docs, change task state, commit, request approvals, or perform remote/destructive actions. The main agent inspects the result and owns docs synchronization, task transitions, commits, and workflow continuation; official hooks block commits while `task_execute` remains active.
+- The implementation worker executes directly, follows the approved Verification Contract, and does not add unplanned durable tests. It must not run `workflow-stage` or spawn another subagent. It may edit project code, run scoped checks, and—only when `workerContract.editDocs === true`—edit the exact curated-document paths in `workerContract.allowedWritePaths`; `editFeatureDocs` remains false, so Feature docs and unlisted docs stay main-agent-owned. It must not change task state, commit, request approvals, or perform remote/destructive actions. The main agent inspects the result and owns Feature-doc synchronization, task transitions, commits, and workflow continuation; official hooks block commits while `task_execute` remains active.
 - When `nextAction.category` is `task_review` with `executor: subagent`, delegate a fresh read-only review using the exact returned `delegationContext`, task ID, and SHA/tree range, then record the returned `reviewRound`.
 - When `nextAction.category` is `pre_pr_review` with `executor: subagent`, run a fresh read-only Feature review using the exact returned `delegationContext`, model, reasoning effort, `reviewRound`, and SHA/tree range. Do not select or require a named review skill.
 - Review subagents return findings without modifying code. The main agent remediates findings and records reviewer metadata, reviewed scope, evidence, decision, and exact hash/SHA/tree target metadata.
@@ -106,7 +106,7 @@ This document defines workflow policy, not a custom runtime loop.
 - In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit`; Feature-scoped commits use `#123` when an Issue is linked and the stable Feature ID such as `K7M2Q9RX4DAB` for issue-less local workflows.
-- Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check.
+- Use `npx lee-spec-kit workflow-audit --json` as the default end-of-turn docs sync check. A completed Feature cannot pass the `workflow_sync` gate until exactly one current marker is recorded in its canonical docs.
 
 ## Approval Rules
 

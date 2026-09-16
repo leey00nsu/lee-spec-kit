@@ -70,6 +70,7 @@ function formatTaskBlock(input: {
       : []),
     '  - Review Evidence: -',
     '  - Review Decision: -',
+    '  - Review Round: -',
     '  - Reviewed Head: -',
     '  - Reviewed Tree: -',
   ];

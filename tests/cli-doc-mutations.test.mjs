@@ -78,6 +78,7 @@ test('task add appends a complete task block to tasks.md', async () => {
       / {2}- Docs:\n {4}- project:README\.md\n {4}- docs:prd\/system-architecture\.md/
     );
     assert.match(tasks, / {2}- Review Decision: -/);
+    assert.match(tasks, / {2}- Review Round: -/);
     assert.match(tasks, / {2}- Reviewed Head: -/);
     assert.match(tasks, / {2}- Reviewed Tree: -/);
     assert.ok(

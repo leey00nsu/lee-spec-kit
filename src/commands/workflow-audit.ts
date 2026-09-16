@@ -41,7 +41,7 @@ interface CodeRootResolution {
     | 'STANDALONE_PROJECT_ROOT_UNRESOLVED';
 }
 
-interface WorkflowAuditPayload {
+export interface WorkflowAuditPayload {
   status: 'ok' | 'needs_sync' | 'skipped' | 'error';
   reasonCode:
     | 'WORKFLOW_IN_SYNC'
@@ -125,8 +125,9 @@ export function workflowAuditCommand(program: Command): void {
     });
 }
 
-async function collectWorkflowAudit(
-  cwd: string
+export async function collectWorkflowAudit(
+  cwd: string,
+  featureSelector?: string
 ): Promise<WorkflowAuditPayload> {
   const config = await getConfig(cwd);
   if (!config) {
@@ -136,7 +137,7 @@ async function collectWorkflowAudit(
     );
   }
 
-  const activeFeature = await resolveActiveFeature(cwd);
+  const activeFeature = await resolveActiveFeature(cwd, featureSelector);
   const activeFeatureRef = activeFeature?.folderName ?? null;
   const codeRootResolution = resolveCodeRepoRoots(cwd, config, activeFeature);
   const codeRoots = codeRootResolution.codeRoots;
@@ -202,6 +203,7 @@ async function collectWorkflowAudit(
 
   const codeFingerprint = await computeCodeFingerprint(codeRoots, config);
   const workflowSyncMarker = await readWorkflowSyncMarker(activeFeature);
+  const activeFeatureComplete = await isActiveFeatureComplete(activeFeature);
   const expectedWorkflowSyncMarker = activeFeature
     ? buildWorkflowSyncMarker(codeFingerprint)
     : null;
@@ -268,8 +270,14 @@ async function collectWorkflowAudit(
   const changedCodeRequiresSync =
     combinedChangedCodePaths.length > 0 &&
     (scopedFeatureDocPaths.length === 0 || !markerMatchesCurrentCode);
+  const completedFeatureMissingMarker =
+    activeFeatureComplete && workflowSyncMarker.count === 0;
 
-  if (markerRequiresRefresh || changedCodeRequiresSync) {
+  if (
+    completedFeatureMissingMarker ||
+    markerRequiresRefresh ||
+    changedCodeRequiresSync
+  ) {
     return {
       status: 'needs_sync',
       reasonCode: 'CODE_WITHOUT_DOCS_SYNC',
@@ -446,6 +454,33 @@ async function readWorkflowSyncMarker(
     legacy:
       values.length === 1 && !WORKFLOW_SYNC_FINGERPRINT_PATTERN.test(values[0]),
   };
+}
+
+async function isActiveFeatureComplete(
+  activeFeature: ResolvedFeature | null
+): Promise<boolean> {
+  if (!activeFeature) return false;
+  const tasksPath = path.join(activeFeature.path, 'tasks.md');
+  if (!(await fs.pathExists(tasksPath))) return false;
+
+  const content = await fs.readFile(tasksPath, 'utf-8');
+  const statuses: string[] = [];
+  let fence: string | null = null;
+  for (const line of content.split(/\r?\n/u)) {
+    const fenceMatch = line.match(/^\s*(```+|~~~+)/u);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      fence = fence === marker ? null : fence || marker;
+      continue;
+    }
+    if (fence) continue;
+    const taskMatch = line.match(
+      /^\s*-\s*\[(TODO|DOING|DONE|REVIEW)\](?:\[[^\]]+\])*\s+/u
+    );
+    if (taskMatch) statuses.push(taskMatch[1]);
+  }
+
+  return statuses.length > 0 && statuses.every((status) => status === 'DONE');
 }
 
 function buildWorkflowSyncMarker(fingerprint: string): string {
@@ -717,9 +752,10 @@ function collectOutOfScopeStandaloneCodeChanges(
 }
 
 async function resolveActiveFeature(
-  cwd: string
+  cwd: string,
+  selector?: string
 ): Promise<ResolvedFeature | null> {
-  const selection = await resolveFeatureSelection(cwd);
+  const selection = await resolveFeatureSelection(cwd, selector);
   return selection.matchedFeature;
 }
 
