@@ -37,6 +37,7 @@ import {
   migrateLegacyWorkflowSettings,
 } from '../config/migrate.js';
 import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
+import { ensureGitignoreEntries } from '../utils/gitignore.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -180,6 +181,30 @@ async function runUpdate(options: UpdateOptions): Promise<void> {
       console.log();
 
       let updatedCount = 0;
+
+      if (
+        await ensureGitignoreEntries(path.join(docsDir, '.gitignore'), [
+          '.lee-spec-kit.lock',
+          '.lee-spec-kit.*.lock',
+        ])
+      ) {
+        updatedCount += 1;
+      }
+      const managedWorktreeRoot =
+        currentConfig.docsRepo === 'standalone'
+          ? resolveConfiguredStandaloneWorkspaceRoot(currentConfig)
+          : getGitTopLevelOrNull(docsDir) || path.resolve(docsDir, '..');
+      if (
+        managedWorktreeRoot &&
+        path.resolve(getGitTopLevelOrNull(managedWorktreeRoot) || '') ===
+          path.resolve(managedWorktreeRoot) &&
+        (await ensureGitignoreEntries(
+          path.join(managedWorktreeRoot, '.gitignore'),
+          ['.worktrees/']
+        ))
+      ) {
+        updatedCount += 1;
+      }
 
       // Update project-scoped agent docs while keeping CLI-managed runtime copies out of docs.
       if (updateAgents) {

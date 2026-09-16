@@ -122,6 +122,18 @@ test('init --non-interactive works with explicit flags without --yes', async () 
     assert.equal(config.lang, 'en');
     assert.equal(config.workflow?.mode, 'local');
 
+    const projectGitignore = await fs.readFile(
+      path.join(dir, '.gitignore'),
+      'utf-8'
+    );
+    assert.match(projectGitignore, /^\.worktrees\/$/m);
+    const docsGitignore = await fs.readFile(
+      path.join(dir, 'docs', '.gitignore'),
+      'utf-8'
+    );
+    assert.match(docsGitignore, /^\.lee-spec-kit\.lock$/m);
+    assert.match(docsGitignore, /^\.lee-spec-kit\.\*\.lock$/m);
+
     const agentsMdPath = path.join(dir, 'AGENTS.md');
     const agentsMd = await fs.readFile(agentsMdPath, 'utf-8');
     assert.match(agentsMd, /<!-- lee-spec-kit:begin -->/);

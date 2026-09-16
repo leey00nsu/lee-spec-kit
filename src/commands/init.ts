@@ -1,4 +1,5 @@
 import { detectFeatureChecks } from '../utils/feature-checks.js';
+import { ensureGitignoreEntries } from '../utils/gitignore.js';
 import { Command } from 'commander';
 import prompts from 'prompts';
 import chalk from 'chalk';
@@ -1207,6 +1208,10 @@ async function runInit(options: InitOptions): Promise<void> {
 
       const configPath = path.join(targetDir, '.lee-spec-kit.json');
       await fs.writeJson(configPath, config, { spaces: 2 });
+      await ensureGitignoreEntries(path.join(targetDir, '.gitignore'), [
+        '.lee-spec-kit.lock',
+        '.lee-spec-kit.*.lock',
+      ]);
       if (workflowMode === 'local') {
         console.log(lang === 'ko'
           ? '완료 검사 설정이 필요합니다: config --checks-detect로 후보를 확인하고 config --checks-file <path>로 등록하세요. 검사가 없으면 --checks-skip-reason <reason>을 명시하세요.'
@@ -1220,6 +1225,12 @@ async function runInit(options: InitOptions): Promise<void> {
       try {
         if (docsRepo === 'embedded') {
           const repoRoot = getGitTopLevelOrNull(cwd) || cwd;
+          const gitignorePath = path.join(repoRoot, '.gitignore');
+          if (
+            await ensureGitignoreEntries(gitignorePath, ['.worktrees/'])
+          ) {
+            extraCommitPathsAbs.push(gitignorePath);
+          }
           const agentsMdPath = path.join(repoRoot, 'AGENTS.md');
           const result = await upsertLeeSpecKitAgentsMd(agentsMdPath, {
             lang,
@@ -1237,6 +1248,15 @@ async function runInit(options: InitOptions): Promise<void> {
             lang,
             docsRepo,
           });
+          if (
+            path.resolve(getGitTopLevelOrNull(standaloneWorkspaceRoot) || '') ===
+            path.resolve(standaloneWorkspaceRoot)
+          ) {
+            await ensureGitignoreEntries(
+              path.join(standaloneWorkspaceRoot, '.gitignore'),
+              ['.worktrees/']
+            );
+          }
         }
       } catch {
         // Best-effort: do not fail init due to agent docs.
