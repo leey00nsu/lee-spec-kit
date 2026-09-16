@@ -85,6 +85,21 @@ describe('Feature verification policy', () => {
       await fs.remove(dir);
     }
   });
+  it('falls back to npm scripts when packageManager and lockfiles are absent', async () => {
+    const dir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'lsk-check-discovery-npm-fallback-')
+    );
+    try {
+      await fs.writeJson(path.join(dir, 'package.json'), {
+        scripts: { test: 'node --test' },
+      });
+      expect(await detectFeatureChecks(dir)).toEqual([
+        { command: 'npm', args: ['run', 'test'] },
+      ]);
+    } finally {
+      await fs.remove(dir);
+    }
+  });
 });
 
 it('invalidates evidence when only the check policy changes on an identical commit and tree', () => {

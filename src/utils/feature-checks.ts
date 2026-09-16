@@ -86,8 +86,8 @@ export async function detectFeatureChecks(
       if (lockfiles.some((file) => fs.existsSync(path.join(projectRoot, file))))
         detected.push(name);
     }
-    if (detected.length !== 1) return [];
-    manager = detected[0];
+    if (detected.length > 1) return [];
+    manager = detected[0] || 'npm';
   }
   return ['typecheck', 'lint', 'test', 'build']
     .filter(
