@@ -413,7 +413,28 @@ test('standalone Knowledge sync fails closed until its managed worktree exists',
 
 test('legacy in-place generation remains verifiable without a pre-review Knowledge gate', async () => {
   await withTempDir('lsk-openwiki-enabled-', async (dir) => {
-    await initializeOpenWikiFeature(dir, true);
+    const { workingDir, featureDir } = await initializeOpenWikiFeature(
+      dir,
+      true
+    );
+    const workflowAudit = json(
+      await runCli(dir, ['workflow-audit', '--json'])
+    );
+    assert.match(
+      workflowAudit.expectedWorkflowSyncMarker,
+      /^<!-- lee-spec-kit:workflow-sync sha256:[a-f0-9]{64} -->$/u
+    );
+    await fs.appendFile(
+      path.join(featureDir, 'tasks.md'),
+      `\n${workflowAudit.expectedWorkflowSyncMarker}\n`,
+      'utf-8'
+    );
+    await git(workingDir, ['add', path.join(featureDir, 'tasks.md')]);
+    await git(workingDir, [
+      'commit',
+      '-m',
+      'docs(F001): record workflow sync',
+    ]);
 
     const setupStage = json(
       await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], {

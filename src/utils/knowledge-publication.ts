@@ -442,7 +442,9 @@ export async function publishKnowledge(
       process.on('SIGTERM', onInterrupt);
       input.signal?.addEventListener('abort', onInterrupt, { once: true });
       persistStatus('running', { stage: 'preparing' });
+      let terminalStatusPersisted = false;
       const heartbeat = setInterval(() => {
+        if (terminalStatusPersisted) return;
         try {
           persistStatus('running');
         } catch {
@@ -587,6 +589,8 @@ export async function publishKnowledge(
         // The publication ref is authoritative; status.json is diagnostic only.
         checkExecution();
         publishAtCurrentBase(projectRoot, baseRef, sourceHead, id);
+        terminalStatusPersisted = true;
+        clearInterval(heartbeat);
         persistStatus('published', { stage: 'published', artifactPath });
         // Only remove generation evidence after publication committed. Cleanup
         // failure must not turn a successfully published artifact into a failure.
@@ -609,6 +613,8 @@ export async function publishKnowledge(
           artifactPath,
         };
       } catch (error) {
+        terminalStatusPersisted = true;
+        clearInterval(heartbeat);
         const interruptedFailure =
           cancellation.signal.aborted ||
           (error as { code?: string }).code === 'OPENWIKI_SYNC_INTERRUPTED';
