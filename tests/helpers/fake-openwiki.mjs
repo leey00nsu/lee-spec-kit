@@ -18,7 +18,7 @@ export async function setupFakeOpenWiki(dir) {
     JSON.stringify(
       {
         name: 'openwiki',
-        version: '0.5.0',
+        version: '0.5.2',
         engines: { node: '>=22' },
         bin: { openwiki: './dist/cli/cli.js' },
       },
@@ -37,7 +37,7 @@ const childProcess = require('node:child_process');
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(invocationLog)}, args.join(' ') + '\\n');
 if (args.length === 1 && args[0] === '--help') {
-  process.stdout.write('OpenWiki v0.5.0\\n');
+  process.stdout.write('OpenWiki v0.5.2\\n');
   process.exit(0);
 }
 if (args.length === 1 && args[0] === '--version') {
@@ -176,7 +176,7 @@ const openwikiSourceFingerprint = 'sha256:' + crypto.createHash('sha256').update
 const manifestPages = {
   '/openwiki/architecture map.md': {
     pageVersion,
-    completedBy: 'openwiki/0.5.0',
+    completedBy: 'openwiki/0.5.2',
     completedRunId: runId,
     gitHead: sourceHead,
     sourceFingerprint: openwikiSourceFingerprint
@@ -199,7 +199,7 @@ if (process.env.FAKE_OPENWIKI_EXTRA_PAGE === '1') {
   const extraVersion = 'sha256:' + crypto.createHash('sha256').update(Buffer.from(extraContent)).digest('hex');
   manifestPages['/openwiki/operations/extra.md'] = {
     pageVersion: extraVersion,
-    completedBy: 'openwiki/0.5.0',
+    completedBy: 'openwiki/0.5.2',
     completedRunId: 'fake-prior-run',
     gitHead: sourceHead,
     sourceFingerprint: openwikiSourceFingerprint

@@ -48,8 +48,14 @@ const OPENWIKI_IGNORE_END = '# lee-spec-kit:openwiki-ignore:end';
 
 const RECEIPT_SCHEMA_VERSION = 3;
 const RUN_OWNER_SCHEMA_VERSION = 2;
+/** Releases verified against these validators.
+ * OpenWiki 0.5.2 changed how a run records per-page source checkpoints, so the
+ * accepted set is explicit instead of accepting the whole 0.5.x line: an
+ * unverified patch must fail fast instead of producing rejected Knowledge.
+ */
 const OPENWIKI_CAPABILITY = {
-  range: '>=0.5.0 <0.6.0',
+  verifiedVersions: ['0.5.2'],
+  range: '>=0.5.2 <0.6.0',
   okfVersion: '0.2',
   legacyOkfVersions: ['0.1'],
 } as const;
@@ -256,6 +262,7 @@ export type OpenWikiRuntimeProbe =
       capability: {
         okfVersion: '0.2';
         versionRange: string;
+        verifiedVersions: string[];
       };
     }
   | {
@@ -1462,7 +1469,7 @@ export function probeOpenWikiRuntime(): OpenWikiRuntimeProbe {
     return {
       ok: false,
       reasonCode: 'OPENWIKI_VERSION_UNSUPPORTED',
-      detail: `OpenWiki ${version} is unsupported. Expected ${OPENWIKI_CAPABILITY.range}.`,
+      detail: `OpenWiki ${version} is unsupported. Verified versions: ${OPENWIKI_CAPABILITY.verifiedVersions.join(', ')} (${OPENWIKI_CAPABILITY.range}).`,
       executablePath,
     };
   }
@@ -1474,6 +1481,7 @@ export function probeOpenWikiRuntime(): OpenWikiRuntimeProbe {
     capability: {
       okfVersion: OPENWIKI_CAPABILITY.okfVersion,
       versionRange: OPENWIKI_CAPABILITY.range,
+      verifiedVersions: [...OPENWIKI_CAPABILITY.verifiedVersions],
     },
   };
 }
@@ -2688,11 +2696,9 @@ function normalizeGitPath(value: string): string {
 }
 
 function isSupportedOpenWikiVersion(version: string): boolean {
-  const parts = version.split('.').map((entry) => Number(entry));
-  if (parts.length < 3 || parts.some((entry) => !Number.isInteger(entry))) {
-    return false;
-  }
-  return parts[0] === 0 && parts[1] === 5;
+  return (OPENWIKI_CAPABILITY.verifiedVersions as readonly string[]).includes(
+    version
+  );
 }
 
 function resolveBaseTarget(
@@ -3733,7 +3739,6 @@ async function verifyModernOpenWikiProvenance(
   const manifestPages = new Set<string>();
   const matchedClaims = new Set<string>();
   const runIds = new Set<string>();
-  const openWikiFingerprints = new Set<string>();
   for (const [rawPagePath, rawEntry] of pageEntries) {
     const relativePagePath = parseOpenWikiManifestPagePath(rawPagePath);
     if (!relativePagePath) {
@@ -3763,9 +3768,29 @@ async function verifyModernOpenWikiProvenance(
     if (!versionMatch) {
       failures.record(`manifest pageVersion is malformed: ${rawPagePath}`);
     }
-    if (entry.gitHead !== context.sourceHead) {
+    // A run keeps the prior checkpoint for every page it did not rewrite, so a
+    // page may legitimately name an older revision. It must still be this
+    // revision or a real ancestor of it: never a future or divergent revision.
+    // A squashed history drops the recorded commit entirely, which stays valid
+    // only while the entry still names exactly this revision.
+    const entryGitHead = typeof entry.gitHead === 'string' ? entry.gitHead : '';
+    const recordsThisRevision = entryGitHead === context.sourceHead;
+    const recordsAncestor =
+      /^[a-f0-9]{40,64}$/u.test(entryGitHead) &&
+      execGitSuccess(projectRoot, [
+        'cat-file',
+        '-e',
+        `${entryGitHead}^{commit}`,
+      ]) &&
+      execGitSuccess(projectRoot, [
+        'merge-base',
+        '--is-ancestor',
+        entryGitHead,
+        context.sourceHead,
+      ]);
+    if (!recordsThisRevision && !recordsAncestor) {
       failures.record(
-        `manifest gitHead does not match the receipt sourceHead: ${rawPagePath}`
+        `manifest gitHead is not this revision or one of its ancestors: ${rawPagePath}`
       );
     }
     if (
@@ -3775,8 +3800,6 @@ async function verifyModernOpenWikiProvenance(
       failures.record(
         `manifest sourceFingerprint is malformed: ${rawPagePath}`
       );
-    } else {
-      openWikiFingerprints.add(entry.sourceFingerprint);
     }
     if (
       typeof entry.completedRunId !== 'string' ||
@@ -3837,11 +3860,6 @@ async function verifyModernOpenWikiProvenance(
     }
   }
 
-  if (openWikiFingerprints.size > 1) {
-    failures.record(
-      '`.page-manifest.json` mixes multiple OpenWiki source fingerprints'
-    );
-  }
   for (const claimPath of claimDocuments.keys()) {
     if (!matchedClaims.has(claimPath)) {
       failures.record(

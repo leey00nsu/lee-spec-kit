@@ -238,6 +238,24 @@ test('OpenWiki 0.5.0 compatibility fixture pins the published contract', async (
   assert.match(contract.integrity, /^sha512-/u);
 });
 
+test('OpenWiki 0.5.2 compatibility fixture pins the verified contract', async () => {
+  const contract = JSON.parse(
+    await fs.readFile(
+      new URL('./fixtures/openwiki-0.5.2-contract.json', import.meta.url),
+      'utf-8'
+    )
+  );
+  assert.equal(contract.package.version, '0.5.2');
+  assert.equal(contract.package.node, '>=22.22.0');
+  assert.equal(contract.cli.versionFlagSupported, false);
+  // 0.5.2 keeps the prior source checkpoint for pages a run did not rewrite.
+  assert.equal(contract.manifest.restampsRegeneratedPagesOnly, true);
+  assert.equal(contract.manifest.preservesUntouchedPageCheckpoints, true);
+  assert.equal(contract.output.okfVersion, '0.2');
+  assert.equal(contract.output.runStateSchemaVersion, 1);
+  assert.match(contract.integrity, /^sha512-/u);
+});
+
 test('embedded Knowledge sync resolves the managed Feature worktree from the main checkout', async () => {
   await withTempDir('lsk-openwiki-embedded-worktree-', async (dir) => {
     const { workingDir } = await initializeOpenWikiFeature(dir, true, {
@@ -417,9 +435,7 @@ test('legacy in-place generation remains verifiable without a pre-review Knowled
       dir,
       true
     );
-    const workflowAudit = json(
-      await runCli(dir, ['workflow-audit', '--json'])
-    );
+    const workflowAudit = json(await runCli(dir, ['workflow-audit', '--json']));
     assert.match(
       workflowAudit.expectedWorkflowSyncMarker,
       /^<!-- lee-spec-kit:workflow-sync sha256:[a-f0-9]{64} -->$/u
@@ -430,11 +446,7 @@ test('legacy in-place generation remains verifiable without a pre-review Knowled
       'utf-8'
     );
     await git(workingDir, ['add', path.join(featureDir, 'tasks.md')]);
-    await git(workingDir, [
-      'commit',
-      '-m',
-      'docs(F001): record workflow sync',
-    ]);
+    await git(workingDir, ['commit', '-m', 'docs(F001): record workflow sync']);
 
     const setupStage = json(
       await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], {
@@ -452,7 +464,7 @@ test('legacy in-place generation remains verifiable without a pre-review Knowled
       )
     );
     assert.equal(doctor.status, 'ok');
-    assert.equal(doctor.runtime.version, '0.5.0');
+    assert.equal(doctor.runtime.version, '0.5.2');
 
     const beforeSync = json(
       await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], fake.env)
@@ -2788,6 +2800,25 @@ test('OpenWiki doctor distinguishes unsupported and unverifiable executables', a
     );
     assert.equal(unsupported.status, 'blocked');
     assert.equal(unsupported.reasonCode, 'OPENWIKI_VERSION_UNSUPPORTED');
+    assert.match(unsupported.runtime.detail, /Verified versions: 0[.]5[.]2/u);
+
+    // An older 0.5.x patch is not verified either: it recorded page checkpoints
+    // differently, so it fails fast instead of producing rejected Knowledge.
+    manifest.version = '0.5.0';
+    await fs.writeFile(
+      fake.packageJsonPath,
+      JSON.stringify(manifest, null, 2),
+      'utf-8'
+    );
+    const stale = json(
+      await runCli(
+        dir,
+        ['knowledge', 'doctor', 'F001-alpha', '--json'],
+        fake.env
+      )
+    );
+    assert.equal(stale.status, 'blocked');
+    assert.equal(stale.reasonCode, 'OPENWIKI_VERSION_UNSUPPORTED');
 
     const unknownPath = path.join(dir, 'unknown-openwiki');
     await fs.writeFile(unknownPath, '#!/bin/sh\nexit 1\n', 'utf-8');
@@ -3651,15 +3682,24 @@ test('knowledge apply updates the reader tree without generation and preserves d
     await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
     await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
     const head = (await git(dir, ['rev-parse', 'HEAD'])).stdout.trim();
-    const published = json(await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env));
+    const published = json(
+      await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env)
+    );
     assert.equal(published.status, 'ok');
     const calls = await fs.readFile(fake.invocationLog, 'utf8');
-    const status = () => runCli(dir, ['knowledge', 'status', '--json']).then(json);
+    const status = () =>
+      runCli(dir, ['knowledge', 'status', '--json']).then(json);
     assert.equal((await status()).workingCopy.current, false);
     await ignoreGitArtifacts(dir, ['/openwiki/local-note.txt']);
     await fs.mkdir(path.join(dir, 'openwiki'), { recursive: true });
-    await fs.writeFile(path.join(dir, 'openwiki', 'local-note.txt'), 'ignored local notes');
-    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_APPLY_DIRTY_WORKTREE');
+    await fs.writeFile(
+      path.join(dir, 'openwiki', 'local-note.txt'),
+      'ignored local notes'
+    );
+    assert.equal(
+      json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode,
+      'OPENWIKI_APPLY_DIRTY_WORKTREE'
+    );
     await fs.rm(path.join(dir, 'openwiki', 'local-note.txt'));
     await fs.writeFile(path.join(dir, 'uncommitted.txt'), 'preserve me');
     const dirty = json(await runCli(dir, ['knowledge', 'apply', '--json']));
@@ -3669,29 +3709,53 @@ test('knowledge apply updates the reader tree without generation and preserves d
     const index = path.join(published.artifactPath, 'openwiki', 'index.md');
     const saved = await fs.readFile(index);
     await fs.appendFile(index, '\ncorrupted artifact');
-    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_PUBLICATION_REQUIRED');
+    assert.equal(
+      json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode,
+      'OPENWIKI_PUBLICATION_REQUIRED'
+    );
     await fs.writeFile(index, saved);
-    const applied = json(await runCli(dir, ['knowledge', 'apply', '--json'], { ...fake.env, FAKE_OPENWIKI_FAIL: '1' }));
+    const applied = json(
+      await runCli(dir, ['knowledge', 'apply', '--json'], {
+        ...fake.env,
+        FAKE_OPENWIKI_FAIL: '1',
+      })
+    );
     assert.equal(applied.status, 'ok', JSON.stringify(applied));
     assert.equal(applied.reasonCode, 'OPENWIKI_APPLIED');
     assert.equal(await fs.readFile(fake.invocationLog, 'utf8'), calls);
     assert.equal((await status()).workingCopy.current, true);
-    assert.deepEqual(await fs.readFile(path.join(dir, 'openwiki', 'index.md')), saved);
+    assert.deepEqual(
+      await fs.readFile(path.join(dir, 'openwiki', 'index.md')),
+      saved
+    );
     assert.equal((await git(dir, ['status', '--porcelain'])).stdout.trim(), '');
     assert.equal((await git(dir, ['rev-parse', 'HEAD^'])).stdout.trim(), head);
-    const paths = (await git(dir, ['diff', '--name-only', head, 'HEAD'])).stdout.trim().split('\n');
-    assert.ok(paths.every((p) => p.startsWith('openwiki/') || p === '.lee-spec-kit/openwiki-sync.json'));
+    const paths = (await git(dir, ['diff', '--name-only', head, 'HEAD'])).stdout
+      .trim()
+      .split('\n');
+    assert.ok(
+      paths.every(
+        (p) =>
+          p.startsWith('openwiki/') || p === '.lee-spec-kit/openwiki-sync.json'
+      )
+    );
     const again = json(await runCli(dir, ['knowledge', 'apply', '--json']));
     assert.equal(again.unchanged, true);
     assert.equal(again.commit, applied.commit);
     await fs.mkdir(path.join(dir, '.codex'), { recursive: true });
-    await fs.writeFile(path.join(dir, '.codex', 'tooling-note.txt'), 'tooling only');
+    await fs.writeFile(
+      path.join(dir, '.codex', 'tooling-note.txt'),
+      'tooling only'
+    );
     await git(dir, ['add', '.codex/tooling-note.txt']);
     await git(dir, ['commit', '-m', 'chore: update tooling']);
     assert.equal((await status()).workingCopy.current, true);
     await fs.appendFile(path.join(dir, 'openwiki', 'index.md'), '\nlocal edit');
     assert.equal((await status()).workingCopy.current, false);
-    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_APPLY_DIRTY_WORKTREE');
+    assert.equal(
+      json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode,
+      'OPENWIKI_APPLY_DIRTY_WORKTREE'
+    );
   });
 });
 
@@ -3702,10 +3766,14 @@ test('knowledge apply preserves main on commit failure and refuses a newer sourc
     await git(dir, ['switch', 'main']);
     await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
     await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
-    const published = json(await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env));
+    const published = json(
+      await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env)
+    );
     assert.equal(published.status, 'ok');
     const head = (await git(dir, ['rev-parse', 'HEAD'])).stdout.trim();
-    const ref = (await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])).stdout.trim();
+    const ref = (
+      await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])
+    ).stdout.trim();
     const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
     await git(dir, ['config', 'core.hooksPath', '.git/hooks']);
     await fs.writeFile(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
@@ -3713,14 +3781,27 @@ test('knowledge apply preserves main on commit failure and refuses a newer sourc
     assert.equal(failed.reasonCode, 'OPENWIKI_APPLY_FAILED');
     assert.equal((await git(dir, ['rev-parse', 'HEAD'])).stdout.trim(), head);
     assert.equal((await git(dir, ['status', '--porcelain'])).stdout.trim(), '');
-    assert.equal((await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])).stdout.trim(), ref);
+    assert.equal(
+      (
+        await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])
+      ).stdout.trim(),
+      ref
+    );
     await fs.access(failed.details.worktree);
     await fs.rm(hook);
     await fs.appendFile(path.join(dir, 'README.md'), '\nNew source change\n');
     await git(dir, ['add', 'README.md']);
     await git(dir, ['commit', '-m', 'feat: newer source']);
-    assert.equal(json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode, 'OPENWIKI_PUBLICATION_REQUIRED');
-    assert.equal((await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])).stdout.trim(), ref);
+    assert.equal(
+      json(await runCli(dir, ['knowledge', 'apply', '--json'])).reasonCode,
+      'OPENWIKI_PUBLICATION_REQUIRED'
+    );
+    assert.equal(
+      (
+        await git(dir, ['rev-parse', 'refs/lee-spec-kit/knowledge/publication'])
+      ).stdout.trim(),
+      ref
+    );
   });
 });
 
