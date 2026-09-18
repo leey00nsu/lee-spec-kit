@@ -238,6 +238,11 @@ interface MarkdownProjection {
   diagrams: Array<{ line: number; body: string }>;
 }
 
+/** Markdown table rows carry value lists by design. */
+function isTableRow(rawLine: string): boolean {
+  return /^\s*\|/u.test(rawLine);
+}
+
 const ENUMERATION_GAP = /^\s*(?:[,·]|과|와|및|그리고)\s*$/u;
 
 /** Remove inline markup. Voice checks keep link labels; term checks drop them. */
@@ -523,9 +528,16 @@ function inspectKoreanDocument(
   }
   for (const entry of projection.lines) {
     recordKoreanVoiceViolation(entry.prose, entry.line, violations);
-    if (longestCodeSpanRun(entry.raw) > MAX_ENUMERATION_LENGTH)
+    // A table row is where a long value list belongs, so the rule only applies
+    // to running prose.
+    if (
+      !isTableRow(entry.raw) &&
+      longestCodeSpanRun(entry.raw) > MAX_ENUMERATION_LENGTH
+    )
       push('ko_metric_enumeration', entry.line, entry.raw);
-    if (/(?:수행|진행|실시)(?:하|되|해|한|할|했|합|됩)/u.test(entry.prose))
+    // 수행 and 실시 add no meaning; 진행 is legitimate when it means "proceed",
+    // so only the unambiguous verbs are machine-checked.
+    if (/(?:수행|실시)(?:하|되|해|한|할|했|합|됩)/u.test(entry.prose))
       push('ko_sino_korean', entry.line, entry.prose);
     const term = KOREAN_PROSE_TERMS.find((candidate) =>
       candidate.pattern.test(entry.bare)

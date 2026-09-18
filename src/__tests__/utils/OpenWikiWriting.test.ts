@@ -212,6 +212,24 @@ describe('OpenWiki writing adapter readability rules', () => {
     expect(rules(markdown)).toEqual([]);
   });
 
+  it('accepts a value list inside a table row', () => {
+    const markdown = page(
+      '',
+      '# 상태 값\n\n| 모델 | 값 |\n| --- | --- |\n| `MixingJobStatus` | `PENDING`, `PREPARING`, `SUBMITTED`, `PROCESSING`, `SUCCEEDED` |'
+    );
+
+    expect(rules(markdown)).toEqual([]);
+  });
+
+  it('accepts 진행 as a real verb and reports 수행', () => {
+    const prose = page(
+      '',
+      '# 진행\n\n검증을 통과하면 다음 단계로 진행해요.\n\n차감은 한 트랜잭션에서 함께 수행해요.'
+    );
+
+    expect(rules(prose)).toEqual(['ko_sino_korean']);
+  });
+
   it('reports empty Sino-Korean verbs', () => {
     const markdown = page(
       '',
