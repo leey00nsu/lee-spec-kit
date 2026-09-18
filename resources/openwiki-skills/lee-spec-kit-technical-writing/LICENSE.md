@@ -4,6 +4,6 @@ The files in this `lee-spec-kit-technical-writing` skill directory are licensed 
 
 They are an adapted and condensed work based on [Technical Writing](https://github.com/toss/technical-writing), copyright Viva Republica, Inc., which is distributed under the same CC BY-NC-SA 4.0 license.
 
-Changes made for lee-spec-kit include reorganizing the source guidance into an agent skill, condensing it around code-grounded repository documentation, adding an OpenWiki-specific workflow and review checklist, and writing new adapter and evidence-boundary instructions. This notice does not imply endorsement by the original author.
+Changes made for lee-spec-kit include reorganizing the source guidance into an agent skill, condensing it around code-grounded repository documentation, adding an OpenWiki-specific workflow and review checklist, writing new adapter and evidence-boundary instructions, and later restoring source checkpoints that the first condensation dropped — official naming and capitalization, abbreviation expansion, loanword spelling, Sino-Korean verb removal, actor choice, table use for repeated fields, shared-fact ownership, and heading length and form — with examples rewritten for repository documentation. This notice does not imply endorsement by the original author.
 
 The CC BY-NC-SA 4.0 license applies only to this skill directory. It does not replace the MIT license for lee-spec-kit source code or other package contents.

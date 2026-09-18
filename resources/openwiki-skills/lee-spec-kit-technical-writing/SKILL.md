@@ -53,6 +53,9 @@ Unavailable input does not prove that a file is absent from the repository. Use 
 - Are prerequisites introduced before dependent concepts?
 - Do headings describe their section instead of using vague labels such as “Details” or “Overview” repeatedly?
 - Are important terms used consistently throughout the page and neighboring pages?
+- Is every abbreviation spelled out with its full name on first use?
+- Does the title stay within 30 characters and read as a plain statement?
+- Are repeated fields, states, defaults, and limits in a table instead of a sentence?
 - Does every link help the reader prepare, understand context, or continue?
 - Does the page distinguish current runtime facts from requirements, plans, and historical decisions?
 - For Korean output, does the page keep the same reader-friendly speech level without falling back to declarative `-다` or formal `-습니다` prose?

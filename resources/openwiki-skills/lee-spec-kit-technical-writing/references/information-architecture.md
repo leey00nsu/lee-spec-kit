@@ -23,6 +23,12 @@ A page should resolve one main question. Split material when sections serve diff
 
 Keep closely related facts together. Do not split a short, sequential explanation merely to produce more pages.
 
+If the outline needs a fourth-level heading to organize one topic, that is a signal to split the page instead of adding depth.
+
+## Keep shared facts in one place
+
+Each page is written by a different worker that cannot read the prose of the other pages. Anything several pages need — a job state machine, a status table, a definition of a term — must live on exactly one page. Choose that page in the plan, draw or define it there, and link to it from the others rather than repeating it. Two pages that describe the same state machine will disagree the first time only one of them is updated.
+
 ## Order by reader need
 
 Use this default sequence when it fits:
@@ -37,7 +43,11 @@ Put the value or conclusion before background that only makes sense afterward. I
 
 ## Use informative headings
 
-Headings should let a reader predict the section's content. Prefer “How a vocal analysis job reaches the worker” over “Runtime flow”. Keep sibling headings grammatically parallel when they represent comparable concepts.
+Headings should let a reader predict the section's content. Prefer “How a vocal analysis job reaches the worker” over “Runtime flow”.
+
+- Include the keyword a reader would search for.
+- Keep sibling headings grammatically parallel when they represent comparable concepts, and keep the same pattern across neighboring pages.
+- Keep reader-facing titles within 30 characters and write them as plain statements. The title rules for generated pages are in [korean-style.md](korean-style.md).
 
 ## Build useful routes
 

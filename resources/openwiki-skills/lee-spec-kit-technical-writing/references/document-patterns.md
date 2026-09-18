@@ -29,8 +29,9 @@ Use when the reader needs exact facts during work.
 1. Define scope and version assumptions.
 2. Organize entries predictably.
 3. Keep fields, paths, commands, defaults, and constraints exact.
-4. Use tables only when repeated fields are genuinely easier to compare.
+4. Put repeated fields, states, defaults, and limits in a table. A prose sentence that runs through more than four of them is a table that has not been written yet.
 5. Add examples that clarify the contract without replacing it.
+6. Use the prose around a table to say when the reader needs it and what changes it. Do not restate the rows in sentences.
 
 ## Explanation
 

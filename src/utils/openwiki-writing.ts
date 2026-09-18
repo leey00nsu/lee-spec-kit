@@ -35,11 +35,57 @@ interface OpenWikiWritingAdapter {
   ): OpenWikiWritingStyleViolation[];
 }
 
+export type OpenWikiWritingStyleRule =
+  | 'ko_reader_voice'
+  | 'ko_title_length'
+  | 'ko_title_question'
+  | 'ko_heading_depth'
+  | 'ko_metric_enumeration'
+  | 'ko_sino_korean'
+  | 'ko_term_english'
+  | 'diagram_duplicate_state';
+
 export interface OpenWikiWritingStyleViolation {
-  rule: 'ko_reader_voice';
+  rule: OpenWikiWritingStyleRule;
   line: number;
   excerpt: string;
 }
+
+/** Reader-facing explanation for each machine-checked style rule. */
+export const OPENWIKI_WRITING_RULE_HINTS: Record<
+  OpenWikiWritingStyleRule,
+  string
+> = {
+  ko_reader_voice: 'uses declarative or formal Korean prose',
+  ko_title_length: 'has a title longer than 30 characters',
+  ko_title_question: 'writes the title as a question instead of a statement',
+  ko_heading_depth:
+    'uses a fourth-level heading where the page should be split instead',
+  ko_metric_enumeration:
+    'runs more than four code spans through one sentence instead of a table',
+  ko_sino_korean: 'uses an empty Sino-Korean verb such as 수행·진행·실시',
+  ko_term_english:
+    'uses an English term in prose where the page should use Korean wording',
+  diagram_duplicate_state:
+    'draws a state machine that another page already owns',
+};
+
+const MAX_KOREAN_TITLE_LENGTH = 30;
+const MAX_ENUMERATION_LENGTH = 4;
+const MAX_ENUMERATION_MEMBER_LENGTH = 40;
+const SHARED_STATE_DIAGRAM_THRESHOLD = 0.7;
+
+/** English nouns that read as unexplained jargon in Korean prose. */
+const KOREAN_PROSE_TERMS: ReadonlyArray<{ pattern: RegExp; korean: string }> = [
+  { pattern: /\bworkers?\b/u, korean: '워커' },
+  { pattern: /\bmedia\b/u, korean: '미디어' },
+  { pattern: /\bassets?\b/u, korean: '자산' },
+  { pattern: /\bsnapshots?\b/u, korean: '스냅샷' },
+  { pattern: /\bownership\b/u, korean: '소유권' },
+  { pattern: /\blifecycles?\b/u, korean: '수명 주기' },
+  { pattern: /\bpersist(?:ed|ence|s)?\b/u, korean: '저장' },
+  { pattern: /\bretr(?:y|ies)\b/u, korean: '재시도' },
+];
 
 export interface ResolvedOpenWikiWritingPolicy {
   receipt: OpenWikiWritingPolicyReceipt;
@@ -51,7 +97,7 @@ export interface ResolvedOpenWikiWritingPolicy {
 
 const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
   id: 'lee-spec-kit.technical-writing',
-  version: '1.5.0',
+  version: '1.6.0',
   skillName: 'lee-spec-kit-technical-writing',
   bundleDirectory: 'lee-spec-kit-technical-writing',
   renderPlannerInstructions() {
@@ -71,12 +117,14 @@ const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
       ...(language === 'ko'
         ? [
             'Write Korean explanations consistently in reader-friendly `해요체` and reader actions with `-하세요`. Do not use declarative `-다` or formal `-습니다` prose, except inside exact identifiers, code, or quoted runtime text.',
-            'Use natural Korean for ordinary explanatory terms: worker → 워커, ownership → 소유권, lifecycle → 수명 주기, focused test → 변경 범위 테스트. Preserve actual code identifiers, product names, and commands; introduce unfamiliar terms once instead of mixing English into every sentence.',
+            'Use Korean for ordinary terms in prose: worker → 워커, ownership → 소유권, lifecycle → 수명 주기, media → 미디어, asset → 자산, snapshot → 스냅샷, focused test → 변경 범위 테스트. Preserve actual code identifiers, product names, and commands; introduce unfamiliar terms once instead of mixing English into every sentence. Spell out an abbreviation with its full name on first use.',
           ]
         : [
             'Use direct, reader-focused English with a clear result, conclusion, or next action first.',
           ]),
       "Put the reader's result, conclusion, or next action first and keep one primary goal on the page.",
+      'Put repeated fields, states, defaults, and limits in a table. A sentence that runs more than four code spans together is a table that has not been written yet.',
+      "Keep shared facts on one page. Do not redraw another page's state machine or restate its table; draw it on the page that owns the lifecycle and link to it from the others.",
       'Use three stages inside each page job: (1) draft an evidence-backed answer to the assigned reader question; (2) edit the complete draft for one dominant document type, one point per paragraph, consistent natural terminology, and no repeated summaries; (3) reconcile commands, conditions, exceptions, source links and Claims with the edited text, then call submit_page. Do not submit the first draft. Perform the edit within this job without a separate model, score, or review artifact.',
       'Repository evidence and technical accuracy outrank writing style. Never smooth over uncertainty or invent missing facts.',
       'Input visibility is not repository existence. A failed read or absence from the generation input may mean exclusion or access restrictions, not a missing file. Verify existence only with available authoritative tracked-file metadata; otherwise say the file was not available in the generation input. Never read excluded secrets or relax ignore rules to resolve uncertainty.',
@@ -87,7 +135,7 @@ const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
     ];
   },
   inspectMarkdown(language, content) {
-    return language === 'ko' ? inspectKoreanReaderVoice(content) : [];
+    return language === 'ko' ? inspectKoreanDocument(content) : [];
   },
 };
 
@@ -175,19 +223,74 @@ export function inspectOpenWikiMarkdownStyle(
   return DEFAULT_WRITING_ADAPTER.inspectMarkdown(language, content);
 }
 
-function inspectKoreanReaderVoice(
-  content: string
-): OpenWikiWritingStyleViolation[] {
-  const violations: OpenWikiWritingStyleViolation[] = [];
+interface MarkdownProseLine {
+  line: number;
+  raw: string;
+  prose: string;
+  bare: string;
+}
+
+interface MarkdownProjection {
+  title?: { line: number; value: string };
+  description?: { line: number; value: string };
+  headings: Array<{ line: number; level: number; text: string }>;
+  lines: MarkdownProseLine[];
+  diagrams: Array<{ line: number; body: string }>;
+}
+
+const ENUMERATION_GAP = /^\s*(?:[,·]|과|와|및|그리고)\s*$/u;
+
+/** Remove inline markup. Voice checks keep link labels; term checks drop them. */
+function stripInlineMarkdown(value: string, keepLinkLabel: boolean): string {
+  return value
+    .replace(/`+[^`]*`+/gu, ' ')
+    .replace(
+      /!?\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/gu,
+      keepLinkLabel ? '$1' : ' '
+    )
+    .replace(/"[^"]*"|'[^']*'|“[^”]*”|‘[^’]*’/gu, ' ')
+    .replace(/<[^>]+>/gu, ' ')
+    .replace(/[*_~]/gu, '');
+}
+
+function stripHtmlComments(value: string, state: { open: boolean }): string {
+  let prose = value;
+  if (state.open) {
+    const end = prose.indexOf('-->');
+    if (end < 0) return '';
+    prose = prose.slice(end + 3);
+    state.open = false;
+  }
+  while (prose.includes('<!--')) {
+    const start = prose.indexOf('<!--');
+    const end = prose.indexOf('-->', start + 4);
+    if (end < 0) {
+      state.open = true;
+      return prose.slice(0, start);
+    }
+    prose = prose.slice(0, start) + ' ' + prose.slice(end + 3);
+  }
+  return prose;
+}
+
+/** Split generated Markdown into the projections each style rule needs. */
+function projectMarkdown(content: string): MarkdownProjection {
+  const projection: MarkdownProjection = {
+    headings: [],
+    lines: [],
+    diagrams: [],
+  };
   const lines = content.split(/\r?\n/u);
+  const comment = { open: false };
   let frontmatter = lines[0]?.trim() === '---';
   let fencedBy: '`' | '~' | null = null;
   let fenceLength = 0;
-  let inHtmlComment = false;
+  let diagram: { line: number; body: string } | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] || '';
     const trimmed = rawLine.trim();
+    const line = index + 1;
 
     if (index === 0 && frontmatter) continue;
     if (frontmatter) {
@@ -195,12 +298,13 @@ function inspectKoreanReaderVoice(
         frontmatter = false;
         continue;
       }
+      const title = rawLine.match(/^\s*title:\s*(.*)$/u);
+      if (title) projection.title = { line, value: title[1] || '' };
       const description = rawLine.match(
         /^\s*(?:description|summary):\s*(.*)$/u
       );
-      if (description) {
-        recordKoreanVoiceViolation(description[1] || '', index, violations);
-      }
+      if (description)
+        projection.description = { line, value: description[1] || '' };
       continue;
     }
 
@@ -210,47 +314,235 @@ function inspectKoreanReaderVoice(
       if (!fencedBy) {
         fencedBy = marker;
         fenceLength = fence.length;
+        const info = rawLine
+          .match(/^\s{0,3}(?:`{3,}|~{3,})\s*(\S+)?/u)?.[1]
+          ?.toLowerCase();
+        if (info === 'mermaid') diagram = { line, body: '' };
       } else if (marker === fencedBy && fence.length >= fenceLength) {
+        if (diagram) projection.diagrams.push(diagram);
+        diagram = null;
         fencedBy = null;
         fenceLength = 0;
       }
       continue;
     }
-    if (fencedBy || /^\s*>/u.test(rawLine)) continue;
-
-    let prose = rawLine;
-    if (inHtmlComment) {
-      const commentEnd = prose.indexOf('-->');
-      if (commentEnd < 0) continue;
-      prose = prose.slice(commentEnd + 3);
-      inHtmlComment = false;
+    if (fencedBy) {
+      if (diagram) diagram.body += rawLine + '\n';
+      continue;
     }
-    while (prose.includes('<!--')) {
-      const commentStart = prose.indexOf('<!--');
-      const commentEnd = prose.indexOf('-->', commentStart + 4);
-      if (commentEnd < 0) {
-        prose = prose.slice(0, commentStart);
-        inHtmlComment = true;
-        break;
-      }
-      prose = `${prose.slice(0, commentStart)} ${prose.slice(commentEnd + 3)}`;
-    }
+    if (/^\s*>/u.test(rawLine)) continue;
 
-    prose = prose
-      .replace(/`+[^`]*`+/gu, ' ')
-      .replace(/!?\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/gu, '$1')
-      .replace(/"[^"]*"|'[^']*'|“[^”]*”|‘[^’]*’/gu, ' ')
-      .replace(/<[^>]+>/gu, ' ')
-      .replace(/[*_~]/gu, '');
-    recordKoreanVoiceViolation(prose, index, violations);
+    const heading = rawLine.match(/^\s{0,3}(#{1,6})\s+(.*)$/u);
+    if (heading)
+      projection.headings.push({
+        line,
+        level: (heading[1] || '').length,
+        text: (heading[2] || '').trim(),
+      });
+
+    const withoutComments = stripHtmlComments(rawLine, comment);
+    if (!withoutComments.trim()) continue;
+    projection.lines.push({
+      line,
+      raw: withoutComments,
+      prose: stripInlineMarkdown(withoutComments, true),
+      bare: stripInlineMarkdown(withoutComments, false),
+    });
   }
+  if (diagram) projection.diagrams.push(diagram);
+  return projection;
+}
+
+/** Longest run of short code spans joined only by list punctuation. */
+function longestCodeSpanRun(line: string): number {
+  const spans = [...line.matchAll(/`[^`]*`/gu)].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+    length: match[0].length,
+  }));
+  let longest = 0;
+  let run = 0;
+  let previous: (typeof spans)[number] | undefined;
+  for (const span of spans) {
+    const usable = span.length <= MAX_ENUMERATION_MEMBER_LENGTH;
+    if (!previous) run = usable ? 1 : 0;
+    else if (
+      run > 0 &&
+      usable &&
+      ENUMERATION_GAP.test(line.slice(previous.end, span.start))
+    )
+      run += 1;
+    else run = usable ? 1 : 0;
+    previous = span;
+    longest = Math.max(longest, run);
+  }
+  return longest;
+}
+
+function jaccard(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>
+): number {
+  let shared = 0;
+  for (const value of left) if (right.has(value)) shared += 1;
+  const total = left.size + right.size - shared;
+  return total === 0 ? 0 : shared / total;
+}
+
+function sameSet(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const value of left) if (!right.has(value)) return false;
+  return true;
+}
+
+interface StateDiagramShape {
+  path: string;
+  line: number;
+  nodes: Set<string>;
+  edges: Set<string>;
+}
+
+function readStateDiagramShape(
+  path: string,
+  line: number,
+  body: string
+): StateDiagramShape | null {
+  const lines = body.split('\n');
+  const header = (lines.find((value) => value.trim()) || '').trim();
+  if (!header.startsWith('stateDiagram')) return null;
+  const nodes = new Set<string>();
+  const edges = new Set<string>();
+  for (const entry of lines) {
+    const initial = entry.match(/^\s*\[\*\]\s*-->\s*([A-Za-z0-9_]+)/u);
+    if (initial) {
+      nodes.add(initial[1] || '');
+      continue;
+    }
+    const edge = entry.match(/^\s*([A-Za-z0-9_]+)\s*-->\s*([A-Za-z0-9_]+)/u);
+    if (edge) {
+      edges.add((edge[1] || '') + '->' + (edge[2] || ''));
+      nodes.add(edge[1] || '');
+      nodes.add(edge[2] || '');
+      continue;
+    }
+    const node = entry.match(/^\s*([A-Za-z0-9_]+)\s*:/u);
+    if (node) nodes.add(node[1] || '');
+  }
+  nodes.delete('');
+  return nodes.size > 0 ? { path, line, nodes, edges } : null;
+}
+
+export interface OpenWikiSharedDiagramFinding {
+  path: string;
+  line: number;
+  excerpt: string;
+}
+
+/** Report state machines that several pages draw with different transitions. */
+export function inspectOpenWikiSharedDiagrams(
+  files: ReadonlyArray<{ path: string; content: string }>
+): OpenWikiSharedDiagramFinding[] {
+  const shapes: StateDiagramShape[] = [];
+  for (const file of files)
+    for (const diagram of projectMarkdown(file.content).diagrams) {
+      const shape = readStateDiagramShape(
+        file.path,
+        diagram.line,
+        diagram.body
+      );
+      if (shape) shapes.push(shape);
+    }
+
+  const shared = new Map<string, { line: number; others: Set<string> }>();
+  const remember = (shape: StateDiagramShape, other: string) => {
+    const entry = shared.get(shape.path) || {
+      line: shape.line,
+      others: new Set<string>(),
+    };
+    entry.others.add(other);
+    shared.set(shape.path, entry);
+  };
+  for (let left = 0; left < shapes.length; left += 1)
+    for (let right = left + 1; right < shapes.length; right += 1) {
+      const a = shapes[left] as StateDiagramShape;
+      const b = shapes[right] as StateDiagramShape;
+      if (a.path === b.path) continue;
+      if (jaccard(a.nodes, b.nodes) < SHARED_STATE_DIAGRAM_THRESHOLD) continue;
+      if (sameSet(a.edges, b.edges)) continue;
+      remember(a, b.path);
+      remember(b, a.path);
+    }
+  return [...shared].map(([path, value]) => ({
+    path,
+    line: value.line,
+    excerpt:
+      'draws the same state machine as ' +
+      [...value.others].sort().join(', ') +
+      ' with different transitions',
+  }));
+}
+
+function inspectKoreanDocument(
+  content: string
+): OpenWikiWritingStyleViolation[] {
+  const violations: OpenWikiWritingStyleViolation[] = [];
+  const projection = projectMarkdown(content);
+  const push = (
+    rule: OpenWikiWritingStyleRule,
+    line: number,
+    excerpt: string
+  ) => {
+    violations.push({
+      rule,
+      line,
+      excerpt: excerpt.trim().replace(/\s+/gu, ' ').slice(0, 160),
+    });
+  };
+
+  if (projection.description)
+    recordKoreanVoiceViolation(
+      projection.description.value,
+      projection.description.line,
+      violations
+    );
+
+  const heading = projection.headings.find((entry) => entry.level === 1);
+  const title = projection.title || heading;
+  const titleText = title ? ('value' in title ? title.value : title.text) : '';
+  if (title && titleText) {
+    if (
+      stripInlineMarkdown(titleText, true).trim().length >
+      MAX_KOREAN_TITLE_LENGTH
+    )
+      push('ko_title_length', title.line, titleText);
+    if (/[?？]\s*$/u.test(titleText.trim()))
+      push('ko_title_question', title.line, titleText);
+  }
+  for (const entry of projection.lines) {
+    recordKoreanVoiceViolation(entry.prose, entry.line, violations);
+    if (longestCodeSpanRun(entry.raw) > MAX_ENUMERATION_LENGTH)
+      push('ko_metric_enumeration', entry.line, entry.raw);
+    if (/(?:수행|진행|실시)(?:하|되|해|한|할|했|합|됩)/u.test(entry.prose))
+      push('ko_sino_korean', entry.line, entry.prose);
+    const term = KOREAN_PROSE_TERMS.find((candidate) =>
+      candidate.pattern.test(entry.bare)
+    );
+    if (term)
+      push('ko_term_english', entry.line, term.korean + ' — ' + entry.bare);
+  }
+
+  for (const entry of projection.headings)
+    if (entry.level >= 4) push('ko_heading_depth', entry.line, entry.text);
 
   return violations;
 }
 
 function recordKoreanVoiceViolation(
   prose: string,
-  zeroBasedLine: number,
+  line: number,
   violations: OpenWikiWritingStyleViolation[]
 ): void {
   let disallowed = false;
@@ -263,7 +555,7 @@ function recordKoreanVoiceViolation(
   if (!disallowed) return;
   violations.push({
     rule: 'ko_reader_voice',
-    line: zeroBasedLine + 1,
+    line,
     excerpt: prose.trim().replace(/\s+/gu, ' ').slice(0, 160),
   });
 }

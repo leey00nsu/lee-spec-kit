@@ -484,7 +484,7 @@ test('legacy in-place generation remains verifiable without a pre-review Knowled
       syncResult.receipt.writingPolicy.skillName,
       'lee-spec-kit-technical-writing'
     );
-    assert.equal(syncResult.receipt.writingPolicy.adapterVersion, '1.5.0');
+    assert.equal(syncResult.receipt.writingPolicy.adapterVersion, '1.6.0');
     assert.match(syncResult.receipt.writingPolicy.skillHash, /^sha256:/u);
     assert.match(syncResult.receipt.writingPolicy.instructionHash, /^sha256:/u);
     assert.equal(syncResult.progress.phase, 'complete');

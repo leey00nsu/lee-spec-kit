@@ -109,6 +109,8 @@ npx lee-spec-kit config --openwiki true
 
 `knowledge publish`는 생성 어댑터를 통해 lee-spec-kit에 포함된 `lee-spec-kit-technical-writing` 스킬을 OpenWiki의 `skills/` 디렉터리에 설치하고, `openwiki/INSTRUCTIONS.md`의 표시된 관리 블록에서 이 스킬을 사용하도록 지시합니다. 사용자와 프로젝트가 작성한 지침은 관리 블록 밖에 그대로 남습니다. 설치 스킬은 생성 전후에 hash를 확인하며, 설정 디렉터리와 지침이 실행 중 바뀌면 receipt를 기록하지 않습니다. 스킬 내용이나 어댑터 버전이 바뀌면 receipt 검증이 이를 감지하고 다음 동기화에서 Knowledge 전체를 새 글쓰기 정책으로 다시 생성합니다. 별도의 스타일 설정은 추가하지 않으며 기능 제어는 계속 `experimental.openwiki` boolean 하나만 사용합니다.
 
+글쓰기 검증은 문체뿐 아니라 제목 길이와 형식, 약어 풀이, 산문의 한국어 용어, 빈 한자어, 긴 값 나열, 페이지 사이에 중복된 상태도까지 확인합니다. 위반이 남으면 진단을 담아 한 차례 부분 복구를 요청하고, 그래도 남으면 게시를 중단합니다. 검사 기준은 어댑터 버전에 포함되므로 규칙이 바뀌면 다음 갱신에서 문서 전체가 새 기준으로 다시 생성됩니다.
+
 OpenWiki 도입만으로 기존 문서의 낡은 내용이 자동 복구되지는 않습니다. 기존 프로젝트는 `knowledge migrate`로 workflow 호환 대상을 분류하는 것과 별개로, PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 현재 코드와 한 번 수동 대조해 기준선을 맞춰야 합니다.
 
 동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 게시 과정의 생성 어댑터와 레거시 `sync`·`audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 근거 검증이 실패하면 진단과 생성물을 보존하고, 대상을 특정할 수 있는 오류에만 한 차례 부분 복구를 요청한 뒤 전체 검증을 반복합니다. OpenWiki의 줄 위치 변경 메타데이터를 해석하되 정확한 내용 해시가 일치해야 합니다. 기본 lock 대기는 30초이고 무진행·전체 실행 시간 제한은 기본적으로 없습니다. 필요할 때 `--idle-timeout-ms`, `--absolute-timeout-ms`를 명시하며 전체 제한은 검증과 모든 재시도를 포함합니다. `--lock-timeout-ms`로 lock 대기를 조정할 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
