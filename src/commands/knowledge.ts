@@ -26,6 +26,7 @@ import {
   removeCuratedImpactGrandfatherMarkers,
 } from '../utils/documentation-impact.js';
 import {
+  isKnowledgeOnlyRevisionChange,
   publishKnowledge,
   readKnowledgePublicationStatus,
   readLatestKnowledgePublication,
@@ -140,13 +141,29 @@ export function knowledgeCommand(program: Command): void {
               config,
               feature
             );
+            // Applying a verified publication commits Knowledge output on top of
+            // the verified integration, so the base tip legitimately advances after
+            // cleanup. That advance is not a new integration and must not ask for
+            // another merge and verification.
+            const verifiedTip = context.state?.mergedBaseTip ?? null;
+            const knowledgeOnlyAdvance =
+              context.baseTip !== null &&
+              verifiedTip !== null &&
+              verifiedTip !== context.baseTip &&
+              isKnowledgeOnlyRevisionChange(
+                context.projectRoot,
+                verifiedTip,
+                context.baseTip
+              );
             if (
               config.workflow?.mode !== 'local' ||
               (!context.integrationComplete &&
-                !context.cleanedIntegrationStillValid) ||
+                !context.cleanedIntegrationStillValid &&
+                !knowledgeOnlyAdvance) ||
               !context.state ||
               !['verified', 'cleaned'].includes(context.state.status) ||
-              context.state.mergedBaseTip !== context.baseTip
+              (context.state.mergedBaseTip !== context.baseTip &&
+                !knowledgeOnlyAdvance)
             ) {
               throw createCliError(
                 'OPENWIKI_INTEGRATION_REQUIRED',
@@ -231,17 +248,28 @@ export function knowledgeCommand(program: Command): void {
 
   knowledge
     .command('apply')
-    .description('Apply the verified publication to openwiki/ as a Knowledge-only commit; never calls a model')
-    .option('--component <component>', 'Component name for standalone multi projects')
+    .description(
+      'Apply the verified publication to openwiki/ as a Knowledge-only commit; never calls a model'
+    )
+    .option(
+      '--component <component>',
+      'Component name for standalone multi projects'
+    )
     .option('--json', 'Output JSON')
     .action(async (options: KnowledgeOptions) => {
       await handleKnowledgeAction(options, async () => {
         const config = await getConfig(process.cwd());
-        if (!config) throw createCliError('CONFIG_NOT_FOUND', 'Run init first.');
-        const roots = config.docsRepo === 'standalone'
-          ? resolveStandaloneProjectRoots(config, options.component)
-          : [resolveGitPrimaryWorktreeRoot(process.cwd())];
-        if (roots.length !== 1) throw createCliError('COMPONENT_SELECTION_REQUIRED', 'Select exactly one project component.');
+        if (!config)
+          throw createCliError('CONFIG_NOT_FOUND', 'Run init first.');
+        const roots =
+          config.docsRepo === 'standalone'
+            ? resolveStandaloneProjectRoots(config, options.component)
+            : [resolveGitPrimaryWorktreeRoot(process.cwd())];
+        if (roots.length !== 1)
+          throw createCliError(
+            'COMPONENT_SELECTION_REQUIRED',
+            'Select exactly one project component.'
+          );
         return applyKnowledge(roots[0], config);
       });
     });
@@ -275,7 +303,9 @@ export function knowledgeCommand(program: Command): void {
           reasonCode: 'OPENWIKI_PUBLICATION_STATUS',
           attempt,
           latest,
-          ...(config ? { workingCopy: await readKnowledgeView(roots[0], config) } : {}),
+          ...(config
+            ? { workingCopy: await readKnowledgeView(roots[0], config) }
+            : {}),
         };
       });
     });

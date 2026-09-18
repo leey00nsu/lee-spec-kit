@@ -137,7 +137,12 @@ export async function readKnowledgePublication(
           projectRoot,
           manifest.sourceHead,
           sourceHead
-        ) && !isKnowledgeApplicationRevision(projectRoot, manifest.sourceHead, sourceHead))
+        ) &&
+          !isKnowledgeOnlyRevisionChange(
+            projectRoot,
+            manifest.sourceHead,
+            sourceHead
+          ))
       )
         return null;
       const previous = computeSourceFingerprintAtRef(
@@ -172,11 +177,25 @@ export async function readKnowledgePublication(
   }
 }
 
-function isKnowledgeApplicationRevision(root: string, before: string, after: string): boolean {
+/**
+ * True when the later revision descends from the earlier one and only Knowledge
+ * output changed. Applying a verified publication commits exactly those paths, so a
+ * later run must treat the advanced tip as the same integration, not a stale one.
+ */
+export function isKnowledgeOnlyRevisionChange(
+  root: string,
+  before: string,
+  after: string
+): boolean {
   try {
-    execFileSync('git', ['merge-base', '--is-ancestor', before, after], { cwd: root, stdio: 'pipe' });
+    execFileSync('git', ['merge-base', '--is-ancestor', before, after], {
+      cwd: root,
+      stdio: 'pipe',
+    });
     return isToolingOnlyRevisionChange(root, before, after, true);
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 /** Resolve stale status without mutating a concurrent publisher's state. */

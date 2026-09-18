@@ -5243,6 +5243,35 @@ for (const completionStrategy of ['local-ff', 'local-squash']) {
   });
 }
 
+test('knowledge publish tolerates a base advanced only by the applied Knowledge commit', async () => {
+  await withTempDir('lsk-publish-after-apply-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, { openwiki: true });
+    const fake = await setupFakeOpenWiki(dir);
+    const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
+    assert.equal(merge.code, 0, merge.stdout);
+    const published = JSON.parse(
+      (await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env)).stdout
+    );
+    assert.equal(published.reasonCode, 'OPENWIKI_PUBLISHED');
+    // Writing the verified publication advances the base tip without touching code.
+    const applied = JSON.parse(
+      (await runCli(dir, ['knowledge', 'apply', '--json'], fake.env)).stdout
+    );
+    assert.equal(applied.reasonCode, 'OPENWIKI_APPLIED');
+    assert.equal(
+      (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim(),
+      applied.commit
+    );
+    // The integration record still names the pre-apply tip; publishing must not
+    // reject the base as stale when only Knowledge output moved.
+    const again = JSON.parse(
+      (await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env)).stdout
+    );
+    assert.notEqual(again.reasonCode, 'OPENWIKI_INTEGRATION_REQUIRED');
+    assert.equal(again.status, 'ok', JSON.stringify(again));
+  });
+});
+
 test('local cleanup returns success after removing its own embedded Feature worktree', async () => {
   await withTempDir('lsk-cleanup-own-worktree-', async (dir) => {
     await prepareCompletedLocalFeature(dir);
