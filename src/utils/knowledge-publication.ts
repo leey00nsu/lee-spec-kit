@@ -644,6 +644,9 @@ export async function publishKnowledge(
           diagnosticsPath:
             (error as { details?: { diagnosticsPath?: string } }).details
               ?.diagnosticsPath || observation.diagnosticsPath,
+          outputTail: ((
+            error as { details?: { outputTail?: unknown } }
+          ).details?.outputTail ?? null) as unknown,
         });
         // Durable queues can resume only after the same read-only admission checks.
         const failure = toCliError(error);

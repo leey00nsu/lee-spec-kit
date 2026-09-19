@@ -2499,6 +2499,21 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
     );
     assert.equal(failed.status, 'error');
     assert.equal(failed.reasonCode, 'OPENWIKI_SYNC_FAILED');
+    assert.match(
+      failed.details?.outputTail?.stderr || '',
+      /simulated provider failure/u
+    );
+    const survivedOwner = JSON.parse(
+      await fs.readFile(
+        path.join(dir, '.lee-spec-kit', 'openwiki-run.json'),
+        'utf-8'
+      )
+    );
+    assert.equal(survivedOwner.lastFailure?.exitCode, 7);
+    assert.match(
+      survivedOwner.lastFailure?.outputTail?.stderr || '',
+      /simulated provider failure/u
+    );
     assert.equal(
       await fs.access(path.join(dir, 'openwiki', '.run.json')).then(
         () => true,

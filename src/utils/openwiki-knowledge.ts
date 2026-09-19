@@ -61,6 +61,9 @@ const OPENWIKI_CAPABILITY = {
 } as const;
 const DEFAULT_LOCK_TIMEOUT_MS = 30_000;
 const PROGRESS_POLL_MS = 250;
+// Keep the tail of a failed child's output so a crash can be diagnosed after the
+// fact instead of leaving only an exit code behind.
+const OPENWIKI_OUTPUT_TAIL_LIMIT = 4000;
 const OPENWIKI_EVIDENCE_VALIDATION = 'evidence_integrity';
 const OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION = 'evidence_structure';
 const OPENWIKI_PROVENANCE_VALIDATION = 'provenance_integrity';
@@ -245,6 +248,13 @@ interface OpenWikiRunOwner {
   runId?: string;
   writingPolicyHash: string;
   lastProgress?: OpenWikiProgress;
+  lastFailure?: {
+    code: string;
+    exitCode: number | null;
+    signal: string | null;
+    at: string;
+    outputTail: { stdout: string; stderr: string };
+  };
   validationFailure?: {
     ownerId: string;
     runId?: string;
@@ -1394,6 +1404,9 @@ export async function runOpenWikiSync(
             code: failure.code || 'OPENWIKI_SYNC_FAILED',
             message:
               'Knowledge execution stopped; generated output and prior diagnostics are preserved.',
+            ...(failure.details?.outputTail
+              ? { outputTail: failure.details.outputTail }
+              : {}),
           }
         );
         if (error instanceof Error) {
@@ -1924,14 +1937,27 @@ async function runOpenWikiProcess(input: {
   let pendingProgress: Promise<void> | undefined;
   let closed = false;
   let interruptKillTimer: ReturnType<typeof setTimeout> | undefined;
+  let stdoutTail = '';
+  let stderrTail = '';
 
-  const appendDiagnostic = (chunk: unknown) => {
-    void chunk;
-    observedOutputChunks += 1;
-    lastActivityAt = Date.now();
-  };
-  child.stdout?.on('data', appendDiagnostic);
-  child.stderr?.on('data', appendDiagnostic);
+  const appendDiagnostic =
+    (stream: 'stdout' | 'stderr') => (chunk: unknown) => {
+      observedOutputChunks += 1;
+      lastActivityAt = Date.now();
+      const text =
+        typeof chunk === 'string'
+          ? chunk
+          : Buffer.isBuffer(chunk)
+            ? chunk.toString('utf8')
+            : String(chunk);
+      const tail = `${stream === 'stdout' ? stdoutTail : stderrTail}${text}`.slice(
+        -OPENWIKI_OUTPUT_TAIL_LIMIT
+      );
+      if (stream === 'stdout') stdoutTail = tail;
+      else stderrTail = tail;
+    };
+  child.stdout?.on('data', appendDiagnostic('stdout'));
+  child.stderr?.on('data', appendDiagnostic('stderr'));
 
   const terminate = (signal: 'SIGTERM' | 'SIGKILL') => {
     if (!child.pid || closed) return;
@@ -2079,6 +2105,7 @@ async function runOpenWikiProcess(input: {
           totalPages: 0,
         },
         changedPaths,
+        outputTail: { stdout: stdoutTail, stderr: stderrTail },
         partialStatePreserved: true,
         resumable: true,
         resumeCommand: `npx lee-spec-kit knowledge sync ${input.owner.featureRef}${input.owner.component === 'root' ? '' : ` --component ${input.owner.component}`}`,
@@ -2164,11 +2191,24 @@ async function runOpenWikiProcess(input: {
         return;
       }
       if (code !== 0) {
+        const details = failureDetails();
+        input.owner.lastFailure = {
+          code: 'OPENWIKI_SYNC_FAILED',
+          exitCode: code ?? null,
+          signal: signal ?? null,
+          at: new Date().toISOString(),
+          outputTail: { stdout: stdoutTail, stderr: stderrTail },
+        };
+        try {
+          await writeOpenWikiRunOwner(input.projectRoot, input.owner);
+        } catch {
+          /* The process result below stays authoritative. */
+        }
         reject(
           createCliError(
             'OPENWIKI_SYNC_FAILED',
             `OpenWiki exited with ${signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`}. Partial state and diagnostics were preserved.`,
-            failureDetails()
+            details
           )
         );
         return;
