@@ -84,6 +84,95 @@ export function knowledgePublicationRoot(projectRoot: string): string {
   );
 }
 
+interface PublicationResumeCandidate {
+  id: string;
+  worktree: string;
+  resume: { runId: string; completedPages: number };
+}
+
+async function inspectPublicationResumeCandidate(input: {
+  root: string;
+  projectRoot: string;
+  sourceHead: string;
+  id: string;
+  config: ProjectConfig;
+  featureRef: string;
+  component: string;
+  rejectInvalid: boolean;
+}): Promise<PublicationResumeCandidate | null> {
+  if (
+    !/^[a-f0-9-]+$/u.test(input.id) ||
+    !input.id.startsWith(input.sourceHead + '-')
+  )
+    return null;
+  const worktree = path.join(input.root, 'runs', input.id);
+  if (!(await fs.pathExists(worktree))) return null;
+  try {
+    // Only an actual managed worktree belonging to this Git common dir can resume.
+    const stat = await fs.lstat(worktree);
+    const common = runGitCapture(['rev-parse', '--git-common-dir'], worktree);
+    const expectedCommon = runGitCapture(
+      ['rev-parse', '--git-common-dir'],
+      input.projectRoot
+    );
+    if (
+      stat.isSymbolicLink() ||
+      !stat.isDirectory() ||
+      !common ||
+      !expectedCommon ||
+      (await fs.realpath(path.resolve(worktree, common))) !==
+        (await fs.realpath(path.resolve(input.projectRoot, expectedCommon)))
+    ) {
+      throw createCliError(
+        'OPENWIKI_RUN_OWNER_MISMATCH',
+        'Saved publication is not a managed worktree of this repository.'
+      );
+    }
+    const resume = await inspectOpenWikiResume({
+      projectRoot: worktree,
+      sourceHead: input.sourceHead,
+      config: input.config,
+      featureRef: input.featureRef,
+      component: input.component,
+    });
+    return resume ? { id: input.id, worktree, resume } : null;
+  } catch (error) {
+    if (input.rejectInvalid) throw error;
+    return null;
+  }
+}
+
+async function findBestPublicationResumeCandidate(input: {
+  root: string;
+  projectRoot: string;
+  sourceHead: string;
+  currentId?: string;
+  config: ProjectConfig;
+  featureRef: string;
+  component: string;
+}): Promise<PublicationResumeCandidate | null> {
+  const runsDirectory = path.join(input.root, 'runs');
+  const entries = await fs.readdir(runsDirectory, { withFileTypes: true }).catch(
+    () => []
+  );
+  let best: PublicationResumeCandidate | null = null;
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name === input.currentId) continue;
+    const candidate = await inspectPublicationResumeCandidate({
+      ...input,
+      id: entry.name,
+      rejectInvalid: false,
+    });
+    if (
+      candidate &&
+      (!best ||
+        candidate.resume.completedPages > best.resume.completedPages)
+    )
+      best = candidate;
+  }
+  return best;
+}
+
 export async function artifactHash(directory: string): Promise<string> {
   const hash = createHash('sha256');
   async function visit(relative: string): Promise<void> {
@@ -351,6 +440,9 @@ export async function publishKnowledge(
         .catch(() => null);
       let resumed: { runId: string; completedPages: number } | null = null;
       let id = `${sourceHead}-${randomUUID()}`;
+      const featureRef = input.featureRef || 'integrated';
+      const component = input.component || config.projectType;
+      let currentCandidate: PublicationResumeCandidate | null = null;
       if (
         previous &&
         ['failed', 'interrupted', 'running'].includes(previous.status) &&
@@ -359,43 +451,42 @@ export async function publishKnowledge(
         /^[a-f0-9-]+$/u.test(previous.id) &&
         previous.id.startsWith(sourceHead + '-')
       ) {
-        const candidate = path.join(root, 'runs', previous.id);
-        if (
-          previous.worktree === candidate &&
-          (await fs.pathExists(candidate))
-        ) {
-          // Only an actual managed worktree belonging to this Git common dir can resume.
-          const stat = await fs.lstat(candidate);
-          const common = runGitCapture(
-            ['rev-parse', '--git-common-dir'],
-            candidate
-          );
-          const expectedCommon = runGitCapture(
-            ['rev-parse', '--git-common-dir'],
-            projectRoot
-          );
-          if (
-            stat.isSymbolicLink() ||
-            !stat.isDirectory() ||
-            !common ||
-            !expectedCommon ||
-            (await fs.realpath(path.resolve(candidate, common))) !==
-              (await fs.realpath(path.resolve(projectRoot, expectedCommon)))
-          ) {
-            throw createCliError(
-              'OPENWIKI_RUN_OWNER_MISMATCH',
-              'Saved publication is not a managed worktree of this repository.'
-            );
-          }
-          resumed = await inspectOpenWikiResume({
-            projectRoot: candidate,
+        const expected = path.join(root, 'runs', previous.id);
+        if (previous.worktree === expected) {
+          currentCandidate = await inspectPublicationResumeCandidate({
+            root,
+            projectRoot,
             sourceHead,
+            id: previous.id,
             config,
-            featureRef: input.featureRef || 'integrated',
-            component: input.component || config.projectType,
+            featureRef,
+            component,
+            rejectInvalid: true,
           });
-          if (resumed) id = previous.id;
         }
+      }
+      const alternateCandidate = await findBestPublicationResumeCandidate({
+        root,
+        projectRoot,
+        sourceHead,
+        currentId:
+          previous && typeof previous.id === 'string'
+            ? previous.id
+            : undefined,
+        config,
+        featureRef,
+        component,
+      });
+      const candidate =
+        alternateCandidate &&
+        (!currentCandidate ||
+          alternateCandidate.resume.completedPages >
+            currentCandidate.resume.completedPages)
+          ? alternateCandidate
+          : currentCandidate;
+      if (candidate) {
+        resumed = candidate.resume;
+        id = candidate.id;
       }
       const worktree = path.join(root, 'runs', id);
       const artifactPath = path.join(root, 'artifacts', id);

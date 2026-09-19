@@ -1497,6 +1497,59 @@ test('OpenWiki repairs internal links, missing reader links and citation ranges 
   });
 });
 
+test('OpenWiki repairs an unsafe generated local link in one bounded pass', async () => {
+  await withTempDir('lsk-openwiki-unsafe-link-repair-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_INDEX_LINK: '?:#',
+          FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(result.status, 'ok', result.error);
+    const log = await fs.readFile(fake.invocationLog, 'utf8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /unsafe_local_path/u);
+  });
+});
+
+test('OpenWiki retries only a page worker skipped during bounded validation repair', async () => {
+  await withTempDir('lsk-openwiki-repair-skip-recovery-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_INDEX_LINK: '?:#',
+          FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
+          FAKE_OPENWIKI_REPAIR_INTERRUPTED: 'skipped',
+          FAKE_OPENWIKI_REPAIR_SLEEP_MS: '1500',
+          FAKE_OPENWIKI_SKIPPED_RECOVERY_SUCCEEDS: '1',
+          FAKE_OPENWIKI_REPAIR_REQUIRE_EXISTING_PAGE: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(result.status, 'ok', result.error);
+    const log = await fs.readFile(fake.invocationLog, 'utf8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.equal(log.split('lee-spec-kit skipped page recovery').length - 1, 1);
+    assert.match(log, /\/openwiki\/architecture map\.md/u);
+  });
+});
+
 test('OpenWiki repairs once then fails closed on a repeated excluded source', async () => {
   await withTempDir('lsk-openwiki-combined-block-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);
@@ -2305,6 +2358,47 @@ test('OpenWiki interrupted completion reports observed skipped pages without wri
     );
     assert.equal(resumed.status, 'ok', resumed.error);
     await assert.rejects(fs.access(ownerPath), { code: 'ENOENT' });
+  });
+});
+
+test('OpenWiki retries only the explicitly skipped page after a terminal interrupted run', async () => {
+  await withTempDir('lsk-openwiki-skipped-page-recovery-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const failed = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SLEEP_MS: '1500',
+          FAKE_OPENWIKI_INTERRUPTED: 'skipped',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(failed.reasonCode, 'OPENWIKI_RUN_INCOMPLETE');
+    const page = path.join(dir, 'openwiki', 'architecture map.md');
+    const preserved = await fs.readFile(page);
+
+    const recovered = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_EXPECT_SKIPPED_RECOVERY: '1',
+          FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(recovered.status, 'ok', recovered.error);
+    assert.deepEqual(await fs.readFile(page), preserved);
+    const invocations = await fs.readFile(fake.invocationLog, 'utf8');
+    assert.match(invocations, /lee-spec-kit skipped page recovery/u);
+    assert.match(invocations, /\/openwiki\/architecture map\.md/u);
   });
 });
 
@@ -3508,6 +3602,54 @@ test('publication resumes a durable page without rewriting it and keeps the prio
     );
     assert.equal(status.attempt.status, 'published');
     assert.equal((await git(dir, ['status', '--porcelain'])).stdout, '');
+  });
+});
+
+test('publication reuses completed policy-migration pages and repairs only a skipped page', async () => {
+  await withTempDir('lsk-publish-skipped-page-recovery-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const fake = await setupFakeOpenWiki(dir);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const failed = json(
+      await runCli(
+        dir,
+        ['knowledge', 'publish', '--ci', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SLEEP_MS: '1500',
+          FAKE_OPENWIKI_INTERRUPTED: 'skipped',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(failed.reasonCode, 'OPENWIKI_RUN_INCOMPLETE', failed.error);
+    assert.equal(failed.details.resumable, true, failed.error);
+    const failedId = path.basename(failed.details.worktree);
+
+    const recovered = json(
+      await runCli(
+        dir,
+        ['knowledge', 'publish', '--ci', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_EXPECT_SKIPPED_RECOVERY: '1',
+          FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+
+    assert.equal(recovered.status, 'ok', recovered.error);
+    assert.equal(recovered.id, failedId);
+    const status = json(await runCli(dir, ['knowledge', 'status', '--json']));
+    assert.equal(status.attempt.resumed, true);
+    assert.equal(status.attempt.launch, 2);
+    assert.match(
+      await fs.readFile(fake.invocationLog, 'utf8'),
+      /lee-spec-kit skipped page recovery/u
+    );
   });
 });
 

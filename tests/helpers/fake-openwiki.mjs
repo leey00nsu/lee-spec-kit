@@ -48,7 +48,8 @@ const language = process.env.FAKE_OPENWIKI_LANGUAGE || 'en';
 const expectedUpdateCommand = 'code --update --print --language ' + language;
 const repairMessage = args[5];
 const isRepair = args.length === 6 && repairMessage.startsWith('lee-spec-kit validation repair');
-if (args.slice(0, 5).join(' ') !== expectedUpdateCommand || (args.length !== 5 && !isRepair)) {
+const isSkippedRecovery = args.length === 6 && repairMessage.startsWith('lee-spec-kit skipped page recovery');
+if (args.slice(0, 5).join(' ') !== expectedUpdateCommand || (args.length !== 5 && !isRepair && !isSkippedRecovery)) {
   process.stderr.write('unexpected OpenWiki arguments: ' + args.join(' '));
   process.exit(2);
 }
@@ -70,6 +71,12 @@ if ((process.env.FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE === '1' || (isRepair && pro
   process.stderr.write('existing terminal page was reset before retry');
   process.exit(11);
 }
+if (process.env.FAKE_OPENWIKI_EXPECT_SKIPPED_RECOVERY === '1') {
+  if (!isSkippedRecovery || !repairMessage.includes('/openwiki/architecture map.md')) {
+    process.stderr.write('missing bounded skipped-page recovery instruction');
+    process.exit(33);
+  }
+}
 const savedRun = fs.existsSync(path.join(wiki, '.run.json')) ? JSON.parse(fs.readFileSync(path.join(wiki, '.run.json'), 'utf8')) : null;
 if (process.env.FAKE_OPENWIKI_EXPECT_BASELINE_HEAD) {
   const manifest = JSON.parse(fs.readFileSync(path.join(wiki, '.page-manifest.json'), 'utf8'));
@@ -85,7 +92,11 @@ if (process.env.FAKE_OPENWIKI_EXPECT_RESUME === '1') {
   process.exit(0);
 }
 const runId = (isRepair ? process.env.FAKE_OPENWIKI_REPAIR_RUN_ID : savedRun?.runId || process.env.FAKE_OPENWIKI_RUN_ID) || 'fake-run';
-const interruptedMode = process.env.FAKE_OPENWIKI_INTERRUPTED || '';
+const interruptedMode = isRepair && process.env.FAKE_OPENWIKI_REPAIR_INTERRUPTED
+  ? process.env.FAKE_OPENWIKI_REPAIR_INTERRUPTED
+  : isSkippedRecovery && process.env.FAKE_OPENWIKI_SKIPPED_RECOVERY_SUCCEEDS === '1'
+    ? ''
+    : process.env.FAKE_OPENWIKI_INTERRUPTED || '';
 const pageStatus = interruptedMode === 'skipped' ? 'skipped' : (!isRepair && (process.env.FAKE_OPENWIKI_FAIL === '1' || process.env.FAKE_OPENWIKI_SLEEP_MS) ? 'pending' : 'complete');
 const initialPages = fs.existsSync(path.join(wiki, 'architecture map.md')) ? ['/openwiki/architecture map.md'] : [];
 const baseGitHead = fs.existsSync(path.join(wiki, '.last-update.json')) ? JSON.parse(fs.readFileSync(path.join(wiki, '.last-update.json'), 'utf8')).gitHead : undefined;
@@ -112,9 +123,13 @@ if (process.env.FAKE_OPENWIKI_ASSERT_RUN_OWNER_IGNORE === '1') {
     process.exit(9);
   }
 }
-const repaired = isRepair && process.env.FAKE_OPENWIKI_REPAIR_SUCCEEDS === '1';
+const repaired = (isRepair || isSkippedRecovery) && process.env.FAKE_OPENWIKI_REPAIR_SUCCEEDS === '1';
 const requestedIndexLink = process.env.FAKE_OPENWIKI_INDEX_LINK || 'architecture%20map.md';
-const indexLink = repaired && requestedIndexLink.startsWith('/openwiki/') ? requestedIndexLink.slice('/openwiki/'.length) : requestedIndexLink;
+const indexLink = repaired && requestedIndexLink === '?:#'
+  ? 'architecture%20map.md'
+  : repaired && requestedIndexLink.startsWith('/openwiki/')
+    ? requestedIndexLink.slice('/openwiki/'.length)
+    : requestedIndexLink;
 fs.writeFileSync(path.join(wiki, 'index.md'), '---\\nokf_version: "0.2"\\n---\\n# Demo Knowledge\\n\\n[Architecture](' + indexLink + ')\\n');
 const citationMode = process.env.FAKE_OPENWIKI_CITATION_MODE || '';
 const staleCitation = !repaired && (citationMode === 'stale' || (citationMode === 'stale-first' && updateInvocationCount === 1));
