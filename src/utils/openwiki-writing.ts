@@ -97,13 +97,14 @@ export interface ResolvedOpenWikiWritingPolicy {
 
 const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
   id: 'lee-spec-kit.technical-writing',
-  version: '1.6.0',
+  version: '1.7.0',
   skillName: 'lee-spec-kit-technical-writing',
   bundleDirectory: 'lee-spec-kit-technical-writing',
   renderPlannerInstructions() {
     return [
       'Read and follow the installed writing skill before planning the Knowledge route.',
       "Plan the smallest complete route around a new developer's goals. Classify pages as tutorials, how-to guides, explanations, or references instead of mirroring the source tree or targeting a fixed page count.",
+      'Seed page jobs only with tracked files the repository fingerprint covers. AGENTS.md, CLAUDE.md, generated openwiki pages, Feature documents under the docs directory, .codex/**, .openwikiignore, .lee-spec-kit/**, and ignored env or key files are excluded from that fingerprint: describe those surfaces in prose instead of seeding them, and ground the page in sources the fingerprint covers.',
       "For each page, put its reader question and document type (tutorial, how-to, explanation, or reference) in the job's purpose and instructions. Split different reader tasks instead of combining setup, runtime theory, and lookup contracts in one page. Choose paths after identifying those goals.",
       'OpenWiki owns generated index pages; do not schedule or author them. Use quickstart as the human entrypoint with links grouped by reader purpose. Preserve the quickstart required by the generator.',
       "Copy every bullet under **Page-worker contract** into every page job's `instructions`. Page workers do not inherit this file automatically.",
@@ -130,6 +131,7 @@ const DEFAULT_WRITING_ADAPTER: OpenWikiWritingAdapter = {
       'Input visibility is not repository existence. A failed read or absence from the generation input may mean exclusion or access restrictions, not a missing file. Verify existence only with available authoritative tracked-file metadata; otherwise say the file was not available in the generation input. Never read excluded secrets or relax ignore rules to resolve uncertainty.',
       'Every generated reader-facing page except the index must include at least one descriptive Markdown link to a tracked source file using `repo://path` or `repo://path#Lx-Ly`. Reserve `repo://` for source files included in the repository fingerprint. Link Knowledge pages with page-relative Markdown paths, never `/openwiki/...` or `repo://openwiki/...` hrefs. Claim sidecars and inline code citations do not replace this reader navigation link.',
       'Before submitting, check every repo:// target is a regular tracked source file, not a directory or symlink. For a directory, use plain code notation or link a relevant file inside it; never invent a file or line range.',
+      'Ground every citation and Claim in a tracked file the repository fingerprint covers. AGENTS.md, CLAUDE.md, generated openwiki pages, Feature documents under the docs directory, .codex/**, .openwikiignore, .lee-spec-kit/**, and ignored env or key files are excluded from that fingerprint, so they are never valid `repo://` targets or Claim sources. Name them in prose when the reader needs to know they exist, and support the same fact with a fingerprint-covered source.',
       'Resolve each Knowledge cross-link to the exact planned page path, including `.md`, but express its Markdown href relative to the current page directory. For example, from /openwiki/architecture/system.md to /openwiki/operations/workers.md use ../operations/workers.md. Keep canonical /openwiki/... identifiers in plans and metadata, not Markdown hrefs. Preserve meaningful navigation; do not add unrelated links merely to connect the graph.',
       'Write Markdown URL targets with literal forward slashes. Never insert backslashes before forward slashes.',
     ];

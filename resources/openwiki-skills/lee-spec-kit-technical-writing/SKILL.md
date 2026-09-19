@@ -21,7 +21,7 @@ Read [information-architecture.md](references/information-architecture.md) and [
 
 ## Write each page
 
-1. Gather tracked repository evidence before outlining the answer.
+1. Gather tracked repository evidence before outlining the answer. Cite and claim only what the repository fingerprint covers: AGENTS.md, CLAUDE.md, generated openwiki pages, Feature documents under the docs directory, .codex/**, .openwikiignore, .lee-spec-kit/**, and ignored env or key files are excluded, so name them in prose and support the fact with a covered source.
 2. Put the reader's result, conclusion, or next action first.
 3. Arrange sections in the order a new developer needs them.
 4. Use specific headings, stable terminology, concrete subjects, and short sentences that carry one main idea.
