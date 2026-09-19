@@ -1276,6 +1276,30 @@ test('OpenWiki feeds a directory-link failure back once and verifies the repaire
   });
 });
 
+test('OpenWiki repairs a citation to a fingerprint-excluded source', async () => {
+  await withTempDir('lsk-openwiki-excluded-evidence-repair-', async (dir) => {
+    await initializeOpenWikiFeature(dir, true);
+    const fake = await setupFakeOpenWiki(dir);
+    const result = json(
+      await runCli(
+        dir,
+        ['knowledge', 'sync', 'F001-alpha', '--json'],
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_SOURCE_LINK_TARGET: 'AGENTS.md#L1-L1',
+          FAKE_OPENWIKI_REPAIR_SUCCEEDS: '1',
+        },
+        { timeoutMs: 60_000 }
+      )
+    );
+    assert.equal(result.status, 'ok', result.error);
+    const log = await fs.readFile(fake.invocationLog, 'utf-8');
+    assert.equal(log.split('lee-spec-kit validation repair').length - 1, 1);
+    assert.match(log, /excluded from the Knowledge fingerprint: AGENTS\.md/u);
+    assert.ok(result.receipt.outputHash);
+  });
+});
+
 test('OpenWiki sync rejects generated Knowledge as a repo source link', async () => {
   await withTempDir('lsk-openwiki-reader-generated-link-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);
@@ -1295,9 +1319,13 @@ test('OpenWiki sync rejects generated Knowledge as a repo source link', async ()
     assert.equal(payload.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
     assert.equal(payload.details.validation, 'evidence_structure');
     assert.match(payload.error, /excluded from the Knowledge fingerprint/u);
-    assert.doesNotMatch(
-      await fs.readFile(fake.invocationLog, 'utf-8'),
-      /lee-spec-kit validation repair/u
+    // The diagnostic names the page, so the run offers one bounded repair. The
+    // fake keeps the same broken citation, so publication still fails closed.
+    assert.equal(
+      (await fs.readFile(fake.invocationLog, 'utf-8')).split(
+        'lee-spec-kit validation repair'
+      ).length - 1,
+      1
     );
   });
 });
@@ -1466,7 +1494,7 @@ test('OpenWiki repairs internal links, missing reader links and citation ranges 
   });
 });
 
-test('OpenWiki does not repair mixed document errors with an excluded source', async () => {
+test('OpenWiki repairs once then fails closed on a repeated excluded source', async () => {
   await withTempDir('lsk-openwiki-combined-block-', async (dir) => {
     await initializeOpenWikiFeature(dir, true);
     const fake = await setupFakeOpenWiki(dir);
@@ -1484,9 +1512,13 @@ test('OpenWiki does not repair mixed document errors with an excluded source', a
     );
     assert.equal(result.reasonCode, 'OPENWIKI_OUTPUT_INVALID');
     assert.match(result.error, /excluded/u);
-    assert.doesNotMatch(
-      await fs.readFile(fake.invocationLog, 'utf-8'),
-      /lee-spec-kit validation repair/u
+    // Both failures are repairable, so the run repairs once. The fake keeps
+    // emitting the broken link, so the second validation still fails closed.
+    assert.equal(
+      (await fs.readFile(fake.invocationLog, 'utf-8')).split(
+        'lee-spec-kit validation repair'
+      ).length - 1,
+      1
     );
   });
 });
