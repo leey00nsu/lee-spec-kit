@@ -84,7 +84,7 @@ export function knowledgePublicationRoot(projectRoot: string): string {
   );
 }
 
-async function artifactHash(directory: string): Promise<string> {
+export async function artifactHash(directory: string): Promise<string> {
   const hash = createHash('sha256');
   async function visit(relative: string): Promise<void> {
     const entries = (await fs.readdir(path.join(directory, relative))).sort();

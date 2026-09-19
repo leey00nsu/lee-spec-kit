@@ -2676,11 +2676,20 @@ function resolveOpenWikiDocsDir(projectRoot: string, docsDir: string): string {
   const docsGitRoot = resolveProjectRoot(resolvedDocsDir);
   const projectCommonDir = resolveGitCommonDir(projectRoot);
   const docsCommonDir = resolveGitCommonDir(resolvedDocsDir);
-  if (!projectCommonDir || projectCommonDir !== docsCommonDir) {
+  if (
+    !projectCommonDir ||
+    !docsCommonDir ||
+    realPathOrSelf(projectCommonDir) !== realPathOrSelf(docsCommonDir)
+  ) {
     return resolvedDocsDir;
   }
 
-  const relativeDocsDir = path.relative(docsGitRoot, resolvedDocsDir);
+  // Git may report a symlink-resolved repository root (for example /private/var
+  // for /var on macOS), so compare and relativize resolved paths.
+  const relativeDocsDir = path.relative(
+    realPathOrSelf(docsGitRoot),
+    realPathOrSelf(resolvedDocsDir)
+  );
   if (
     relativeDocsDir === '..' ||
     relativeDocsDir.startsWith(`..${path.sep}`) ||
@@ -2689,6 +2698,14 @@ function resolveOpenWikiDocsDir(projectRoot: string, docsDir: string): string {
     return resolvedDocsDir;
   }
   return path.resolve(projectRoot, relativeDocsDir);
+}
+
+function realPathOrSelf(target: string): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return path.resolve(target);
+  }
 }
 
 function normalizeGitPath(value: string): string {
@@ -2720,7 +2737,11 @@ function computeSourceFingerprint(
 ): string | null {
   const entries = runGitCapture(['ls-files', '-s', '-z'], projectRoot) || '';
   if (!entries) return null;
-  const relativeDocsDir = normalizeGitPath(path.relative(projectRoot, docsDir));
+  // Normalize a docs directory that lives in another worktree of the same
+  // repository so the fingerprint does not depend on the invocation cwd.
+  const relativeDocsDir = normalizeGitPath(
+    path.relative(projectRoot, resolveOpenWikiDocsDir(projectRoot, docsDir))
+  );
   const normalized: string[] = [];
   for (const rawEntry of entries.split('\0')) {
     if (!rawEntry.trim()) continue;
@@ -2757,7 +2778,11 @@ export function computeSourceFingerprintAtRef(
     runGitCapture(['ls-tree', '-r', '-z', '--full-tree', ref], projectRoot) ||
     '';
   if (!entries) return null;
-  const relativeDocsDir = normalizeGitPath(path.relative(projectRoot, docsDir));
+  // Receipts bind this fingerprint, so it must be stable whether the command
+  // runs in the primary checkout or in a linked Feature worktree.
+  const relativeDocsDir = normalizeGitPath(
+    path.relative(projectRoot, resolveOpenWikiDocsDir(projectRoot, docsDir))
+  );
   const normalized: string[] = [];
   for (const rawEntry of entries.split('\0')) {
     if (!rawEntry.trim()) continue;
