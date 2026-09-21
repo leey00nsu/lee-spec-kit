@@ -2587,13 +2587,33 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
       await runCli(
         dir,
         ['knowledge', 'sync', 'F001-alpha', '--json'],
-        { ...fake.env, FAKE_OPENWIKI_FAIL: '1' },
+        {
+          ...fake.env,
+          FAKE_OPENWIKI_FAIL: '1',
+          FAKE_OPENWIKI_DIAGNOSTIC_MODE: '1',
+          FAKE_OPENWIKI_DIAGNOSTIC_SECRET: 'super-secret-provider-token',
+        },
         { timeoutMs: 60_000 }
       )
     );
     assert.equal(failed.status, 'error');
     assert.equal(failed.reasonCode, 'OPENWIKI_SYNC_FAILED');
     assert.equal(failed.details?.outputTail, undefined);
+    assert.equal(failed.details?.diagnostic?.stage, 'generation');
+    assert.equal(failed.details?.diagnostic?.attempt, 1);
+    assert.equal(failed.details?.diagnostic?.runId, 'fake-run');
+    assert.deepEqual(failed.details?.diagnostic?.paths, [
+      '/openwiki/architecture map.md',
+    ]);
+    assert.match(failed.details?.diagnostic?.message || '', /HTTP 429/iu);
+    assert.match(
+      failed.details?.diagnostic?.message || '',
+      /rate_limit_exceeded/u
+    );
+    assert.doesNotMatch(
+      failed.details?.diagnostic?.message || '',
+      /super-secret-provider-token|original prompt|never persist this stack/u
+    );
     const survivedOwner = JSON.parse(
       await fs.readFile(
         path.join(dir, '.lee-spec-kit', 'openwiki-run.json'),
@@ -2602,6 +2622,22 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
     );
     assert.equal(survivedOwner.lastFailure?.exitCode, 7);
     assert.equal(survivedOwner.lastFailure?.outputTail, undefined);
+    assert.equal(survivedOwner.lastFailure?.runId, 'fake-run');
+    assert.equal(survivedOwner.lastFailure?.attempt, 1);
+    assert.match(survivedOwner.lastFailure?.message || '', /HTTP 429/iu);
+    assert.doesNotMatch(
+      JSON.stringify(survivedOwner.lastFailure),
+      /super-secret-provider-token|original prompt|never persist this stack/u
+    );
+    const diagnosticEvents = await fs.readFile(
+      failed.details.diagnosticsPath,
+      'utf-8'
+    );
+    assert.match(diagnosticEvents, /rate_limit_exceeded/u);
+    assert.doesNotMatch(
+      diagnosticEvents,
+      /super-secret-provider-token|original prompt|never persist this stack/u
+    );
     assert.equal(
       await fs.access(path.join(dir, 'openwiki', '.run.json')).then(
         () => true,

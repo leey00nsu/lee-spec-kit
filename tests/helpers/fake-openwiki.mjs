@@ -102,7 +102,17 @@ const initialPages = fs.existsSync(path.join(wiki, 'architecture map.md')) ? ['/
 const baseGitHead = fs.existsSync(path.join(wiki, '.last-update.json')) ? JSON.parse(fs.readFileSync(path.join(wiki, '.last-update.json'), 'utf8')).gitHead : undefined;
 fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId, mode: 'update', phase: 'generating', initialPages, baseGitHead, plan: { pages: [{ path: '/openwiki/architecture map.md', status: pageStatus, seedPaths: ['README.md#L1-L1'], instructions: [process.env.FAKE_OPENWIKI_PLAN_SECRET || ''] }] } }, null, 2) + '\\n');
 if (process.env.FAKE_OPENWIKI_FAIL === '1') {
-  process.stderr.write('simulated provider failure\\n');
+  if (process.env.FAKE_OPENWIKI_DIAGNOSTIC_MODE === '1') {
+    process.stderr.write('simulated provider failure: HTTP 429 rate limit exceeded\\n');
+    process.stderr.write('Error Diagnostics\\n');
+    process.stderr.write('message: provider failed with token=' + process.env.FAKE_OPENWIKI_DIAGNOSTIC_SECRET + '\\n');
+    process.stderr.write('response.status: 429\\n');
+    process.stderr.write('response.code: rate_limit_exceeded\\n');
+    process.stderr.write('prompt: never persist this original prompt\\n');
+    process.stderr.write('stack: never persist this stack\\n');
+  } else {
+    process.stderr.write('simulated provider failure\\n');
+  }
   process.exit(7);
 }
 const sleepMs = Number((isRepair ? process.env.FAKE_OPENWIKI_REPAIR_SLEEP_MS : undefined) || process.env.FAKE_OPENWIKI_SLEEP_MS || 0);

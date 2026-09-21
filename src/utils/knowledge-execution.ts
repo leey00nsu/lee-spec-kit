@@ -34,6 +34,58 @@ export function safeKnowledgeText(value: string): string {
     .slice(0, 8000);
 }
 
+const OPENWIKI_DIAGNOSTIC_LABEL =
+  /^(?:name|message|httpStatusFromMessage|(?:cause\.|error\.|response\.)?(?:status|statusCode|statusText|code|type|param|request_id|requestID|lc_error_code)|(?:cause\.|error\.|response\.)?metadata\.(?:provider_name|is_byok|finish_reason|previous_errors(?:\.\d+|\.more)?)):\s+/u;
+
+/**
+ * Select only OpenWiki's concise error line and its allowlisted debug fields.
+ * Arbitrary stdout, request bodies, prompts, response bodies, and stacks are
+ * deliberately excluded even when OpenWiki emits them in debug mode.
+ */
+export function describeOpenWikiFailure(stderr: string): string {
+  const ansiEscape = new RegExp(
+    `${String.fromCodePoint(27)}\\[[0-?]*[ -/]*[@-~]`,
+    'gu'
+  );
+  const lines = stderr
+    .replace(ansiEscape, '')
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const selected: string[] = [];
+  let inDiagnostics = false;
+  for (const line of lines.slice(-200)) {
+    if (line === 'Error Diagnostics') {
+      inDiagnostics = true;
+      continue;
+    }
+    if (line === 'How to fix') {
+      inDiagnostics = false;
+      continue;
+    }
+    const safeDebugField =
+      inDiagnostics && OPENWIKI_DIAGNOSTIC_LABEL.test(line);
+    const conciseFailure =
+      /^OpenWiki run failed \((?:unhandledRejection|uncaughtException)\):\s+/u.test(
+        line
+      ) ||
+      /^(?:Error:\s*)?.{0,160}\b(?:failed|failure|timed out|rate limit|unauthorized|forbidden|invalid|HTTP [45]\d\d)\b/iu.test(
+        line
+      );
+    if (!safeDebugField && !conciseFailure) continue;
+    if (
+      /\b(?:prompt|messages|requestBody|responseBody|payload|authorization)\s*[:=]/iu.test(
+        line
+      )
+    )
+      continue;
+    const sanitized = safeKnowledgeText(line).slice(0, 1200);
+    if (sanitized && !selected.includes(sanitized)) selected.push(sanitized);
+    if (selected.length >= 20) break;
+  }
+  return selected.join(' | ').slice(0, 8000);
+}
+
 export interface KnowledgeExecutionEvent {
   stage: string;
   attempt: number;

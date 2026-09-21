@@ -1,6 +1,7 @@
 import { matchesKnowledgeLineEvidence } from './knowledge-line-evidence.js';
 import {
   KnowledgeExecution,
+  describeOpenWikiFailure,
   describeKnowledgeValidation,
   type KnowledgeExecutionEvent,
 } from './knowledge-execution.js';
@@ -62,6 +63,7 @@ const OPENWIKI_CAPABILITY = {
 } as const;
 const DEFAULT_LOCK_TIMEOUT_MS = 30_000;
 const PROGRESS_POLL_MS = 250;
+const OPENWIKI_STDERR_TAIL_LIMIT = 64 * 1024;
 const OPENWIKI_EVIDENCE_VALIDATION = 'evidence_integrity';
 const OPENWIKI_EVIDENCE_STRUCTURE_VALIDATION = 'evidence_structure';
 const OPENWIKI_PROVENANCE_VALIDATION = 'provenance_integrity';
@@ -253,6 +255,11 @@ interface OpenWikiRunOwner {
     exitCode: number | null;
     signal: string | null;
     at: string;
+    attempt: number;
+    runId?: string;
+    stage: 'generation';
+    message: string;
+    paths: string[];
   };
   validationFailure?: {
     ownerId: string;
@@ -1433,6 +1440,9 @@ export async function runOpenWikiSync(
           code?: string;
           details?: Record<string, unknown>;
         };
+        const diagnostic = failure.details?.diagnostic as
+          | { message?: unknown; paths?: unknown }
+          | undefined;
         execution.event(
           failure.code === 'OPENWIKI_SYNC_INTERRUPTED'
             ? 'interrupted'
@@ -1440,7 +1450,14 @@ export async function runOpenWikiSync(
           {
             code: failure.code || 'OPENWIKI_SYNC_FAILED',
             message:
-              'Knowledge execution stopped; generated output and prior diagnostics are preserved.',
+              typeof diagnostic?.message === 'string'
+                ? diagnostic.message
+                : 'Knowledge execution stopped; generated output and prior diagnostics are preserved.',
+            paths: Array.isArray(diagnostic?.paths)
+              ? diagnostic.paths.filter(
+                  (entry): entry is string => typeof entry === 'string'
+                )
+              : undefined,
           }
         );
         if (error instanceof Error) {
@@ -1951,6 +1968,9 @@ async function runOpenWikiProcess(input: {
     env: {
       ...process.env,
       OPENWIKI_CONFIG_DIR: input.openWikiConfigDir,
+      // OpenWiki 0.5.2 exposes only allowlisted fields in its debug panel. The
+      // adapter applies a second allowlist before persisting any diagnostics.
+      OPENWIKI_DEBUG: '1',
     },
   });
   const startedAt = Date.now();
@@ -1960,6 +1980,7 @@ async function runOpenWikiProcess(input: {
   let latestProgress: OpenWikiProgress | undefined;
   let pageStartedAt = startedAt;
   let observedOutputChunks = 0;
+  let stderrTail = '';
   let planReported = false;
   let interruptionRequested = false;
   let checkingProgress = false;
@@ -1967,12 +1988,18 @@ async function runOpenWikiProcess(input: {
   let closed = false;
   let interruptKillTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const observeOutput = () => (_chunk: unknown) => {
-      observedOutputChunks += 1;
-      lastActivityAt = Date.now();
-    };
-  child.stdout?.on('data', observeOutput());
-  child.stderr?.on('data', observeOutput());
+  const observeOutput = (stream: 'stdout' | 'stderr') => (chunk: unknown) => {
+    observedOutputChunks += 1;
+    lastActivityAt = Date.now();
+    if (stream === 'stderr') {
+      const text = Buffer.isBuffer(chunk)
+        ? chunk.toString('utf8')
+        : String(chunk);
+      stderrTail = `${stderrTail}${text}`.slice(-OPENWIKI_STDERR_TAIL_LIMIT);
+    }
+  };
+  child.stdout?.on('data', observeOutput('stdout'));
+  child.stderr?.on('data', observeOutput('stderr'));
 
   const terminate = (signal: 'SIGTERM' | 'SIGKILL') => {
     if (!child.pid || closed) return;
@@ -2167,11 +2194,32 @@ async function runOpenWikiProcess(input: {
       }
       if (code !== 0) {
         const details = failureDetails();
+        const diagnosticMessage =
+          describeOpenWikiFailure(stderrTail) ||
+          'OpenWiki exited without a safe diagnostic message.';
+        const diagnosticPaths = latestProgress?.currentPage
+          ? [latestProgress.currentPage]
+          : [];
+        Object.assign(details, {
+          diagnostic: {
+            runId: input.owner.runId,
+            attempt: input.execution.attempt,
+            stage: 'generation',
+            code: 'OPENWIKI_SYNC_FAILED',
+            message: diagnosticMessage,
+            paths: diagnosticPaths,
+          },
+        });
         input.owner.lastFailure = {
           code: 'OPENWIKI_SYNC_FAILED',
           exitCode: code ?? null,
           signal: signal ?? null,
           at: new Date().toISOString(),
+          attempt: input.execution.attempt,
+          runId: input.owner.runId,
+          stage: 'generation',
+          message: diagnosticMessage,
+          paths: diagnosticPaths,
         };
         try {
           await writeOpenWikiRunOwner(input.projectRoot, input.owner);
