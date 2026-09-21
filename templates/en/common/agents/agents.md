@@ -23,12 +23,14 @@ This document defines workflow policy, not a custom runtime loop.
 - If the user gives a generic request such as continuing the next feature according to the rules, interpret it through this workflow automatically.
 - Avoid launching the first `npx lee-spec-kit ...` calls in parallel in a fresh environment; let one initial command finish so the npx cache install does not race.
 
-## Docs Are SSOT
+## Authority by question
 
 - The following startup and orchestration rules apply to the primary agent unless an explicit delegation contract says otherwise.
 - Read `npx lee-spec-kit docs get agents --json` once at primary-agent session start or right after context reset.
 - Read every unread `requiredDocs[*].command` from that response.
-- Resolve the active feature, then use that feature folder as the working SSOT.
+- Resolve the active Feature, then use its SDD as the authoritative contract and workflow memory for that change.
+- Use tracked code, schema, migrations, and runtime configuration as the authority for current executable behavior.
+- Use OpenWiki as derived current-state Knowledge for onboarding and navigation, never as an authoritative source.
 - Minimum active feature docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
 - When GitHub workflow is involved, also use `issue.md` and `pr.md`.
 - After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
@@ -66,17 +68,17 @@ This document defines workflow policy, not a custom runtime loop.
 - Human-owned architecture, onboarding, operations, design, and agent-policy docs are authoritative for curated project-wide explanations and policy. Executable claims in them must agree with tracked code, schemas, migrations, and configuration; tests provide verification evidence.
 - OpenWiki is derived onboarding and code-navigation evidence, never a source of requirements, policy, or runtime truth.
 - Complete `Curated Documentation Impact` in every Plan, including explicit `NONE` decisions. Link every `UPDATE` or `ADD` target from at least one task `Docs` entry and commit the target with the active Feature scope.
-- `experimental.openwiki=true` publishes Knowledge after integration: local workflows run the returned `knowledge publish` action after verified merge and before cleanup; GitHub workflows use the post-push CI created by `knowledge ci`. Missing or false disables this lifecycle.
+- `experimental.openwiki=true` enables repository-level derived Knowledge through the scheduled/manual CI created by `knowledge ci`. Knowledge freshness is observational and never blocks Feature completion. Missing or false disables this lifecycle.
 - Generate in an isolated worktree and publish revision-bound artifacts outside the source branch. Do not add generated Wiki or receipts to Feature commits or Feature review required documents. Keep curated PRD/architecture updates in the Feature.
 
 ### Knowledge publication diagnostics and recovery
 
-- `knowledge publish --json` emits one final JSON object on stdout and stage, attempt, observed runId, page progress, elapsed time, and retry reason on stderr. Use `knowledge status --component <name> --json` to inspect the current attempt and the last good publication.
-- Total and no-output timeouts are disabled by default. An explicit `--absolute-timeout-ms` covers preparation, generation, verification, and automatic retries in one invocation; `--idle-timeout-ms` is also opt-in. A slow page alone does not prove a stalled provider. No new retry or publication proceeds after an explicit budget is exhausted. Manual resume starts a new invocation while retaining prior elapsed time and diagnostics.
+- Scheduled/manual CI runs `knowledge publish --ci --json`, which emits one final JSON object on stdout and stage, attempt, observed runId, page progress, elapsed time, and retry reason on stderr. Use `knowledge status --component <name> --json` to inspect the current attempt and the last good publication.
+- lee-spec-kit does not stop OpenWiki because generation has taken a long time or output has been quiet. A local legacy run can resume its saved queue after ownership and integrity checks. GitHub CI runners are ephemeral, so a queue lost to forced runner termination cannot resume on the next runner; automatic repeats for that revision stop, and manual dispatch starts again from the last verified publication baseline.
 - Evidence failures receive one targeted page and Claims repair only when the diagnostics fit a complete bounded request, followed by full validation. Unknown repair scope or failed revalidation stops the run; it never escalates automatically to full regeneration. Full reset is reserved for a changed receipt writing policy that requires every page to be rewritten.
 - Preserve generated output before repair or reset. Per-execution diagnostics remain in the shared Git runtime at `knowledge-executions/<id>/events.jsonl`; follow `diagnosticsPath` and `snapshotPath`. Never log raw prompts, provider output, or credentials. Snapshots contain existing OpenWiki files, so inspect them before sharing externally.
 - SIGINT and SIGTERM produce an interrupted state. Status resolves abandoned `running` records using PID and lock ownership after uncatchable termination such as SIGKILL. Legacy ownership that cannot be proven is `unknown`, not assumed running.
-- Failures preserve the integrated commit and last good publication. A saved queue for the same Feature, component, and integration resumes in its worktree only after owner, writing policy, and completed page/Claims/manifest checks. Mismatches are preserved and blocked. New integrations start from the verified last publication artifact. Follow workflow-stage into cleanup only after publication succeeds; do not automatically repeat verification or merge.
+- Failures preserve the integrated commit and last good publication. A saved queue for the same Feature, component, and integration resumes in its worktree only after owner, writing policy, and completed page/Claims/manifest checks. Mismatches are preserved and blocked. New integrations start from the verified last publication artifact. Feature cleanup and completion remain independent of Knowledge publication success.
 
 ## Optional UI/UX Design Policy
 
@@ -100,8 +102,8 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not interrupt, replace, or abandon a running subagent solely because it has been quiet or has not changed files. Stop it only after an explicit user request, a terminal failure/cancellation, or an unrecoverable runtime status.
 - `workflow.agentReview.maxRounds` is the maximum number of fresh reviews for each Plan/task/Feature gate. A `changes_requested` decision on the final allowed review is remediated once, but the changed target is not reviewed again; preserve remaining findings and the post-review target change as residual risks and automatically complete the gate without asking for a user review-approval token. For example, `maxRounds=1` means review round 1, remediate once, then continue with no round 2. A `blocked` decision never auto-completes.
 - Treat spec/plan/tasks approval, issue creation, and branch creation as hard gates before implementation.
-- Follow the post-integration `knowledge_sync` action (`knowledge publish`). Failures leave the verified merge and last good publication intact; inspect `knowledge status` and retry. `knowledge sync` is a legacy in-place tool, not the Feature workflow.
-- In standalone mode, do not hand-write `git worktree add`; run the exact `nextAction.command` from `workflow-stage` so the managed workspace path, stale directory cleanup, and `.env`/`.env.*` copy step stay consistent.
+- Inspect repository Knowledge with `knowledge status` and update it through scheduled/manual `knowledge update --ci`. Failures leave the verified merge and last good publication intact. `knowledge sync` is a legacy in-place compatibility tool, not part of the Feature workflow.
+- For every modern Feature, run the exact `workspace_prepare` / `workspace_enter` nextAction before editing SDD. Embedded uses one code-and-docs worktree; standalone uses a docs worktree for planning and a project worktree for implementation. Do not hand-write `git worktree add`.
 - In local mode, do not stop after implementation approval. Follow the exact `local verify`, `local merge`, and `local cleanup` commands returned by `workflow-stage` until verified integration and cleanup produce `done`. A `feature_remediation` stage explicitly permits fixes in the Feature worktree.
 - In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup.
 - Keep docs synced with code changes in the same turn whenever behavior or scope changes.

@@ -14,7 +14,7 @@ This guide defines how to start or continue a feature in the Codex-native lee-sp
 
 ## Working Rules
 
-- Docs are the SSOT. Follow the active feature docs directly.
+- The active Feature SDD is the authoritative contract for this change. Follow it directly while keeping executable claims aligned with tracked code.
 - Progress through the documented stages directly:
   - `spec.md` defines scope and review state
   - `plan.md` defines the implementation approach and Verification Contract

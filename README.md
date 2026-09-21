@@ -88,7 +88,7 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 - `integrations codex`: 선택적 전역 `[features].hooks` 설정 설치/제거
 - `commit-audit --json`: hooks용 commit-time docs path + canonical commit subject validator
 - `workflow-audit --json`: hooks용 docs sync validator
-- `knowledge doctor|publish|apply|status|ci`: 통합 후 OpenWiki 생성 환경 준비·발행·상태 확인·CI 설정
+- `knowledge doctor|publish|apply|status|ci`: 저장소 단위 OpenWiki CI 준비·발행·적용·상태 확인
 - `knowledge migrate [--apply] --json`: 기존 Feature의 문서 영향 판정 도입 상태를 dry-run하고, 안전한 대상만 명시적으로 grandfather 처리
 - `local verify <feature-ref> --json`: local Feature worktree에서 검사를 실행하고 결과를 정확한 tip/tree에 결속
 - `local merge <feature-ref> --json`: 검증된 local Feature를 설정된 fast-forward 또는 squash 전략으로 base branch에 통합
@@ -105,7 +105,7 @@ npx lee-spec-kit init --workflow local --task-agent on --reviews plan,feature --
 npx lee-spec-kit config --openwiki true
 ```
 
-활성화하면 통합 후 OpenWiki를 생성합니다. local은 머지 검증 후 `knowledge publish`를 실행하고, GitHub는 `knowledge ci`로 생성한 기준 브랜치 push CI에서 실행합니다. 생성물과 receipt는 코드 revision별 artifact로 저장하며 Feature 커밋·리뷰에 포함하지 않습니다. 실패하면 머지와 마지막 정상 게시본을 유지하고 재시도합니다. 권한은 주장 유형별로 나뉩니다. PRD는 장기 요구사항, 활성 Feature SDD는 현재 변경의 범위와 결정, 사람이 관리하는 상위 문서는 프로젝트 전체 설명과 정책, tracked 코드·스키마·설정은 실행 사실의 기준이며 `openwiki/`는 이를 바탕으로 다시 검증하는 파생 온보딩 자료입니다. 모든 Plan의 Schema 2 `Curated Documentation Impact`는 네 기본 영역과 필요한 추가 유형을 판정하고, 완료 시 실제 Feature diff와 선언 대상을 대조합니다. 현재 계약은 OpenWiki CLI `>=0.5.0 <0.6.0`, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 OpenWiki 실행 파일이나 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 관련 stage와 gate는 전혀 추가되지 않습니다.
+활성화하면 예약/수동 CI가 통합된 project revision에서 저장소 단위 OpenWiki Knowledge를 갱신합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. `knowledge ci`는 하나의 Knowledge 전용 PR을 갱신하고, 생성 실패 시 통합 결과와 마지막 정상 게시본을 유지합니다. 권한은 주장 유형별로 나뉩니다. PRD는 장기 요구사항, 활성 Feature SDD는 현재 변경의 범위와 결정, 사람이 관리하는 상위 문서는 프로젝트 전체 설명과 정책, tracked 코드·스키마·설정은 실행 사실의 기준이며 `openwiki/`는 이를 바탕으로 다시 검증하는 파생 온보딩 자료입니다. 모든 Plan의 Schema 2 `Curated Documentation Impact`는 네 기본 영역과 필요한 추가 유형을 판정하고, 완료 시 실제 Feature diff와 선언 대상을 대조합니다. 현재 검증 계약은 OpenWiki CLI 0.5.2, OKF 0.2, Node.js 22 이상입니다. 실행 파일은 package manifest로 식별합니다. `knowledge doctor`는 OpenWiki가 소유하는 `~/.openwiki/.env`(또는 `OPENWIKI_CONFIG_DIR/.env`)와 현재 프로세스 환경에서 provider, model, 필수 credential의 존재 여부만 확인하며 값은 출력하지 않습니다. lee-spec-kit은 credential을 자동 설치·복제하지 않습니다. `false` 또는 플래그 누락 시 OpenWiki 동작을 활성화하지 않습니다.
 
 `knowledge publish`는 생성 어댑터를 통해 lee-spec-kit에 포함된 `lee-spec-kit-technical-writing` 스킬을 OpenWiki의 `skills/` 디렉터리에 설치하고, `openwiki/INSTRUCTIONS.md`의 표시된 관리 블록에서 이 스킬을 사용하도록 지시합니다. 사용자와 프로젝트가 작성한 지침은 관리 블록 밖에 그대로 남습니다. 설치 스킬은 생성 전후에 hash를 확인하며, 설정 디렉터리와 지침이 실행 중 바뀌면 receipt를 기록하지 않습니다. 스킬 내용이나 어댑터 버전이 바뀌면 receipt 검증이 이를 감지하고 다음 동기화에서 Knowledge 전체를 새 글쓰기 정책으로 다시 생성합니다. 별도의 스타일 설정은 추가하지 않으며 기능 제어는 계속 `experimental.openwiki` boolean 하나만 사용합니다.
 
@@ -113,9 +113,9 @@ npx lee-spec-kit config --openwiki true
 
 OpenWiki 도입만으로 기존 문서의 낡은 내용이 자동 복구되지는 않습니다. 기존 프로젝트는 `knowledge migrate`로 workflow 호환 대상을 분류하는 것과 별개로, PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 현재 코드와 한 번 수동 대조해 기준선을 맞춰야 합니다.
 
-동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 게시 과정의 생성 어댑터와 레거시 `sync`·`audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 근거 검증이 실패하면 진단과 생성물을 보존하고, 대상을 특정할 수 있는 오류에만 한 차례 부분 복구를 요청한 뒤 전체 검증을 반복합니다. OpenWiki의 줄 위치 변경 메타데이터를 해석하되 정확한 내용 해시가 일치해야 합니다. 기본 lock 대기는 30초이고 무진행·전체 실행 시간 제한은 기본적으로 없습니다. 필요할 때 `--idle-timeout-ms`, `--absolute-timeout-ms`를 명시하며 전체 제한은 검증과 모든 재시도를 포함합니다. `--lock-timeout-ms`로 lock 대기를 조정할 수 있습니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
+동기화는 OpenWiki의 durable `.run.json`을 보존하고 진행 상태를 관찰합니다. 게시 과정의 생성 어댑터와 레거시 `sync`·`audit`는 receipt의 source commit을 기준으로 `.claims/`의 `repo-lines-v1` 해시와 Markdown source citation의 줄 범위까지 검증합니다. 근거 검증이 실패하면 진단과 생성물을 보존하고, 대상을 특정할 수 있는 오류에만 한 차례 부분 복구를 요청한 뒤 전체 검증을 반복합니다. OpenWiki의 줄 위치 변경 메타데이터를 해석하되 정확한 내용 해시가 일치해야 합니다. lee-spec-kit은 생성 시간이나 무진행 시간을 기준으로 OpenWiki를 중단하지 않습니다. 동시 게시 lock 대기는 교착을 피하기 위해 기본 30초이며 `--lock-timeout-ms`로만 조정합니다. 설정 파일의 기능 제어는 계속 `experimental.openwiki` boolean 하나뿐입니다.
 
-`knowledge publish`는 검증본을 `artifactPath`에 저장합니다. local workflow는 cleanup 뒤 `knowledge apply`로 검증본을 프로젝트의 `openwiki/`와 receipt에 반영한 다음 완료됩니다. `apply`는 LLM을 호출하지 않고 임시 worktree에서 문서·출처·정책 검증을 다시 수행하며, 문서 전용 커밋을 준비해 기준 브랜치에 fast-forward로 반영합니다. 기존 코드와 사용자 설정은 수정하지 않습니다. 작업 디렉터리가 변경됐거나 게시본이 손상됐으면 덮어쓰지 않고 차단합니다. `knowledge status`의 `workingCopy.current`는 평소 보는 `openwiki/`가 게시본과 같은지도 표시합니다. CI는 계속 artifact만 게시하며, 로컬 반영은 `knowledge apply`로 실행합니다. 기존 `knowledge sync`/`audit`는 in-place 생성물 호환용입니다.
+`knowledge publish`와 별칭 `knowledge update`는 검증본을 `artifactPath`에 저장합니다. `knowledge apply`는 LLM을 호출하지 않고 임시 worktree에서 문서·출처·정책 검증을 다시 수행한 뒤 Knowledge 전용 커밋을 준비합니다. GitHub CI는 같은 기준 revision의 열린 Knowledge PR을 재사용하고, 새 검증본만 하나의 전용 PR 브랜치에 반영합니다. 실패 진단 JSON과 부분 산출물 목록은 민감한 프로세스 출력·원문 prompt를 제외한 CI artifact로 보존합니다. 같은 revision의 예약 실행은 실패 artifact 또는 실패·취소·시간 초과 workflow 기록이 남아 있으면 자동 재호출하지 않고, 확인 후 수동 dispatch로만 재시도합니다. GitHub runner 자체의 최대 실행 시간은 외부 제약이며, 플랫폼 강제 종료 시 마지막 진단 artifact가 없을 수 있습니다. Knowledge 갱신 실패나 지연은 Feature 통합·정리를 되돌리거나 막지 않습니다. `knowledge status`는 추적된 receipt와 `openwiki/`를 직접 검증하므로 새 clone에서도 `current | stale | missing | failed`를 판정합니다. 기존 `knowledge sync`/`audit`는 in-place 생성물 호환용입니다.
 
 OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에 접근하는 외부 에이전트입니다. lee-spec-kit은 변경 경로·보호 파일·출력 내 고신뢰 secret 패턴을 검증하지만 OS sandbox는 제공하지 않으므로, 신뢰할 수 있는 저장소와 격리된 실행 환경에서만 활성화하고 로컬·ignored secret 관리는 운영자가 책임져야 합니다.
 
@@ -138,7 +138,7 @@ OpenWiki는 프로젝트 작업 디렉터리와 설정된 provider credential에
 
 local 모드에서는 `feature login`이 `K7M2Q9RX4DAB-login` 같은 12자리 무작위 ID를 생성합니다. 중앙 순번이나 폴더 정렬 순서는 실행 순서가 아닙니다. 기존 `F001` 문서는 계속 사용할 수 있으며 `--id F001`은 기존 자료를 가져오는 호환 경로로 남습니다. 신규 Feature의 `.feature.json`에는 고정 ID, Issue URL, 브랜치, 담당자를 기록합니다. `--owner`를 생략하면 Git 이메일을 사용합니다.
 
-한 Feature는 한 담당자가 맡고, 다른 Feature는 병렬로 개발할 수 있습니다. 신규 Feature는 코드 worktree를 사용합니다. standalone에서는 초기 Feature 문서를 커밋한 뒤 `workflow-stage`가 안내하는 `workspace prepare <id>`를 실행하고, 반환된 `docsDirectory`에서 문서를 작성합니다. 코드 worktree는 기존 승인 절차 후 생성됩니다. 두 저장소를 한 번에 원자적으로 병합하지는 않습니다. local은 코드 통합 검증 → 문서 통합 → OpenWiki 발행 → 정리 순서로 진행하며, 중간 실패 시 완료로 처리하지 않습니다.
+한 Feature는 한 담당자가 맡고, 다른 Feature는 병렬로 개발할 수 있습니다. 신규 Feature는 코드 worktree를 사용합니다. standalone에서는 Feature 생성 직후 `workflow-stage`가 안내하는 `workspace prepare <id>`를 실행합니다. 이 명령이 해당 Feature seed만 커밋하고, 반환된 `docsDirectory`에서 문서를 작성합니다. 코드 worktree는 기존 승인 절차 후 생성됩니다. 두 저장소를 한 번에 원자적으로 병합하지는 않습니다. local은 코드 통합 검증 → 문서 통합 → 정리 순서로 Feature를 완료합니다. OpenWiki 갱신은 그 통합 revision을 대상으로 독립 실행되며 실패해도 완료된 통합을 되돌리지 않습니다.
 
 상태 변경은 다음 명령을 사용합니다.
 
@@ -155,6 +155,6 @@ base가 앞서가면 `local sync <id>` 또는 `workspace sync-docs <id>`로 해�
 
 CI에서는 `npx lee-spec-kit feature-audit --base-ref origin/main --enforce --json`을 실행해 중복 ID, 고정 식별자 변경, 문서와 메타데이터 불일치, 한 Feature의 중복 활성 Task를 검사할 수 있습니다. 먼저 대상 base를 fetch해야 합니다. `workflow-stage --json`의 `sharedDocumentationWarnings`는 현재 문서에서 발견한 PRD·아키텍처 수정 대상의 중복을 알려주며, 의미상의 충돌은 최신 base와 함께 리뷰해야 합니다.
 
-embedded Feature의 worktree 생성 전에는 반환된 `workspace_checkpoint` 안내에 따라 계획 문서를 커밋합니다. 다른 staged 파일은 이 체크포인트에 포함하지 않습니다. standalone 문서 통합은 내용 변경 없는 기록용 커밋을 남겨, 문서 저장소를 새로 clone하거나 로컬 캐시를 지워도 Git 이력에서 통합 근거를 복원합니다.
+새 embedded Feature는 `workspace prepare`가 해당 Feature seed만 커밋하고 managed worktree를 만든 뒤 그 경로를 반환합니다. 다른 staged 파일은 이 제한된 seed 커밋에 포함하지 않습니다. standalone 문서 통합은 내용 변경 없는 기록용 커밋을 남겨, 문서 저장소를 새로 clone하거나 로컬 캐시를 지워도 Git 이력에서 통합 근거를 복원합니다.
 
-`experimental.openwiki=true`만으로 GitHub CI가 설치되지는 않습니다. `knowledge ci`가 만든 workflow를 커밋하고 provider secret을 설정해야 합니다. PR 생성 시점이 아니라 기준 브랜치 push에서 생성합니다. local completion strategy가 `none`이면 자동 발행하지 않습니다. standalone GitHub 프로젝트의 CI는 코드 저장소 기준으로 실행되며 외부 문서 저장소 통합과 독립적이고, 외부 문서를 생성 입력 snapshot에 포함하지 않습니다.
+`experimental.openwiki=true`만으로 GitHub CI가 설치되지는 않습니다. `knowledge ci`가 만든 workflow를 커밋하고 provider secret을 설정해야 합니다. 예약 실행 또는 수동 `workflow_dispatch`에서 생성하며, Feature 완료 전략과 독립적으로 동작합니다. standalone GitHub 프로젝트의 CI는 코드 저장소 기준으로 실행되며 외부 문서 저장소 통합과 독립적이고, 외부 문서를 생성 입력 snapshot에 포함하지 않습니다.

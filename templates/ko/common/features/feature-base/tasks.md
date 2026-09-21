@@ -92,10 +92,10 @@
 
 ---
 
-## Knowledge Publication
+## Repository Knowledge (완료 비차단)
 
 - **Policy**: `.lee-spec-kit.json`의 `experimental.openwiki`에서 파생
-- **Lifecycle**: local은 통합 검증 후 cleanup 전에 `knowledge publish`를 실행합니다. GitHub는 `knowledge ci`로 별도 준비한 기준 브랜치 push CI를 사용합니다. local completion strategy가 `none`이면 자동 발행하지 않습니다.
+- **Lifecycle**: Feature 완료는 OpenWiki를 기다리지 않습니다. `knowledge ci`가 만든 예약/수동 CI가 통합된 project revision에서 저장소 단위 Knowledge를 갱신하며, 상태는 `knowledge status`로 별도 확인합니다.
 - **Receipt**: 반환된 게시 artifact 안에 저장합니다. 생성 Wiki와 receipt를 Feature 커밋·리뷰에 넣지 않습니다.
 
 ---

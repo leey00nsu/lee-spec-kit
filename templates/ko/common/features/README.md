@@ -59,7 +59,7 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 Plan 검수 또는 승인 전에 Schema 2 `Curated Documentation Impact`를 완료합니다. 네 기본 영역을 모두 판정하고, 프로젝트별 추가 영역이 적용될 때만 typed `Additional Curated Impacts`를 사용합니다. 추가 영역의 명시적인 `NONE`은 해당 범주가 없음을 검토했다는 증거입니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs`와 커밋된 Feature diff에 함께 있어야 합니다. 기존 프로젝트는 Feature별 검사를 신뢰하기 전에 한 번의 수동 baseline reconciliation을 수행합니다.
 
-`experimental.openwiki=true`여도 Feature 리뷰에는 Plan이 선언한 curated target을 전달하고 코드·제품 의도와 대조합니다. 생성 Wiki와 receipt는 필수 입력이 아닙니다. local은 통합 검증 후 cleanup 전에 `knowledge_sync`의 `knowledge publish`를 실행합니다. GitHub는 `knowledge ci`로 준비한 기준 브랜치 CI에서 revision별 artifact를 게시합니다. 생성 실패 시 코드 머지와 마지막 정상 게시본을 유지합니다.
+`experimental.openwiki=true`여도 Feature 리뷰에는 Plan이 선언한 curated target을 전달하고 코드·제품 의도와 대조합니다. 생성 Wiki와 receipt는 필수 입력이 아니며 Knowledge 최신성은 Feature 완료를 막지 않습니다. `knowledge ci`로 준비한 예약/수동 CI가 통합된 프로젝트 revision에서 저장소 단위 Knowledge를 갱신합니다. 생성 실패 시 코드 머지와 마지막 정상 게시본을 유지합니다.
 
 Plan 검수가 활성화되면 계획 단계는 `plan Review → fresh 읽기 전용 Plan 검수 → plan 승인` 순서로 진행됩니다. 검수는 반환된 `specHash`와 `planHash`에 묶이며 두 문서 중 하나의 내용이 바뀌면 기존 evidence가 무효입니다. reviewer는 문서를 수정하지 않고 Verification Contract와 테스트 결정을 점검합니다.
 

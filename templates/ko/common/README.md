@@ -14,7 +14,7 @@ npx lee-spec-kit docs get agents --json
 
 - `isLeeSpecKitProject: true`일 때만 lee-spec-kit 워크플로우를 적용합니다.
 - 기본 실행 경로는 workspace-scoped `AGENTS.md`, Codex 공식 hooks, 그리고 활성 feature 문서입니다.
-- 활성 feature를 정한 뒤에는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 작업 SSOT로 사용합니다.
+- 활성 Feature를 정한 뒤에는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 이번 변경의 권위 있는 계약과 작업 기록으로 사용합니다. 현재 실행 동작은 추적된 코드, 스키마, 설정을 기준으로 판단합니다.
 - 사용자 승인 요청은 문서화된 workflow checkpoint와 원격/파괴적 작업 전에만 합니다.
 - `git commit` 전에 `npx lee-spec-kit commit-audit --json`를 사용해 staged docs 경로와 canonical Feature-scoped commit 형식을 검증합니다.
 - 코드나 feature 문서를 바꿨다면 종료 전 `npx lee-spec-kit workflow-audit --json`로 동기화 상태를 확인합니다.
@@ -68,15 +68,15 @@ npx lee-spec-kit docs get agents --json
 
 Schema 2는 자주 쓰는 네 영역을 기본 판정으로 유지하고, 보안·API/데이터 계약·디자인 시스템·릴리스 운영·관측성·에이전트 정책 같은 프로젝트별 문서만 `Additional Curated Impacts`에 유형을 지정해 선언합니다. 완료 시 lee-spec-kit은 실제 Feature diff에서 바뀐 주요 curated 파일을 선언 대상과 대조한 뒤 Feature 리뷰로 넘어갑니다. OpenWiki 생성은 별도로 통합 후 실행합니다. 이 검사는 조용히 바뀐 문서를 잡지만, 변경되지 않은 문서가 의미상 낡았는지 판단하지는 않습니다. 도입 시 기존 PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 한 번 수동으로 기준선 점검해야 합니다.
 
-`experimental.openwiki`가 true이면 local은 통합 검증 후 cleanup 전에 revision별 Knowledge artifact를 게시합니다. GitHub는 `knowledge ci`로 준비한 기준 브랜치 push CI에서 생성합니다. 생성 Wiki는 Feature 커밋·리뷰에 포함하지 않습니다. 반환된 `knowledge publish`를 실행하고 실패는 `knowledge status`로 확인합니다.
+`experimental.openwiki`가 true이면 `knowledge ci`로 준비한 예약/수동 CI가 통합된 프로젝트 revision에서 Knowledge를 파생합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. 생성 Wiki는 Feature 커밋·리뷰에 포함하지 않습니다. 실패는 `knowledge status`로 확인하고 저장소 단위 갱신에는 `knowledge update --ci`를 사용합니다.
 
 OpenWiki는 sandboxed renderer가 아니라 외부 에이전트입니다. 신뢰할 수 있는 저장소와 적절히 격리한 실행 환경에서만 활성화하고, 로컬·ignored secret이 접근 가능한 환경에 남지 않도록 관리합니다.
 
 ---
 
-## SSOT 관계 (PRD / Ideas / Features)
+## 권한 관계 (PRD / Ideas / Features / Code / Knowledge)
 
-문서 간 관계가 모호해지지 않도록, 아래를 “SSOT(단일 기준)”로 사용합니다.
+어떤 질문에 답하는지에 따라 기준 정보를 구분합니다.
 
 권장 흐름:
 
@@ -155,7 +155,7 @@ OpenWiki 실험 기능은 별도의 단일 옵션 `--openwiki true|false`로 제
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
-- `experimental.openwiki` (boolean): 통합 후 Knowledge artifact 게시를 활성화합니다. Node.js 22+, OpenWiki `>=0.5.0 <0.6.0`가 필요합니다. 생성물 커밋이나 별도의 Feature 리뷰를 강제하지 않습니다.
+- `experimental.openwiki` (boolean): 파생된 저장소 Knowledge를 활성화합니다. Node.js 22+와 검증된 OpenWiki 0.5.2 adapter가 필요합니다. Knowledge 최신성은 Feature 완료를 막지 않습니다.
 - `workflow.agentExecution.task` (object): 태스크 구현 위임 설정
   - `enabled`: 각 `task_execute`를 서브에이전트에게 위임할지 여부. 새 프로젝트의 기본값은 `true`이며, 이 설정이 생기기 전 프로젝트는 명시적으로 켜기 전까지 꺼진 상태를 유지
   - `type`: 현재 `"subagent"`만 지원

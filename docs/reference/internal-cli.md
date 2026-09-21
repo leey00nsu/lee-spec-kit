@@ -16,7 +16,7 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `workflow-stage`
 - `knowledge doctor`
 - `knowledge migrate` (dry-run by default; explicit `--apply` for eligible legacy Plans)
-- `knowledge publish` (post-integration artifact)
+- `knowledge publish --ci` (repository-level CI artifact)
 - `knowledge status`
 - `knowledge ci` (explicit CI scaffold)
 - `knowledge sync` (legacy in-place compatibility)

@@ -23,12 +23,14 @@
 - 사용자가 "규칙에 따라 다음 feature를 진행해라"처럼 일반적으로 말해도 이 워크플로우로 자동 해석합니다.
 - fresh 환경에서 최초 `npx lee-spec-kit ...` 호출은 병렬 실행하지 말고, npx cache 설치 경합을 피하도록 첫 명령 하나가 끝난 뒤 이어서 실행합니다.
 
-## 문서가 SSOT
+## 질문에 따른 기준 정보
 
 - 아래 시작 및 orchestration 규칙은 명시적인 위임 계약이 없는 한 메인 에이전트에 적용합니다.
 - 메인 에이전트 세션 시작 시점이나 context 리셋 직후 `npx lee-spec-kit docs get agents --json`를 1회 읽습니다.
 - 응답의 `requiredDocs[*].command` 중 아직 읽지 않은 문서를 모두 확인합니다.
-- 활성 feature를 정한 뒤에는 해당 feature 폴더를 작업 SSOT로 사용합니다.
+- 활성 Feature를 정한 뒤에는 해당 Feature SDD를 이번 변경의 계약과 작업 기록으로 사용합니다.
+- 현재 실행 동작은 추적된 코드, 스키마, 마이그레이션, 런타임 설정을 기준으로 판단합니다.
+- OpenWiki는 온보딩과 탐색을 위한 파생된 현재 상태 지식이며 원본 근거로 취급하지 않습니다.
 - 최소 기준 문서는 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`입니다.
 - GitHub 워크플로우가 얽히면 `issue.md`, `pr.md`도 함께 봅니다.
 - 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
@@ -66,17 +68,17 @@
 - 사람이 관리하는 아키텍처·온보딩·운영·디자인·에이전트 정책 문서는 프로젝트 전체 설명과 정책의 기준입니다. 실행 가능한 사실은 tracked 코드·스키마·마이그레이션·설정과 일치해야 하며, 테스트는 검증 증거입니다.
 - OpenWiki는 파생된 온보딩·코드 탐색 증거이며 요구사항·정책·런타임 사실의 기준이 아닙니다.
 - 모든 Plan에서 명시적인 `NONE`을 포함해 `Curated Documentation Impact` 판정을 완료합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 항목에서 연결하고 활성 Feature scope로 커밋합니다.
-- `experimental.openwiki=true`이면 통합 후 Knowledge를 게시합니다. local은 머지 검증 후 cleanup 전에 반환된 `knowledge publish`를 실행하고, GitHub는 `knowledge ci`로 준비한 기준 브랜치 push CI에서 실행합니다. 누락 또는 false이면 이 흐름을 사용하지 않습니다.
+- `experimental.openwiki=true`이면 `knowledge ci`가 만든 예약/수동 CI로 저장소 단위 파생 Knowledge를 관리합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. 누락 또는 false이면 이 흐름을 사용하지 않습니다.
 - 별도 worktree에서 생성하고 코드 revision별 artifact로 저장합니다. 생성 Wiki와 receipt를 Feature 커밋이나 Feature 리뷰 필수 문서에 추가하지 않습니다. PRD·아키텍처 등 사람이 관리하는 문서는 Feature에서 함께 수정합니다.
 
 ### Knowledge 게시 진단과 복구
 
-- `knowledge publish --json`은 stdout에 최종 JSON 하나를 반환하며 stderr에 단계·실행 차수·runId(관찰된 경우)·페이지 진행·경과 시간·재시도 이유를 출력합니다. `knowledge status --component <name> --json`으로 현재 게시 상태와 마지막 정상 게시본을 확인합니다.
-- 총 시간 제한과 무출력 시간 제한은 기본으로 꺼져 있습니다. `--absolute-timeout-ms`를 명시하면 준비·생성·검증·자동 재시도를 합친 한 번의 호출에 적용합니다. `--idle-timeout-ms`도 명시할 때만 적용하며, 페이지가 오래 걸리는 것만으로 정체라고 단정하지 않습니다. 명시한 예산 초과 후 새 재시도나 게시를 진행하지 않습니다. 수동 재개는 새 호출이며 이전 실행 시간과 진단 경로는 보존합니다.
+- 예약/수동 CI의 `knowledge publish --ci --json`은 stdout에 최종 JSON 하나를 반환하며 stderr에 단계·실행 차수·runId(관찰된 경우)·페이지 진행·경과 시간·재시도 이유를 출력합니다. `knowledge status --component <name> --json`으로 현재 게시 상태와 마지막 정상 게시본을 확인합니다.
+- lee-spec-kit은 생성 경과 시간이나 출력이 없는 시간을 이유로 OpenWiki를 중단하지 않습니다. 로컬 레거시 실행은 외부 중단 뒤 저장된 queue를 안전성 검사 후 재개할 수 있습니다. GitHub CI runner는 일회성이므로 강제 종료된 queue를 다음 runner에서 재개하지 못하며, 같은 revision의 자동 반복을 막고 수동 dispatch가 마지막 검증 게시본을 기준으로 새 실행을 시작합니다.
 - evidence 오류는 진단 범위가 한 번의 제한된 수정 요청에 담길 때만 해당 페이지·Claims를 부분 수정한 뒤 전체 검증합니다. 복구 범위가 불명확하거나 재검증이 실패하면 중단하며, 자동 전체 재생성으로 전환하지 않습니다. 기존 receipt의 글쓰기 정책이 바뀌어 모든 페이지를 다시 작성해야 하는 경우에만 전체 초기화를 수행합니다.
 - 수정/초기화 전 기존 생성물을 보존하고, 실행별 진단은 Git 공용 runtime의 `knowledge-executions/<id>/events.jsonl`에 남깁니다. `diagnosticsPath`와 `snapshotPath`를 사용하며 원문 프롬프트·provider 출력·인증정보를 별도 로그에 기록하지 않습니다. 보존 사본은 기존 OpenWiki 파일이므로 외부 공유 전 내용을 확인합니다.
 - SIGINT/SIGTERM은 중단 상태로 종료합니다. SIGKILL 등으로 남은 `running`은 상태 조회 시 PID와 잠금 소유권으로 재판정합니다. 구형 기록의 소유권을 확인할 수 없으면 `unknown`으로 표시하며 실행 중이라고 단정하지 않습니다.
-- 실패해도 통합 커밋과 마지막 정상 게시본은 유지합니다. 같은 Feature/component와 통합 커밋의 저장된 page queue가 있으면 owner·작성 정책·완료 페이지와 Claims/manifest 해시를 먼저 검사한 뒤 기존 worktree에서 이어갑니다. 불일치는 보존 후 차단합니다. 새 통합 커밋의 갱신은 검증한 최근 정상 게시 artifact를 기준으로 시작합니다. 게시 성공 후 workflow-stage의 cleanup을 따르며 통합 검증과 병합을 무조건 반복하지 않습니다.
+- 실패해도 통합 커밋과 마지막 정상 게시본은 유지합니다. 같은 Feature/component와 통합 커밋의 저장된 page queue가 있으면 owner·작성 정책·완료 페이지와 Claims/manifest 해시를 먼저 검사한 뒤 기존 worktree에서 이어갑니다. 불일치는 보존 후 차단합니다. 새 통합 커밋의 갱신은 검증한 최근 정상 게시 artifact를 기준으로 시작합니다. Feature cleanup과 완료는 Knowledge 게시 성공 여부와 독립적입니다.
 
 ## 선택적 UI/UX 디자인 정책
 
@@ -100,8 +102,8 @@
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 서브에이전트를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.
 - `workflow.agentReview.maxRounds`는 Plan/task/Feature 게이트별 fresh 리뷰의 최대 실행 횟수입니다. 마지막 허용 리뷰가 `changes_requested`이면 지적을 한 번 반영하지만 변경된 target을 다시 리뷰하지 않으며, 남은 finding과 리뷰 이후 target 변경을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 게이트를 자동 완료합니다. 예를 들어 `maxRounds=1`이면 Round 1 리뷰와 지적 반영 후 Round 2 없이 계속합니다. `blocked` 결정은 자동 완료하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
-- 통합 후 `knowledge_sync` action의 `knowledge publish` 명령을 따릅니다. 생성 실패 시 검증된 머지와 마지막 정상 게시본을 유지합니다. `knowledge status`로 확인하고 재시도합니다. `knowledge sync`는 기존 in-place 호환 명령이며 Feature workflow에서 사용하지 않습니다.
-- standalone 모드에서는 `git worktree add`를 직접 만들지 말고 `workflow-stage`의 정확한 `nextAction.command`를 실행해 managed workspace 경로, stale 디렉터리 정리, `.env`/`.env.*` 복사 단계가 일관되게 유지되도록 합니다.
+- 저장소 Knowledge는 `knowledge status`로 확인하고 예약/수동 `knowledge update --ci`로 갱신합니다. 생성 실패 시 검증된 머지와 마지막 정상 게시본을 유지합니다. `knowledge sync`는 기존 in-place 호환 명령이며 Feature workflow에서 사용하지 않습니다.
+- 모든 modern Feature는 SDD를 편집하기 전에 정확한 `workspace_prepare` / `workspace_enter` nextAction을 실행합니다. embedded는 코드와 문서가 함께 있는 worktree 하나를 사용하고, standalone은 계획용 docs worktree와 구현용 project worktree를 사용합니다. `git worktree add`를 직접 만들지 않습니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.
 - `local-ff` 또는 `local-squash` workflow에서 `local_merge` 승인이 필요하면 구현 승인과 local merge 승인을 구분합니다. 첫 번째 승인은 구현 결과를 수락하고, 두 번째 승인은 설정된 통합 전략, post-merge 검사, local cleanup을 허가합니다.
 - 동작이나 범위가 바뀌는 코드 변경이 있으면 같은 턴 안에서 feature 문서를 같이 동기화합니다.

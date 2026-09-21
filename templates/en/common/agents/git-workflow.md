@@ -110,7 +110,7 @@ Run the returned `nextAction.command` instead of hand-writing the worktree path.
 that are no longer registered Git worktrees, and copies existing `.env`/`.env.*` files
 from the project root into the new worktree when the target file is absent.
 
-For new embedded Features, follow `workspace_checkpoint` before branch creation. It commits only that Feature's planning docs. Then use the returned worktree command and continue from its workingDirectory. Do not manually create a worktree from a HEAD that lacks the Feature docs.
+For new embedded Features, run the returned `workspace prepare` command. It commits only that Feature seed, creates the managed branch/worktree, and returns its workingDirectory. Do not hand-write the worktree command.
 
 > Continue implementation from the worktree path returned by `workflow-stage`.
 
@@ -177,6 +177,6 @@ Use the scope selected by the workflow: `#123` when an Issue is linked, otherwis
 
 New GitHub Feature IDs come from Issues selected before SDD planning; new local IDs are 12-character random values. Existing F-number documents remain compatible. One Feature has one owner and one active task; different Features can proceed independently.
 
-New standalone Features keep the primary docs checkout on its base branch and use `workspace prepare` for their docs worktree. Commit seed docs first and work from the returned docsDirectory. Project and docs integration are separate. In local mode, verify code integration, merge docs, publish OpenWiki when enabled, then clean up. GitHub publication runs independently on code base-branch pushes. The docs receipt is an empty Git commit and survives a docs clone. Use `workspace sync-docs` when the base advances and revalidate conflicts before integration. Failed integration never implies completion.
+New standalone Features keep the primary docs checkout on its base branch and use `workspace prepare` for their docs worktree. The command commits only the Feature seed; work from the returned docsDirectory. Project and docs integration are separate. In local mode, verify code integration, merge docs, and clean up. Knowledge update runs independently when enabled. GitHub publication runs independently on its schedule or manual dispatch. The docs receipt is an empty Git commit and survives a docs clone. Use `workspace sync-docs` when the base advances and revalidate conflicts before integration. Failed integration never implies completion.
 
 Use task claim/status/transition/release for explicit task IDs, with the current tasks hash and session token. Legacy task lines without IDs retain document transitions. Run feature-audit in CI; review sharedDocumentationWarnings for shared curated targets. PR merge retries do not automatically rebase or force-push.

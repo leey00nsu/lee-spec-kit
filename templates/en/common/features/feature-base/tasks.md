@@ -92,10 +92,10 @@
 
 ---
 
-## Knowledge Publication
+## Repository Knowledge (Non-blocking)
 
 - **Policy**: Derived from `.lee-spec-kit.json` `experimental.openwiki`
-- **Lifecycle**: After verified local integration, follow `knowledge publish` before cleanup. GitHub uses explicitly configured base-branch push CI (`knowledge ci`). With local completion strategy `none`, no automatic publication runs.
+- **Lifecycle**: Feature completion never waits for OpenWiki. The scheduled/manual CI created by `knowledge ci` updates repository-level Knowledge from the integrated project revision; inspect it separately with `knowledge status`.
 - **Receipt**: Stored inside the returned publication artifact; do not add generated Wiki or receipts to Feature commits or reviews.
 
 ---

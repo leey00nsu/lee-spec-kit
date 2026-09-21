@@ -109,7 +109,7 @@ worktree 경로를 직접 만들지 말고 반환된 `nextAction.command`를 실
 아래에 worktree를 만들고, Git에 등록되지 않은 이전 managed 디렉터리를 정리하며,
 새 worktree에 대상 파일이 없을 때 프로젝트 루트의 기존 `.env`/`.env.*` 파일을 복사합니다.
 
-새 embedded Feature는 `workspace_checkpoint` 안내에 따라 해당 Feature의 계획 문서를 먼저 커밋합니다. 이후 반환된 worktree 생성 명령을 실행하고 지정된 작업 경로에서 이어갑니다. Feature 문서가 없는 HEAD에서 worktree를 직접 만들지 않습니다.
+새 embedded Feature는 반환된 `workspace prepare` 명령을 실행합니다. 이 명령이 해당 Feature seed만 커밋하고 managed worktree를 만든 뒤 작업 경로를 반환합니다. worktree 명령을 직접 만들지 않습니다.
 
 
 > 이후 작업은 `workflow-stage`가 반환한 worktree 경로에서 진행하세요.
@@ -177,6 +177,6 @@ workflow에 따라 scope를 선택합니다. Issue가 연결되어 있으면 `#1
 
 새 GitHub Feature는 SDD 계획 전에 선택한 Issue 번호를 ID로 사용합니다. local ID는 12자리 무작위 값이며 기존 F번호 문서는 호환됩니다. 한 Feature는 한 담당자가 한 Task씩 진행하고, 다른 Feature끼리는 병렬로 개발할 수 있습니다.
 
-새 standalone Feature는 초기 문서를 커밋한 뒤 `workspace prepare`가 반환한 docsDirectory에서 문서를 작성합니다. 기본 문서 체크아웃은 base 브랜치를 유지합니다. local은 코드 통합 검증 → 문서 통합 → 활성화된 경우 OpenWiki 발행 → 정리 순서를 따릅니다. 문서 통합 기록은 내용 변경 없는 Git 커밋으로 남아 문서 저장소 clone 후에도 복원됩니다. base가 앞서가면 `workspace sync-docs`로 반영하고 충돌을 재검증합니다. 중간 실패를 완료로 처리하지 않습니다.
+새 standalone Feature는 `workspace prepare`가 해당 Feature seed만 커밋한 뒤 반환한 docsDirectory에서 문서를 작성합니다. 기본 문서 체크아웃은 base 브랜치를 유지합니다. local Feature는 코드 통합 검증 → 문서 통합 → 정리 순서를 따르며, OpenWiki 갱신은 독립 실행됩니다. 문서 통합 기록은 내용 변경 없는 Git 커밋으로 남아 문서 저장소 clone 후에도 복원됩니다. base가 앞서가면 `workspace sync-docs`로 반영하고 충돌을 재검증합니다. 중간 실패를 완료로 처리하지 않습니다.
 
 명시적 Task ID에는 task claim/status/transition/release와 최신 해시·세션 토큰을 사용합니다. ID 없는 레거시 Task는 문서에서 상태를 변경합니다. CI에서 feature-audit를 실행하고 sharedDocumentationWarnings의 공통 문서 수정 대상을 검토합니다. PR 병합 재시도 중 자동 rebase·force-push를 하지 않습니다.

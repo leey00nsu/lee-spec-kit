@@ -14,7 +14,7 @@ npx lee-spec-kit docs get agents --json
 
 - Apply lee-spec-kit workflow only when `isLeeSpecKitProject: true`.
 - Use workspace-scoped `AGENTS.md`, official Codex hooks, and the active feature docs as the default runtime path.
-- Resolve the active feature, then treat `spec.md`, `plan.md`, `tasks.md`, and `decisions.md` as the working SSOT.
+- Resolve the active Feature, then treat `spec.md`, `plan.md`, `tasks.md`, and `decisions.md` as the authoritative contract and workflow memory for that change. Use tracked code, schema, and configuration for current executable behavior.
 - Ask for approval only at documented workflow checkpoints and before remote or destructive actions.
 - Use `npx lee-spec-kit commit-audit --json` before `git commit` for staged docs-path checks and canonical Feature-scoped commit validation.
 - Use `npx lee-spec-kit workflow-audit --json` before stopping when code or feature docs changed.
@@ -68,15 +68,15 @@ Every Plan must complete `Curated Documentation Impact`, including explicit `NON
 
 Schema 2 keeps four common surfaces in the core assessment and uses `Additional Curated Impacts` only for typed project-specific surfaces such as security, API/data contracts, design systems, release operations, observability, or agent policy. At completion, lee-spec-kit reconciles recognized curated files changed in the actual Feature diff against the declared targets before Feature review; OpenWiki generation follows integration separately. This prevents silent changes; it does not decide whether an unchanged document is semantically stale. After adoption, perform one manual baseline reconciliation of existing PRD, architecture, onboarding, operations, design, and agent-policy docs.
 
-When `experimental.openwiki` is true, local workflows publish an isolated, revision-bound Knowledge artifact after verified integration and before cleanup. GitHub uses the base-branch push CI scaffolded by `knowledge ci`. Feature commits and review do not contain generated Wiki. Use the returned `knowledge publish` command and inspect failures with `knowledge status`.
+When `experimental.openwiki` is true, the scheduled/manual CI scaffolded by `knowledge ci` derives Knowledge from the integrated project revision. Knowledge freshness is observational and never blocks Feature completion. Feature commits and review do not contain generated Wiki. Inspect failures with `knowledge status` and run `knowledge update --ci` for repository-level updates.
 
 OpenWiki is an external agent, not a sandboxed renderer. Enable it only for trusted repositories in an appropriately isolated runtime, and keep local or ignored secrets outside its accessible environment.
 
 ---
 
-## SSOT Relationship (PRD / Ideas / Features)
+## Authority Relationship (PRD / Ideas / Features / Code / Knowledge)
 
-To avoid ambiguity, treat the following as the single source of truth (SSOT).
+Authority depends on the question being answered:
 
 Recommended flow:
 
@@ -156,7 +156,7 @@ The OpenWiki experiment is controlled separately with the single `--openwiki tru
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `experimental.openwiki` (boolean): enables post-integration Knowledge artifacts; requires Node.js 22+ and OpenWiki `>=0.5.0 <0.6.0`. No generated Knowledge commit or forced Feature review.
+- `experimental.openwiki` (boolean): enables derived repository Knowledge; requires Node.js 22+ and the verified OpenWiki 0.5.2 adapter. Knowledge freshness does not gate Feature completion.
 - `workflow.agentExecution.task` (object): task implementation delegation settings
   - `enabled`: delegates each `task_execute` action to a subagent; new projects default to `true`, while projects created before this setting existed keep it disabled until explicitly enabled
   - `type`: currently only `"subagent"` is supported
