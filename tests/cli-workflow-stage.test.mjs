@@ -2163,9 +2163,9 @@ test('workflow-stage does not accept the standalone project root as its Feature 
   });
 });
 
-test('workflow-stage restores a missing standalone worktree before completed Feature Knowledge gates', async () => {
+test('completed standalone Features do not restore a worktree only for Knowledge', async () => {
   await withTempDir('lsk-workflow-stage-standalone-complete-openwiki-', async (dir) => {
-    const { projectRoot } = await initStandaloneRepo(dir);
+    await initStandaloneRepo(dir);
     const fakeGh = await setupFakeGhCli(dir);
     await writePlanningReadyDocs(dir, { issueStatus: 'Ready' });
     await syncIssueDraftMarker(dir, 123);
@@ -2188,11 +2188,10 @@ test('workflow-stage restores a missing standalone worktree before completed Fea
     await fs.writeFile(tasksPath, tasks, 'utf-8');
 
     const payload = await readStage(dir, fakeGh.env);
-    assert.equal(payload.stage, 'branch');
-    assert.equal(payload.nextAction.category, 'branch_create');
-    assert.match(payload.nextAction.summary, /Knowledge/u);
-    assert.match(payload.nextAction.command || '', /worktree add/u);
-    assert.match(payload.nextAction.command || '', new RegExp(path.basename(projectRoot)));
+    assert.equal(payload.stage, 'task_commit');
+    assert.notEqual(payload.nextAction.category, 'branch_create');
+    assert.doesNotMatch(payload.nextAction.summary, /Knowledge/u);
+    assert.doesNotMatch(payload.nextAction.command || '', /worktree add/u);
   });
 });
 
@@ -5201,76 +5200,26 @@ test('workflow-stage reports FEATURE_SELECTION_REQUIRED when multiple features e
 });
 
 for (const completionStrategy of ['local-ff', 'local-squash']) {
-  test(`OpenWiki publishes after ${completionStrategy} verification and retries without rolling back code`, async () => {
-    await withTempDir('lsk-local-publication-', async (dir) => {
+  test(`OpenWiki-enabled ${completionStrategy} Feature completes without Knowledge publication`, async () => {
+    await withTempDir('lsk-local-without-publication-', async (dir) => {
       await prepareCompletedLocalFeature(dir, { openwiki: true, completionStrategy });
-      const fake = await setupFakeOpenWiki(dir);
-      // The fake generator cites README.md, which is part of this source snapshot.
-      const before = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env);
-      assert.equal(JSON.parse(before.stdout).reasonCode, 'OPENWIKI_INTEGRATION_REQUIRED');
       const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
       assert.equal(merge.code, 0, merge.stdout);
-      const head = (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
-      assert.equal((await readStage(dir)).stage, 'knowledge_sync');
-      assert.match((await readStage(dir)).nextAction.command, /knowledge publish/u);
-      const failed = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], { ...fake.env, FAKE_OPENWIKI_FAIL: '1' });
-      assert.equal(failed.code, 1);
-      assert.match(JSON.parse(failed.stdout).details.resumeCommand, /--component single/u);
-      assert.equal((await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim(), head);
-      assert.equal((await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(), '');
-      assert.equal((await readStage(dir)).stage, 'knowledge_sync');
-      const result = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env);
-      assert.equal(result.code, 0, result.stdout);
-      const published = JSON.parse(result.stdout);
-      assert.equal(published.sourceHead, head);
-      await fs.access(path.join(published.artifactPath, 'openwiki', 'index.md'));
-      await fs.access(path.join(published.artifactPath, '.lee-spec-kit', 'openwiki-sync.json'));
-      assert.equal((await runCommand(dir, 'git', ['status', '--porcelain'])).stdout.trim(), '');
       assert.equal((await readStage(dir)).stage, 'local_cleanup');
-      // A damaged artifact cannot satisfy completion.
-      const index = path.join(published.artifactPath, 'openwiki', 'index.md');
-      const saved = await fs.readFile(index);
-      await fs.appendFile(index, '\ncorruption');
-      assert.equal((await readStage(dir)).stage, 'knowledge_sync');
-      await fs.writeFile(index, saved);
       const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
       assert.equal(cleanup.code, 0, cleanup.stdout);
-      assert.equal((await readStage(dir)).stage, 'knowledge_apply');
-      const applied = await runCli(dir, ['knowledge', 'apply', '--json']);
-      assert.equal(applied.code, 0, applied.stdout);
       assert.equal((await readStage(dir)).stage, 'done');
+      assert.equal(
+        await fs.access(path.join(dir, 'openwiki')).then(() => true, () => false),
+        false
+      );
+      assert.equal(
+        (await runCommand(dir, 'git', ['show-ref', '--verify', '--quiet', 'refs/lee-spec-kit/knowledge/publication'])).code,
+        1
+      );
     });
   });
 }
-
-test('knowledge publish tolerates a base advanced only by the applied Knowledge commit', async () => {
-  await withTempDir('lsk-publish-after-apply-', async (dir) => {
-    await prepareCompletedLocalFeature(dir, { openwiki: true });
-    const fake = await setupFakeOpenWiki(dir);
-    const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
-    assert.equal(merge.code, 0, merge.stdout);
-    const published = JSON.parse(
-      (await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env)).stdout
-    );
-    assert.equal(published.reasonCode, 'OPENWIKI_PUBLISHED');
-    // Writing the verified publication advances the base tip without touching code.
-    const applied = JSON.parse(
-      (await runCli(dir, ['knowledge', 'apply', '--json'], fake.env)).stdout
-    );
-    assert.equal(applied.reasonCode, 'OPENWIKI_APPLIED');
-    assert.equal(
-      (await runCommand(dir, 'git', ['rev-parse', 'HEAD'])).stdout.trim(),
-      applied.commit
-    );
-    // The integration record still names the pre-apply tip; publishing must not
-    // reject the base as stale when only Knowledge output moved.
-    const again = JSON.parse(
-      (await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env)).stdout
-    );
-    assert.notEqual(again.reasonCode, 'OPENWIKI_INTEGRATION_REQUIRED');
-    assert.equal(again.status, 'ok', JSON.stringify(again));
-  });
-});
 
 test('local cleanup returns success after removing its own embedded Feature worktree', async () => {
   await withTempDir('lsk-cleanup-own-worktree-', async (dir) => {
@@ -5298,29 +5247,28 @@ test('local cleanup returns success after removing its own embedded Feature work
   });
 });
 
-test('standalone publication uses the integrated project without modifying docs or its Feature worktree', async () => {
-  await withTempDir('lsk-standalone-publication-', async (dir) => {
+test('standalone OpenWiki-enabled Feature completes without Knowledge publication', async () => {
+  await withTempDir('lsk-standalone-without-publication-', async (dir) => {
     const { projectRoot, worktreePath } = await prepareCompletedStandaloneLocalFeature(dir, { openwiki: true });
-    const fake = await setupFakeOpenWiki(projectRoot);
     const verify = await runCli(dir, ['local', 'verify', 'F001-alpha', '--json']);
     assert.equal(verify.code, 0, verify.stdout);
     const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json']);
     assert.equal(merge.code, 0, merge.stdout);
-    assert.equal((await readStage(dir)).stage, 'knowledge_sync');
-    const result = await runCli(dir, ['knowledge', 'publish', 'F001-alpha', '--json'], fake.env);
-    assert.equal(result.code, 0, result.stdout);
-    const publication = JSON.parse(result.stdout);
-    assert.equal(publication.sourceHead, (await runCommand(projectRoot, 'git', ['rev-parse', 'main'])).stdout.trim());
-    for (const cwd of [projectRoot, worktreePath, path.join(dir, 'docs')]) {
-      assert.equal((await runCommand(cwd, 'git', ['status', '--porcelain'])).stdout.trim(), '');
-      assert.equal(await fs.access(path.join(cwd, 'openwiki')).then(() => true, () => false), false);
-    }
+    assert.equal((await readStage(dir)).stage, 'local_cleanup');
     const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json']);
     assert.equal(cleanup.code, 0, cleanup.stdout);
-    assert.equal((await readStage(dir)).stage, 'knowledge_apply');
-    const applied = await runCli(dir, ['knowledge', 'apply', '--json']);
-    assert.equal(applied.code, 0, applied.stdout);
     assert.equal((await readStage(dir)).stage, 'done');
+    for (const cwd of [projectRoot, path.join(dir, 'docs')]) {
+      assert.equal((await runCommand(cwd, 'git', ['status', '--porcelain'])).stdout.trim(), '');
+      assert.equal(
+        await fs.access(path.join(cwd, 'openwiki')).then(() => true, () => false),
+        false
+      );
+    }
+    assert.equal(
+      await fs.access(worktreePath).then(() => true, () => false),
+      false
+    );
   });
 });
 
@@ -5409,11 +5357,25 @@ test('new standalone Features isolate planning docs before implementation', asyn
     assert.equal(created.code, 0, created.stdout);
     const feature = JSON.parse(created.stdout);
     const docsRoot = path.join(dir, 'docs');
-    await runCommand(docsRoot, 'git', ['add', '.']);
-    await runCommand(docsRoot, 'git', ['commit', '-m', `docs(${feature.featureId}): seed beta`]);
+    const secondCreated = await runCli(dir, ['feature', 'gamma', '--json']);
+    assert.equal(secondCreated.code, 0, secondCreated.stdout);
+    const secondFeature = JSON.parse(secondCreated.stdout);
+    await runCommand(docsRoot, 'git', [
+      'branch',
+      `docs/single-${feature.featureId}`,
+      'HEAD',
+    ]);
     const prepared = await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']);
     assert.equal(prepared.code, 0, prepared.stdout);
     const isolated = JSON.parse(prepared.stdout).docsDirectory;
+    const secondPrepared = await runCli(dir, [
+      'workspace',
+      'prepare',
+      secondFeature.featureId,
+      '--json',
+    ]);
+    assert.equal(secondPrepared.code, 0, secondPrepared.stdout);
+    assert.notEqual(JSON.parse(secondPrepared.stdout).docsDirectory, isolated);
     const stage = await runCli(isolated, ['workflow-stage', feature.featureId, '--json']);
     assert.equal(JSON.parse(stage.stdout).stage, 'spec', stage.stdout);
     const primarySpec = path.join(feature.featurePath, 'spec.md');
@@ -5426,27 +5388,40 @@ test('new standalone Features isolate planning docs before implementation', asyn
   });
 });
 
-test('new embedded Features require entering the worktree that contains their docs', async () => {
+test('new embedded Features prepare and enter the worktree before planning', async () => {
   await withTempDir('lsk-embedded-isolation-', async (dir) => {
     await initRepo(dir, { workflow: 'local' });
     const created = await runCli(dir, ['feature', 'beta', '--json']);
     const feature = JSON.parse(created.stdout);
     assert.equal(created.code, 0, created.stdout);
-    await runCommand(dir, 'git', ['add', '.']);
-    await runCommand(dir, 'git', ['commit', '-m', `docs(${feature.featureId}): seed beta`]);
-    const branch = `feat/${feature.featureId}-beta`;
-    const isolated = path.join(dir, '.worktrees', branch.replace('/', '-'));
-    const added = await runCommand(dir, 'git', ['worktree', 'add', '-b', branch, isolated]);
-    assert.equal(added.code, 0, added.stderr);
+    const initial = await runCli(dir, ['workflow-stage', feature.featureId, '--json']);
+    assert.equal(JSON.parse(initial.stdout).nextAction.category, 'workspace_prepare', initial.stdout);
+    const prepared = await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']);
+    assert.equal(prepared.code, 0, prepared.stdout);
+    const isolated = JSON.parse(prepared.stdout).projectDirectory;
     const fromBase = await runCli(dir, ['workflow-stage', feature.featureId, '--json']);
     assert.equal(JSON.parse(fromBase.stdout).nextAction.category, 'workspace_enter', fromBase.stdout);
     const fromFeature = await runCli(isolated, ['workflow-stage', feature.featureId, '--json']);
     assert.equal(JSON.parse(fromFeature.stdout).stage, 'spec', fromFeature.stdout);
+    const repeated = await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']);
+    assert.equal(repeated.code, 0, repeated.stdout);
+    assert.equal(JSON.parse(repeated.stdout).docsDirectory,
+      path.join(isolated, 'docs'));
+    await runCommand(isolated, 'git', ['switch', '-c', 'unrelated']);
+    const wrongBranchStage = JSON.parse((await runCli(dir, [
+      'workflow-stage', feature.featureId, '--json',
+    ])).stdout);
+    assert.equal(wrongBranchStage.nextAction.category, 'workspace_prepare');
+    const rejected = await runCli(dir, [
+      'workspace', 'prepare', feature.featureId, '--json',
+    ]);
+    assert.equal(rejected.code, 1, rejected.stdout);
+    assert.match(JSON.parse(rejected.stdout).error, /branch mismatch/i);
   });
 });
 
 
-test('new embedded planning is checkpointed before the returned worktree command', async () => {
+test('existing embedded planning is preserved when preparing its isolated worktree', async () => {
   await withTempDir('lsk-embedded-checkpoint-', async (dir) => {
     await initRepo(dir, { workflow: 'local' });
     const created = JSON.parse((await runCli(dir, ['feature', 'beta', '--json'])).stdout);
@@ -5460,19 +5435,112 @@ test('new embedded planning is checkpointed before the returned worktree command
     await fs.writeFile(path.join(dir, 'unrelated.txt'), 'must not be committed');
     await runCommand(dir, 'git', ['add', 'unrelated.txt']);
     const stage = JSON.parse((await runCli(dir, ['workflow-stage', created.featureId, '--json'])).stdout);
-    assert.equal(stage.nextAction.category, 'workspace_checkpoint');
-    const checkpoint = await runCommand(dir, 'sh', ['-c', stage.nextAction.command]);
-    assert.equal(checkpoint.code, 0, checkpoint.stderr);
+    assert.equal(stage.nextAction.category, 'workspace_prepare');
+    const prepared = await runCli(dir, ['workspace', 'prepare', created.featureId, '--json']);
+    assert.equal(prepared.code, 0, prepared.stdout);
     assert.equal((await runCommand(dir, 'git', ['show', 'HEAD:unrelated.txt'])).code, 128);
-    const branch = JSON.parse((await runCli(dir, ['workflow-stage', created.featureId, '--json'])).stdout);
-    assert.equal(branch.nextAction.category, 'branch_create', JSON.stringify(branch));
-    const added = await runCommand(dir, 'sh', ['-c', branch.nextAction.command]);
-    assert.equal(added.code, 0, added.stderr);
-    const isolated = branch.nextAction.command.match(/worktree add "([^"]+)"/)[1];
+    const isolated = JSON.parse(prepared.stdout).projectDirectory;
     assert.equal(await fs.readFile(path.join(isolated, 'docs', created.featurePathFromDocs, 'spec.md'), 'utf8'),
       await fs.readFile(path.join(created.featurePath, 'spec.md'), 'utf8'));
     const after = await runCli(isolated, ['workflow-stage', created.featureId, '--json']);
     assert.equal(JSON.parse(after.stdout).status, 'ok', after.stdout);
+  });
+});
+
+test('embedded workspace prepare recovers a removed worktree whose branch is ahead', async () => {
+  await withTempDir('lsk-embedded-worktree-recover-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const feature = JSON.parse(
+      (await runCli(dir, ['feature', 'beta', '--json'])).stdout
+    );
+    const first = JSON.parse(
+      (await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']))
+        .stdout
+    );
+    await fs.appendFile(
+      path.join(first.projectDirectory, 'docs', feature.featurePathFromDocs, 'spec.md'),
+      '\nRecovered planning marker.\n'
+    );
+    await runCommand(first.projectDirectory, 'git', ['add', '.']);
+    await runCommand(first.projectDirectory, 'git', [
+      'commit',
+      '-m',
+      `docs(${feature.featureId}): preserve planning`,
+    ]);
+    await runCommand(dir, 'git', [
+      'worktree',
+      'remove',
+      '--force',
+      first.projectDirectory,
+    ]);
+    const recovered = await runCli(dir, [
+      'workspace',
+      'prepare',
+      feature.featureId,
+      '--json',
+    ]);
+    assert.equal(recovered.code, 0, recovered.stdout);
+    assert.match(
+      await fs.readFile(
+        path.join(
+          JSON.parse(recovered.stdout).projectDirectory,
+          'docs',
+          feature.featurePathFromDocs,
+          'spec.md'
+        ),
+        'utf8'
+      ),
+      /Recovered planning marker/u
+    );
+  });
+});
+
+test('standalone workspace prepare recovers a removed docs worktree whose branch is ahead', async () => {
+  await withTempDir('lsk-standalone-worktree-recover-', async (dir) => {
+    await initStandaloneRepo(dir, { workflow: 'local' });
+    const feature = JSON.parse(
+      (await runCli(dir, ['feature', 'beta', '--json'])).stdout
+    );
+    const first = JSON.parse(
+      (await runCli(dir, ['workspace', 'prepare', feature.featureId, '--json']))
+        .stdout
+    );
+    const spec = path.join(
+      first.docsDirectory,
+      feature.featurePathFromDocs,
+      'spec.md'
+    );
+    await fs.appendFile(spec, '\nRecovered docs marker.\n');
+    await runCommand(first.docsDirectory, 'git', ['add', '.']);
+    await runCommand(first.docsDirectory, 'git', [
+      'commit',
+      '-m',
+      `docs(${feature.featureId}): preserve planning`,
+    ]);
+    await runCommand(path.join(dir, 'docs'), 'git', [
+      'worktree',
+      'remove',
+      '--force',
+      first.docsDirectory,
+    ]);
+    const recovered = await runCli(dir, [
+      'workspace',
+      'prepare',
+      feature.featureId,
+      '--json',
+    ]);
+    assert.equal(recovered.code, 0, recovered.stdout);
+    assert.match(
+      await fs.readFile(
+        path.join(
+          JSON.parse(recovered.stdout).docsDirectory,
+          feature.featurePathFromDocs,
+          'spec.md'
+        ),
+        'utf8'
+      ),
+      /Recovered docs marker/u
+    );
   });
 });
 

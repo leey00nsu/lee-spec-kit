@@ -184,7 +184,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
     'Primary agents start by reading npx lee-spec-kit docs get agents --json and the active feature docs.',
     'Delegated subagents skip the primary-agent bootstrap and follow the exact delegationContext and workerContract returned by workflow-stage.',
     'Primary agents run npx lee-spec-kit workflow-stage --json before the next stage and only follow its nextAction.',
-    'Keep docs as the SSOT and treat workflow-audit as the end-of-turn sync guard.',
+    'Use active Feature SDD as the current change contract, workflow-stage as the workflow-state authority, tracked code/schema/config as current executable truth, and OpenWiki only as derived project Knowledge.',
   ];
   if (stageResult.ok && stageResult.data?.status === 'ok') {
     lines.push(
@@ -1115,7 +1115,7 @@ function classifyOpenWikiInvocation(value, depth = 0) {
 if (detected?.experimentalOpenwiki === true) {
   const openWikiPolicy = classifyOpenWikiInvocation(command);
   if (openWikiPolicy === 'blocked') {
-    printBlock('OpenWiki repository generation must run through the exact lee-spec-kit knowledge publish nextAction. Only simple --help, auth, and read-only visualize commands for ./openwiki are allowed directly.');
+    printBlock('OpenWiki repository generation must run through the lee-spec-kit knowledge update adapter. Only simple --help, auth, and read-only visualize commands for ./openwiki are allowed directly.');
     process.exit(0);
   }
   if (openWikiPolicy === 'safe' && !isDangerousCommandWithoutOpenWiki) {
@@ -1324,15 +1324,6 @@ if (audit?.status === 'needs_sync') {
 if (!(audit?.status === 'ok' || audit?.status === 'skipped')) {
   printBlock('lee-spec-kit workflow-audit returned a non-ok status inside the stop hook. Resolve the docs sync guardrail failure before stopping.');
   process.exit(0);
-}
-
-if (detected?.experimentalOpenwiki === true) {
-  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
-  const category = stageResult.ok ? stageResult.data?.nextAction?.category : null;
-  if (category === 'knowledge_setup' || category === 'knowledge_sync' || category === 'knowledge_commit') {
-    printBlock('Complete the post-integration Knowledge publication nextAction before stopping. Failed generation preserves the merge; inspect knowledge status and retry publication.');
-    process.exit(0);
-  }
 }
 
 process.stdout.write(JSON.stringify({ continue: true }));

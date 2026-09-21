@@ -25,9 +25,9 @@ import {
   collectGitChangedPaths,
   isOpenWikiEnabled,
   isOpenWikiKnowledgePath,
-  inspectOpenWikiKnowledge,
   OPENWIKI_RECEIPT_PATH,
   readOpenWikiReceipt,
+  verifyPublishedKnowledgeOutput,
 } from '../utils/openwiki-knowledge.js';
 
 interface CommitAuditOptions {
@@ -183,22 +183,23 @@ async function collectCommitAudit(
   gitRootOverride?: string,
   commitMessage?: string
 ): Promise<CommitAuditPayload> {
-  const config = await getConfig(cwd);
-  if (!config) {
-    throw createCliError(
-      'CONFIG_NOT_FOUND',
-      'Config file not found. Run `init` first.'
-    );
-  }
+  let config = await getConfig(cwd);
 
-  const overrideRoot = gitRootOverride
-    ? path.resolve(cwd, gitRootOverride)
+  const requestedGitRoot =
+    gitRootOverride || process.env.LEE_SPEC_KIT_COMMIT_WORKTREE;
+  const overrideRoot = requestedGitRoot
+    ? path.resolve(cwd, requestedGitRoot)
     : null;
   const repoRoot =
     (overrideRoot
       ? runGitCapture(['rev-parse', '--show-toplevel'], overrideRoot)
       : runGitCapture(['rev-parse', '--show-toplevel'], cwd)) || null;
   if (!repoRoot) {
+    if (!config)
+      throw createCliError(
+        'CONFIG_NOT_FOUND',
+        'Config file not found. Run `init` first.'
+      );
     return {
       status: 'skipped',
       reasonCode: 'NO_GIT_REPOSITORY',
@@ -216,6 +217,45 @@ async function collectCommitAudit(
     ) || '';
   const stagedEntries = parseStagedPaths(stagedOutput);
   const stagedPaths = [...new Set(stagedEntries.map((entry) => entry.path))];
+  if (!config) {
+    let receipt = await readOpenWikiReceipt(repoRoot);
+    if (!receipt) {
+      try {
+        const stagedReceipt = JSON.parse(
+          runGitCapture(['show', `:${OPENWIKI_RECEIPT_PATH}`], repoRoot) || ''
+        );
+        if (
+          stagedReceipt?.triggerFeatureRef === 'integrated' &&
+          (stagedReceipt.language === 'ko' || stagedReceipt.language === 'en') &&
+          typeof stagedReceipt.baseRef === 'string'
+        )
+          receipt = stagedReceipt;
+      } catch {
+        /* The normal CONFIG_NOT_FOUND result remains authoritative. */
+      }
+    }
+    const knowledgeOnly =
+      stagedEntries.length > 0 &&
+      stagedEntries.every((entry) => isOpenWikiKnowledgePath(entry.path));
+    if (
+      receipt?.triggerFeatureRef !== 'integrated' ||
+      !knowledgeOnly
+    )
+      throw createCliError(
+        'CONFIG_NOT_FOUND',
+        'Config file not found. Run `init` first.'
+      );
+    const baseBranch = receipt.baseRef
+      .replace(/^refs\/remotes\/origin\//u, '')
+      .replace(/^origin\//u, '');
+    config = {
+      docsDir: path.join(repoRoot, 'docs'),
+      projectType: 'single',
+      lang: receipt.language,
+      experimental: { openwiki: true },
+      workflow: { mode: 'github', baseBranch },
+    };
+  }
   const targetRepoViolation = collectUnsupportedTargetRepoViolation(
     config,
     cwd,
@@ -516,6 +556,20 @@ async function collectCommitMessageViolation(
     return null;
   }
 
+  if (isOpenWikiEnabled(config) && isKnowledgeCommit(stagedEntries, repoRoot)) {
+    const receipt = await readOpenWikiReceipt(repoRoot);
+    const repositoryLevel = receipt?.triggerFeatureRef === 'integrated';
+    if (repositoryLevel) {
+      const expected = 'chore(knowledge): refresh OpenWiki knowledge layer';
+      if (normalizedMessage === expected) return null;
+      return {
+        path: '(commit message)',
+        kind: 'commit_message_policy',
+        detail: `Repository Knowledge commit subject must be exactly "${expected}".`,
+      };
+    }
+  }
+
   const selection = await resolveCommitFeatureSelection(
     cwd,
     repoRoot,
@@ -631,6 +685,19 @@ async function collectKnowledgeCommitViolations(
         'Knowledge commits may contain only openwiki/**, the receipt, and OpenWiki-managed AGENTS.md/CLAUDE.md changes.',
     });
   }
+  const receipt = await readOpenWikiReceipt(repoRoot);
+  if (receipt?.triggerFeatureRef === 'integrated') {
+    try {
+      await verifyPublishedKnowledgeOutput(repoRoot, config, receipt);
+    } catch (error) {
+      violations.push({
+        path: OPENWIKI_RECEIPT_PATH,
+        kind: 'knowledge_output_scope',
+        detail: `Repository Knowledge verification failed before commit: ${error instanceof Error ? error.message : 'validation failed'}`,
+      });
+    }
+    return violations;
+  }
   const selection = await resolveCommitFeatureSelection(
     cwd,
     repoRoot,
@@ -644,17 +711,21 @@ async function collectKnowledgeCommitViolations(
     });
     return violations;
   }
-  const knowledgeState = await inspectOpenWikiKnowledge({
-    config,
-    featureRef: selection.matchedFeature.folderName,
-    component: selection.matchedFeature.type,
-    projectCwd: repoRoot,
-  });
-  if (knowledgeState.status !== 'commit_required') {
+  if (!receipt) {
     violations.push({
       path: OPENWIKI_RECEIPT_PATH,
       kind: 'knowledge_output_scope',
-      detail: `Knowledge audit must report commit_required before commit; received ${knowledgeState.status} (${knowledgeState.reasonCode}).`,
+      detail: 'Knowledge receipt is required before commit.',
+    });
+    return violations;
+  }
+  try {
+    await verifyPublishedKnowledgeOutput(repoRoot, config, receipt);
+  } catch (error) {
+    violations.push({
+      path: OPENWIKI_RECEIPT_PATH,
+      kind: 'knowledge_output_scope',
+      detail: `Knowledge verification failed before commit: ${error instanceof Error ? error.message : 'validation failed'}`,
     });
   }
   return violations;

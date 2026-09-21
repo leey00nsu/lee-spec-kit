@@ -14,6 +14,8 @@ import {
   computeSourceFingerprintAtRef,
   isOpenWikiEnabled,
   OPENWIKI_RECEIPT_PATH,
+  readOpenWikiReceipt,
+  verifyPublishedKnowledgeOutput,
   type OpenWikiSyncOptions,
 } from './openwiki-knowledge.js';
 import { resolveOpenWikiWritingPolicy } from './openwiki-writing.js';
@@ -353,21 +355,16 @@ export async function publishKnowledge(
     component?: string;
     ci?: boolean;
     expectedSourceHead?: string;
+    baselineRef?: string;
   } & OpenWikiSyncOptions
 ) {
   const startedAt = Date.now();
-  const budgetMs = input.absoluteTimeoutMs;
   const cancellation = new globalThis.AbortController();
   const checkExecution = () => {
     if (cancellation.signal.aborted || input.signal?.aborted)
       throw createCliError(
         'OPENWIKI_SYNC_INTERRUPTED',
         'Knowledge publication was interrupted. The integrated commit and last publication are preserved.'
-      );
-    if (budgetMs !== undefined && Date.now() - startedAt >= budgetMs)
-      throw createCliError(
-        'OPENWIKI_ABSOLUTE_TIMEOUT',
-        'The total publication budget, including retries and verification, was exhausted.'
       );
   };
   const { projectRoot, config } = input;
@@ -534,7 +531,6 @@ export async function publishKnowledge(
             ...observation,
             updatedAt: new Date().toISOString(),
             elapsedMs: Date.now() - startedAt,
-            budgetMs: budgetMs ?? null,
             launch,
             resumed: !!resumed,
             previousDiagnosticsPaths,
@@ -571,7 +567,76 @@ export async function publishKnowledge(
             { cwd: projectRoot, stdio: 'pipe' }
           );
           const latest = readLatestKnowledgePublication(projectRoot);
-          if (latest) {
+          if (input.baselineRef) {
+            const baselineHead = runGitCapture(
+              ['rev-parse', '--verify', input.baselineRef],
+              projectRoot
+            );
+            if (!baselineHead)
+              throw createCliError(
+                'OPENWIKI_BASE_UNAVAILABLE',
+                `Knowledge baseline ref ${input.baselineRef} is unavailable.`
+              );
+            const baselineWorktree = path.join(
+              root,
+              'baselines',
+              `${baselineHead}-${randomUUID()}`
+            );
+            execFileSync(
+              'git',
+              ['worktree', 'add', '--detach', baselineWorktree, baselineHead],
+              { cwd: projectRoot, stdio: 'pipe' }
+            );
+            try {
+              const receipt = await readOpenWikiReceipt(baselineWorktree);
+              if (!receipt)
+                throw createCliError(
+                  'OPENWIKI_OUTPUT_INVALID',
+                  'The Knowledge branch has no verification receipt.'
+                );
+              await verifyPublishedKnowledgeOutput(
+                baselineWorktree,
+                config,
+                receipt,
+                { allowPolicyMigration: true }
+              );
+              try {
+                execFileSync(
+                  'git',
+                  ['merge-base', '--is-ancestor', receipt.sourceHead, sourceHead],
+                  { cwd: projectRoot, stdio: 'pipe' }
+                );
+              } catch {
+                throw createCliError(
+                  'OPENWIKI_BASE_STALE',
+                  'The Knowledge branch baseline is not an ancestor of this integration. It was preserved for inspection.'
+                );
+              }
+              await fs.copy(
+                path.join(baselineWorktree, 'openwiki'),
+                path.join(worktree, 'openwiki'),
+                { dereference: false }
+              );
+              await fs.copy(
+                path.join(baselineWorktree, OPENWIKI_RECEIPT_PATH),
+                path.join(worktree, OPENWIKI_RECEIPT_PATH)
+              );
+              observation = {
+                baselineSourceHead: receipt.sourceHead,
+                baselineRef: input.baselineRef,
+              };
+            } finally {
+              try {
+                execFileSync(
+                  'git',
+                  ['worktree', 'remove', '--force', baselineWorktree],
+                  { cwd: projectRoot, stdio: 'pipe' }
+                );
+              } catch {
+                /* Git worktree prune can clean a failed temporary baseline later. */
+              }
+            }
+          } else if (latest) {
             const baseline = await readKnowledgePublication(
               projectRoot,
               latest.sourceHead,
@@ -636,7 +701,6 @@ export async function publishKnowledge(
         persistStatus('running', { stage: resumed ? 'resuming' : 'preparing' });
         const result = await runOpenWikiSync({
           ...input,
-          absoluteTimeoutMs: budgetMs,
           executionStartedAt: startedAt,
           initialAttempt: resumed ? Number(previous.attempt) || 0 : 0,
           signal: cancellation.signal,
@@ -735,9 +799,6 @@ export async function publishKnowledge(
           diagnosticsPath:
             (error as { details?: { diagnosticsPath?: string } }).details
               ?.diagnosticsPath || observation.diagnosticsPath,
-          outputTail: ((
-            error as { details?: { outputTail?: unknown } }
-          ).details?.outputTail ?? null) as unknown,
         });
         // Durable queues can resume only after the same read-only admission checks.
         const failure = toCliError(error);
@@ -769,20 +830,12 @@ export async function publishKnowledge(
               ? ['--ci', '--base-branch', branch, '--lang', config.lang]
               : [input.featureRef || '']),
             ...(input.component ? ['--component', input.component] : []),
-            ...(
-              ['lockTimeoutMs', 'idleTimeoutMs', 'absoluteTimeoutMs'] as const
-            ).flatMap((key) =>
-              input[key] === undefined
-                ? []
-                : [
-                    key === 'lockTimeoutMs'
-                      ? '--lock-timeout-ms'
-                      : key === 'idleTimeoutMs'
-                        ? '--idle-timeout-ms'
-                        : '--absolute-timeout-ms',
-                    String(input[key]),
-                  ]
-            ),
+            ...(input.baselineRef
+              ? ['--baseline-ref', input.baselineRef]
+              : []),
+            ...(input.lockTimeoutMs === undefined
+              ? []
+              : ['--lock-timeout-ms', String(input.lockTimeoutMs)]),
             '--json',
           ]
             .filter(Boolean)
@@ -801,7 +854,7 @@ export async function publishKnowledge(
     },
     {
       owner: 'openwiki:publish',
-      timeoutMs: Math.min(input.lockTimeoutMs ?? 30_000, budgetMs ?? Infinity),
+      timeoutMs: input.lockTimeoutMs ?? 30_000,
     }
   );
 }

@@ -171,9 +171,6 @@ export async function applyKnowledge(
           throw new Error(
             'Prepared commit is not confined to Knowledge output.'
           );
-        const scope = String(
-          publication.receipt.triggerFeatureRef || 'knowledge'
-        ).split('-')[0];
         // Relative hook paths must resolve in the real checkout, where tools such
         // as Husky install their untracked launchers. An isolated worktree must not
         // silently omit those hooks just because its dependencies are not installed.
@@ -196,13 +193,16 @@ export async function applyKnowledge(
               : []),
             'commit',
             '-m',
-            `docs(${scope}): apply verified Knowledge publication`,
+            publication.receipt.triggerFeatureRef === 'integrated'
+              ? 'chore(knowledge): refresh OpenWiki knowledge layer'
+              : `chore(${String(publication.receipt.triggerFeatureRef).split('-')[0]}): refresh OpenWiki knowledge layer`,
           ],
           {
             cwd: worktree,
             stdio: 'pipe',
             env: {
               ...process.env,
+              LEE_SPEC_KIT_COMMIT_WORKTREE: worktree,
               PATH: `${path.join(projectRoot, 'node_modules', '.bin')}${path.delimiter}${process.env.PATH || ''}`,
             },
           }

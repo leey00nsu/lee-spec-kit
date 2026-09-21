@@ -14,9 +14,13 @@ import {
 import {
   inspectOpenWikiKnowledge,
   isOpenWikiEnabled,
+  OPENWIKI_DIR,
+  OPENWIKI_RECEIPT_PATH,
   probeOpenWikiProvider,
   probeOpenWikiRuntime,
+  readOpenWikiReceipt,
   runOpenWikiSync,
+  verifyPublishedKnowledgeOutput,
 } from '../utils/openwiki-knowledge.js';
 import {
   buildCuratedImpactGrandfatherMarker,
@@ -26,13 +30,11 @@ import {
   removeCuratedImpactGrandfatherMarkers,
 } from '../utils/documentation-impact.js';
 import {
-  isKnowledgeOnlyRevisionChange,
   publishKnowledge,
   readKnowledgePublicationStatus,
   readLatestKnowledgePublication,
 } from '../utils/knowledge-publication.js';
 import { buildKnowledgeWorkflow } from '../utils/knowledge-ci.js';
-import { resolveLocalIntegrationContext } from '../utils/local-integration.js';
 import {
   resolveGitPrimaryWorktreeRoot,
   resolveStandaloneProjectRoots,
@@ -50,23 +52,23 @@ interface KnowledgeOptions {
   json?: boolean;
   enforce?: boolean;
   lockTimeoutMs?: string;
-  idleTimeoutMs?: string;
-  absoluteTimeoutMs?: string;
   apply?: boolean;
   ci?: boolean;
   baseBranch?: string;
+  baselineRef?: string;
   lang?: string;
 }
 
 export function knowledgeCommand(program: Command): void {
   const knowledge = program
     .command('knowledge')
-    .description('Manage the experimental required OpenWiki knowledge layer');
+    .description('Manage the derived repository-level OpenWiki knowledge layer');
 
   knowledge
-    .command('publish [feature-name]')
+    .command('publish')
+    .alias('update')
     .description(
-      'Publish verified integrated Knowledge as an isolated artifact'
+      'Publish verified repository Knowledge from the CI checkout'
     )
     .option('--component <component>', 'Component name for multi projects')
     .option(
@@ -74,120 +76,79 @@ export function knowledgeCommand(program: Command): void {
       'Publish the checked-out integration tip in CI without Feature selection'
     )
     .option('--base-branch <branch>', 'Integration branch for CI')
+    .option('--baseline-ref <ref>', 'Verified prior Knowledge branch ref for CI')
     .option('--lang <lang>', 'Knowledge language for CI: ko | en')
     .option('--lock-timeout-ms <milliseconds>', 'Lock acquisition timeout')
-    .option(
-      '--idle-timeout-ms <milliseconds>',
-      'Optional no-output timeout; disabled by default'
-    )
-    .option(
-      '--absolute-timeout-ms <milliseconds>',
-      'Optional total generation and retry budget; disabled by default'
-    )
     .option('--json', 'Output JSON')
     .action(
-      async (featureName: string | undefined, options: KnowledgeOptions) => {
+      async (options: KnowledgeOptions) => {
         await handleKnowledgeAction(options, async () => {
+          if (!options.ci) {
+            throw createCliError(
+              'OPENWIKI_CI_REQUIRED',
+              'Knowledge publication is repository maintenance run by the scheduled or manually dispatched CI workflow. Use `knowledge ci` to scaffold it; `knowledge sync` remains available only for legacy in-place compatibility.'
+            );
+          }
           const cwd = process.cwd();
           let config = await getConfig(cwd);
-          let projectRoot: string;
-          let featureRef: string | undefined;
-          let component = options.component;
-          let expectedSourceHead: string | undefined;
-          if (options.ci) {
-            if (options.lang && !['ko', 'en'].includes(options.lang)) {
-              throw createCliError(
-                'INVALID_ARGUMENT',
-                '--lang must be ko or en.'
-              );
-            }
-            projectRoot =
-              runGitCapture(['rev-parse', '--show-toplevel'], cwd) || cwd;
-            config = config || {
-              docsDir: path.join(projectRoot, 'docs'),
-              projectType: 'single',
-              lang: 'en',
-              experimental: { openwiki: true },
-            };
-            config = {
-              ...config,
-              lang: (options.lang as 'ko' | 'en' | undefined) || config.lang,
-              workflow: {
-                ...config.workflow,
-                baseBranch:
-                  options.baseBranch || config.workflow?.baseBranch || 'main',
-              },
-            };
-          } else {
-            if (!config)
-              throw createCliError('CONFIG_NOT_FOUND', 'Run init first.');
-            if (options.baseBranch || options.lang)
-              throw createCliError(
-                'INVALID_ARGUMENT',
-                'Branch/language overrides are only available with --ci.'
-              );
-            const selection = await resolveFeatureSelection(
-              cwd,
-              featureName,
-              options.component
-            );
-            const feature = selection.matchedFeature;
-            if (!feature)
-              throw createCliError(
-                'FEATURE_SELECTION_REQUIRED',
-                'Select the integrated local Feature.'
-              );
-            const context = await resolveLocalIntegrationContext(
-              config,
-              feature
-            );
-            // Applying a verified publication commits Knowledge output on top of
-            // the verified integration, so the base tip legitimately advances after
-            // cleanup. That advance is not a new integration and must not ask for
-            // another merge and verification.
-            const verifiedTip = context.state?.mergedBaseTip ?? null;
-            const knowledgeOnlyAdvance =
-              context.baseTip !== null &&
-              verifiedTip !== null &&
-              verifiedTip !== context.baseTip &&
-              isKnowledgeOnlyRevisionChange(
-                context.projectRoot,
-                verifiedTip,
-                context.baseTip
-              );
-            if (
-              config.workflow?.mode !== 'local' ||
-              (!context.integrationComplete &&
-                !context.cleanedIntegrationStillValid &&
-                !knowledgeOnlyAdvance) ||
-              !context.state ||
-              !['verified', 'cleaned'].includes(context.state.status) ||
-              (context.state.mergedBaseTip !== context.baseTip &&
-                !knowledgeOnlyAdvance)
-            ) {
-              throw createCliError(
-                'OPENWIKI_INTEGRATION_REQUIRED',
-                'Complete local merge and post-merge verification before publishing Knowledge.'
-              );
-            }
-            projectRoot = context.projectRoot;
-            featureRef = feature.folderName;
-            component = feature.type;
-            expectedSourceHead = context.baseTip || undefined;
+          if (options.lang && !['ko', 'en'].includes(options.lang)) {
+            throw createCliError('INVALID_ARGUMENT', '--lang must be ko or en.');
           }
-          if (options.ci && !isOpenWikiEnabled(config)) {
+          const projectRoot =
+            runGitCapture(['rev-parse', '--show-toplevel'], cwd) || cwd;
+          config = config || {
+            docsDir: path.join(projectRoot, 'docs'),
+            projectType: 'single',
+            lang: 'en',
+            experimental: { openwiki: true },
+          };
+          config = {
+            ...config,
+            lang: (options.lang as 'ko' | 'en' | undefined) || config.lang,
+            workflow: {
+              ...config.workflow,
+              baseBranch:
+                options.baseBranch || config.workflow?.baseBranch || 'main',
+            },
+          };
+          if (!isOpenWikiEnabled(config)) {
             return { status: 'disabled', reasonCode: 'OPENWIKI_DISABLED' };
+          }
+          if (
+            (await fs.pathExists(
+              path.join(projectRoot, OPENWIKI_DIR, 'index.md')
+            )) &&
+            (await fs.pathExists(
+              path.join(projectRoot, OPENWIKI_RECEIPT_PATH)
+            ))
+          ) {
+            const receipt = await readOpenWikiReceipt(projectRoot);
+            const current =
+              !!receipt &&
+              (await verifyPublishedKnowledgeOutput(
+                projectRoot,
+                config,
+                receipt
+              )
+                .then(() => true)
+                .catch(() => false));
+            if (current) {
+              return {
+                status: 'ok',
+                reasonCode: 'OPENWIKI_UP_TO_DATE',
+                unchanged: true,
+                sourceHead:
+                  runGitCapture(['rev-parse', 'HEAD'], projectRoot) || null,
+              };
+            }
           }
           return publishKnowledge({
             config,
             projectRoot,
-            featureRef,
-            expectedSourceHead,
-            component,
-            ci: options.ci,
-            lockTimeoutMs: parseTimeoutOption(options.lockTimeoutMs),
-            idleTimeoutMs: parseTimeoutOption(options.idleTimeoutMs),
-            absoluteTimeoutMs: parseTimeoutOption(options.absoluteTimeoutMs),
+            component: options.component,
+            ci: true,
+            baselineRef: options.baselineRef,
+            lockTimeoutMs: parseLockTimeoutOption(options.lockTimeoutMs),
             onEvent: reportKnowledgeProgress,
           });
         });
@@ -197,7 +158,7 @@ export function knowledgeCommand(program: Command): void {
   knowledge
     .command('ci')
     .description(
-      'Write the GitHub post-integration artifact workflow (no remote changes)'
+      'Write the scheduled GitHub Knowledge update workflow (no immediate remote changes)'
     )
     .option(
       '--component <component>',
@@ -255,14 +216,43 @@ export function knowledgeCommand(program: Command): void {
       '--component <component>',
       'Component name for standalone multi projects'
     )
+    .option('--ci', 'Apply in a checked-out CI project repository')
+    .option('--base-branch <branch>', 'Integration branch for CI')
+    .option('--lang <lang>', 'Knowledge language for CI: ko | en')
     .option('--json', 'Output JSON')
     .action(async (options: KnowledgeOptions) => {
       await handleKnowledgeAction(options, async () => {
-        const config = await getConfig(process.cwd());
+        const cwd = process.cwd();
+        let config = await getConfig(cwd);
+        if (!config && !options.ci)
+          throw createCliError('CONFIG_NOT_FOUND', 'Run init first.');
+        if (options.ci) {
+          if (options.lang && !['ko', 'en'].includes(options.lang))
+            throw createCliError('INVALID_ARGUMENT', '--lang must be ko or en.');
+          const projectRoot =
+            runGitCapture(['rev-parse', '--show-toplevel'], cwd) || cwd;
+          config = config || {
+            docsDir: path.join(projectRoot, 'docs'),
+            projectType: 'single',
+            lang: 'en',
+            experimental: { openwiki: true },
+          };
+          config = {
+            ...config,
+            lang: (options.lang as 'ko' | 'en' | undefined) || config.lang,
+            workflow: {
+              ...config.workflow,
+              baseBranch:
+                options.baseBranch || config.workflow?.baseBranch || 'main',
+            },
+          };
+        }
         if (!config)
           throw createCliError('CONFIG_NOT_FOUND', 'Run init first.');
         const roots =
-          config.docsRepo === 'standalone'
+          options.ci
+            ? [resolveGitPrimaryWorktreeRoot(cwd)]
+            : config.docsRepo === 'standalone'
             ? resolveStandaloneProjectRoots(config, options.component)
             : [resolveGitPrimaryWorktreeRoot(process.cwd())];
         if (roots.length !== 1)
@@ -283,14 +273,48 @@ export function knowledgeCommand(program: Command): void {
       '--component <component>',
       'Component name for standalone multi projects'
     )
+    .option('--ci', 'Inspect a checked-out CI project repository')
+    .option('--base-branch <branch>', 'Integration branch for CI')
+    .option('--lang <lang>', 'Knowledge language for CI: ko | en')
     .option('--json', 'Output JSON')
     .action(async (options: KnowledgeOptions) => {
       await handleKnowledgeAction(options, async () => {
-        const config = await getConfig(process.cwd());
+        const cwd = process.cwd();
+        let config = await getConfig(cwd);
+        if (options.ci) {
+          if (options.lang && !['ko', 'en'].includes(options.lang))
+            throw createCliError('INVALID_ARGUMENT', '--lang must be ko or en.');
+          const projectRoot =
+            runGitCapture(['rev-parse', '--show-toplevel'], cwd) || cwd;
+          config = config || {
+            docsDir: path.join(projectRoot, 'docs'),
+            projectType: 'single',
+            lang: 'en',
+            experimental: { openwiki: true },
+          };
+          config = {
+            ...config,
+            lang: (options.lang as 'ko' | 'en' | undefined) || config.lang,
+            workflow: {
+              ...config.workflow,
+              baseBranch:
+                options.baseBranch || config.workflow?.baseBranch || 'main',
+            },
+          };
+        } else if (options.baseBranch || options.lang) {
+          throw createCliError(
+            'INVALID_ARGUMENT',
+            'Branch/language overrides are only available with --ci.'
+          );
+        }
         const roots =
-          config?.docsRepo === 'standalone'
+          options.ci
+            ? [resolveGitPrimaryWorktreeRoot(cwd)]
+            : config?.docsRepo === 'standalone'
             ? resolveStandaloneProjectRoots(config, options.component)
-            : [process.cwd()];
+            : config
+              ? [resolveGitPrimaryWorktreeRoot(config.docsDir)]
+              : [process.cwd()];
         if (roots.length !== 1)
           throw createCliError(
             'COMPONENT_SELECTION_REQUIRED',
@@ -298,14 +322,55 @@ export function knowledgeCommand(program: Command): void {
           );
         const attempt = await readKnowledgePublicationStatus(roots[0]);
         const latest = readLatestKnowledgePublication(roots[0]);
+        const baseBranch = config?.workflow?.baseBranch || 'main';
+        const currentRevision =
+          runGitCapture(['rev-parse', `refs/heads/${baseBranch}`], roots[0]) ||
+          runGitCapture(['rev-parse', 'HEAD'], roots[0]) ||
+          null;
+        const repositoryState = config
+          ? await inspectOpenWikiKnowledge({
+              config,
+              featureRef: 'integrated',
+              component: options.component || config.projectType,
+              projectCwd: roots[0],
+            })
+          : null;
+        const receipt = await readOpenWikiReceipt(roots[0]);
+        let trackedValidationError: string | null = null;
+        const trackedCurrent =
+          !!config &&
+          !!receipt &&
+          (await verifyPublishedKnowledgeOutput(roots[0], config, receipt)
+            .then(() => true)
+            .catch((error: unknown) => {
+              trackedValidationError =
+                error instanceof Error ? error.message : 'validation failed';
+              return false;
+            }));
+        const workingCopy = config
+          ? await readKnowledgeView(roots[0], config)
+          : null;
+        const freshness = trackedCurrent
+          ? 'current'
+          : attempt?.status === 'failed' || attempt?.status === 'interrupted'
+            ? 'failed'
+            : receipt || latest
+              ? 'stale'
+              : 'missing';
         return {
           status: 'ok',
           reasonCode: 'OPENWIKI_PUBLICATION_STATUS',
+          knowledge: {
+            status: freshness,
+            publishedRevision:
+              receipt?.sourceHead || latest?.sourceHead || null,
+            currentRevision,
+          },
           attempt,
           latest,
-          ...(config
-            ? { workingCopy: await readKnowledgeView(roots[0], config) }
-            : {}),
+          ...(repositoryState && !trackedCurrent ? { repositoryState } : {}),
+          ...(trackedValidationError ? { trackedValidationError } : {}),
+          ...(workingCopy ? { workingCopy } : {}),
         };
       });
     });
@@ -415,14 +480,6 @@ export function knowledgeCommand(program: Command): void {
       '--lock-timeout-ms <milliseconds>',
       'Lock acquisition timeout override'
     )
-    .option(
-      '--idle-timeout-ms <milliseconds>',
-      'Optional no-output timeout; disabled by default'
-    )
-    .option(
-      '--absolute-timeout-ms <milliseconds>',
-      'Optional total generation and retry budget; disabled by default'
-    )
     .option('--json', 'Output JSON')
     .action(
       async (featureName: string | undefined, options: KnowledgeOptions) => {
@@ -434,9 +491,7 @@ export function knowledgeCommand(program: Command): void {
           );
           return runOpenWikiSync({
             ...context,
-            lockTimeoutMs: parseTimeoutOption(options.lockTimeoutMs),
-            idleTimeoutMs: parseTimeoutOption(options.idleTimeoutMs),
-            absoluteTimeoutMs: parseTimeoutOption(options.absoluteTimeoutMs),
+            lockTimeoutMs: parseLockTimeoutOption(options.lockTimeoutMs),
             onEvent: reportKnowledgeProgress,
           });
         });
@@ -653,13 +708,13 @@ function inspectCommittedFeatureDocs(
   }
 }
 
-function parseTimeoutOption(value: string | undefined): number | undefined {
+function parseLockTimeoutOption(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw createCliError(
       'INVALID_ARGUMENT',
-      'OpenWiki timeout overrides must be positive integer milliseconds.'
+      'The Knowledge lock timeout must be a positive integer in milliseconds.'
     );
   }
   return parsed;

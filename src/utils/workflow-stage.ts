@@ -57,8 +57,6 @@ import {
   isOpenWikiEnabled,
   OPENWIKI_RECEIPT_PATH,
 } from './openwiki-knowledge.js';
-import { readKnowledgePublication } from './knowledge-publication.js';
-import { readKnowledgeView } from './knowledge-apply.js';
 import { collectWorkflowAudit } from '../commands/workflow-audit.js';
 
 export type WorkflowStageId =
@@ -75,10 +73,6 @@ export type WorkflowStageId =
   | 'workflow_sync'
   | 'task_review'
   | 'task_review_fix'
-  | 'knowledge_setup'
-  | 'knowledge_sync'
-  | 'knowledge_apply'
-  | 'knowledge_commit'
   | 'implementation_approve'
   | 'feature_verify'
   | 'feature_remediation'
@@ -116,10 +110,6 @@ export interface WorkflowStageAction {
     | 'task_review'
     | 'task_review_complete'
     | 'task_review_fix'
-    | 'knowledge_setup'
-    | 'knowledge_sync'
-    | 'knowledge_apply'
-    | 'knowledge_commit'
     | 'implementation_approve'
     | 'feature_checks_configure'
     | 'feature_verify'
@@ -279,10 +269,6 @@ export interface WorkflowStagePayload {
     | 'TASK_COMMIT_REQUIRED'
     | 'WORKFLOW_SYNC_REQUIRED'
     | 'TASK_REVIEW_NOT_APPROVED'
-    | 'KNOWLEDGE_SETUP_REQUIRED'
-    | 'KNOWLEDGE_SYNC_REQUIRED'
-    | 'KNOWLEDGE_APPLY_REQUIRED'
-    | 'KNOWLEDGE_COMMIT_REQUIRED'
     | 'IMPLEMENTATION_APPROVAL_REQUIRED'
     | 'FEATURE_CHECKS_NOT_CONFIGURED'
     | 'FEATURE_VERIFICATION_REQUIRED'
@@ -3796,16 +3782,9 @@ async function collectWorkflowStageCore(
     resolvedLocalState?.state?.status === 'merged' ||
     resolvedLocalState?.state?.status === 'verified' ||
     resolvedLocalState?.state?.status === 'cleaned';
-  const completedKnowledgeStillOnFeatureBranch =
-    allTasksDone(tasks) &&
-    isOpenWikiEnabled(config) &&
-    !resolvedLocalState?.integrationComplete &&
-    !localIntegrationReachedBase &&
-    !remoteReviewAlreadyComplete;
-
   if (
     requirements.requireBranch &&
-    (!allTasksDone(tasks) || completedKnowledgeStillOnFeatureBranch)
+    !allTasksDone(tasks)
   ) {
     const expectedBranch = resolveExpectedBranch(feature, tasks);
     const currentBranch =
@@ -3834,8 +3813,8 @@ async function collectWorkflowStageCore(
         nextAction: buildAction(
           'branch_create',
           requirements.requireWorktree
-            ? `Create or reuse the managed worktree for ${expectedBranch} before ${allTasksDone(tasks) ? 'the completed Feature Knowledge gate' : 'implementation starts'}.`
-            : `Switch the project repo to ${expectedBranch} before ${allTasksDone(tasks) ? 'the completed Feature Knowledge gate' : 'implementation starts'}.`,
+            ? `Create or reuse the managed worktree for ${expectedBranch} before ${allTasksDone(tasks) ? 'Feature completion continues' : 'implementation starts'}.`
+            : `Switch the project repo to ${expectedBranch} before ${allTasksDone(tasks) ? 'Feature completion continues' : 'implementation starts'}.`,
           false,
           branchCommand
         ),
@@ -4099,15 +4078,17 @@ async function collectWorkflowStageCore(
   }
 
   const pendingDoneTransitions = countPendingDoneTransitions(feature) || 0;
-  const knowledgeOnlyDirty =
+  // Repository Knowledge is maintained outside the Feature lifecycle. Its
+  // working-tree changes must not reopen a completed task checkpoint.
+  const repositoryMaintenanceOnly =
     isOpenWikiEnabled(config) &&
     allTasksDone(tasks) &&
     areChangesOpenWikiOnly(effectiveProjectGitCwd);
-  const taskProjectDirty = projectDirty && !knowledgeOnlyDirty;
+  const featureProjectDirty = projectDirty && !repositoryMaintenanceOnly;
   const taskCommitCheckpointRequired =
     !activeTaskOpen &&
     !!lastDoneTask &&
-    (taskProjectDirty ||
+    (featureProjectDirty ||
       (config.docsRepo === 'standalone' && docsDirty) ||
       pendingDoneTransitions > 0);
 
@@ -4129,7 +4110,7 @@ async function collectWorkflowStageCore(
           tasks,
           effectiveProjectGitCwd,
           docsDirty,
-          projectDirty: taskProjectDirty,
+          projectDirty: featureProjectDirty,
           gateFailureReason: pendingReason,
         }),
         false
@@ -4194,7 +4175,7 @@ async function collectWorkflowStageCore(
       stage: 'branch',
       nextAction: buildAction(
         'branch_create',
-        `Restore or create the managed worktree for ${missingExpectedWorktreeBranch} before project-wide documentation or Knowledge synchronization.`,
+        `Restore or create the managed worktree for ${missingExpectedWorktreeBranch} before Feature completion continues.`,
         false,
         buildExpectedBranchCommand(
           config,
@@ -4661,18 +4642,6 @@ async function collectWorkflowStageCore(
     if (localState.cleanedIntegrationStillValid) {
       if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
       if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
-      if (isOpenWikiEnabled(config)) {
-        const view = await readKnowledgeView(localState.projectRoot, config);
-        if (!view.current) return {
-          status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
-          featureRef: buildFeatureRef(feature), stage: view.artifactPath ? 'knowledge_apply' : 'knowledge_sync',
-          nextAction: buildAction(view.artifactPath ? 'knowledge_apply' : 'knowledge_sync',
-            view.artifactPath ? 'Apply the verified publication to the project openwiki/ tree as a Knowledge-only commit. No model generation is needed.' : 'Publish Knowledge for the current integrated source before applying it.', false,
-            view.artifactPath ? `npx lee-spec-kit knowledge apply --component ${feature.type} --json` : `npx lee-spec-kit knowledge publish ${buildFeatureArgs(feature)} --json`),
-          approvalRequired: false, implementationAllowed: false,
-          blockedReasonCode: view.artifactPath ? 'KNOWLEDGE_APPLY_REQUIRED' : 'KNOWLEDGE_SYNC_REQUIRED',
-        };
-      }
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -4813,33 +4782,6 @@ async function collectWorkflowStageCore(
     }
 
     if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
-
-    if (
-      isOpenWikiEnabled(config) &&
-      localState.baseTip &&
-      !(await readKnowledgePublication(
-        localState.projectRoot,
-        localState.baseTip,
-        config
-      ))
-    ) {
-      return {
-        status: 'ok',
-        reasonCode: 'WORKFLOW_STAGE_RESOLVED',
-        docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature),
-        stage: 'knowledge_sync',
-        nextAction: buildAction(
-          'knowledge_sync',
-          'Publish OpenWiki from the verified integrated base in an isolated worktree. A generation failure leaves the code merge intact; retry publication before cleanup.',
-          false,
-          `npx lee-spec-kit knowledge publish ${buildFeatureArgs(feature)} --json`
-        ),
-        approvalRequired: false,
-        implementationAllowed: false,
-        blockedReasonCode: 'KNOWLEDGE_SYNC_REQUIRED',
-      };
-    }
 
     if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
 

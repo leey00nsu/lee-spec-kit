@@ -274,7 +274,7 @@ export function initCommand(program: Command): void {
     )
     .option(
       '--openwiki <boolean>',
-      'Experimental required OpenWiki knowledge layer: true | false'
+      'Experimental derived OpenWiki knowledge layer: true | false'
     )
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
     .option('--docs-repo <mode>', 'Docs repository mode: embedded | standalone')

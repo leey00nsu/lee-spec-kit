@@ -590,7 +590,7 @@ test('legacy in-place generation remains verifiable without a pre-review Knowled
     const commitStage = json(
       await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'])
     );
-    assert.notEqual(commitStage.stage, 'knowledge_commit');
+    assert.equal(commitStage.stage, beforeSync.stage);
 
     await git(dir, ['add', '.lee-spec-kit/openwiki-sync.json']);
     const partialCommitAudit = json(
@@ -2593,10 +2593,7 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
     );
     assert.equal(failed.status, 'error');
     assert.equal(failed.reasonCode, 'OPENWIKI_SYNC_FAILED');
-    assert.match(
-      failed.details?.outputTail?.stderr || '',
-      /simulated provider failure/u
-    );
+    assert.equal(failed.details?.outputTail, undefined);
     const survivedOwner = JSON.parse(
       await fs.readFile(
         path.join(dir, '.lee-spec-kit', 'openwiki-run.json'),
@@ -2604,10 +2601,7 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
       )
     );
     assert.equal(survivedOwner.lastFailure?.exitCode, 7);
-    assert.match(
-      survivedOwner.lastFailure?.outputTail?.stderr || '',
-      /simulated provider failure/u
-    );
+    assert.equal(survivedOwner.lastFailure?.outputTail, undefined);
     assert.equal(
       await fs.access(path.join(dir, 'openwiki', '.run.json')).then(
         () => true,
@@ -2781,84 +2775,6 @@ test('Knowledge migration is dry-run by default and never infers NONE decisions'
       staleStage.nextAction.summary,
       /provenance marker was recorded/i
     );
-  });
-});
-
-test('OpenWiki absolute timeout preserves resumable state and one JSON result', async () => {
-  await withTempDir('lsk-openwiki-timeout-', async (dir) => {
-    await initializeOpenWikiFeature(dir, true);
-    const fake = await setupFakeOpenWiki(dir);
-    const result = await runCli(
-      dir,
-      [
-        'knowledge',
-        'sync',
-        'F001-alpha',
-        '--absolute-timeout-ms',
-        '1500',
-        '--idle-timeout-ms',
-        '60000',
-        '--json',
-      ],
-      { ...fake.env, FAKE_OPENWIKI_PAUSE_AFTER_PAGE_MS: '10000' },
-      { timeoutMs: 60_000 }
-    );
-    const payload = json(result);
-    assert.equal(result.code, 1);
-    assert.equal(payload.status, 'error');
-    assert.equal(payload.reasonCode, 'OPENWIKI_ABSOLUTE_TIMEOUT');
-    assert.equal(result.stdout.trim().split('\n{').length, 1);
-    assert.equal(payload.details.partialStatePreserved, true);
-    assert.equal(payload.details.resumable, true);
-    assert.equal(payload.details.progress.completedPages, 1);
-    assert.match(payload.details.resumeCommand, /knowledge sync F001-alpha/u);
-    assert.equal(payload.details.timeout.absoluteTimeoutMs, 1500);
-    assert.equal(
-      await fs.access(path.join(dir, 'openwiki', '.run.json')).then(
-        () => true,
-        () => false
-      ),
-      true
-    );
-    assert.equal(
-      await fs
-        .access(path.join(dir, '.lee-spec-kit', 'openwiki-sync.json'))
-        .then(
-          () => true,
-          () => false
-        ),
-      false
-    );
-  });
-});
-
-test('OpenWiki idle timeout returns structured resumable progress without raw output', async () => {
-  await withTempDir('lsk-openwiki-idle-timeout-', async (dir) => {
-    await initializeOpenWikiFeature(dir, true);
-    const fake = await setupFakeOpenWiki(dir);
-    const result = await runCli(
-      dir,
-      [
-        'knowledge',
-        'sync',
-        'F001-alpha',
-        '--idle-timeout-ms',
-        '500',
-        '--absolute-timeout-ms',
-        '60000',
-        '--json',
-      ],
-      { ...fake.env, FAKE_OPENWIKI_PAUSE_AFTER_PAGE_MS: '10000' },
-      { timeoutMs: 60_000 }
-    );
-    const payload = json(result);
-    assert.equal(result.code, 1);
-    assert.equal(payload.reasonCode, 'OPENWIKI_IDLE_TIMEOUT');
-    assert.equal(payload.details.progress.completedPages, 1);
-    assert.equal(payload.details.progress.totalPages, 1);
-    assert.ok(payload.details.elapsedMs >= 500);
-    assert.equal(payload.details.timeout.idleTimeoutMs, 500);
-    assert.doesNotMatch(result.stdout, /simulated provider failure/u);
   });
 });
 
@@ -3060,6 +2976,15 @@ test('OpenWiki doctor verifies API-key and ChatGPT OAuth readiness without expos
   });
 });
 
+test('repository publication requires the dedicated CI path', async () => {
+  await withTempDir('lsk-ci-only-publication-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const result = await runCli(dir, ['knowledge', 'publish', '--json']);
+    assert.equal(result.code, 1);
+    assert.equal(json(result).reasonCode, 'OPENWIKI_CI_REQUIRED');
+  });
+});
+
 test('CI publication uses only the integrated revision and keeps the last good artifact on failure', async () => {
   await withTempDir('lsk-ci-publication-', async (dir) => {
     await initializeOpenWikiFeature(dir);
@@ -3086,6 +3011,34 @@ test('CI publication uses only the integrated revision and keeps the last good a
       })
     );
     assert.equal(cached.artifactPath, published.artifactPath);
+    const applied = json(await runCli(dir, ['knowledge', 'apply', '--json']));
+    assert.equal(applied.reasonCode, 'OPENWIKI_APPLIED', JSON.stringify(applied));
+    const clone = `${dir}-clone`;
+    await runCommand(path.dirname(dir), 'git', ['clone', dir, clone]);
+    const clonedStatus = json(
+      await runCli(clone, ['knowledge', 'status', '--json'])
+    );
+    assert.equal(
+      clonedStatus.knowledge.status,
+      'current',
+      JSON.stringify(clonedStatus)
+    );
+    assert.equal(
+      clonedStatus.knowledge.publishedRevision,
+      published.sourceHead
+    );
+    await fs.rm(clone, { recursive: true, force: true });
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const unchanged = json(
+      await runCli(dir, ['knowledge', 'update', '--ci', '--json'], {
+        ...fake.env,
+        FAKE_OPENWIKI_FAIL: '1',
+      })
+    );
+    assert.equal(unchanged.reasonCode, 'OPENWIKI_UP_TO_DATE');
+    const lastGoodSourceHead = json(
+      await runCli(dir, ['knowledge', 'status', '--json'])
+    ).latest.sourceHead;
     await fs.appendFile(path.join(dir, 'README.md'), '\nSecond integration\n');
     await git(dir, ['add', 'README.md']);
     await git(dir, ['commit', '-m', 'feat: second integration']);
@@ -3098,14 +3051,44 @@ test('CI publication uses only the integrated revision and keeps the last good a
     assert.equal(failure.code, 1);
     const status = json(await runCli(dir, ['knowledge', 'status', '--json']));
     assert.equal(status.attempt.status, 'failed');
-    assert.equal(status.latest.sourceHead, published.sourceHead);
+    assert.equal(status.latest.sourceHead, lastGoodSourceHead);
+    assert.equal(status.knowledge.status, 'failed');
+    assert.equal(status.knowledge.currentRevision, (await git(dir, ['rev-parse', 'HEAD'])).stdout.trim());
+    assert.equal(status.knowledge.publishedRevision, lastGoodSourceHead);
     await fs.access(path.join(published.artifactPath, 'publication.json'));
     const workflow = json(await runCli(dir, ['knowledge', 'ci', '--json']));
     const yaml = await fs.readFile(workflow.path, 'utf8');
-    assert.match(yaml, /push:\n {4}branches: \["main"\]/u);
-    assert.doesNotMatch(yaml, /pull_request|git push/u);
-    assert.match(yaml, /cancel-in-progress: true/u);
-    assert.match(yaml, /include-hidden-files: true/u);
+    assert.match(yaml, /schedule:\n {4}- cron:/u);
+    assert.match(yaml, /workflow_dispatch:/u);
+    assert.match(yaml, /openwiki@0\.5\.2/u);
+    assert.match(yaml, /permissions:\n {2}actions: read/u);
+    assert.doesNotMatch(yaml, /timeout-minutes:/u);
+    assert.match(yaml, /knowledge update --ci/u);
+    assert.match(yaml, /--baseline-ref "refs\/remotes\/origin\/\$KNOWLEDGE_BRANCH"/u);
+    assert.match(yaml, /git push --force-with-lease origin/u);
+    assert.match(yaml, /gh pr create/u);
+    assert.match(yaml, /cancel-in-progress: false/u);
+    assert.match(yaml, /steps\.prior_failure\.outputs\.blocked != 'true'/u);
+    assert.match(yaml, /knowledge-existing\.json/u);
+    assert.match(yaml, /knowledge status --ci --base-branch 'main' --lang en/u);
+    assert.match(yaml, /knowledge apply --ci --base-branch 'main' --lang en/u);
+    assert.match(yaml, /gh pr list --head "\$KNOWLEDGE_BRANCH"/u);
+    assert.match(yaml, /git switch -C 'main' "\$base"/u);
+    assert.match(yaml, /upload-artifact@v4/u);
+    assert.match(yaml, /knowledge-status\.json/u);
+    assert.match(yaml, /Collect sanitized diagnostics and partial-output inventory/u);
+    assert.match(yaml, /partial-output-inventory\.json/u);
+    assert.match(yaml, /outputtail\|stdout\|stderr\|prompt\|token/u);
+    assert.match(yaml, /Avoid repeating a failed scheduled revision/u);
+    assert.match(yaml, /github\.event_name == 'schedule'/u);
+    assert.match(yaml, /actions\/workflows\/lee-spec-kit-knowledge\.yml\/runs\?event=schedule/u);
+    assert.match(yaml, /\.conclusion == "cancelled"/u);
+    assert.match(yaml, /\.conclusion == "timed_out"/u);
+    assert.match(yaml, /workflow_dispatch to retry/u);
+    assert.match(yaml, /workflow_dispatch to retry[^\n]+>&2\n {12}exit 1/u);
+    assert.doesNotMatch(yaml, /runner\.temp \}\}\/knowledge-result\.json/u);
+    assert.match(yaml, /pnpm install --frozen-lockfile/u);
+    assert.doesNotMatch(yaml, /^ {2}push:/mu);
     await fs.appendFile(workflow.path, '\n# custom\n');
     assert.equal(
       json(await runCli(dir, ['knowledge', 'ci', '--json'])).reasonCode,
@@ -3155,7 +3138,7 @@ test('CI publication rejects a base that advances during generation', async () =
   });
 });
 
-test('configless CI failure preserves branch language component and timeout in its retry command', async () => {
+test('configless CI failure preserves branch language and component in its retry command', async () => {
   await withTempDir('lsk-ci-retry-context-', async (dir) => {
     await git(dir, ['init']);
     await git(dir, ['config', 'user.name', 'Test User']);
@@ -3178,8 +3161,6 @@ test('configless CI failure preserves branch language component and timeout in i
           'ko',
           '--component',
           'api',
-          '--absolute-timeout-ms',
-          '20000',
           '--json',
         ],
         {
@@ -3192,11 +3173,79 @@ test('configless CI failure preserves branch language component and timeout in i
     assert.equal(failed.reasonCode, 'OPENWIKI_SYNC_FAILED');
     assert.equal(
       failed.details.resumeCommand,
-      'npx lee-spec-kit knowledge publish --ci --base-branch release/docs --lang ko --component api --absolute-timeout-ms 20000 --json'
+      'npx lee-spec-kit knowledge publish --ci --base-branch release/docs --lang ko --component api --json'
     );
     assert.match(failed.error, /resume the preserved page queue/u);
     assert.doesNotMatch(failed.error, /same.*sync to resume/u);
     assert.equal(failed.details.resumable, true);
+  });
+});
+
+test('configless standalone project CI can publish, apply, and inspect tracked Knowledge', async () => {
+  await withTempDir('lsk-ci-configless-apply-', async (dir) => {
+    await git(dir, ['init', '-b', 'main']);
+    await git(dir, ['config', 'user.name', 'Test User']);
+    await git(dir, ['config', 'user.email', 'test@example.com']);
+    await fs.writeFile(path.join(dir, 'README.md'), '# Demo\n');
+    await git(dir, ['add', '.']);
+    await git(dir, ['commit', '-m', 'chore: baseline']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const fake = await setupFakeOpenWiki(dir);
+    const published = json(
+      await runCli(
+        dir,
+        [
+          'knowledge',
+          'update',
+          '--ci',
+          '--base-branch',
+          'main',
+          '--lang',
+          'en',
+          '--json',
+        ],
+        fake.env
+      )
+    );
+    assert.equal(published.status, 'ok', JSON.stringify(published));
+    const hooks = path.join(dir, '.git', 'test-hooks');
+    await fs.mkdir(hooks);
+    await fs.writeFile(
+      path.join(hooks, 'commit-msg'),
+      `#!/bin/sh\n${JSON.stringify(process.execPath)} ${JSON.stringify(path.resolve('dist/index.js'))} commit-audit --message-file "$1" --enforce --json\n`
+    );
+    await fs.chmod(path.join(hooks, 'commit-msg'), 0o755);
+    await git(dir, ['config', 'core.hooksPath', hooks]);
+    const applied = json(
+      await runCli(dir, [
+        'knowledge',
+        'apply',
+        '--ci',
+        '--base-branch',
+        'main',
+        '--lang',
+        'en',
+        '--json',
+      ])
+    );
+    assert.equal(
+      applied.reasonCode,
+      'OPENWIKI_APPLIED',
+      JSON.stringify(applied)
+    );
+    const status = json(
+      await runCli(dir, [
+        'knowledge',
+        'status',
+        '--ci',
+        '--base-branch',
+        'main',
+        '--lang',
+        'en',
+        '--json',
+      ])
+    );
+    assert.equal(status.knowledge.status, 'current', JSON.stringify(status));
   });
 });
 
@@ -3353,82 +3402,6 @@ test('tooling updates reuse published Knowledge without changing generation evid
       json(changed).reasonCode,
       'OPENWIKI_SYNC_FAILED',
       changed.stdout
-    );
-  });
-});
-
-test('publication retry shares one deadline and retains validation diagnostics and integrated state', async () => {
-  await withTempDir('lsk-publication-budget-', async (dir) => {
-    await initializeOpenWikiFeature(dir);
-    const fake = await setupFakeOpenWiki(dir);
-    await git(dir, ['switch', 'main']);
-    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
-    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
-    const published = json(
-      await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env)
-    );
-    assert.equal(published.status, 'ok', published.error);
-    await fs.writeFile(path.join(dir, 'next.txt'), 'next integration\n');
-    await git(dir, ['add', 'next.txt']);
-    await git(dir, ['commit', '-m', 'feat: next integration']);
-    const integrated = (await git(dir, ['rev-parse', 'HEAD'])).stdout.trim();
-    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
-    const start = Date.now();
-    const failed = await runCli(
-      dir,
-      [
-        'knowledge',
-        'publish',
-        '--ci',
-        '--absolute-timeout-ms',
-        '3500',
-        '--json',
-      ],
-      {
-        ...fake.env,
-        FAKE_OPENWIKI_CLAIM_MODE: 'stale',
-        FAKE_OPENWIKI_SLEEP_MS: '1100',
-        FAKE_OPENWIKI_REPAIR_SLEEP_MS: '10000',
-        FAKE_OPENWIKI_REPAIR_REQUIRE_EXISTING_PAGE: '1',
-      }
-    );
-    const failure = json(failed);
-    assert.equal(
-      failure.reasonCode,
-      'OPENWIKI_ABSOLUTE_TIMEOUT',
-      failed.stdout
-    );
-    assert.ok(Date.now() - start < 6000, 'retry must not get a fresh deadline');
-    assert.match(failure.error, /resume the preserved page queue/u);
-    assert.equal(failure.details.resumable, true);
-    const events = (await fs.readFile(failure.details.diagnosticsPath, 'utf8'))
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line));
-    assert.equal(
-      events.find((event) => event.stage === 'validation_failed').attempt,
-      1
-    );
-    assert.equal(events.find((event) => event.stage === 'retry').attempt, 1);
-    assert.equal(events.at(-1).attempt, 2);
-    assert.equal(events.at(-1).stage, 'failed');
-    assert.match(failed.stderr, /"stage":"retry"/u);
-    assert.match(failed.stderr, /"completedPages":1/u);
-    const status = json(await runCli(dir, ['knowledge', 'status', '--json']));
-    assert.equal(status.attempt.status, 'failed');
-    assert.match(status.attempt.retryReason, /Repair the diagnosed pages/u);
-    assert.equal(
-      status.attempt.diagnosticsPath,
-      failure.details.diagnosticsPath
-    );
-    assert.equal(status.latest.id, published.id);
-    assert.equal(
-      (await git(dir, ['rev-parse', 'main'])).stdout.trim(),
-      integrated
-    );
-    await fs.access(published.artifactPath);
-    await fs.access(
-      path.join(failure.details.worktree, 'openwiki', 'architecture map.md')
     );
   });
 });
@@ -3773,7 +3746,60 @@ test('publication seeds the next source revision from the verified published art
   });
 });
 
-test('publication without explicit timeouts survives hours of simulated elapsed time', async () => {
+test('fresh CI seeds an incremental update from the tracked Knowledge branch', async () => {
+  await withTempDir('lsk-ci-branch-baseline-', async (dir) => {
+    await initializeOpenWikiFeature(dir);
+    const fake = await setupFakeOpenWiki(dir);
+    await git(dir, ['switch', 'main']);
+    await git(dir, ['merge', '--ff-only', 'feat/F001-alpha']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const first = json(
+      await runCli(dir, ['knowledge', 'publish', '--ci', '--json'], fake.env)
+    );
+    assert.equal(first.status, 'ok', first.error);
+    const applied = json(
+      await runCli(dir, ['knowledge', 'apply', '--ci', '--json'], fake.env)
+    );
+    assert.equal(applied.status, 'ok', applied.error);
+    await git(dir, ['branch', 'lee-spec-kit/knowledge-main', applied.commit]);
+    await git(dir, ['reset', '--hard', first.sourceHead]);
+    await git(dir, ['update-ref', '-d', 'refs/lee-spec-kit/knowledge/publication']);
+    await fs.rm(path.join(dir, '.git', 'lee-spec-kit.runtime', 'knowledge'), {
+      recursive: true,
+      force: true,
+    });
+    await fs.writeFile(path.join(dir, 'new-source.txt'), 'new source\n');
+    await git(dir, ['add', 'new-source.txt']);
+    await git(dir, ['commit', '-m', 'feat: change source']);
+    await git(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const secondRun = await runCli(
+      dir,
+      [
+        'knowledge',
+        'publish',
+        '--ci',
+        '--baseline-ref',
+        'refs/heads/lee-spec-kit/knowledge-main',
+        '--json',
+      ],
+      {
+        ...fake.env,
+        FAKE_OPENWIKI_REQUIRE_EXISTING_PAGE: '1',
+        FAKE_OPENWIKI_EXPECT_BASELINE_HEAD: first.sourceHead,
+      }
+    );
+    const second = json(secondRun);
+    assert.equal(second.status, 'ok', second.error);
+    const status = json(await runCli(dir, ['knowledge', 'status', '--json']));
+    assert.equal(status.attempt.baselineSourceHead, first.sourceHead);
+    assert.equal(
+      status.attempt.baselineRef,
+      'refs/heads/lee-spec-kit/knowledge-main'
+    );
+  });
+});
+
+test('publication never imposes a duration limit on simulated elapsed time', async () => {
   await withTempDir('lsk-publish-unlimited-', async (dir) => {
     await initializeOpenWikiFeature(dir);
     const fake = await setupFakeOpenWiki(dir);
@@ -3794,7 +3820,6 @@ test('publication without explicit timeouts survives hours of simulated elapsed 
     );
     assert.equal(result.status, 'ok', result.error);
     const status = json(await runCli(dir, ['knowledge', 'status', '--json']));
-    assert.equal(status.attempt.budgetMs, null);
     assert.ok(status.attempt.elapsedMs >= 4 * 60 * 60 * 1000);
   });
 });

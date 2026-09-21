@@ -65,7 +65,6 @@ export class KnowledgeExecution {
   constructor(
     root: string,
     readonly startedAt: number,
-    readonly budgetMs: number | undefined,
     private readonly onEvent?: (event: KnowledgeExecutionEvent) => void,
     readonly signal?: globalThis.AbortSignal
   ) {
@@ -74,7 +73,7 @@ export class KnowledgeExecution {
     this.diagnosticsPath = path.join(this.directory, 'events.jsonl');
     this.event('starting');
   }
-  remaining(): number {
+  checkInterrupted(): void {
     if (this.signal?.aborted) {
       throw createCliError(
         'OPENWIKI_SYNC_INTERRUPTED',
@@ -82,23 +81,6 @@ export class KnowledgeExecution {
         { diagnosticsPath: this.diagnosticsPath, partialStatePreserved: true }
       );
     }
-    const remaining =
-      this.budgetMs === undefined
-        ? Infinity
-        : this.startedAt + this.budgetMs - Date.now();
-    if (remaining <= 0) {
-      throw createCliError(
-        'OPENWIKI_ABSOLUTE_TIMEOUT',
-        'The total Knowledge execution budget, including verification and retries, was exhausted. Existing output and diagnostics were preserved.',
-        {
-          diagnosticsPath: this.diagnosticsPath,
-          elapsedMs: Date.now() - this.startedAt,
-          timeout: { absoluteTimeoutMs: this.budgetMs },
-          partialStatePreserved: true,
-        }
-      );
-    }
-    return remaining;
   }
   event(stage: string, fields: Partial<KnowledgeExecutionEvent> = {}): void {
     const event = {

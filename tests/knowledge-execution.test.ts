@@ -8,26 +8,22 @@ import {
   describeKnowledgeValidation,
 } from '../src/utils/knowledge-execution.js';
 
-test('execution history retains both attempts and enforces a single budget', () => {
+test('execution history retains every attempt regardless of elapsed time', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lsk-execution-'));
   const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
   try {
-    const execution = new KnowledgeExecution(root, 1000, 100);
+    const execution = new KnowledgeExecution(root, 1000);
     execution.attempt = 1;
     execution.runId = 'run-1';
     execution.event('validation_failed', {
       code: 'OPENWIKI_OUTPUT_INVALID',
       message: 'Stale evidence',
     });
-    now.mockReturnValue(1090);
+    now.mockReturnValue(1000 + 24 * 60 * 60 * 1000);
     execution.attempt = 2;
     execution.runId = 'run-2';
-    expect(execution.remaining()).toBe(10);
+    expect(() => execution.checkInterrupted()).not.toThrow();
     execution.event('generation');
-    now.mockReturnValue(1100);
-    expect(() => execution.remaining()).toThrow(
-      /total Knowledge execution budget/u
-    );
     const events = fs
       .readFileSync(execution.diagnosticsPath, 'utf8')
       .trim()
@@ -45,21 +41,20 @@ test('execution history retains both attempts and enforces a single budget', () 
   }
 });
 
-test('cancellation between attempts prevents another generation within the budget', () => {
+test('external cancellation between attempts prevents another generation', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lsk-cancel-'));
   try {
     const controller = new AbortController();
     const execution = new KnowledgeExecution(
       root,
       Date.now(),
-      60_000,
       undefined,
       controller.signal
     );
     execution.attempt = 1;
     execution.event('validation_failed', { message: 'Stale evidence' });
     controller.abort();
-    expect(() => execution.remaining()).toThrow(/interrupted/u);
+    expect(() => execution.checkInterrupted()).toThrow(/interrupted/u);
     expect(execution.attempt).toBe(1);
     expect(fs.readFileSync(execution.diagnosticsPath, 'utf8')).toContain(
       'Stale evidence'
@@ -114,27 +109,5 @@ test('diagnostic text redacts credentials, bearer tokens, and remote URLs', () =
     expect(safe).not.toMatch(/fixture-sensitive|abc123|user:pass|testKey123/u);
   } finally {
     vi.unstubAllEnvs();
-  }
-});
-
-test('an omitted budget allows long execution while cancellation still works', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lsk-unlimited-'));
-  const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
-  const controller = new AbortController();
-  try {
-    const execution = new KnowledgeExecution(
-      root,
-      1000,
-      undefined,
-      undefined,
-      controller.signal
-    );
-    now.mockReturnValue(1000 + 24 * 60 * 60 * 1000);
-    expect(execution.remaining()).toBe(Infinity);
-    controller.abort();
-    expect(() => execution.remaining()).toThrow(/interrupted/u);
-  } finally {
-    now.mockRestore();
-    fs.rmSync(root, { recursive: true, force: true });
   }
 });
