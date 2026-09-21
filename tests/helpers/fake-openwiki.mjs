@@ -98,9 +98,21 @@ const interruptedMode = isRepair && process.env.FAKE_OPENWIKI_REPAIR_INTERRUPTED
     ? ''
     : process.env.FAKE_OPENWIKI_INTERRUPTED || '';
 const pageStatus = interruptedMode === 'skipped' ? 'skipped' : (!isRepair && (process.env.FAKE_OPENWIKI_FAIL === '1' || process.env.FAKE_OPENWIKI_SLEEP_MS) ? 'pending' : 'complete');
+const plannedPagePath = process.env.FAKE_OPENWIKI_PAGE_PATH || '/openwiki/architecture map.md';
 const initialPages = fs.existsSync(path.join(wiki, 'architecture map.md')) ? ['/openwiki/architecture map.md'] : [];
 const baseGitHead = fs.existsSync(path.join(wiki, '.last-update.json')) ? JSON.parse(fs.readFileSync(path.join(wiki, '.last-update.json'), 'utf8')).gitHead : undefined;
-fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId, mode: 'update', phase: 'generating', initialPages, baseGitHead, plan: { pages: [{ path: '/openwiki/architecture map.md', status: pageStatus, seedPaths: ['README.md#L1-L1'], instructions: [process.env.FAKE_OPENWIKI_PLAN_SECRET || ''] }] } }, null, 2) + '\\n');
+fs.writeFileSync(path.join(wiki, '.run.json'), JSON.stringify({ schemaVersion: 1, runId, mode: 'update', phase: 'generating', initialPages, baseGitHead, plan: { pages: [{ path: plannedPagePath, status: pageStatus, seedPaths: ['README.md#L1-L1'], instructions: [process.env.FAKE_OPENWIKI_PLAN_SECRET || ''] }] } }, null, 2) + '\\n');
+if (process.env.FAKE_OPENWIKI_REQUIRE_PAGE_PARENT === '1') {
+  const parent = path.dirname(path.join(root, ...plannedPagePath.slice(1).split('/')));
+  const deadline = Date.now() + 2000;
+  while (!fs.existsSync(parent) && Date.now() < deadline) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+  }
+  if (!fs.existsSync(parent)) {
+    process.stderr.write('planned page parent was not prepared\\n');
+    process.exit(35);
+  }
+}
 if (process.env.FAKE_OPENWIKI_FAIL === '1') {
   if (process.env.FAKE_OPENWIKI_DIAGNOSTIC_MODE === '1') {
     process.stderr.write('simulated provider failure: HTTP 429 rate limit exceeded\\n');

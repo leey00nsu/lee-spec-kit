@@ -1961,6 +1961,11 @@ async function runOpenWikiProcess(input: {
   input.execution.event('generation');
   await writeOpenWikiRunOwner(input.projectRoot, input.owner);
   input.execution.checkInterrupted();
+  const savedProgress = await readOpenWikiProgress(input.projectRoot);
+  await ensureOpenWikiPageParentDirectories(
+    input.projectRoot,
+    savedProgress?.pagePlan
+  );
   const child = spawn(input.executablePath, input.args, {
     cwd: input.projectRoot,
     detached: process.platform !== 'win32',
@@ -2032,6 +2037,10 @@ async function runOpenWikiProcess(input: {
         try {
           const progress = await readOpenWikiProgress(input.projectRoot);
           if (progress) {
+            await ensureOpenWikiPageParentDirectories(
+              input.projectRoot,
+              progress.pagePlan
+            );
             const signature = JSON.stringify(progress);
             if (signature !== lastProgressSignature) {
               lastProgressSignature = signature;
@@ -2238,6 +2247,28 @@ async function runOpenWikiProcess(input: {
       resolve(latestProgress);
     });
   });
+}
+
+async function ensureOpenWikiPageParentDirectories(
+  projectRoot: string,
+  pagePlan: OpenWikiProgress['pagePlan'] | undefined
+): Promise<void> {
+  if (!pagePlan?.length) return;
+  for (const page of pagePlan) {
+    if (
+      !page.path.startsWith('/openwiki/') ||
+      page.path.includes('\\') ||
+      page.path.split('/').includes('..') ||
+      page.path.endsWith('/')
+    ) {
+      throw createCliError(
+        'OPENWIKI_OUTPUT_INVALID',
+        'OpenWiki planned an unsafe generated page path.'
+      );
+    }
+    const target = path.join(projectRoot, ...page.path.slice(1).split('/'));
+    await ensureSafeDirectory(path.dirname(target), projectRoot);
+  }
 }
 
 function safeErrorDetail(error: unknown): string {

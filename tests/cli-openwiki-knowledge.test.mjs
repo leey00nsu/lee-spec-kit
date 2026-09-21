@@ -2592,6 +2592,8 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
           FAKE_OPENWIKI_FAIL: '1',
           FAKE_OPENWIKI_DIAGNOSTIC_MODE: '1',
           FAKE_OPENWIKI_DIAGNOSTIC_SECRET: 'super-secret-provider-token',
+          FAKE_OPENWIKI_PAGE_PATH: '/openwiki/workflows/ai-mixing.md',
+          FAKE_OPENWIKI_REQUIRE_PAGE_PARENT: '1',
         },
         { timeoutMs: 60_000 }
       )
@@ -2603,8 +2605,14 @@ test('OpenWiki preserves owned partial state and rejects cross-Feature resume', 
     assert.equal(failed.details?.diagnostic?.attempt, 1);
     assert.equal(failed.details?.diagnostic?.runId, 'fake-run');
     assert.deepEqual(failed.details?.diagnostic?.paths, [
-      '/openwiki/architecture map.md',
+      '/openwiki/workflows/ai-mixing.md',
     ]);
+    assert.equal(
+      await fs
+        .lstat(path.join(dir, 'openwiki', 'workflows'))
+        .then((stat) => stat.isDirectory()),
+      true
+    );
     assert.match(failed.details?.diagnostic?.message || '', /HTTP 429/iu);
     assert.match(
       failed.details?.diagnostic?.message || '',
