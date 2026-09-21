@@ -125,16 +125,19 @@ async function resolveExistingManagedWorktreePath(
     issueNumber ? `feat/${issueNumber}-${slug}` : null,
     issueNumber ? `feat/${issueNumber}-${folderName}` : null,
   ].filter((candidate): candidate is string => !!candidate);
-  const candidates = [...new Set(branchCandidates)].map((candidate) =>
-    resolveManagedWorktreePath(config, projectRoot, candidate)
-  );
+  const candidates = [...new Set(branchCandidates)].map((branch) => ({
+    branch,
+    directory: resolveManagedWorktreePath(config, projectRoot, branch),
+  }));
 
   for (const candidate of candidates) {
     if (
-      (await fs.pathExists(candidate)) &&
-      isRegisteredGitWorktree(projectRoot, candidate)
+      (await fs.pathExists(candidate.directory)) &&
+      isRegisteredGitWorktree(projectRoot, candidate.directory) &&
+      runGitCapture(['branch', '--show-current'], candidate.directory) ===
+        candidate.branch
     ) {
-      return candidate;
+      return candidate.directory;
     }
   }
 

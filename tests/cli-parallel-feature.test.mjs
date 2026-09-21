@@ -5,6 +5,7 @@ import {
   path,
   runCli,
   runCommand,
+  setupFakeGhCli,
   withTempDir,
 } from './helpers/cli-contract-helpers.mjs';
 
@@ -41,6 +42,34 @@ test('local identifiers are independent; claim rejects competing sessions and st
       second = json(b);
     assert.match(first.featureId, /^[A-HJ-NP-Z][A-HJ-NP-Z2-9]{11}$/);
     assert.notEqual(first.featureId, second.featureId);
+    const firstWorkspace = json(
+      await runCli(dir, [
+        'workspace',
+        'prepare',
+        first.featureId,
+        '--json',
+      ])
+    );
+    const secondWorkspace = json(
+      await runCli(dir, [
+        'workspace',
+        'prepare',
+        second.featureId,
+        '--json',
+      ])
+    );
+    assert.notEqual(
+      firstWorkspace.projectDirectory,
+      secondWorkspace.projectDirectory
+    );
+    assert.equal(
+      path.basename(firstWorkspace.projectDirectory),
+      `feat-${first.featureId}-alpha`
+    );
+    assert.equal(
+      path.basename(secondWorkspace.projectDirectory),
+      `feat-${second.featureId}-beta`
+    );
     assert.match(
       await fs.readFile(path.join(first.featurePath, 'spec.md'), 'utf8'),
       new RegExp(first.featureId)
@@ -135,7 +164,19 @@ console.log(JSON.stringify({ number: Number(args[2]), url: 'https://github.com/a
     assert.equal(json(created).featureId, '123');
     assert.match(json(created).featurePath, /123-login$/);
     const stage = await runCli(dir, ['workflow-stage', '123', '--json'], env);
-    assert.equal(json(stage).stage, 'spec');
+    assert.equal(json(stage).stage, 'workspace');
+    assert.equal(json(stage).nextAction.category, 'workspace_prepare');
+    const precreatedBranch = await runCommand(dir, 'git', [
+      'branch',
+      'feat/123-login',
+      'HEAD',
+    ]);
+    assert.equal(precreatedBranch.code, 0, precreatedBranch.stderr);
+    const prepared = await runCli(dir, ['workspace', 'prepare', '123', '--json'], env);
+    assert.equal(prepared.code, 0, prepared.stdout);
+    const isolated = json(prepared).projectDirectory;
+    const isolatedStage = await runCli(isolated, ['workflow-stage', '123', '--json'], env);
+    assert.equal(json(isolatedStage).stage, 'spec');
     const audit = await runCli(
       dir,
       ['feature-audit', '--enforce', '--json'],
@@ -151,5 +192,141 @@ console.log(JSON.stringify({ number: Number(args[2]), url: 'https://github.com/a
     );
     assert.equal(duplicate.code, 1);
     assert.match(duplicate.stdout, /Duplicate Feature ID/);
+  });
+});
+
+test('standalone GitHub Feature isolates issue-scoped planning in a docs worktree', async () => {
+  await withTempDir('lee-standalone-github-planning-', async (dir) => {
+    const projectRoot = path.join(dir, 'project');
+    await fs.mkdir(projectRoot);
+    await runCommand(projectRoot, 'git', ['init', '-b', 'main']);
+    await runCommand(projectRoot, 'git', ['config', 'user.email', 'owner@example.com']);
+    await runCommand(projectRoot, 'git', ['config', 'user.name', 'Owner']);
+    await fs.writeFile(path.join(projectRoot, 'README.md'), '# project\n');
+    await runCommand(projectRoot, 'git', ['add', 'README.md']);
+    await runCommand(projectRoot, 'git', ['commit', '-m', 'baseline']);
+    const initialized = await runCli(dir, [
+      'init',
+      '--name',
+      'standalone-github',
+      '--type',
+      'single',
+      '--lang',
+      'en',
+      '--workflow',
+      'github',
+      '--docs-repo',
+      'standalone',
+      '--project-root',
+      './project',
+      '--dir',
+      './docs',
+      '--non-interactive',
+    ]);
+    assert.equal(initialized.code, 0, initialized.stdout + initialized.stderr);
+    const fakeGh = await setupFakeGhCli(dir);
+    const env = { ...process.env, ...fakeGh.env };
+    const created = await runCli(
+      dir,
+      ['feature', 'login', '--issue', '123', '--json'],
+      env
+    );
+    assert.equal(created.code, 0, created.stdout);
+    assert.equal(json(created).featureId, '123');
+    const stage = json(
+      await runCli(dir, ['workflow-stage', '123', '--json'], env)
+    );
+    assert.equal(stage.nextAction.category, 'workspace_prepare');
+    const prepared = json(
+      await runCli(dir, ['workspace', 'prepare', '123', '--json'], env)
+    );
+    assert.notEqual(prepared.docsDirectory, path.join(dir, 'docs'));
+    assert.match(
+      prepared.docsDirectory,
+      /\.worktrees\/docs\/docs-single-123$/u
+    );
+    const isolated = json(
+      await runCli(prepared.docsDirectory, ['workflow-stage', '123', '--json'], env)
+    );
+    assert.equal(isolated.stage, 'spec', JSON.stringify(isolated));
+  });
+});
+
+test('embedded multi Features isolate the selected component before planning', async () => {
+  await withTempDir('lee-parallel-multi-', async (dir) => {
+    await init(dir, ['--type', 'fullstack', '--components', 'web,api']);
+    const created = await runCli(dir, [
+      'feature',
+      'order-export',
+      '--component',
+      'web',
+      '--json',
+    ]);
+    assert.equal(created.code, 0, created.stdout);
+    const feature = json(created);
+    assert.match(feature.featurePathFromDocs, /^features\/web\//u);
+    const stage = json(
+      await runCli(dir, [
+        'workflow-stage',
+        feature.featureId,
+        '--component',
+        'web',
+        '--json',
+      ])
+    );
+    assert.equal(stage.nextAction.category, 'workspace_prepare');
+    const prepared = json(
+      await runCli(dir, [
+        'workspace',
+        'prepare',
+        feature.featureId,
+        '--component',
+        'web',
+        '--json',
+      ])
+    );
+    assert.equal(prepared.status, 'ok', JSON.stringify(prepared));
+    await fs.access(
+      path.join(
+        prepared.projectDirectory,
+        'docs',
+        feature.featurePathFromDocs,
+        'spec.md'
+      )
+    );
+    const duplicateAcrossComponents = await runCli(dir, [
+      'feature',
+      'another-scope',
+      '--component',
+      'api',
+      '--id',
+      feature.featureId,
+      '--json',
+    ]);
+    assert.equal(duplicateAcrossComponents.code, 1);
+    assert.equal(
+      json(duplicateAcrossComponents).reasonCode,
+      'FEATURE_ID_EXISTS'
+    );
+    const legacyWeb = await runCli(dir, [
+      'feature',
+      'legacy-web',
+      '--component',
+      'web',
+      '--id',
+      'F001',
+      '--json',
+    ]);
+    const legacyApi = await runCli(dir, [
+      'feature',
+      'legacy-api',
+      '--component',
+      'api',
+      '--id',
+      'F001',
+      '--json',
+    ]);
+    assert.equal(legacyWeb.code, 0, legacyWeb.stdout);
+    assert.equal(legacyApi.code, 0, legacyApi.stdout);
   });
 });

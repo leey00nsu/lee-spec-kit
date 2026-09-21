@@ -185,7 +185,7 @@ if (args[0] === 'issue' && args[1] === 'create') {
 if (args[0] === 'issue' && args[1] === 'view') {
   const issueRef = args[2];
   if (issueRef === '123') {
-    console.log(JSON.stringify({ number: 123, state: 'OPEN', title: ${issueTitleLiteral} }));
+    console.log(JSON.stringify({ number: 123, state: 'OPEN', title: ${issueTitleLiteral}, url: 'https://github.com/acme/repo/issues/123' }));
     process.exit(0);
   }
   console.error('issue not found: ' + issueRef);

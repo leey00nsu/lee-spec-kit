@@ -95,7 +95,6 @@ export type WorkflowStageId =
 
 export interface WorkflowStageAction {
   category:
-    | 'workspace_checkpoint'
     | 'workspace_enter'
     | 'workspace_prepare'
     | 'workspace_merge_docs'
@@ -3450,6 +3449,30 @@ async function collectWorkflowStageCore(
       approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'TASK_STATE_INVALID' };
   }
 
+  if (
+    config.docsRepo !== 'standalone' &&
+    !/^F\d{3,}$/.test(feature.id) &&
+    !feature.git.managedWorktree &&
+    !allTasksDone(tasks)
+  ) {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'workspace',
+      nextAction: buildAction(
+        'workspace_prepare',
+        'Commit only the Feature registration seed, prepare its isolated project worktree, then write Spec, Plan, and Tasks from the returned projectDirectory.',
+        false,
+        `npx lee-spec-kit workspace prepare ${buildFeatureArgs(feature)} --json`
+      ),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED',
+    };
+  }
+
   const planReview = parsePlanReview(planContent || '');
   const planReviewTarget = buildPlanReviewTarget(
     specContent || '',
@@ -3751,28 +3774,6 @@ async function collectWorkflowStageCore(
       } else {
         missingExpectedWorktreeBranch = expectedBranch;
       }
-    }
-  }
-
-  if (missingExpectedWorktreeBranch && config.docsRepo !== 'standalone' && !/^F\d{3,}$/.test(feature.id)) {
-    const root = resolveGitTopLevelOrNull(config.docsDir) || cwd;
-    const relativeFeature = path.relative(root, feature.path).replace(/\\/g, '/');
-    const sourceRef = localBranchExists(root, missingExpectedWorktreeBranch)
-      ? `refs/heads/${missingExpectedWorktreeBranch}` : 'HEAD';
-    const sourceTree = runGitCapture(['rev-parse', `${sourceRef}:${relativeFeature}`], root);
-    const headTree = runGitCapture(['rev-parse', `HEAD:${relativeFeature}`], root);
-    const dirty = runGitCapture(['status', '--porcelain', '--untracked-files=all', '--', relativeFeature], root);
-    if (!sourceTree || !headTree || sourceTree !== headTree || dirty === undefined || dirty.trim()) {
-      const quote = (value: string): string => "'" + value.replaceAll("'", "'\"'\"'") + "'";
-      const scope = resolveFeatureCommitScope({ issueNumber: feature.issueNumber, featureId: feature.id, workflowMode: config.workflow?.mode });
-      const command = dirty?.trim() && scope
-        ? `git -C ${quote(root)} add -- ${quote(relativeFeature)} && git -C ${quote(root)} commit --only -m ${quote(`docs(${scope}): checkpoint ${feature.slug} planning`)} -- ${quote(relativeFeature)}`
-        : null;
-      return { status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
-        featureRef: buildFeatureRef(feature), stage: 'workspace',
-        nextAction: buildAction('workspace_checkpoint',
-          'Commit the Feature planning docs before creating its worktree. If the Feature branch already exists, synchronize the committed docs into that branch and rerun workflow-stage.', false, command),
-        approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED' };
     }
   }
 

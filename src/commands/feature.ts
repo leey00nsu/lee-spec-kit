@@ -294,10 +294,33 @@ export async function runFeature(
           featureName: name,
         });
 
-      // Identity must be unique even when the slug differs.
-      const siblings = await fs.readdir(path.dirname(featureDir)).catch(() => [] as string[]);
-      if (siblings.some((entry) => entry.toLowerCase().startsWith(`${featureId.toLowerCase()}-`))) {
-        throw createCliError('FEATURE_ID_EXISTS', `Feature ${featureId} already exists in this component.`);
+      // Modern identity maps to one branch/worktree, so it must be unique across
+      // every component as well as across slugs within one component.
+      const identityRoots = projectType === 'multi' && !/^F\d{3,}$/.test(featureId)
+        ? configuredComponents.map((candidate) =>
+            schemaAdapter.resolveFeaturePaths!({
+              docsDir,
+              projectType,
+              component: candidate,
+              featureId,
+              featureName: name,
+            }).featuresDir
+          )
+        : [path.dirname(featureDir)];
+      for (const identityRoot of identityRoots) {
+        const siblings = await fs
+          .readdir(identityRoot)
+          .catch(() => [] as string[]);
+        if (
+          siblings.some((entry) =>
+            entry.toLowerCase().startsWith(`${featureId.toLowerCase()}-`)
+          )
+        ) {
+          throw createCliError(
+            'FEATURE_ID_EXISTS',
+            `Feature ${featureId} already exists in this project.`
+          );
+        }
       }
       // 중복 확인
       if (await fs.pathExists(featureDir)) {

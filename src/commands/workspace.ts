@@ -10,11 +10,17 @@ import { createCliError, toCliError } from '../utils/cli-error.js';
 import { runGitCapture, runGitOrThrow } from '../utils/git-run.js';
 import { resolveLocalIntegrationContext } from '../utils/local-integration.js';
 import { runProcess } from './github/process.js';
+import {
+  buildManagedWorktreeEnvCopyCommand,
+  isRegisteredGitWorktree,
+  resolveGitPrimaryWorktreeRoot,
+  resolveManagedWorktreePath,
+} from '../utils/standalone-workspace.js';
 
 export function workspaceCommand(program: Command): void {
   const workspace = program
     .command('workspace')
-    .description('Isolate and integrate standalone Feature docs');
+    .description('Prepare and integrate managed Feature workspaces');
   for (const action of [
     'prepare',
     'sync-docs',
@@ -39,6 +45,174 @@ export function workspaceCommand(program: Command): void {
             );
           const { config, matchedFeature: feature } = selection;
           const state = await resolveDocsWorkspace(config, feature);
+          if (
+            action === 'prepare' &&
+            config.docsRepo !== 'standalone' &&
+            !/^F\d{3,}$/.test(feature.id)
+          ) {
+            const root = resolveGitPrimaryWorktreeRoot(feature.git.projectGitCwd);
+            const metadataPath = path.join(feature.path, '.feature.json');
+            if (!(await fs.pathExists(metadataPath))) {
+              throw createCliError(
+                'PRECONDITION_FAILED',
+                'Modern embedded Features require .feature.json registration metadata.'
+              );
+            }
+            const metadata = await fs.readJson(metadataPath);
+            const branch =
+              typeof metadata.branch === 'string' ? metadata.branch.trim() : '';
+            if (!branch || !branch.startsWith('feat/')) {
+              throw createCliError(
+                'PRECONDITION_FAILED',
+                'Feature registration metadata does not contain a valid feat/ branch.'
+              );
+            }
+            const directory = resolveManagedWorktreePath(config, root, branch);
+            const relativeFeature = path
+              .relative(root, feature.path)
+              .replace(/\\/g, '/');
+            const result = await withFileLock(
+              getRepositoryLockPath(root, 'embedded-workspace'),
+              async () => {
+                if (feature.git.managedWorktree) {
+                  const checkedOutBranch = runGitCapture(
+                    ['branch', '--show-current'],
+                    feature.git.projectGitCwd
+                  );
+                  if (checkedOutBranch !== branch) {
+                    throw createCliError(
+                      'PRECONDITION_FAILED',
+                      `Managed workspace branch mismatch: expected ${branch}, received ${checkedOutBranch || '(detached)'}. Existing files were preserved.`
+                    );
+                  }
+                  return {
+                    docsDirectory: path.join(
+                      feature.git.projectGitCwd,
+                      path.relative(root, config.docsDir)
+                    ),
+                    projectDirectory: feature.git.projectGitCwd,
+                    next: `Run subsequent Feature commands from ${feature.git.projectGitCwd}.`,
+                  };
+                }
+                runGitOrThrow(['add', '--', relativeFeature], root);
+                const staged = runProcess(
+                  'git',
+                  ['diff', '--cached', '--quiet', '--', relativeFeature],
+                  root
+                );
+                if (staged.code !== 0) {
+                  const scope = resolveFeatureCommitScope({
+                    issueNumber: feature.issueNumber,
+                    featureId: feature.id,
+                    workflowMode: config.workflow?.mode,
+                  });
+                  if (!scope) {
+                    throw createCliError(
+                      'PRECONDITION_FAILED',
+                      'Feature commit scope is required.'
+                    );
+                  }
+                  runGitOrThrow(
+                    [
+                      'commit',
+                      '--only',
+                      '-m',
+                      `docs(${scope}): seed ${feature.slug} workspace`,
+                      '--',
+                      relativeFeature,
+                    ],
+                    root
+                  );
+                }
+                if (await fs.pathExists(directory)) {
+                  if (!isRegisteredGitWorktree(root, directory)) {
+                    throw createCliError(
+                      'PRECONDITION_FAILED',
+                      `A non-worktree path blocks the managed workspace: ${directory}`
+                    );
+                  }
+                  const checkedOutBranch = runGitCapture(
+                    ['branch', '--show-current'],
+                    directory
+                  );
+                  if (checkedOutBranch !== branch) {
+                    throw createCliError(
+                      'PRECONDITION_FAILED',
+                      `Managed workspace branch mismatch: expected ${branch}, received ${checkedOutBranch || '(detached)'}. Existing files were preserved.`
+                    );
+                  }
+                } else {
+                  await fs.ensureDir(path.dirname(directory));
+                  const exists = runGitCapture(
+                    ['show-ref', '--verify', `refs/heads/${branch}`],
+                    root
+                  );
+                  if (exists) {
+                    const branchTree = runGitCapture(
+                      ['rev-parse', `${branch}:${relativeFeature}`],
+                      root
+                    );
+                    const headTree = runGitCapture(
+                      ['rev-parse', `HEAD:${relativeFeature}`],
+                      root
+                    );
+                    if (branchTree !== headTree) {
+                      const branchBehind = runProcess(
+                        'git',
+                        ['merge-base', '--is-ancestor', branch, 'HEAD'],
+                        root
+                      );
+                      const branchAhead = runProcess(
+                        'git',
+                        ['merge-base', '--is-ancestor', 'HEAD', branch],
+                        root
+                      );
+                      if (branchBehind.code !== 0 && branchAhead.code !== 0) {
+                        throw createCliError(
+                          'PRECONDITION_FAILED',
+                          `Feature branch ${branch} diverged before workspace preparation. Existing branch and seed were preserved; reconcile them explicitly.`
+                        );
+                      }
+                      if (branchBehind.code === 0)
+                        runGitOrThrow(['branch', '-f', branch, 'HEAD'], root);
+                    }
+                  }
+                  runGitOrThrow(
+                    [
+                      'worktree',
+                      'add',
+                      ...(exists ? [] : ['-b', branch]),
+                      directory,
+                      exists ? branch : 'HEAD',
+                    ],
+                    root
+                  );
+                  const envCopy = buildManagedWorktreeEnvCopyCommand(
+                    root,
+                    directory
+                  );
+                  const copied = runProcess('sh', ['-c', envCopy], root);
+                  if (copied.code !== 0) {
+                    throw createCliError(
+                      'EXECUTION_FAILED',
+                      copied.stderr || copied.stdout
+                    );
+                  }
+                }
+                return {
+                  docsDirectory: path.join(
+                    directory,
+                    path.relative(root, config.docsDir)
+                  ),
+                  projectDirectory: directory,
+                  next: `Run subsequent Feature commands from ${directory}.`,
+                };
+              },
+              { owner: 'workspace prepare' }
+            );
+            console.log(JSON.stringify({ status: 'ok', ...result }, null, 2));
+            return;
+          }
           if (!state)
             throw createCliError(
               'PRECONDITION_FAILED',
@@ -50,10 +224,11 @@ export function workspaceCommand(program: Command): void {
               const git = (cwd: string, args: string[]): string =>
                 runGitOrThrow(args, cwd, { stdio: ['ignore', 'pipe', 'pipe'] });
               const clean = (cwd: string): void => {
-                if (git(cwd, ['status', '--porcelain']))
+                const status = git(cwd, ['status', '--porcelain']);
+                if (status)
                   throw createCliError(
                     'PRECONDITION_FAILED',
-                    `Commit or resolve changes first: ${cwd}`
+                    `Commit or resolve changes first: ${cwd}\n${status}`
                   );
               };
               if (!state.baseBranch || state.baseBranch === state.branch)
@@ -62,19 +237,97 @@ export function workspaceCommand(program: Command): void {
                   'A separate docs base branch is required.'
                 );
               if (action === 'prepare') {
-                clean(state.root);
-                if (!(await fs.pathExists(state.directory))) {
-                  await fs.ensureDir(path.dirname(state.directory));
-                  const exists = runGitCapture(
-                    ['show-ref', '--verify', `refs/heads/${state.branch}`],
+                const relativeFeature = path
+                  .relative(state.root, feature.path)
+                  .replace(/\\/g, '/');
+                runGitOrThrow(['add', '--', relativeFeature], state.root);
+                const staged = runProcess(
+                  'git',
+                  ['diff', '--cached', '--quiet', '--', relativeFeature],
+                  state.root
+                );
+                if (staged.code !== 0) {
+                  const scope = resolveFeatureCommitScope({
+                    issueNumber: feature.issueNumber,
+                    featureId: feature.id,
+                    workflowMode: config.workflow?.mode,
+                  });
+                  if (!scope) {
+                    throw createCliError(
+                      'PRECONDITION_FAILED',
+                      'Feature commit scope is required.'
+                    );
+                  }
+                  runGitOrThrow(
+                    [
+                      'commit',
+                      '--only',
+                      '-m',
+                      `docs(${scope}): seed ${feature.slug} workspace`,
+                      '--',
+                      relativeFeature,
+                    ],
                     state.root
                   );
+                }
+                const branchExists = runGitCapture(
+                  ['show-ref', '--verify', `refs/heads/${state.branch}`],
+                  state.root
+                );
+                const branchTree = branchExists
+                  ? runGitCapture(
+                      ['rev-parse', `${state.branch}:${relativeFeature}`],
+                      state.root
+                    )
+                  : undefined;
+                const headTree = runGitCapture(
+                  ['rev-parse', `HEAD:${relativeFeature}`],
+                  state.root
+                );
+                if (await fs.pathExists(state.directory)) {
+                  if (
+                    git(state.directory, ['branch', '--show-current']) !==
+                    state.branch
+                  )
+                    throw createCliError(
+                      'PRECONDITION_FAILED',
+                      'Workspace branch mismatch; existing files were preserved.'
+                    );
+                  if (branchTree !== headTree) {
+                    clean(state.directory);
+                    git(state.directory, [
+                      'merge',
+                      '--ff-only',
+                      git(state.root, ['rev-parse', 'HEAD']),
+                    ]);
+                  }
+                } else {
+                  await fs.ensureDir(path.dirname(state.directory));
+                  if (branchExists && branchTree !== headTree) {
+                    const branchBehind = runProcess(
+                      'git',
+                      ['merge-base', '--is-ancestor', state.branch, 'HEAD'],
+                      state.root
+                    );
+                    const branchAhead = runProcess(
+                      'git',
+                      ['merge-base', '--is-ancestor', 'HEAD', state.branch],
+                      state.root
+                    );
+                    if (branchBehind.code !== 0 && branchAhead.code !== 0)
+                      throw createCliError(
+                        'PRECONDITION_FAILED',
+                        `Docs branch ${state.branch} diverged before workspace preparation. Existing branch and seed were preserved; reconcile them explicitly.`
+                      );
+                    if (branchBehind.code === 0)
+                      git(state.root, ['branch', '-f', state.branch, 'HEAD']);
+                  }
                   git(state.root, [
                     'worktree',
                     'add',
-                    ...(exists ? [] : ['-b', state.branch]),
+                    ...(branchExists ? [] : ['-b', state.branch]),
                     state.directory,
-                    exists ? state.branch : state.baseBranch,
+                    branchExists ? state.branch : state.baseBranch,
                   ]);
                 }
                 if (
