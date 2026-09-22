@@ -55,8 +55,7 @@ import {
 import {
   areChangesOpenWikiOnly,
   isOpenWikiEnabled,
-  OPENWIKI_RECEIPT_PATH,
-} from './openwiki-knowledge.js';
+} from './openwiki-policy.js';
 import { collectWorkflowAudit } from '../commands/workflow-audit.js';
 
 export type WorkflowStageId =
@@ -1639,7 +1638,6 @@ function checkTaskCommitGate(
   }
   args.push(
     ':(exclude)openwiki/**',
-    `:(exclude)${OPENWIKI_RECEIPT_PATH}`,
     ':(exclude)AGENTS.md',
     ':(exclude)CLAUDE.md'
   );
@@ -3829,6 +3827,16 @@ async function collectWorkflowStageCore(
   const lastDoneTask = getLastDoneTask(tasks);
   const docsDirty = hasUncommittedChanges(feature.git.docsGitCwd);
   const projectDirty = hasUncommittedChanges(effectiveProjectGitCwd);
+  // OpenWiki is repository maintenance performed outside the Feature
+  // lifecycle. A local OpenWiki checkout must not reopen task checkpoints.
+  const repositoryMaintenanceOnly =
+    isOpenWikiEnabled(config) &&
+    areChangesOpenWikiOnly(effectiveProjectGitCwd);
+  const featureProjectDirty = projectDirty && !repositoryMaintenanceOnly;
+  // Embedded docs share the project worktree, so their raw Git dirty flag also
+  // sees OpenWiki output. featureProjectDirty already represents that checkout.
+  const featureDocsDirty =
+    config.docsRepo === 'standalone' ? docsDirty : false;
   const unreviewedDoneTask = requirements.taskReviewEnabled
     ? tasks.tasks.find(
         (task) => {
@@ -3856,7 +3864,7 @@ async function collectWorkflowStageCore(
     null;
 
   if (requirements.taskReviewEnabled && reviewTask) {
-    if (docsDirty || projectDirty) {
+    if (featureDocsDirty || featureProjectDirty) {
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -3869,8 +3877,8 @@ async function collectWorkflowStageCore(
             feature,
             tasks,
             effectiveProjectGitCwd,
-            docsDirty,
-            projectDirty,
+            docsDirty: featureDocsDirty,
+            projectDirty: featureProjectDirty,
             gateFailureReason:
               'the task must have a clean checkpoint commit before independent review',
           }),
@@ -4078,13 +4086,6 @@ async function collectWorkflowStageCore(
   }
 
   const pendingDoneTransitions = countPendingDoneTransitions(feature) || 0;
-  // Repository Knowledge is maintained outside the Feature lifecycle. Its
-  // working-tree changes must not reopen a completed task checkpoint.
-  const repositoryMaintenanceOnly =
-    isOpenWikiEnabled(config) &&
-    allTasksDone(tasks) &&
-    areChangesOpenWikiOnly(effectiveProjectGitCwd);
-  const featureProjectDirty = projectDirty && !repositoryMaintenanceOnly;
   const taskCommitCheckpointRequired =
     !activeTaskOpen &&
     !!lastDoneTask &&

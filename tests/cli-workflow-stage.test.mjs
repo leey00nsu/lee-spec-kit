@@ -1,4 +1,3 @@
-import { setupFakeOpenWiki } from './helpers/fake-openwiki.mjs';
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
@@ -5588,5 +5587,57 @@ test('verification rejects a check that changes its own configuration', async ()
     assert.notEqual(result.code, 0);
     assert.equal(JSON.parse(result.stdout).reasonCode, 'LOCAL_FEATURE_CHANGED_DURING_VERIFICATION');
     assert.equal((await runCommand(dir, 'git', ['rev-parse', 'main'])).stdout, before.stdout);
+  });
+});
+
+test('workflow-stage ignores OpenWiki-only dirt while resolving task review', async () => {
+  await withTempDir('lsk-workflow-stage-openwiki-task-review-', async (dir) => {
+    await initRepo(dir, { workflow: 'local' });
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.experimental = { openwiki: true };
+    config.workflow.requireBranch = false;
+    config.workflow.agentReview.task.enabled = true;
+    config.workflow.agentReview.feature.enabled = false;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+
+    await writePlanningReadyDocs(dir);
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf-8');
+    tasks = tasks
+      .replace(
+        '- [TODO][NON-PRD] T-F001-alpha-01 implement alpha shell',
+        '- [REVIEW][NON-PRD] T-F001-alpha-01 implement alpha shell'
+      )
+      .replace('- [ ] add UI', '- [x] add UI')
+      .replace(
+        '    - [x] add UI',
+        `    - [x] add UI
+  - Review Evidence: -
+  - Review Decision: -
+  - Review Round: -
+  - Reviewed Head: -
+  - Reviewed Tree: -`
+      );
+    await fs.writeFile(tasksPath, tasks, 'utf-8');
+    await commitFeatureDocs(dir, 'docs(F001): prepare task review', [
+      'docs/.lee-spec-kit.json',
+    ]);
+    await commitTaskProject(dir, 'feat(F001): implement alpha shell');
+
+    const clean = await runCommand(dir, 'git', ['status', '--porcelain=v1']);
+    assert.equal(clean.stdout.trim(), '', clean.stdout);
+    const openWikiDir = path.join(dir, 'openwiki');
+    await fs.mkdir(openWikiDir, { recursive: true });
+    await fs.writeFile(
+      path.join(openWikiDir, 'architecture map.md'),
+      '# partial OpenWiki checkpoint\n',
+      'utf-8'
+    );
+
+    const stage = await readStage(dir);
+    assert.equal(stage.stage, 'task_review');
+    assert.equal(stage.nextAction.category, 'task_review');
+    assert.equal(stage.blockedReasonCode, 'TASK_REVIEW_NOT_APPROVED');
   });
 });

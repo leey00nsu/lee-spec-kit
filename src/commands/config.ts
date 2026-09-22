@@ -139,7 +139,7 @@ export function configCommand(program: Command): void {
     )
     .option(
       '--openwiki <boolean>',
-      'Experimental derived OpenWiki knowledge layer: true | false'
+      'Allow independent OpenWiki CI scaffolding: true | false'
     )
     .option('--interactive', 'Configure workflow options interactively')
     .option('--non-interactive', 'Fail instead of prompting for input')

@@ -895,7 +895,6 @@ const isLeeSpecKitPrCreate =
   /\\blee-spec-kit\\b[\\s\\S]{0,120}\\bgithub\\s+pr\\b[\\s\\S]{0,160}\\b--create\\b/i.test(command);
 const isLeeSpecKitPrMerge =
   /\\blee-spec-kit\\b[\\s\\S]{0,120}\\bgithub\\s+pr\\b[\\s\\S]{0,160}\\b--merge\\b/i.test(command);
-const isPotentialOpenWikiCommand = /\\bopenwiki\\b/i.test(command);
 const isGhIssueCreate =
   isDangerousGhCommand && /\\bgh(?:\\.cmd|\\.exe)?\\s+issue\\s+create\\b/i.test(command);
 const isGhPrCreate =
@@ -914,7 +913,7 @@ if (isGitCreateBranch) {
 } else if (isGhPrMerge || isLeeSpecKitPrMerge) {
   stageBoundAction = 'pr_merge';
 }
-const isDangerousCommandWithoutOpenWiki =
+const isDangerousCommand =
   isAlwaysBlockedGhOperation ||
   hasUnsupportedShellWrappedDangerousCommand ||
   isGitCommit ||
@@ -936,9 +935,6 @@ const isDangerousCommandWithoutOpenWiki =
   isLeeSpecKitIssueCreate ||
   isLeeSpecKitPrCreate ||
   isLeeSpecKitPrMerge;
-const isDangerousCommand =
-  isDangerousCommandWithoutOpenWiki || isPotentialOpenWikiCommand;
-
 if (!command || !isDangerousCommand) {
   process.exit(0);
 }
@@ -960,170 +956,6 @@ if (!detectedResult.ok) {
 }
 const detected = detectedResult.data;
 if (!(detected?.status === 'ok' && detected?.isLeeSpecKitProject === true)) {
-  process.exit(0);
-}
-
-function classifyOpenWikiInvocation(value, depth = 0) {
-  if (depth > 4) return 'blocked';
-  const source = String(value || '');
-  if (!/\\bopenwiki\\b/iu.test(source)) return 'none';
-  if (
-    /\\$\\(|\\x60|\\beval\\b|\\bxargs\\b|\\bfind\\b[\\s\\S]{0,80}-exec\\b|\\bpowershell\\b|\\bcmd(?:\\.exe)?\\s+\\/c\\b/iu.test(source) ||
-    /(?:^|\\s)[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*openwiki\\b/iu.test(source)
-  ) {
-    return 'blocked';
-  }
-  const isOpenWikiPackage = (token) => {
-    const normalized = String(token || '')
-      .replace(/^['"]|['"]$/gu, '')
-      .split('/')
-      .pop();
-    return /^openwiki(?:@[^\\s]+)?$/iu.test(normalized || '');
-  };
-  const isSafeArgs = (args) => {
-    const normalized = args
-      .map((token) => String(token || '').replace(/^['"]|['"]$/gu, ''))
-      .filter(Boolean);
-    if (normalized.length === 1 && /^(?:--help|-h|--version)$/u.test(normalized[0])) {
-      return true;
-    }
-    if (normalized[0] === 'help') return true;
-    if (normalized[0] === 'visualize') {
-      let index = 1;
-      if (normalized[index] && !normalized[index].startsWith('-')) {
-        if (!/^(?:\\.\\/)?openwiki\\/?$/u.test(normalized[index])) return false;
-        index += 1;
-      }
-      while (index < normalized.length) {
-        if (normalized[index] === '--no-open') {
-          index += 1;
-          continue;
-        }
-        if (
-          normalized[index] === '--port' &&
-          /^\\d{1,5}$/u.test(normalized[index + 1] || '')
-        ) {
-          index += 2;
-          continue;
-        }
-        return false;
-      }
-      return true;
-    }
-    return normalized[0] === 'auth';
-  };
-  const segments = source.split(/&&|\\|\\||[;|]/u);
-  let found = false;
-  for (const segment of segments) {
-    const tokens = segment.trim().split(/\\s+/u).filter(Boolean);
-    let index = 0;
-    while (index < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/u.test(tokens[index])) {
-      index += 1;
-    }
-    while (tokens[index] === 'env' || tokens[index] === 'command') {
-      index += 1;
-      while (index < tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(tokens[index]) || tokens[index].startsWith('-'))) {
-        index += 1;
-      }
-    }
-    const readExecutable = () => (tokens[index] || '')
-      .replace(/^['"]|['"]$/gu, '')
-      .split('/')
-      .pop()
-      .replace(/\\.(?:cmd|exe)$/iu, '');
-    let executable = readExecutable();
-    while (executable === 'sudo') {
-      index += 1;
-      while (index < tokens.length && tokens[index].startsWith('-')) {
-        const option = tokens[index];
-        index += 1;
-        if (/^(?:-u|-g|-h|-p|-C|--user|--group|--host|--prompt|--chdir)$/u.test(option)) {
-          index += 1;
-        }
-      }
-      executable = readExecutable();
-    }
-    if (executable === 'corepack') {
-      index += 1;
-      while (index < tokens.length && tokens[index].startsWith('-')) index += 1;
-      executable = readExecutable();
-    }
-    if (executable === 'openwiki') {
-      found = true;
-      if (!isSafeArgs(tokens.slice(index + 1))) return 'blocked';
-      continue;
-    }
-    if (executable === 'npx' || executable === 'bunx') {
-      index += 1;
-      while (index < tokens.length && tokens[index].startsWith('-')) {
-        const option = tokens[index];
-        index += 1;
-        if (/^(?:--package|-p)$/u.test(option)) {
-          if (!isOpenWikiPackage(tokens[index])) return 'blocked';
-          index += 1;
-        }
-      }
-      if (isOpenWikiPackage(tokens[index])) {
-        found = true;
-        if (!isSafeArgs(tokens.slice(index + 1))) return 'blocked';
-        continue;
-      }
-    }
-    if (executable === 'npm' || executable === 'pnpm' || executable === 'yarn') {
-      index += 1;
-      while (index < tokens.length && tokens[index].startsWith('-')) index += 1;
-      const runner = (tokens[index] || '').replace(/^['"]|['"]$/gu, '');
-      if (runner === 'exec' || runner === 'x' || runner === 'dlx') {
-        index += 1;
-        while (index < tokens.length && tokens[index].startsWith('-')) index += 1;
-        if (isOpenWikiPackage(tokens[index])) {
-          found = true;
-          if (!isSafeArgs(tokens.slice(index + 1))) return 'blocked';
-          continue;
-        }
-      }
-      if (runner === 'run') {
-        index += 1;
-        while (index < tokens.length && tokens[index] === '--') index += 1;
-        if (isOpenWikiPackage(tokens[index])) return 'blocked';
-      }
-    }
-    if (executable === 'bash' || executable === 'sh' || executable === 'zsh') {
-      const commandIndex = tokens.findIndex(
-        (token, tokenIndex) =>
-          tokenIndex > index && isShellCommandFlag(token.replace(/^['"]|['"]$/gu, ''))
-      );
-      if (
-        commandIndex >= 0 &&
-        classifyOpenWikiInvocation(tokens.slice(commandIndex + 1).join(' '), depth + 1) !== 'none'
-      ) {
-        return 'blocked';
-      }
-    }
-    if (/^(?:node|deno|tsx|ts-node)$/u.test(executable) && /openwiki/iu.test(segment)) {
-      return 'blocked';
-    }
-  }
-  if (
-    /\\b(?:bash|sh|zsh)(?:\\.exe)?\\b[\\s\\S]{0,80}\\s-[a-z]*c[a-z]*\\s+["'][^"']*\\bopenwiki(?:\\.cmd|\\.exe)?\\b/iu.test(String(value || ''))
-  ) {
-    return 'blocked';
-  }
-  return found ? 'safe' : 'none';
-}
-
-if (detected?.experimentalOpenwiki === true) {
-  const openWikiPolicy = classifyOpenWikiInvocation(command);
-  if (openWikiPolicy === 'blocked') {
-    printBlock('OpenWiki repository generation must run through the lee-spec-kit knowledge update adapter. Only simple --help, auth, and read-only visualize commands for ./openwiki are allowed directly.');
-    process.exit(0);
-  }
-  if (openWikiPolicy === 'safe' && !isDangerousCommandWithoutOpenWiki) {
-    process.exit(0);
-  }
-}
-
-if (isPotentialOpenWikiCommand && !isDangerousCommandWithoutOpenWiki) {
   process.exit(0);
 }
 

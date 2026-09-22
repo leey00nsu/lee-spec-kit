@@ -20,8 +20,8 @@ import { applyReplacements } from '../utils/template.js';
 import type { ProjectConfig } from '../config/types.js';
 import {
   isOpenWikiEnabled,
-  isOpenWikiKnowledgePath,
-} from '../utils/openwiki-knowledge.js';
+  isOpenWikiDerivedPath,
+} from '../utils/openwiki-policy.js';
 
 interface WorkflowAuditOptions {
   json?: boolean;
@@ -396,7 +396,7 @@ function isCodeChange(
   if (
     config &&
     isOpenWikiEnabled(config) &&
-    isOpenWikiKnowledgePath(normalized)
+    isOpenWikiDerivedPath(normalized)
   ) {
     return false;
   }

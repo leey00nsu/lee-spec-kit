@@ -68,7 +68,7 @@ export interface ProjectConfig {
   projectRoot?: string | Record<string, string>;
   allowedDocsEntries?: AllowedDocsEntriesConfig;
   experimental?: {
-    /** Enables repository-level OpenWiki publication in scheduled/manual CI. */
+    /** Allows scaffolding an independent scheduled/manual OpenWiki workflow. */
     openwiki?: boolean;
   };
   pr?: {
