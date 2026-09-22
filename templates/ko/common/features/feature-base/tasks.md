@@ -95,8 +95,8 @@
 ## Repository Knowledge (완료 비차단)
 
 - **Policy**: `.lee-spec-kit.json`의 `experimental.openwiki`에서 파생
-- **Lifecycle**: Feature 완료는 OpenWiki를 기다리지 않습니다. `knowledge ci`가 만든 예약/수동 CI가 통합된 project revision에서 저장소 단위 Knowledge를 갱신하며, 상태는 `knowledge status`로 별도 확인합니다.
-- **Receipt**: 반환된 게시 artifact 안에 저장합니다. 생성 Wiki와 receipt를 Feature 커밋·리뷰에 넣지 않습니다.
+- **Lifecycle**: Feature 완료는 OpenWiki를 기다리지 않습니다. `knowledge ci`가 만든 예약/수동 CI가 통합된 project revision에서 저장소 단위 Knowledge를 갱신하며, 상태는 해당 workflow 실행과 PR에서 별도 확인합니다.
+- **Output**: 생성 Wiki와 OpenWiki 실행 metadata는 Feature 커밋·리뷰에 넣지 않습니다.
 
 ---
 
@@ -113,8 +113,8 @@
 > 명령어당 1개 행만 유지합니다. 같은 명령어를 다시 실행하면 새 행 추가 대신 기존 행의 시간/결과를 갱신하세요.
 > `마지막 실행`은 `YYYY-MM-DD` 형식(로컬 날짜)으로 기록하세요.
 
-| 명령어 | 마지막 실행(로컬, YYYY-MM-DD) | 결과 |
-| --- | --- | --- |
-| `{실행한 테스트 명령어}` | `-` | `{PASS/FAIL 요약}` |
+| 명령어                   | 마지막 실행(로컬, YYYY-MM-DD) | 결과               |
+| ------------------------ | ----------------------------- | ------------------ |
+| `{실행한 테스트 명령어}` | `-`                           | `{PASS/FAIL 요약}` |
 
 완료 기록에는 테스트뿐 아니라 build·typecheck·lint 등 Plan에서 정한 검증과 수동 검증 증거를 포함합니다. 자동 검사의 기준은 실제 `workflow.featureChecks`이며, 검사 생략은 통과로 기록하지 않고 명시적인 사유를 남깁니다.

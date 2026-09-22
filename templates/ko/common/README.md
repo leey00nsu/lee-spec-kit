@@ -68,7 +68,7 @@ npx lee-spec-kit docs get agents --json
 
 Schema 2는 자주 쓰는 네 영역을 기본 판정으로 유지하고, 보안·API/데이터 계약·디자인 시스템·릴리스 운영·관측성·에이전트 정책 같은 프로젝트별 문서만 `Additional Curated Impacts`에 유형을 지정해 선언합니다. 완료 시 lee-spec-kit은 실제 Feature diff에서 바뀐 주요 curated 파일을 선언 대상과 대조한 뒤 Feature 리뷰로 넘어갑니다. OpenWiki 생성은 별도로 통합 후 실행합니다. 이 검사는 조용히 바뀐 문서를 잡지만, 변경되지 않은 문서가 의미상 낡았는지 판단하지는 않습니다. 도입 시 기존 PRD·아키텍처·온보딩·운영·디자인·에이전트 정책 문서를 한 번 수동으로 기준선 점검해야 합니다.
 
-`experimental.openwiki`가 true이면 `knowledge ci`로 준비한 예약/수동 CI가 통합된 프로젝트 revision에서 Knowledge를 파생합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. 생성 Wiki는 Feature 커밋·리뷰에 포함하지 않습니다. 실패는 `knowledge status`로 확인하고 저장소 단위 갱신에는 `knowledge update --ci`를 사용합니다.
+`experimental.openwiki`가 true이면 `knowledge ci`가 OpenWiki를 직접 실행하는 저장소 소유 예약/수동 workflow를 준비합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. 생성·재시도·검증 상태는 OpenWiki workflow와 해당 PR에서 직접 확인합니다.
 
 OpenWiki는 sandboxed renderer가 아니라 외부 에이전트입니다. 신뢰할 수 있는 저장소와 적절히 격리한 실행 환경에서만 활성화하고, 로컬·ignored secret이 접근 가능한 환경에 남지 않도록 관리합니다.
 
@@ -295,7 +295,6 @@ OpenWiki 실험 기능은 별도의 단일 옵션 `--openwiki true|false`로 제
   }
 }
 ```
-
 
 ### Feature 완료 검사 설정 (0.9.14)
 

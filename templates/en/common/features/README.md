@@ -59,7 +59,7 @@ Use the returned `stage`, `nextAction`, and `implementationAllowed` values as th
 
 Before Plan review or approval, complete Schema 2 `Curated Documentation Impact`. Assess all four core surfaces, and use typed `Additional Curated Impacts` only for applicable project-specific surfaces; an explicit additional `NONE` proves that no extra category applies. Every `UPDATE` or `ADD` target must appear under `Docs` in at least one task and in the committed Feature diff. Existing projects require one manual baseline reconciliation before per-Feature checks can keep the curated layer current.
 
-With `experimental.openwiki=true`, Feature review receives the Plan-declared curated targets and checks them against code and product intent. Generated Wiki and receipts are not required inputs. Feature completion remains independent of Knowledge freshness. The scheduled/manual CI scaffolded by `knowledge ci` updates repository-level Knowledge from the integrated project revision; failures preserve the code merge and last good publication.
+With `experimental.openwiki=true`, Feature review receives the Plan-declared curated targets and checks them against code and product intent. Generated Wiki and OpenWiki run metadata are not required inputs. Feature completion remains independent of Knowledge freshness. The scheduled/manual CI scaffolded by `knowledge ci` updates repository-level Knowledge from the integrated project revision; failures preserve the code merge and last good publication while a draft Knowledge PR checkpoints partial progress.
 
 With Plan review enabled, planning follows `plan Review → fresh read-only Plan review → plan approval`. The review is bound to the returned `specHash` and `planHash`; changing either document's content invalidates the prior evidence. The reviewer checks the Verification Contract and test decisions without editing docs.
 
@@ -129,21 +129,21 @@ Keeping the shared artifact for history is fine, but when it conflicts with feat
 
 ## Status Glossary
 
-| Scope | Field | Values |
-| --- | --- | --- |
-| Document status | `Status` in `spec.md`/`plan.md`, `Doc Status` in `tasks.md` | `Draft` \| `Review` \| `Approved` |
-| Plan review status | `Plan Review` in `plan.md` | `Pending` \| `Running` \| `Done` |
-| Plan review evidence/decision | `Plan Review Evidence` / `Plan Review Decision` | evidence path and `decision: approve\|changes_requested\|blocked ...` |
-| Plan review target | `Plan Reviewed Spec Hash` / `Plan Reviewed Plan Hash` | current content hashes returned by `workflow-stage` |
-| Issue doc status | `Status` in `issue.md` | `Draft` \| `Ready` |
-| PR doc status | `Status` in `pr.md` | `Draft` \| `Ready` |
-| PR review status | `PR Status` in `tasks.md` | `Review` \| `Approved` |
-| Pre-PR review status | `Pre-PR Review` in `tasks.md` | `Pending` \| `Done` |
-| Pre-PR review evidence | `Pre-PR Evidence` in `tasks.md` | evidence link/log/doc path |
-| Pre-PR review decision | `Pre-PR Decision` in `tasks.md` | `decision: approve\|changes_requested\|blocked ...` |
-| Pre-PR review target | `Pre-PR Reviewed Head` / `Pre-PR Reviewed Tree` | current SHA/tree returned by `workflow-stage` |
-| PR review evidence | `PR Review Evidence` in `tasks.md` | evidence link/log/doc path |
-| PR review decision | `PR Review Decision` in `tasks.md` | `decision: ...` (or `결정: ...`) |
+| Scope                         | Field                                                       | Values                                                                |
+| ----------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| Document status               | `Status` in `spec.md`/`plan.md`, `Doc Status` in `tasks.md` | `Draft` \| `Review` \| `Approved`                                     |
+| Plan review status            | `Plan Review` in `plan.md`                                  | `Pending` \| `Running` \| `Done`                                      |
+| Plan review evidence/decision | `Plan Review Evidence` / `Plan Review Decision`             | evidence path and `decision: approve\|changes_requested\|blocked ...` |
+| Plan review target            | `Plan Reviewed Spec Hash` / `Plan Reviewed Plan Hash`       | current content hashes returned by `workflow-stage`                   |
+| Issue doc status              | `Status` in `issue.md`                                      | `Draft` \| `Ready`                                                    |
+| PR doc status                 | `Status` in `pr.md`                                         | `Draft` \| `Ready`                                                    |
+| PR review status              | `PR Status` in `tasks.md`                                   | `Review` \| `Approved`                                                |
+| Pre-PR review status          | `Pre-PR Review` in `tasks.md`                               | `Pending` \| `Done`                                                   |
+| Pre-PR review evidence        | `Pre-PR Evidence` in `tasks.md`                             | evidence link/log/doc path                                            |
+| Pre-PR review decision        | `Pre-PR Decision` in `tasks.md`                             | `decision: approve\|changes_requested\|blocked ...`                   |
+| Pre-PR review target          | `Pre-PR Reviewed Head` / `Pre-PR Reviewed Tree`             | current SHA/tree returned by `workflow-stage`                         |
+| PR review evidence            | `PR Review Evidence` in `tasks.md`                          | evidence link/log/doc path                                            |
+| PR review decision            | `PR Review Decision` in `tasks.md`                          | `decision: ...` (or `결정: ...`)                                      |
 
 ---
 
@@ -155,11 +155,11 @@ Delegate Plan, task, and Feature reviews to fresh, read-only subagents using the
 
 ## File Roles
 
-| File           | Role                      | When to Write       |
-| -------------- | ------------------------- | ------------------- |
-| `spec.md`      | **What and Why**          | Feature definition  |
-| `plan.md`      | **How** + Verification Contract | After spec approval |
-| `tasks.md`     | Specific work items       | After plan approval |
-| `issue.md`     | Issue draft + issue state (`Draft/Ready`) | Before/when creating issue |
-| `pr.md`        | PR draft + PR state (`Draft/Ready`) | Before/when creating PR |
+| File           | Role                                                         | When to Write                                               |
+| -------------- | ------------------------------------------------------------ | ----------------------------------------------------------- |
+| `spec.md`      | **What and Why**                                             | Feature definition                                          |
+| `plan.md`      | **How** + Verification Contract                              | After spec approval                                         |
+| `tasks.md`     | Specific work items                                          | After plan approval                                         |
+| `issue.md`     | Issue draft + issue state (`Draft/Ready`)                    | Before/when creating issue                                  |
+| `pr.md`        | PR draft + PR state (`Draft/Ready`)                          | Before/when creating PR                                     |
 | `decisions.md` | Technical decisions + reasoning trace + evidence links (ADR) | During development (DOING start / before DONE / post-merge) |

@@ -95,8 +95,8 @@
 ## Repository Knowledge (Non-blocking)
 
 - **Policy**: Derived from `.lee-spec-kit.json` `experimental.openwiki`
-- **Lifecycle**: Feature completion never waits for OpenWiki. The scheduled/manual CI created by `knowledge ci` updates repository-level Knowledge from the integrated project revision; inspect it separately with `knowledge status`.
-- **Receipt**: Stored inside the returned publication artifact; do not add generated Wiki or receipts to Feature commits or reviews.
+- **Lifecycle**: Feature completion never waits for OpenWiki. The scheduled/manual CI created by `knowledge ci` updates repository-level Knowledge from the integrated project revision; inspect its workflow run and pull request separately.
+- **Output**: Generated Wiki pages and OpenWiki run metadata stay outside Feature commits and reviews.
 
 ---
 
@@ -113,8 +113,8 @@
 > Keep one row per command. If you rerun the same command, update that row instead of appending.
 > Use `YYYY-MM-DD` for `Last Run` (local date).
 
-| Command | Last Run (Local, YYYY-MM-DD) | Result |
-| --- | --- | --- |
-| `{test command you ran}` | `-` | `{PASS/FAIL summary}` |
+| Command                  | Last Run (Local, YYYY-MM-DD) | Result                |
+| ------------------------ | ---------------------------- | --------------------- |
+| `{test command you ran}` | `-`                          | `{PASS/FAIL summary}` |
 
 Completion evidence includes all planned checks (build, typecheck, lint, tests) and manual verification. The executable baseline is workflow.featureChecks. Record an explicit skip reason instead of claiming unexecuted checks passed.

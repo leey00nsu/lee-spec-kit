@@ -58,7 +58,7 @@
 - README 보호는 문서 동기화와 Curated Documentation Impact 규칙보다 우선합니다. 수정 요청 없이 발견한 README 불일치는 `decisions.md`에 경로·근거·보류 사유를 기록합니다. 다른 문서 영향은 별도로 판정합니다. 해당 영역에 보류된 README 영향만 있으면 이번 작업에서 수정하지 않는다는 `NONE`과 해당 기록 참조를 사용하며, 불일치가 없거나 해결됐다고 주장하지 않습니다. 이 경우에만 별도 후속 task/Feature/issue 생성이나 README 수정 승인을 완료 조건으로 요구하지 않습니다. 리뷰도 README 미수정 자체를 차단 사유로 삼지 않습니다.
 - 보존할 Feature 보조 산출물(설명용 다이어그램·검증 보고서·스크린샷)은 활성 Feature의 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`와 같은 디렉터리 아래 `artifacts/`에 저장합니다. 필요할 때만 폴더를 만들고 `tasks.md` 또는 `decisions.md`에서 상대경로로 연결합니다. 기존 문서로 충분한 내용을 별도 보고서로 중복 생성하지 않습니다.
 - 활성 Feature 문서의 실제 경로를 사용합니다. standalone에서는 해당 docs worktree 안의 Feature 경로이며, 현재 작업 디렉터리나 최근 Feature로 추측하지 않습니다. 구현 worker는 docs 쓰기 금지 계약을 유지하고 필요한 산출물을 메인 에이전트에 전달하여 저장하도록 합니다.
-- 사용자 지정 경로와 도구가 요구하는 출력 경로를 우선합니다. 제품 코드·제품 자산은 프로젝트 경로, 빌드·캐시·일회성 디버깅 파일은 기존 출력 경로나 임시 디렉터리, 공유 정식 문서는 기존 문서 정책을 따릅니다. OpenWiki 게시물·receipt는 기존 Knowledge 저장 규칙을 유지합니다. 활성 Feature가 없으면 임의 Feature를 만들거나 선택하지 말고 기존 문서 또는 임시 경로를 사용합니다.
+- 사용자 지정 경로와 도구가 요구하는 출력 경로를 우선합니다. 제품 코드·제품 자산은 프로젝트 경로, 빌드·캐시·일회성 디버깅 파일은 기존 출력 경로나 임시 디렉터리, 공유 정식 문서는 기존 문서 정책을 따릅니다. OpenWiki 출력은 저장소가 소유한 CI 정책을 따릅니다. 활성 Feature가 없으면 임의 Feature를 만들거나 선택하지 말고 기존 문서 또는 임시 경로를 사용합니다.
 - 기본 위치 대신 루트나 임의의 `reports/`, `screenshots/`, `artifacts/`를 만들지 않습니다. 보존할 필요가 있고 커밋 가능한 산출물만 Feature에 포함하며 비밀정보·임시 대용량 출력을 넣지 않습니다.
 
 ## Knowledge Architecture
@@ -68,17 +68,10 @@
 - 사람이 관리하는 아키텍처·온보딩·운영·디자인·에이전트 정책 문서는 프로젝트 전체 설명과 정책의 기준입니다. 실행 가능한 사실은 tracked 코드·스키마·마이그레이션·설정과 일치해야 하며, 테스트는 검증 증거입니다.
 - OpenWiki는 파생된 온보딩·코드 탐색 증거이며 요구사항·정책·런타임 사실의 기준이 아닙니다.
 - 모든 Plan에서 명시적인 `NONE`을 포함해 `Curated Documentation Impact` 판정을 완료합니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs` 항목에서 연결하고 활성 Feature scope로 커밋합니다.
-- `experimental.openwiki=true`이면 `knowledge ci`가 만든 예약/수동 CI로 저장소 단위 파생 Knowledge를 관리합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. 누락 또는 false이면 이 흐름을 사용하지 않습니다.
-- 별도 worktree에서 생성하고 코드 revision별 artifact로 저장합니다. 생성 Wiki와 receipt를 Feature 커밋이나 Feature 리뷰 필수 문서에 추가하지 않습니다. PRD·아키텍처 등 사람이 관리하는 문서는 Feature에서 함께 수정합니다.
-
-### Knowledge 게시 진단과 복구
-
-- 예약/수동 CI의 `knowledge publish --ci --json`은 stdout에 최종 JSON 하나를 반환하며 stderr에 단계·실행 차수·runId(관찰된 경우)·페이지 진행·경과 시간·재시도 이유를 출력합니다. `knowledge status --component <name> --json`으로 현재 게시 상태와 마지막 정상 게시본을 확인합니다.
-- lee-spec-kit은 생성 경과 시간이나 출력이 없는 시간을 이유로 OpenWiki를 중단하지 않습니다. 로컬 레거시 실행은 외부 중단 뒤 저장된 queue를 안전성 검사 후 재개할 수 있습니다. GitHub CI runner는 일회성이므로 강제 종료된 queue를 다음 runner에서 재개하지 못하며, 같은 revision의 자동 반복을 막고 수동 dispatch가 마지막 검증 게시본을 기준으로 새 실행을 시작합니다.
-- evidence 오류는 진단 범위가 한 번의 제한된 수정 요청에 담길 때만 해당 페이지·Claims를 부분 수정한 뒤 전체 검증합니다. 복구 범위가 불명확하거나 재검증이 실패하면 중단하며, 자동 전체 재생성으로 전환하지 않습니다. 기존 receipt의 글쓰기 정책이 바뀌어 모든 페이지를 다시 작성해야 하는 경우에만 전체 초기화를 수행합니다.
-- 수정/초기화 전 기존 생성물을 보존하고, 실행별 진단은 Git 공용 runtime의 `knowledge-executions/<id>/events.jsonl`에 남깁니다. `diagnosticsPath`와 `snapshotPath`를 사용하며 원문 프롬프트·provider 출력·인증정보를 별도 로그에 기록하지 않습니다. 보존 사본은 기존 OpenWiki 파일이므로 외부 공유 전 내용을 확인합니다.
-- SIGINT/SIGTERM은 중단 상태로 종료합니다. SIGKILL 등으로 남은 `running`은 상태 조회 시 PID와 잠금 소유권으로 재판정합니다. 구형 기록의 소유권을 확인할 수 없으면 `unknown`으로 표시하며 실행 중이라고 단정하지 않습니다.
-- 실패해도 통합 커밋과 마지막 정상 게시본은 유지합니다. 같은 Feature/component와 통합 커밋의 저장된 page queue가 있으면 owner·작성 정책·완료 페이지와 Claims/manifest 해시를 먼저 검사한 뒤 기존 worktree에서 이어갑니다. 불일치는 보존 후 차단합니다. 새 통합 커밋의 갱신은 검증한 최근 정상 게시 artifact를 기준으로 시작합니다. Feature cleanup과 완료는 Knowledge 게시 성공 여부와 독립적입니다.
+- `experimental.openwiki=true`이면 `knowledge ci`가 독립 예약/수동 workflow를 준비합니다. Knowledge 최신성은 관찰 상태이며 Feature 완료를 막지 않습니다. 누락 또는 false이면 scaffold를 만들지 않습니다.
+- 생성된 workflow는 OpenWiki를 직접 실행합니다. 증분 생성·페이지 재시도·검증·실행 상태는 OpenWiki가, 예약·secret·로그·검토용 Knowledge PR은 GitHub Actions가 담당합니다.
+- lee-spec-kit은 OpenWiki를 실행하거나 queue를 해석하지 않고, 수정 prompt·receipt·실행 상태를 관리하지 않으며, 같은 revision의 과거 실패를 이유로 다음 예약 실행을 막지 않습니다. 실패 원인은 CI 로그와 OpenWiki metadata에서 확인합니다.
+- 실패한 실행은 통합 커밋과 마지막 정상 Knowledge 브랜치를 변경하지 않습니다. 다음 예약 실행은 그 정상 브랜치를 OpenWiki baseline으로 복원한 뒤 다시 실행합니다.
 
 ## 선택적 UI/UX 디자인 정책
 
@@ -102,7 +95,7 @@
 - 조용하거나 파일을 변경하지 않았다는 이유만으로 실행 중인 서브에이전트를 중단·교체·포기하지 않습니다. 사용자의 명시적 중단 요청, 종결 실패·취소, 또는 복구 불가능한 런타임 상태가 있을 때만 중단합니다.
 - `workflow.agentReview.maxRounds`는 Plan/task/Feature 게이트별 fresh 리뷰의 최대 실행 횟수입니다. 마지막 허용 리뷰가 `changes_requested`이면 지적을 한 번 반영하지만 변경된 target을 다시 리뷰하지 않으며, 남은 finding과 리뷰 이후 target 변경을 잔여 위험으로 보존하고 사용자 리뷰 승인 토큰 없이 게이트를 자동 완료합니다. 예를 들어 `maxRounds=1`이면 Round 1 리뷰와 지적 반영 후 Round 2 없이 계속합니다. `blocked` 결정은 자동 완료하지 않습니다.
 - spec / plan / tasks 승인, issue 생성, branch 생성은 구현 전 하드 게이트로 취급합니다.
-- 저장소 Knowledge는 `knowledge status`로 확인하고 예약/수동 `knowledge update --ci`로 갱신합니다. 생성 실패 시 검증된 머지와 마지막 정상 게시본을 유지합니다. `knowledge sync`는 기존 in-place 호환 명령이며 Feature workflow에서 사용하지 않습니다.
+- 저장소 Knowledge는 프로젝트가 소유한 OpenWiki CI에서 관리합니다. workflow 실행과 PR을 직접 확인하며, lee-spec-kit은 생성·상태·복구·적용 명령을 제공하지 않습니다.
 - 모든 modern Feature는 SDD를 편집하기 전에 정확한 `workspace_prepare` / `workspace_enter` nextAction을 실행합니다. embedded는 코드와 문서가 함께 있는 worktree 하나를 사용하고, standalone은 계획용 docs worktree와 구현용 project worktree를 사용합니다. `git worktree add`를 직접 만들지 않습니다.
 - local 모드에서는 구현 승인 직후 종료하지 않습니다. `workflow-stage`가 반환하는 정확한 `local verify`, `local merge`, `local cleanup` 명령을 따라 검증·통합·정리가 확인되어 `done`이 될 때까지 진행합니다. `feature_remediation` 단계에서는 Feature worktree 수정이 명시적으로 허용됩니다.
 - `local-ff` 또는 `local-squash` workflow에서 `local_merge` 승인이 필요하면 구현 승인과 local merge 승인을 구분합니다. 첫 번째 승인은 구현 결과를 수락하고, 두 번째 승인은 설정된 통합 전략, post-merge 검사, local cleanup을 허가합니다.

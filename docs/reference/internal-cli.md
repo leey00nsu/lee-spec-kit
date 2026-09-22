@@ -14,13 +14,8 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `workspace prepare|sync-docs|merge-docs|cleanup-docs`
 - `decision add`
 - `workflow-stage`
-- `knowledge doctor`
 - `knowledge migrate` (dry-run by default; explicit `--apply` for eligible legacy Plans)
-- `knowledge publish --ci` (repository-level CI artifact)
-- `knowledge status`
-- `knowledge ci` (explicit CI scaffold)
-- `knowledge sync` (legacy in-place compatibility)
-- `knowledge audit` (legacy in-place compatibility)
+- `knowledge ci` (independent OpenWiki CI scaffold; no generation)
 - `workflow-audit`
 - `commit-audit`
 - `integrations`

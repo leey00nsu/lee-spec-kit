@@ -68,7 +68,7 @@ Every Plan must complete `Curated Documentation Impact`, including explicit `NON
 
 Schema 2 keeps four common surfaces in the core assessment and uses `Additional Curated Impacts` only for typed project-specific surfaces such as security, API/data contracts, design systems, release operations, observability, or agent policy. At completion, lee-spec-kit reconciles recognized curated files changed in the actual Feature diff against the declared targets before Feature review; OpenWiki generation follows integration separately. This prevents silent changes; it does not decide whether an unchanged document is semantically stale. After adoption, perform one manual baseline reconciliation of existing PRD, architecture, onboarding, operations, design, and agent-policy docs.
 
-When `experimental.openwiki` is true, the scheduled/manual CI scaffolded by `knowledge ci` derives Knowledge from the integrated project revision. Knowledge freshness is observational and never blocks Feature completion. Feature commits and review do not contain generated Wiki. Inspect failures with `knowledge status` and run `knowledge update --ci` for repository-level updates.
+When `experimental.openwiki` is true, `knowledge ci` scaffolds a repository-owned scheduled/manual workflow that invokes OpenWiki directly. Knowledge freshness is observational and never blocks Feature completion. Inspect generation, retry, and validation in the OpenWiki workflow and its pull request.
 
 OpenWiki is an external agent, not a sandboxed renderer. Enable it only for trusted repositories in an appropriately isolated runtime, and keep local or ignored secrets outside its accessible environment.
 
@@ -296,7 +296,6 @@ New projects delegate task implementation and enable Plan review by default. Exi
   }
 }
 ```
-
 
 ### Feature check configuration (0.9.14)
 

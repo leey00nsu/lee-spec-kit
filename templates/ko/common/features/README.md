@@ -59,7 +59,7 @@ npx lee-spec-kit workflow-stage <feature-ref> --json
 
 Plan 검수 또는 승인 전에 Schema 2 `Curated Documentation Impact`를 완료합니다. 네 기본 영역을 모두 판정하고, 프로젝트별 추가 영역이 적용될 때만 typed `Additional Curated Impacts`를 사용합니다. 추가 영역의 명시적인 `NONE`은 해당 범주가 없음을 검토했다는 증거입니다. 모든 `UPDATE` 또는 `ADD` 대상은 하나 이상의 task `Docs`와 커밋된 Feature diff에 함께 있어야 합니다. 기존 프로젝트는 Feature별 검사를 신뢰하기 전에 한 번의 수동 baseline reconciliation을 수행합니다.
 
-`experimental.openwiki=true`여도 Feature 리뷰에는 Plan이 선언한 curated target을 전달하고 코드·제품 의도와 대조합니다. 생성 Wiki와 receipt는 필수 입력이 아니며 Knowledge 최신성은 Feature 완료를 막지 않습니다. `knowledge ci`로 준비한 예약/수동 CI가 통합된 프로젝트 revision에서 저장소 단위 Knowledge를 갱신합니다. 생성 실패 시 코드 머지와 마지막 정상 게시본을 유지합니다.
+`experimental.openwiki=true`여도 Feature 리뷰에는 Plan이 선언한 curated target을 전달하고 코드·제품 의도와 대조합니다. 생성 Wiki와 OpenWiki 실행 metadata는 필수 입력이 아니며 Knowledge 최신성은 Feature 완료를 막지 않습니다. `knowledge ci`로 준비한 예약/수동 CI가 통합된 프로젝트 revision에서 저장소 단위 Knowledge를 갱신합니다. 생성 실패 시 코드 머지와 마지막 정상 게시본을 유지하고 draft Knowledge PR에 부분 진행을 체크포인트로 남깁니다.
 
 Plan 검수가 활성화되면 계획 단계는 `plan Review → fresh 읽기 전용 Plan 검수 → plan 승인` 순서로 진행됩니다. 검수는 반환된 `specHash`와 `planHash`에 묶이며 두 문서 중 하나의 내용이 바뀌면 기존 evidence가 무효입니다. reviewer는 문서를 수정하지 않고 Verification Contract와 테스트 결정을 점검합니다.
 
@@ -129,21 +129,21 @@ Feature가 이미 진행 중이라면, 이 파일들은 활성 워크플로우 S
 
 ## 상태 용어 정리
 
-| 구분 | 필드 | 값 |
-| --- | --- | --- |
-| 문서 상태 | `spec.md`/`plan.md`의 `상태`, `tasks.md`의 `문서 상태` | `Draft` \| `Review` \| `Approved` |
-| Plan 검수 상태 | `plan.md`의 `Plan 검수` | `Pending` \| `Running` \| `Done` |
-| Plan 검수 Evidence/Decision | `Plan 검수 Evidence` / `Plan 검수 Decision` | evidence 경로와 `결정: approve\|changes_requested\|blocked ...` |
-| Plan 검수 target | `Plan 검수 Spec Hash` / `Plan 검수 Plan Hash` | `workflow-stage`가 반환한 현재 내용 hash |
-| 이슈 문서 상태 | `issue.md`의 `상태` | `Draft` \| `Ready` |
-| PR 문서 상태 | `pr.md`의 `상태` | `Draft` \| `Ready` |
-| PR 리뷰 상태 | `tasks.md`의 `PR 상태` | `Review` \| `Approved` |
-| Pre-PR 리뷰 상태 | `tasks.md`의 `PR 전 리뷰` | `Pending` \| `Done` |
-| Pre-PR 리뷰 Evidence | `tasks.md`의 `PR 전 리뷰 Evidence` | 근거 링크/로그/문서 경로 |
-| Pre-PR 리뷰 Decision | `tasks.md`의 `PR 전 리뷰 Decision` | `결정: approve|changes_requested|blocked ...` |
-| Pre-PR 리뷰 target | `PR 전 리뷰 Head` / `PR 전 리뷰 Tree` | `workflow-stage`가 반환한 현재 SHA/tree |
-| PR 리뷰 Evidence | `tasks.md`의 `PR 리뷰 Evidence` | 근거 링크/로그/문서 경로 |
-| PR 리뷰 Decision | `tasks.md`의 `PR 리뷰 Decision` | `결정: ...` (또는 `decision: ...`) |
+| 구분                        | 필드                                                   | 값                                                              |
+| --------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- | ----------------- | ------------ |
+| 문서 상태                   | `spec.md`/`plan.md`의 `상태`, `tasks.md`의 `문서 상태` | `Draft` \| `Review` \| `Approved`                               |
+| Plan 검수 상태              | `plan.md`의 `Plan 검수`                                | `Pending` \| `Running` \| `Done`                                |
+| Plan 검수 Evidence/Decision | `Plan 검수 Evidence` / `Plan 검수 Decision`            | evidence 경로와 `결정: approve\|changes_requested\|blocked ...` |
+| Plan 검수 target            | `Plan 검수 Spec Hash` / `Plan 검수 Plan Hash`          | `workflow-stage`가 반환한 현재 내용 hash                        |
+| 이슈 문서 상태              | `issue.md`의 `상태`                                    | `Draft` \| `Ready`                                              |
+| PR 문서 상태                | `pr.md`의 `상태`                                       | `Draft` \| `Ready`                                              |
+| PR 리뷰 상태                | `tasks.md`의 `PR 상태`                                 | `Review` \| `Approved`                                          |
+| Pre-PR 리뷰 상태            | `tasks.md`의 `PR 전 리뷰`                              | `Pending` \| `Done`                                             |
+| Pre-PR 리뷰 Evidence        | `tasks.md`의 `PR 전 리뷰 Evidence`                     | 근거 링크/로그/문서 경로                                        |
+| Pre-PR 리뷰 Decision        | `tasks.md`의 `PR 전 리뷰 Decision`                     | `결정: approve                                                  | changes_requested | blocked ...` |
+| Pre-PR 리뷰 target          | `PR 전 리뷰 Head` / `PR 전 리뷰 Tree`                  | `workflow-stage`가 반환한 현재 SHA/tree                         |
+| PR 리뷰 Evidence            | `tasks.md`의 `PR 리뷰 Evidence`                        | 근거 링크/로그/문서 경로                                        |
+| PR 리뷰 Decision            | `tasks.md`의 `PR 리뷰 Decision`                        | `결정: ...` (또는 `decision: ...`)                              |
 
 ---
 
@@ -155,11 +155,11 @@ Plan/task/Feature 리뷰는 `workflow-stage --json`이 반환한 모델·추론�
 
 ## 각 파일 역할
 
-| 파일           | 역할                       | 작성 시점      |
-| -------------- | -------------------------- | -------------- |
-| `spec.md`      | **무엇을, 왜** 만드는지    | 기능 정의 시   |
-| `plan.md`      | **어떻게** + Verification Contract | 스펙 승인 후   |
-| `tasks.md`     | 구체적인 작업 목록         | 계획 승인 후   |
-| `issue.md`     | 이슈 초안 + 이슈 상태(`Draft/Ready`) | 이슈 생성 전/생성 시 |
-| `pr.md`        | PR 초안 + PR 상태(`Draft/Ready`) | PR 생성 전/생성 시 |
+| 파일           | 역할                                          | 작성 시점                                         |
+| -------------- | --------------------------------------------- | ------------------------------------------------- |
+| `spec.md`      | **무엇을, 왜** 만드는지                       | 기능 정의 시                                      |
+| `plan.md`      | **어떻게** + Verification Contract            | 스펙 승인 후                                      |
+| `tasks.md`     | 구체적인 작업 목록                            | 계획 승인 후                                      |
+| `issue.md`     | 이슈 초안 + 이슈 상태(`Draft/Ready`)          | 이슈 생성 전/생성 시                              |
+| `pr.md`        | PR 초안 + PR 상태(`Draft/Ready`)              | PR 생성 전/생성 시                                |
 | `decisions.md` | 기술 결정 + 판단 근거(Trace) + 증거 링크(ADR) | 개발 중 수시로 (DOING 시작 / DONE 직전 / 머지 후) |
