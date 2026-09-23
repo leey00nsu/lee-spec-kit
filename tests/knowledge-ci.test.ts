@@ -21,6 +21,12 @@ describe('OpenWiki CI scaffold', () => {
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('gh pr create');
     expect(workflow).toContain('cancel-in-progress: false');
+    const jobEnv = workflow.match(/jobs:\n  knowledge:\n    runs-on: ubuntu-latest\n    env:\n([\s\S]*?)    steps:/u)?.[1];
+    expect(jobEnv).toBeDefined();
+    expect(jobEnv).not.toMatch(/\$\{\{\s*runner\./u);
+    expect(workflow).toContain(
+      'echo "OPENWIKI_CONFIG_DIR=$RUNNER_TEMP/openwiki-config" >> "$GITHUB_ENV"'
+    );
 
     expect(workflow).not.toMatch(
       /lee-spec-kit knowledge (?:publish|update|sync|apply|status|doctor|audit)/u

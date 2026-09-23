@@ -103,7 +103,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KNOWLEDGE_BRANCH: ${knowledgeBranch}
-      OPENWIKI_CONFIG_DIR: \${{ runner.temp }}/openwiki-config
     steps:
       - uses: ${CHECKOUT_ACTION} # v4
         with:
@@ -116,6 +115,8 @@ jobs:
           node-version: '22'
       - name: Record the source revision
         run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Set the OpenWiki configuration directory
+        run: echo "OPENWIKI_CONFIG_DIR=$RUNNER_TEMP/openwiki-config" >> "$GITHUB_ENV"
       - name: Install OpenWiki and the optional writing-policy bundle
         run: npm install --global openwiki@${OPENWIKI_VERSION} lee-spec-kit@${version}
       - name: Restore the OpenWiki working checkpoint
