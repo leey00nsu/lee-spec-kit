@@ -4,6 +4,7 @@ Write Korean that reads naturally while preserving code-level precision.
 
 ## Keep a reader-friendly voice
 
+- Toss treats speech level as a document-level choice. This skill adopts consistent `해요체` as a lee-spec-kit project convention for Korean reader-facing Knowledge pages; do not present it as a universal Toss rule.
 - Use `해요체` for explanations: `사용해요`, `확인할 수 있어요`, `경계예요`.
 - Use `-하세요` when the reader needs to act: `명령을 실행하세요`, `상태를 확인하세요`.
 - Do not fall back to declarative `-다` prose or formal `-습니다` prose. Do not mix speech levels to vary sentence endings.
@@ -18,7 +19,7 @@ Write Korean that reads naturally while preserving code-level precision.
 - Remove framing such as “살펴보겠습니다” when the content can begin directly.
 - Avoid opening with “이 문서는 … 설명해요” when the result or problem can be stated directly.
 - Prefer specific paths, states, and outcomes over vague words such as “관련”, “처리”, or “부분”.
-- Give exact numbers, defaults, ranges, and limits. Write “기본값은 5초예요” instead of “시간 제한이 있어요”.
+- Give exact numbers, defaults, ranges, and limits when the tracked evidence supplies them. Write “기본값은 5초예요” instead of “시간 제한이 있어요” only when 5초 is the actual supported default.
 
 ## Make people and behavior the actor
 
@@ -42,12 +43,12 @@ The reader is a developer, and the work in the page is work the reader or the co
 
 Every rule below applies to prose only. Code identifiers, commands, file paths, model names, product names, and public API names keep their exact spelling wherever they appear.
 
-- Use Korean for ordinary explanatory words: `worker` → `워커`, `ownership` → `소유권`, `lifecycle` → `수명 주기`, `media` → `미디어`, `asset` → `자산`, `snapshot` → `스냅샷`, `persist` → `저장`, `retry` → `재시도`, `focused test` → `변경 범위 테스트`. Choose one wording per concept and reuse it.
+- Prefer familiar Korean for ordinary explanatory words when it clarifies the concept: for example, `worker` → `워커`, `ownership` → `소유권`, `retry` → `재시도`. Treat these as examples rather than a translation table; established project terminology and the actual domain meaning decide whether `asset` is `자산` or `에셋`. Choose one wording per concept and reuse it.
 - Prefer “워커는 작업의 소유권을 확인한 뒤 결과를 저장해요” over “worker는 job ownership을 확인한 뒤 result를 persist해요”. Both sentences must still be supported by the same source evidence.
 - Do not translate an identifier to make a sentence look more Korean. Keep `leaseOwner`, `MixingJob`, and `pnpm test` unchanged, and add a short Korean gloss the first time an unfamiliar English term appears.
 - Follow the official spelling and capitalization of tools, languages, and products, in prose as well as in code. Write `JavaScript`, `PostgreSQL`, `Node.js`, and `Next.js` as their own documentation writes them.
 - Spell out an abbreviation the first time it appears on a page, with the full name in parentheses and no space before the parenthesis: `SSR(Server-Side Rendering)`, `E2E(end-to-end)`. For an English abbreviation, include the English full name. Use the abbreviation alone after that. Terms the repository itself uses as product or protocol names, such as `API`, `HTTP`, `JSON`, and `OAuth`, need no expansion.
-- Pick one spelling for loanwords and keep it. Follow the wording already used in tracked code, configuration, and existing pages before inventing a new one. When usage is split, decide once and record the choice in the project's own instructions outside the lee-spec-kit managed block, then use it everywhere.
+- Pick one spelling for loanwords and keep it. Follow official product names and established project usage before inventing a new form. If the assigned page and tracked project usage disagree, choose the form supported by the current domain evidence for the affected passage; do not edit the repository's instructions or unrelated pages from an OpenWiki page job merely to enforce a glossary.
 
 ## Cut empty Sino-Korean verbs
 
@@ -60,7 +61,7 @@ Every rule below applies to prose only. Code identifiers, commands, file paths, 
 
 ## Edit paragraph density
 
-Give each paragraph one point. Start with the behavior or result, then explain its condition or reason. When a paragraph moves from setup commands to runtime theory or troubleshooting, move that material to its own section or link to the corresponding planned page. Use a table for exact values and an ordered list for dependent actions. Do not remove exceptions, limits, or failure behavior just to shorten the text, and do not split one connected idea to satisfy a sentence-count target.
+Give each paragraph one point. Start with the behavior or result, then explain its condition or reason. If the reader's question, acting component, or task changes mid-paragraph, split it or link to the page that owns the other topic. A paragraph that moves from setup commands to runtime theory or troubleshooting usually needs such a split. Use a table for repeated comparable values and an ordered list for dependent actions. Do not remove exceptions, limits, or failure behavior just to shorten the text, and do not split one connected idea to satisfy a sentence-count target. On update, apply this edit to affected paragraphs without rephrasing accurate unaffected sections.
 
 ## Control density
 
