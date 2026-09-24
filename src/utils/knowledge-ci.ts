@@ -56,8 +56,8 @@ NODE`;
  * Scaffold repository-owned OpenWiki CI.
  *
  * lee-spec-kit installs pinned tools and writing guidance. OpenWiki owns the
- * generation command, durable page queue, retries, validation, and exit code.
- * GitHub Actions owns scheduling plus the partial-page/review branch.
+ * generation command, durable page queue, retries, validation, and status.
+ * GitHub Actions checks the completion checkpoint before marking a PR ready.
  */
 export function buildKnowledgeWorkflow(
   baseBranch: string,
@@ -145,6 +145,23 @@ jobs:
           OPENWIKI_PROVIDER: openai
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
         run: openwiki code --update --print --language ${lang}
+      - name: Check OpenWiki completion metadata
+        id: completion
+        if: \${{ !cancelled() }}
+        run: |
+          completion="$(node -e '
+            const fs = require("node:fs");
+            try {
+              const state = JSON.parse(fs.readFileSync("openwiki/.last-update.json", "utf8"));
+              process.stdout.write(String(state.status === "complete" && state.gitHead === process.env.SOURCE_SHA && !fs.existsSync("openwiki/.run.json")));
+            } catch {
+              process.stdout.write("false");
+            }
+          ')"
+          echo "complete=$completion" >> "$GITHUB_OUTPUT"
+          if [ "$completion" != true ]; then
+            echo '::warning::OpenWiki did not record a complete update for this source revision. Keeping the Knowledge checkpoint as a draft.'
+          fi
       - name: Remove transient OpenWiki run context
         if: \${{ !cancelled() }}
         run: |
@@ -169,6 +186,7 @@ ${scopeGuard}
         env:
           GH_TOKEN: \${{ secrets.OPENWIKI_PR_TOKEN }}
           OPENWIKI_OUTCOME: \${{ steps.openwiki.outcome }}
+          OPENWIKI_COMPLETE: \${{ steps.completion.outputs.complete }}
           SOURCE_CURRENT: \${{ steps.source.outputs.current }}
         run: |
           git add -A -- openwiki
@@ -203,7 +221,7 @@ ${branchScopeGuard}
           fi
 
           healthy=false
-          if [ "$OPENWIKI_OUTCOME" = success ] && [ "$SOURCE_CURRENT" = true ]; then healthy=true; fi
+          if [ "$OPENWIKI_OUTCOME" = success ] && [ "$OPENWIKI_COMPLETE" = true ] && [ "$SOURCE_CURRENT" = true ]; then healthy=true; fi
 
           was_ready=false
           pr_number=''

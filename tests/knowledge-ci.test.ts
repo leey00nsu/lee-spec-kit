@@ -1,5 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
@@ -21,7 +27,9 @@ describe('OpenWiki CI scaffold', () => {
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('gh pr create');
     expect(workflow).toContain('cancel-in-progress: false');
-    const jobEnv = workflow.match(/jobs:\n  knowledge:\n    runs-on: ubuntu-latest\n    env:\n([\s\S]*?)    steps:/u)?.[1];
+    const jobEnv = workflow.match(
+      /jobs:\n  knowledge:\n    runs-on: ubuntu-latest\n    env:\n([\s\S]*?)    steps:/u
+    )?.[1];
     expect(jobEnv).toBeDefined();
     expect(jobEnv).not.toMatch(/\$\{\{\s*runner\./u);
     expect(workflow).toContain(
@@ -38,6 +46,8 @@ describe('OpenWiki CI scaffold', () => {
     expect(workflow).not.toContain('timeout-minutes:');
     expect(workflow).toContain('continue-on-error: true');
     expect(workflow).toContain('steps.openwiki.outcome');
+    expect(workflow).toContain('steps.completion.outputs.complete');
+    expect(workflow).toContain('[ "$OPENWIKI_COMPLETE" = true ]');
     expect(workflow).toContain('--draft');
     expect(workflow).toContain('gh pr ready --undo');
     expect(workflow).toContain('Propagate an incomplete OpenWiki result');
@@ -92,6 +102,63 @@ describe('OpenWiki CI scaffold', () => {
       'KNOWLEDGE_BRANCH: lee-spec-kit/knowledge-release-docs'
     );
     expect(workflow).toContain('--language en');
+  });
+
+  test('keeps an exit-zero but interrupted OpenWiki run incomplete', () => {
+    const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3');
+    const marker = '      - name: Check OpenWiki completion metadata\n';
+    const stepStart = workflow.indexOf(marker);
+    const scriptStart = workflow.indexOf('        run: |\n', stepStart);
+    const scriptEnd = workflow.indexOf('      - name: ', scriptStart + 1);
+    expect(stepStart).toBeGreaterThan(-1);
+    expect(scriptStart).toBeGreaterThan(stepStart);
+    expect(scriptEnd).toBeGreaterThan(scriptStart);
+    const script = workflow
+      .slice(scriptStart + '        run: |\n'.length, scriptEnd)
+      .split('\n')
+      .map((line) => line.replace(/^ {10}/u, ''))
+      .join('\n');
+    const root = mkdtempSync(path.join(tmpdir(), 'lsk-openwiki-completion-'));
+
+    try {
+      mkdirSync(path.join(root, 'openwiki'));
+      const metadataPath = path.join(root, 'openwiki', '.last-update.json');
+      const runPath = path.join(root, 'openwiki', '.run.json');
+      const outputPath = path.join(root, 'output');
+      const check = (metadata?: object, hasRun = false): string => {
+        if (hasRun) writeFileSync(runPath, '{}');
+        else rmSync(runPath, { force: true });
+        if (metadata) writeFileSync(metadataPath, JSON.stringify(metadata));
+        else rmSync(metadataPath, { force: true });
+        writeFileSync(outputPath, '');
+        execFileSync('bash', ['-e', '-c', script], {
+          cwd: root,
+          env: {
+            ...process.env,
+            SOURCE_SHA: 'source-revision',
+            GITHUB_OUTPUT: outputPath,
+          },
+          stdio: 'pipe',
+        });
+        return readFileSync(outputPath, 'utf8').trim();
+      };
+
+      expect(check({ status: 'complete', gitHead: 'source-revision' })).toBe(
+        'complete=true'
+      );
+      expect(check({ status: 'interrupted', gitHead: 'source-revision' })).toBe(
+        'complete=false'
+      );
+      expect(check({ status: 'complete', gitHead: 'older-revision' })).toBe(
+        'complete=false'
+      );
+      expect(check()).toBe('complete=false');
+      expect(
+        check({ status: 'complete', gitHead: 'source-revision' }, true)
+      ).toBe('complete=false');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('rejects unsafe interpolated values', () => {
