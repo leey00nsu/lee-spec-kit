@@ -20,6 +20,7 @@ export type CliReasonCode =
   | 'OPENWIKI_DISABLED'
   | 'COMPONENT_SELECTION_REQUIRED'
   | 'OPENWIKI_CI_EXISTS'
+  | 'OPENWIKI_IGNORE_BLOCK_INVALID'
   | 'UNKNOWN_ERROR';
 
 export interface CliSuggestion {

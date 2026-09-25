@@ -22,10 +22,15 @@ import {
 import { getDocsLockPath, withFileLock } from '../utils/lock.js';
 import { getResourcesDir } from '../utils/paths.js';
 
+const KNOWLEDGE_IGNORE_BEGIN = '# lee-spec-kit:knowledge-source-ignore:begin';
+const KNOWLEDGE_IGNORE_END = '# lee-spec-kit:knowledge-source-ignore:end';
+const KNOWLEDGE_IGNORE_BLOCK = `${KNOWLEDGE_IGNORE_BEGIN}\n/AGENTS.md\n/CLAUDE.md\n${KNOWLEDGE_IGNORE_END}`;
+
 interface KnowledgeOptions {
   component?: string;
   json?: boolean;
   apply?: boolean;
+  autoMerge?: boolean;
 }
 
 export function knowledgeCommand(program: Command): void {
@@ -43,6 +48,10 @@ export function knowledgeCommand(program: Command): void {
     .option(
       '--component <component>',
       'Component name for standalone multi projects'
+    )
+    .option(
+      '--auto-merge',
+      'Enable auto-merge for completed Knowledge PRs; requires protected branch checks'
     )
     .option('--json', 'Output JSON')
     .action(async (options: KnowledgeOptions) => {
@@ -75,7 +84,8 @@ export function knowledgeCommand(program: Command): void {
         const content = buildKnowledgeWorkflow(
           config.workflow?.baseBranch || 'main',
           config.lang,
-          program.version() || '0.0.0'
+          program.version() || '0.0.0',
+          { autoMerge: options.autoMerge === true }
         );
         await fs.ensureDir(path.dirname(target));
         let workflowUpdated = false;
@@ -109,6 +119,8 @@ export function knowledgeCommand(program: Command): void {
           );
           instructionsCreated = true;
         }
+        const ignore = path.join(roots[0], '.openwikiignore');
+        const ignoreUpdated = await ensureKnowledgeSourceIgnore(ignore);
         return {
           status: 'ok',
           reasonCode: 'OPENWIKI_CI_READY',
@@ -116,6 +128,8 @@ export function knowledgeCommand(program: Command): void {
           workflowUpdated,
           instructions,
           instructionsCreated,
+          ignore,
+          ignoreUpdated,
           executionOwner: 'openwiki',
         };
       });
@@ -134,6 +148,31 @@ export function knowledgeCommand(program: Command): void {
         migrateLegacyDocumentationImpact(process.cwd(), options.apply === true)
       );
     });
+}
+
+async function ensureKnowledgeSourceIgnore(
+  ignorePath: string
+): Promise<boolean> {
+  const existing = (await fs.pathExists(ignorePath))
+    ? await fs.readFile(ignorePath, 'utf8')
+    : '';
+  const start = existing.indexOf(KNOWLEDGE_IGNORE_BEGIN);
+  const end = existing.indexOf(KNOWLEDGE_IGNORE_END);
+  if ((start === -1) !== (end === -1) || (start !== -1 && end < start)) {
+    throw createCliError(
+      'OPENWIKI_IGNORE_BLOCK_INVALID',
+      'The lee-spec-kit Knowledge source-ignore block is incomplete.'
+    );
+  }
+  const updated =
+    start === -1
+      ? `${existing.trimEnd()}${existing.trimEnd() ? '\n\n' : ''}${KNOWLEDGE_IGNORE_BLOCK}\n`
+      : existing.slice(0, start) +
+        KNOWLEDGE_IGNORE_BLOCK +
+        existing.slice(end + KNOWLEDGE_IGNORE_END.length);
+  if (updated === existing) return false;
+  await fs.writeFile(ignorePath, updated);
+  return true;
 }
 
 async function migrateLegacyDocumentationImpact(

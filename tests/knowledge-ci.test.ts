@@ -11,6 +11,7 @@ import path from 'node:path';
 import { describe, expect, test } from 'vitest';
 import {
   buildKnowledgeBranchScopeGuardScript,
+  buildKnowledgeNoopPublicationScript,
   buildKnowledgeScopeGuardScript,
   buildKnowledgeWorkflow,
 } from '../src/utils/knowledge-ci.js';
@@ -26,6 +27,8 @@ describe('OpenWiki CI scaffold', () => {
     expect(workflow).toContain('schedule:');
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('gh pr create');
+    expect(workflow).toContain('publication_noop');
+    expect(workflow).not.toContain('gh pr merge --auto');
     expect(workflow).toContain('cancel-in-progress: false');
     const jobEnv = workflow.match(
       /jobs:\n  knowledge:\n    runs-on: ubuntu-latest\n    env:\n([\s\S]*?)    steps:/u
@@ -102,6 +105,185 @@ describe('OpenWiki CI scaffold', () => {
       'KNOWLEDGE_BRANCH: lee-spec-kit/knowledge-release-docs'
     );
     expect(workflow).toContain('--language en');
+  });
+
+  test('auto-merge is opt-in and follows the completed publication gate', () => {
+    const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3', {
+      autoMerge: true,
+    });
+    expect(workflow).toContain(
+      'gh pr merge --auto --squash --match-head-commit "$PR_HEAD_SHA" "$PR_NUMBER"'
+    );
+    expect(workflow).toContain("steps.publish.outputs.healthy == 'true'");
+    expect(workflow).toContain('pull_request:');
+    expect(workflow).toContain('name: Knowledge PR safety');
+    expect(workflow).toContain("github.event_name != 'pull_request'");
+    expect(workflow).toContain('persist-credentials: false');
+    expect(workflow.indexOf('gh pr merge --auto')).toBeGreaterThan(
+      workflow.indexOf('echo "pr_number=$pr_number"')
+    );
+  });
+
+  test('auto-merge PR check rejects interrupted or out-of-scope content', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'lsk-knowledge-pr-check-'));
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+    const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3', {
+      autoMerge: true,
+    });
+    const marker =
+      '      - name: Validate the completed Knowledge pull request\n';
+    const stepStart = workflow.indexOf(marker);
+    const scriptStart = workflow.indexOf('        run: |\n', stepStart);
+    const script = workflow
+      .slice(scriptStart + '        run: |\n'.length)
+      .split('\n')
+      .map((line) => line.replace(/^ {10}/u, ''))
+      .join('\n');
+    try {
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'Test');
+      writeFileSync(path.join(root, 'source.ts'), 'const value = 1;\n');
+      git('add', '.');
+      git('commit', '-qm', 'source');
+      const base = git('rev-parse', 'HEAD');
+      mkdirSync(path.join(root, 'openwiki'));
+      writeFileSync(path.join(root, 'openwiki', 'index.md'), '# Wiki\n');
+      writeFileSync(
+        path.join(root, 'openwiki', '.last-update.json'),
+        JSON.stringify({ status: 'complete', gitHead: base })
+      );
+      git('add', '.');
+      git('commit', '-qm', 'knowledge');
+      const head = git('rev-parse', 'HEAD');
+      const verify = (baseSha: string, headSha: string) =>
+        execFileSync('bash', ['-e', '-c', script], {
+          cwd: root,
+          env: {
+            ...process.env,
+            PR_BASE_SHA: baseSha,
+            PR_HEAD_SHA: headSha,
+          },
+          stdio: 'pipe',
+        });
+      expect(() => verify(base, head)).not.toThrow();
+
+      writeFileSync(
+        path.join(root, 'openwiki', '.last-update.json'),
+        JSON.stringify({ status: 'interrupted', gitHead: base })
+      );
+      git('add', '.');
+      git('commit', '-qm', 'interrupted');
+      expect(() => verify(base, git('rev-parse', 'HEAD'))).toThrow();
+
+      writeFileSync(path.join(root, 'source.ts'), 'const value = 2;\n');
+      git('add', '.');
+      git('commit', '-qm', 'out of scope');
+      expect(() => verify(base, git('rev-parse', 'HEAD'))).toThrow();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('publishes source changes but skips a completed metadata-only check', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'lsk-openwiki-noop-'));
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+    const writeMetadata = (gitHead: string, updatedAt: string) =>
+      writeFileSync(
+        path.join(root, 'openwiki', '.last-update.json'),
+        JSON.stringify({ status: 'complete', gitHead, updatedAt }) + '\n'
+      );
+    const decide = (source: string, outcome = 'success'): string =>
+      execFileSync('bash', ['-c', buildKnowledgeNoopPublicationScript()], {
+        cwd: root,
+        env: {
+          ...process.env,
+          SOURCE_SHA: source,
+          OPENWIKI_OUTCOME: outcome,
+          OPENWIKI_COMPLETE: 'true',
+          SOURCE_CURRENT: 'true',
+        },
+        encoding: 'utf8',
+      }).trim();
+    try {
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'Test');
+      writeFileSync(path.join(root, 'source.ts'), 'export const value = 1;\n');
+      writeFileSync(path.join(root, 'AGENTS.md'), 'Human rule\n');
+      git('add', '.');
+      git('commit', '-qm', 'source');
+      const sourceBaseline = git('rev-parse', 'HEAD');
+      mkdirSync(path.join(root, 'openwiki'));
+      writeFileSync(path.join(root, 'openwiki', 'index.md'), '# Wiki\n');
+      writeMetadata(sourceBaseline, '2026-09-24T00:00:00Z');
+      writeFileSync(
+        path.join(root, 'AGENTS.md'),
+        'Human rule\n<!-- OPENWIKI:START -->old<!-- OPENWIKI:END -->\n'
+      );
+      git('add', '.');
+      git('commit', '-qm', 'published wiki');
+      const current = git('rev-parse', 'HEAD');
+
+      writeMetadata(current, '2026-09-25T00:00:00Z');
+      git('add', 'openwiki/.last-update.json');
+      expect(decide(current)).toBe('true');
+      expect(decide(current, 'failure')).toBe('false');
+
+      const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3');
+      const marker =
+        '      - name: Publish the OpenWiki checkpoint pull request\n';
+      const stepStart = workflow.indexOf(marker);
+      const scriptStart = workflow.indexOf('        run: |\n', stepStart);
+      const scriptEnd = workflow.indexOf('      - name: ', scriptStart + 1);
+      const publish = workflow
+        .slice(scriptStart + '        run: |\n'.length, scriptEnd)
+        .split('\n')
+        .map((line) => line.replace(/^ {10}/u, ''))
+        .join('\n');
+      const outputPath = path.join(root, 'output');
+      const branchBefore = git('branch', '--show-current');
+      writeFileSync(outputPath, '');
+      execFileSync('bash', ['-e', '-c', `gh() { :; }\n${publish}`], {
+        cwd: root,
+        env: {
+          ...process.env,
+          SOURCE_SHA: current,
+          OPENWIKI_OUTCOME: 'success',
+          OPENWIKI_COMPLETE: 'true',
+          SOURCE_CURRENT: 'true',
+          KNOWLEDGE_BRANCH: 'knowledge',
+          GITHUB_OUTPUT: outputPath,
+        },
+        stdio: 'pipe',
+      });
+      expect(readFileSync(outputPath, 'utf8')).toContain('changed=false');
+      expect(readFileSync(outputPath, 'utf8')).toContain('pr_number=');
+      expect(git('branch', '--show-current')).toBe(branchBefore);
+
+      writeFileSync(path.join(root, 'openwiki', '.run.json'), '{}');
+      expect(decide(current)).toBe('false');
+      rmSync(path.join(root, 'openwiki', '.run.json'));
+
+      writeFileSync(path.join(root, 'openwiki', 'index.md'), '# Changed\n');
+      git('add', 'openwiki/index.md');
+      expect(decide(current)).toBe('false');
+      git('restore', '--staged', 'openwiki/index.md');
+      git('restore', 'openwiki/index.md');
+
+      git('commit', '-qm', 'record check');
+      writeFileSync(path.join(root, 'source.ts'), 'export const value = 2;\n');
+      git('add', 'source.ts');
+      git('commit', '-qm', 'source change');
+      const changedSource = git('rev-parse', 'HEAD');
+      writeMetadata(changedSource, '2026-09-26T00:00:00Z');
+      git('add', 'openwiki/.last-update.json');
+      expect(decide(changedSource)).toBe('false');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('keeps an exit-zero but interrupted OpenWiki run incomplete', () => {
@@ -199,6 +381,37 @@ describe('OpenWiki CI scaffold', () => {
           stdio: 'pipe',
         })
       ).toThrow();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('scope guard permits only OpenWiki-managed agent-file edits', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'lsk-openwiki-agents-'));
+    const check = () =>
+      execFileSync('bash', ['-c', buildKnowledgeScopeGuardScript()], {
+        cwd: root,
+        stdio: 'pipe',
+      });
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+        cwd: root,
+      });
+      execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });
+      writeFileSync(path.join(root, 'AGENTS.md'), 'Human rule\n');
+      execFileSync('git', ['add', '.'], { cwd: root });
+      execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+      writeFileSync(
+        path.join(root, 'AGENTS.md'),
+        'Human rule\n\n<!-- OPENWIKI:START -->managed<!-- OPENWIKI:END -->\n'
+      );
+      expect(check).not.toThrow();
+      writeFileSync(
+        path.join(root, 'AGENTS.md'),
+        'Changed human rule\n\n<!-- OPENWIKI:START -->managed<!-- OPENWIKI:END -->\n'
+      );
+      expect(check).toThrow();
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

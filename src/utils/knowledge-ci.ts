@@ -13,6 +13,7 @@ const SETUP_NODE_ACTION =
 export function buildKnowledgeScopeGuardScript(): string {
   return `node <<'NODE'
 const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
 const read = (args) => execFileSync('git', args, { encoding: 'buffer' })
   .toString('utf8')
   .split('\\0')
@@ -24,8 +25,17 @@ const paths = new Set([
 ]);
 const allowed = (file) => file === 'openwiki' || file.startsWith('openwiki/') || file === 'AGENTS.md' || file === 'CLAUDE.md';
 const unexpected = [...paths].filter((file) => !allowed(file));
+const withoutManagedBlock = (value) => value.replace(/<!-- OPENWIKI:START -->[\\s\\S]*?<!-- OPENWIKI:END -->/gu, '').trimEnd();
+for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+  if (!paths.has(file)) continue;
+  let baseline = '';
+  try { baseline = execFileSync('git', ['show', 'HEAD:' + file], { encoding: 'utf8' }); }
+  catch { /* A newly created managed file is allowed. */ }
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  if (withoutManagedBlock(baseline) !== withoutManagedBlock(current)) unexpected.push(file);
+}
 if (unexpected.length > 0) {
-  console.error('OpenWiki changed paths outside openwiki/, AGENTS.md, and CLAUDE.md:');
+  console.error('OpenWiki changed paths outside its documented output surface or outside a managed agent block:');
   for (const file of unexpected) console.error(file);
   process.exit(1);
 }
@@ -44,11 +54,79 @@ const paths = execFileSync('git', ['diff', '--name-only', '-z', spec], { encodin
   .filter(Boolean);
 const allowed = (file) => file === 'openwiki' || file.startsWith('openwiki/') || file === 'AGENTS.md' || file === 'CLAUDE.md';
 const unexpected = paths.filter((file) => !allowed(file));
+const withoutManagedBlock = (value) => value.replace(/<!-- OPENWIKI:START -->[\\s\\S]*?<!-- OPENWIKI:END -->/gu, '').trimEnd();
+const [base, head] = spec.split('...');
+if (!base || !head) throw new Error('KNOWLEDGE_DIFF_SPEC must be a three-dot range');
+const mergeBase = execFileSync('git', ['merge-base', base, head], { encoding: 'utf8' }).trim();
+const show = (revision, file) => {
+  try { return execFileSync('git', ['show', revision + ':' + file], { encoding: 'utf8' }); }
+  catch { return ''; }
+};
+for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+  if (!paths.includes(file)) continue;
+  if (withoutManagedBlock(show(mergeBase, file)) !== withoutManagedBlock(show(head, file))) unexpected.push(file);
+}
 if (unexpected.length > 0) {
-  console.error('The existing Knowledge branch contains changes outside the allowed documentation surface:');
+  console.error('The existing Knowledge branch contains changes outside the allowed documentation surface or a managed agent block:');
   for (const file of unexpected) console.error(file);
   process.exit(1);
 }
+NODE`;
+}
+
+/**
+ * A clean OpenWiki check refreshes bookkeeping even when it changes no wiki
+ * knowledge. Keep that check, but avoid publishing its timestamp as a PR.
+ * Unknown or invalid history is deliberately treated as publishable work.
+ */
+export function buildKnowledgeNoopPublicationScript(): string {
+  return `node <<'NODE'
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const source = process.env.SOURCE_SHA;
+const completed = process.env.OPENWIKI_OUTCOME === 'success' &&
+  process.env.OPENWIKI_COMPLETE === 'true' &&
+  process.env.SOURCE_CURRENT === 'true';
+const git = (args) => execFileSync('git', args, { encoding: 'buffer' });
+const paths = (args) => git(args).toString('utf8').split('\\0').filter(Boolean);
+const managedBlock = /<!-- OPENWIKI:START -->[\\s\\S]*?<!-- OPENWIKI:END -->/gu;
+const withoutManagedBlock = (value) => value.replace(managedBlock, '').trimEnd();
+const show = (revision, file) => {
+  try { return git(['show', revision + ':' + file]).toString('utf8'); }
+  catch { return undefined; }
+};
+let skip = false;
+try {
+  if (completed && /^[0-9a-f]{40,64}$/u.test(source) &&
+      !fs.existsSync('openwiki/.run.json')) {
+    const previous = JSON.parse(show('HEAD', 'openwiki/.last-update.json'));
+    const previousHead = previous.gitHead;
+    const current = JSON.parse(fs.readFileSync('openwiki/.last-update.json', 'utf8'));
+    if (previous.status === 'complete' &&
+        /^[0-9a-f]{40,64}$/u.test(previousHead) &&
+        current.status === 'complete' && current.gitHead === source) {
+      git(['merge-base', '--is-ancestor', previousHead, source]);
+      const outputChanged = paths(['diff', '--cached', '--name-only', '-z', '--'])
+        .some((file) => file !== 'openwiki/.last-update.json' &&
+          file !== 'openwiki/.page-manifest.json');
+      const sourceChanged = paths(['diff', '--name-only', '-z',
+        previousHead + '..' + source, '--']).some((file) => {
+        if (file === 'openwiki/INSTRUCTIONS.md' ||
+            file === 'openwiki/.langsmith.json') return true;
+        if (file === 'openwiki' || file.startsWith('openwiki/')) return false;
+        if (file === 'AGENTS.md' || file === 'CLAUDE.md') {
+          return withoutManagedBlock(show(previousHead, file)) !==
+            withoutManagedBlock(show(source, file));
+        }
+        return true;
+      });
+      skip = !outputChanged && !sourceChanged;
+    }
+  }
+} catch (error) {
+  console.error('Could not prove an OpenWiki publication no-op:', error.message);
+}
+process.stdout.write(skip ? 'true' : 'false');
 NODE`;
 }
 
@@ -62,7 +140,8 @@ NODE`;
 export function buildKnowledgeWorkflow(
   baseBranch: string,
   lang: string,
-  version: string
+  version: string,
+  options: { autoMerge?: boolean } = {}
 ): string {
   if (
     !/^[a-zA-Z0-9._/-]+$/u.test(baseBranch) ||
@@ -83,6 +162,69 @@ export function buildKnowledgeWorkflow(
     .split('\n')
     .map((line) => `          ${line}`)
     .join('\n');
+  const noopPublication = buildKnowledgeNoopPublicationScript()
+    .split('\n')
+    .map((line) => `          ${line}`)
+    .join('\n');
+  const autoMergeStep = options.autoMerge
+    ? `      - name: Enable auto-merge for a complete Knowledge PR
+        if: \${{ !cancelled() && steps.publish.outputs.healthy == 'true' && steps.publish.outputs.pr_number != '' }}
+        env:
+          GH_TOKEN: \${{ secrets.OPENWIKI_PR_TOKEN }}
+          PR_NUMBER: \${{ steps.publish.outputs.pr_number }}
+          PR_HEAD_SHA: \${{ steps.publish.outputs.head_sha }}
+        run: gh pr merge --auto --squash --match-head-commit "$PR_HEAD_SHA" "$PR_NUMBER"
+`
+    : '';
+  const autoMergeTrigger = options.autoMerge
+    ? `  pull_request:
+    branches:
+      - '${baseBranch}'
+`
+    : '';
+  const autoMergeVerifyJob = options.autoMerge
+    ? `  verify-knowledge-pr:
+    name: Knowledge PR safety
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Accept unrelated pull requests
+        run: echo 'Knowledge-specific checks run only for the managed Knowledge branch.'
+      - name: Require a repository-owned Knowledge branch
+        if: \${{ github.event.pull_request.head.ref == '${knowledgeBranch}' }}
+        env:
+          PR_HEAD_REPO: \${{ github.event.pull_request.head.repo.full_name }}
+        run: test "$PR_HEAD_REPO" = "$GITHUB_REPOSITORY"
+      - uses: ${CHECKOUT_ACTION} # v4
+        if: \${{ github.event.pull_request.head.ref == '${knowledgeBranch}' }}
+        with:
+          ref: \${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate the completed Knowledge pull request
+        if: \${{ github.event.pull_request.head.ref == '${knowledgeBranch}' }}
+        env:
+          PR_BASE_SHA: \${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: \${{ github.event.pull_request.head.sha }}
+        run: |
+          git merge-base --is-ancestor "$PR_BASE_SHA" "$PR_HEAD_SHA"
+          export KNOWLEDGE_DIFF_SPEC="$PR_BASE_SHA...$PR_HEAD_SHA"
+${branchScopeGuard}
+          node <<'NODE'
+          const fs = require('node:fs');
+          const state = JSON.parse(fs.readFileSync('openwiki/.last-update.json', 'utf8'));
+          if (state.status !== 'complete' || state.gitHead !== process.env.PR_BASE_SHA ||
+              fs.existsSync('openwiki/.run.json')) {
+            console.error('Knowledge PR is incomplete or its source revision is stale.');
+            process.exit(1);
+          }
+          NODE
+`
+    : '';
+  const readyPrBody = options.autoMerge
+    ? `OpenWiki completed against the current ${baseBranch} revision. Auto-merge waits for the required branch checks.`
+    : `OpenWiki completed against the current ${baseBranch} revision. Review the generated documentation before merging.`;
 
   return `# Generated by lee-spec-kit from the OpenWiki CI usage pattern.
 # OpenWiki owns generation and incremental update behavior. This workflow only
@@ -92,7 +234,7 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
-permissions:
+${autoMergeTrigger}permissions:
   contents: write
   pull-requests: write
 concurrency:
@@ -100,7 +242,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   knowledge:
-    runs-on: ubuntu-latest
+${options.autoMerge ? "    if: ${{ github.event_name != 'pull_request' }}\n" : ''}    runs-on: ubuntu-latest
     env:
       KNOWLEDGE_BRANCH: ${knowledgeBranch}
     steps:
@@ -223,6 +365,12 @@ ${branchScopeGuard}
           healthy=false
           if [ "$OPENWIKI_OUTCOME" = success ] && [ "$OPENWIKI_COMPLETE" = true ] && [ "$SOURCE_CURRENT" = true ]; then healthy=true; fi
 
+          # A complete, source-stable check may refresh only OpenWiki's run
+          # metadata. Keep the validation result without creating a daily PR.
+          publication_noop="$(
+${noopPublication}
+          )"
+
           was_ready=false
           pr_number=''
           restore_publication() {
@@ -271,6 +419,17 @@ ${branchScopeGuard}
             restore_publication "$api_code"
           fi
 
+          if [ "$healthy" = true ] && [ "$publication_noop" = true ] &&
+             [ -z "$pr_json" ] && [ "$branch_scope_valid" = true ] &&
+             { [ -z "$previous" ] || git merge-base --is-ancestor "$previous" "$SOURCE_SHA"; }; then
+            echo 'OpenWiki completed with no publishable source or documentation change.'
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'healthy=true' >> "$GITHUB_OUTPUT"
+            echo 'pr_number=' >> "$GITHUB_OUTPUT"
+            echo 'head_sha=' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [ "$changed" = true ]; then
             git config user.name 'OpenWiki'
             git config user.email 'openwiki@users.noreply.github.com'
@@ -295,7 +454,7 @@ ${branchScopeGuard}
           if [ "$(git rev-parse 'refs/remotes/origin/${baseBranch}')" != "$SOURCE_SHA" ]; then healthy=false; fi
           if [ "$healthy" = true ]; then
             title='docs: refresh OpenWiki Knowledge'
-            body='OpenWiki completed against the current ${baseBranch} revision. Review the generated documentation before merging.'
+            body='${readyPrBody}'
           else
             title='docs: checkpoint incomplete OpenWiki Knowledge'
             body='OpenWiki did not complete against the current ${baseBranch} revision. This draft preserves completed pages as input for the next scheduled execution. Transient run context is deliberately excluded. Do not merge it while it remains a draft.'
@@ -311,7 +470,7 @@ ${branchScopeGuard}
             pr_number="$(printf '%s' "$pr_json" | jq -r '.number')"
             gh pr close "$pr_number" >/dev/null
             api_code=$?
-            if [ "$api_code" -eq 0 ]; then pr_json=''; fi
+            if [ "$api_code" -eq 0 ]; then pr_json=''; pr_number=''; fi
           fi
           if [ "$api_code" -eq 0 ] && [ -z "$pr_json" ] && [ "$branch_has_diff" = true ]; then
               pr_url="$(gh pr create --head "$KNOWLEDGE_BRANCH" --base '${baseBranch}' --title "$title" --body "$body" --draft)"
@@ -349,10 +508,13 @@ ${branchScopeGuard}
           trap - ERR
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
           echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
-      - name: Propagate an incomplete OpenWiki result
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$generated" >> "$GITHUB_OUTPUT"
+${autoMergeStep}      - name: Propagate an incomplete OpenWiki result
         if: \${{ !cancelled() && steps.publish.outputs.healthy != 'true' }}
         run: |
           echo 'OpenWiki remains incomplete. Completed pages and diagnostics are preserved without publishing transient run context.' >&2
           exit 1
+${autoMergeVerifyJob}
 `;
 }

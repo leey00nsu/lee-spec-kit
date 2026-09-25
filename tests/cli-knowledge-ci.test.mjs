@@ -38,9 +38,12 @@ test('knowledge ci scaffolds direct OpenWiki execution and writing guidance', as
     const payload = JSON.parse(result.stdout);
     const workflow = await fs.readFile(payload.path, 'utf8');
     const instructions = await fs.readFile(payload.instructions, 'utf8');
+    const ignore = await fs.readFile(payload.ignore, 'utf8');
 
     assert.equal(payload.executionOwner, 'openwiki');
     assert.equal(payload.instructionsCreated, true);
+    assert.equal(payload.ignoreUpdated, true);
+    assert.match(ignore, /\/AGENTS\.md\n\/CLAUDE\.md/u);
     assert.match(workflow, /openwiki code --update --print --language ko/u);
     assert.doesNotMatch(workflow, /lee-spec-kit knowledge update/u);
     assert.doesNotMatch(
@@ -57,10 +60,27 @@ test('knowledge ci scaffolds direct OpenWiki execution and writing guidance', as
     const repeated = await runCli(dir, ['knowledge', 'ci', '--json']);
     assert.equal(repeated.code, 0, repeated.stderr || repeated.stdout);
     assert.equal(JSON.parse(repeated.stdout).instructionsCreated, false);
+    assert.equal(JSON.parse(repeated.stdout).ignoreUpdated, false);
     assert.equal(
       await fs.readFile(payload.instructions, 'utf8'),
       customInstructions
     );
+  });
+});
+
+test('knowledge ci enables auto-merge only when requested', async () => {
+  await withTempDir('lsk-knowledge-auto-merge-', async (dir) => {
+    await initializeProject(dir);
+    const result = await runCli(dir, [
+      'knowledge',
+      'ci',
+      '--auto-merge',
+      '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const payload = JSON.parse(result.stdout);
+    const workflow = await fs.readFile(payload.path, 'utf8');
+    assert.match(workflow, /gh pr merge --auto --squash/u);
   });
 });
 
