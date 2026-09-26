@@ -106,18 +106,13 @@ npx lee-spec-kit config --openwiki true
 npx lee-spec-kit knowledge ci --json
 ```
 
-`knowledge ci`는 프로젝트 저장소에 `.github/workflows/lee-spec-kit-knowledge.yml`을 생성합니다. 생성된 workflow는 OpenWiki 0.5.2를 직접 실행하고 `openwiki/`, `AGENTS.md`, `CLAUDE.md` 변경을 검토용 PR에 올립니다. 실패하면 완료된 페이지만 draft PR에 보존해 다음 예약 실행의 입력 baseline으로 사용합니다. 원문 실행 문맥이 들어갈 수 있는 `.run.json`은 원격 브랜치와 PR에 올리지 않습니다. 성공한 최신 소스 결과만 review-ready 상태로 전환합니다. lee-spec-kit은 OpenWiki 프로세스, 페이지 큐, 재시도, 검증 결과, receipt 또는 실행 상태를 해석하거나 제어하지 않습니다.
-
-예약 실행은 같은 revision의 이전 실패 때문에 차단되지 않습니다. 다음 예약 시점에 다시 실행하며, draft Knowledge 브랜치에 보존된 완료 페이지가 있으면 이를 입력 baseline으로 사용합니다. 생성 실패나 source 변경은 부분 페이지를 draft로 push한 뒤 workflow 실패로 끝납니다. 출력 범위 위반은 push 전에 차단합니다. Git 또는 PR API가 실패하면 exact lease로 이전 브랜치와 기존 PR 상태 복원을 시도하며, 복원까지 실패한 원격 장애는 Actions 로그에서 확인해야 합니다. OpenWiki 내부의 페이지 복구와 증분 생성 판단은 OpenWiki가 담당합니다.
-
-workflow는 패키지에 포함된 `lee-spec-kit-technical-writing` 스킬을 임시 OpenWiki 설정 디렉터리에 복사하지만, 이를 검증기나 재시도 제어기로 사용하지 않습니다. provider와 모델은 OpenWiki 환경 변수 및 repository secret으로 설정합니다. 기본 scaffold는 `OPENAI_API_KEY`를 참조하며 다른 OpenAI-compatible provider를 사용할 때는 생성된 workflow를 프로젝트가 직접 수정합니다. PR 생성과 branch push에는 `OPENWIKI_PR_TOKEN`을 사용합니다. 대상 저장소의 Contents 및 Pull requests 읽기/쓰기 권한만 가진 fine-grained token 또는 GitHub App token을 등록합니다.
-
-Knowledge 최신성은 Feature 완료를 막지 않습니다. `experimental.openwiki=false` 또는 플래그 누락 시 scaffold를 만들지 않습니다. 기존 `knowledge publish`, `update`, `sync`, `apply`, `status`, `doctor`, `audit` 명령과 lee-spec-kit receipt는 제거되었습니다. 기존 생성 문서는 삭제하지 않으며 OpenWiki가 다음 실행에서 baseline으로 사용할 수 있습니다.
+`knowledge ci`는 프로젝트 저장소에 OpenWiki용 GitHub Actions 워크플로우를 만듭니다. 모델·GitHub 인증정보, 기본 GitHub 예약 실행, Coolify를 통한 외부 예약 실행은 [OpenWiki Knowledge CI 설정 가이드](./docs/reference/openwiki-ci.md)를 참고하세요. lee-spec-kit은 CI 구성을 제공하며 OpenWiki 생성 과정을 직접 실행하거나 Feature 완료의 조건으로 삼지 않습니다.
 
 ## Docs
 
 - [Public CLI Reference](./docs/reference/public-cli.md)
 - [Agent CLI Reference](./docs/reference/agent-cli.md)
+- [OpenWiki Knowledge CI 설정](./docs/reference/openwiki-ci.md)
 - [Internal CLI Reference](./docs/reference/internal-cli.md)
 - [Codex Hooks Integration](./docs/reference/codex-hooks.md)
 - [Migration Guide](./docs/reference/migration-codex-hooks.md)
@@ -151,5 +146,3 @@ base가 앞서가면 `local sync <id>` 또는 `workspace sync-docs <id>`로 해�
 CI에서는 `npx lee-spec-kit feature-audit --base-ref origin/main --enforce --json`을 실행해 중복 ID, 고정 식별자 변경, 문서와 메타데이터 불일치, 한 Feature의 중복 활성 Task를 검사할 수 있습니다. 먼저 대상 base를 fetch해야 합니다. `workflow-stage --json`의 `sharedDocumentationWarnings`는 현재 문서에서 발견한 PRD·아키텍처 수정 대상의 중복을 알려주며, 의미상의 충돌은 최신 base와 함께 리뷰해야 합니다.
 
 새 embedded Feature는 `workspace prepare`가 해당 Feature seed만 커밋하고 managed worktree를 만든 뒤 그 경로를 반환합니다. 다른 staged 파일은 이 제한된 seed 커밋에 포함하지 않습니다. standalone 문서 통합은 내용 변경 없는 기록용 커밋을 남겨, 문서 저장소를 새로 clone하거나 로컬 캐시를 지워도 Git 이력에서 통합 근거를 복원합니다.
-
-`experimental.openwiki=true`만으로 GitHub CI가 설치되지는 않습니다. `knowledge ci`가 만든 workflow를 커밋하고 provider secret과 `OPENWIKI_PR_TOKEN`을 설정해야 합니다. 예약 실행 또는 수동 `workflow_dispatch`에서 생성하며, Feature 완료 전략과 독립적으로 동작합니다. standalone GitHub 프로젝트의 CI는 코드 저장소 기준으로 실행되며 외부 문서 저장소 통합과 독립적이고, 외부 문서를 생성 입력 snapshot에 포함하지 않습니다.

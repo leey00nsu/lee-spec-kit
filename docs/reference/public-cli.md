@@ -39,7 +39,7 @@ npx lee-spec-kit config --completion-strategy local-squash
 npx lee-spec-kit config --openwiki true
 ```
 
-`experimental.openwiki` is deliberately one boolean. Missing or `false` disables Knowledge behavior. `true` enables generation and validation, while freshness remains observational and never becomes a Feature stage or completion gate.
+`experimental.openwiki` is deliberately one boolean. Missing or `false` disables the Knowledge CI scaffold. `true` permits `knowledge ci`; OpenWiki performs generation and validation in the project-owned CI, while freshness remains observational and never becomes a Feature stage or completion gate.
 
 Projects created before task delegation and Plan/Task review settings existed
 keep those newly introduced policies disabled during runtime and `update` unless
@@ -170,6 +170,8 @@ npx lee-spec-kit knowledge migrate --apply --json
 ```
 
 `knowledge ci` requires `experimental.openwiki=true` and writes `.github/workflows/lee-spec-kit-knowledge.yml` in exactly one selected project repository. It replaces only the exact legacy generated workflow that called the removed lee-spec-kit execution adapter and blocked repeat schedules. Other differing workflows are preserved for manual reconciliation.
+
+For provider and model selection, GitHub secrets, the default GitHub Actions schedule, and an external scheduler such as Coolify, see [OpenWiki Knowledge CI setup](./openwiki-ci.md).
 
 The generated workflow installs pinned OpenWiki 0.5.2, restores `openwiki/` from the last Knowledge PR branch when present, invokes `openwiki code --update --print`, checks that the command changed only OpenWiki's documented output surface, and opens or updates a reviewable PR. A complete check that changes only run bookkeeping and no source input creates no PR. `knowledge ci` also adds a managed `.openwikiignore` block for root `AGENTS.md` and `CLAUDE.md`, so OpenWiki's own instruction snippets do not become new source input. Generation, output-scope, and source-freshness failures remain draft checkpoints. A pull-request API failure after push triggers an exact-lease rollback to the previous branch. A remote rollback failure remains visible in the Actions log and requires repository-level inspection. A prior failure for the same source revision does not block the next scheduled run.
 

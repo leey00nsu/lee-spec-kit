@@ -5,3 +5,4 @@
 - `internal-cli.md`: maintenance and low-level validation commands
 - `codex-hooks.md`: workspace-aware Codex hooks integration
 - `migration-codex-hooks.md`: how existing lee-spec-kit projects should move to the hooks-based runtime path
+- `openwiki-ci.md`: OpenWiki provider, credentials, GitHub Actions schedule, and external scheduler setup
