@@ -1,6 +1,6 @@
 {
   "name": "lee-spec-kit",
-  "version": "0.9.19",
+  "version": "0.9.20",
   "description": "Document-centered harness engineering toolkit for AI agent development",
   "type": "module",
   "bin": {
