@@ -419,9 +419,11 @@ ${noopPublication}
             restore_publication "$api_code"
           fi
 
+          # A squash merge loses commit ancestry but retains the published files.
+          # An unpublished checkpoint must still differ from the source tree.
           if [ "$healthy" = true ] && [ "$publication_noop" = true ] &&
              [ -z "$pr_json" ] && [ "$branch_scope_valid" = true ] &&
-             { [ -z "$previous" ] || git merge-base --is-ancestor "$previous" "$SOURCE_SHA"; }; then
+             { [ -z "$previous" ] || git diff --quiet "$previous" "$SOURCE_SHA" -- openwiki AGENTS.md CLAUDE.md; }; then
             echo 'OpenWiki completed with no publishable source or documentation change.'
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             echo 'healthy=true' >> "$GITHUB_OUTPUT"
@@ -431,8 +433,8 @@ ${noopPublication}
           fi
 
           if [ "$changed" = true ]; then
-            git config user.name 'OpenWiki'
-            git config user.email 'openwiki@users.noreply.github.com'
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git switch -C "$KNOWLEDGE_BRANCH"
             if ! git diff --cached --quiet; then
               git commit -m 'docs: refresh OpenWiki Knowledge'

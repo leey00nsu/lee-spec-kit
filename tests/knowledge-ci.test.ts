@@ -28,6 +28,14 @@ describe('OpenWiki CI scaffold', () => {
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('gh pr create');
     expect(workflow).toContain('publication_noop');
+    expect(workflow).toContain(
+      'git diff --quiet "$previous" "$SOURCE_SHA" -- openwiki AGENTS.md CLAUDE.md'
+    );
+    expect(workflow).toContain("git config user.name 'github-actions[bot]'");
+    expect(workflow).toContain(
+      "git config user.email '41898282+github-actions[bot]@users.noreply.github.com'"
+    );
+    expect(workflow).not.toContain('openwiki@users.noreply.github.com');
     expect(workflow).not.toContain('gh pr merge --auto');
     expect(workflow).toContain('cancel-in-progress: false');
     const jobEnv = workflow.match(
@@ -281,6 +289,128 @@ describe('OpenWiki CI scaffold', () => {
       writeMetadata(changedSource, '2026-09-26T00:00:00Z');
       git('add', 'openwiki/.last-update.json');
       expect(decide(changedSource)).toBe('false');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('skips metadata after a squash merge but detects an unpublished checkpoint', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'lsk-openwiki-squash-'));
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+    const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3');
+    const marker =
+      '      - name: Publish the OpenWiki checkpoint pull request\n';
+    const stepStart = workflow.indexOf(marker);
+    const scriptStart = workflow.indexOf('        run: |\n', stepStart);
+    const scriptEnd = workflow.indexOf('      - name: ', scriptStart + 1);
+    const publish = workflow
+      .slice(scriptStart + '        run: |\n'.length, scriptEnd)
+      .split('\n')
+      .map((line) => line.replace(/^ {10}/u, ''))
+      .join('\n');
+    try {
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'Test');
+      const mainBranch = git('branch', '--show-current');
+      writeFileSync(path.join(root, 'source.ts'), 'export const value = 1;\n');
+      git('add', '.');
+      git('commit', '-qm', 'source');
+      const source = git('rev-parse', 'HEAD');
+
+      mkdirSync(path.join(root, 'openwiki'));
+      writeFileSync(path.join(root, 'openwiki', 'index.md'), '# Wiki\n');
+      writeFileSync(
+        path.join(root, 'openwiki', '.last-update.json'),
+        JSON.stringify({ status: 'complete', gitHead: source }) + '\n'
+      );
+      git('add', '.');
+      git('commit', '-qm', 'Knowledge branch commit');
+      const knowledge = git('rev-parse', 'HEAD');
+      git(
+        'update-ref',
+        'refs/remotes/origin/lee-spec-kit/knowledge-main',
+        knowledge
+      );
+
+      git('reset', '--hard', source);
+      git(
+        'restore',
+        '--source',
+        knowledge,
+        '--staged',
+        '--worktree',
+        '--',
+        'openwiki'
+      );
+      git('commit', '-qm', 'squash Knowledge into main');
+      const squashed = git('rev-parse', 'HEAD');
+      git('update-ref', 'refs/remotes/origin/main', squashed);
+      expect(() =>
+        git('merge-base', '--is-ancestor', knowledge, squashed)
+      ).toThrow();
+      expect(() =>
+        git(
+          'diff',
+          '--quiet',
+          knowledge,
+          squashed,
+          '--',
+          'openwiki',
+          'AGENTS.md',
+          'CLAUDE.md'
+        )
+      ).not.toThrow();
+
+      writeFileSync(
+        path.join(root, 'openwiki', '.last-update.json'),
+        JSON.stringify({ status: 'complete', gitHead: squashed }) + '\n'
+      );
+      git('add', 'openwiki/.last-update.json');
+      const output = path.join(root, 'output');
+      writeFileSync(output, '');
+      execFileSync('bash', ['-e', '-c', `gh() { :; }\n${publish}`], {
+        cwd: root,
+        env: {
+          ...process.env,
+          SOURCE_SHA: squashed,
+          OPENWIKI_OUTCOME: 'success',
+          OPENWIKI_COMPLETE: 'true',
+          SOURCE_CURRENT: 'true',
+          KNOWLEDGE_BRANCH: 'lee-spec-kit/knowledge-main',
+          GITHUB_OUTPUT: output,
+        },
+        stdio: 'pipe',
+      });
+      expect(readFileSync(output, 'utf8')).toContain('changed=false');
+      expect(git('rev-parse', 'HEAD')).toBe(squashed);
+
+      git(
+        'restore',
+        '--staged',
+        '--worktree',
+        '--',
+        'openwiki/.last-update.json'
+      );
+      git('switch', '-q', '-c', 'unpublished', knowledge);
+      writeFileSync(path.join(root, 'openwiki', 'index.md'), '# Unpublished\n');
+      git('add', 'openwiki/index.md');
+      git('commit', '-qm', 'unpublished checkpoint');
+      const unpublished = git('rev-parse', 'HEAD');
+      git('switch', '-q', mainBranch);
+      expect(() =>
+        git(
+          'diff',
+          '--quiet',
+          unpublished,
+          squashed,
+          '--',
+          'openwiki',
+          'AGENTS.md',
+          'CLAUDE.md'
+        )
+      ).toThrow();
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
