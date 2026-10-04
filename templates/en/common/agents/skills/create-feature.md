@@ -8,9 +8,10 @@ This guide defines how to start or continue a feature in the Codex-native lee-sp
 
 1. Run `npx lee-spec-kit detect --json`.
 2. If detected, read `npx lee-spec-kit docs get agents --json` and any unread follow-up docs.
-3. If the Feature folder does not exist, use `feature <name> --issue <number>` in GitHub mode. Create an Issue first only after sharing its title/body and receiving authorization (`--create-issue --desc "<summary>" --confirm OK`). In local mode, use `feature <name> -d "<description>"`; a random ID is generated. Add `--idea <ref>` only when the user explicitly named that Idea. Never allocate a new F-number.
-4. Resolve the active feature and read its docs: `spec.md`, `plan.md`, `tasks.md`, `decisions.md`.
-5. Run `npx lee-spec-kit workflow-stage <feature-ref> --json` before taking the next workflow action.
+3. Resolve the existing Feature first, retaining the session-selected ID or using an explicit ID/unambiguous branch. Read its `spec.md`, `plan.md`, `tasks.md`, and `decisions.md`. `FEATURE_SELECTION_REQUIRED` means select an existing Feature, not create another one.
+4. If a Feature is in progress, follow `workspace_prepare` / `workspace_enter` before editing its docs, then record additional implementation/correction requests with `task add <feature-ref>` and synchronize its SDD. Questions and analysis alone do not create work items. All tasks DONE does not finish a Feature; require workflow `done`.
+5. Create the first Feature only for requested implementation when none exists. After workflow `done`, newly requested implementation may start a new Feature. During an active Feature, use `--separate` only when the user explicitly requests another Feature or selects a proposed split. GitHub mode requires `feature <name> --issue <number>`; share the title/body and obtain authorization before `--create-issue --desc "<summary>" --confirm OK`. Local mode uses `feature <name> -d "<description>"` with a generated ID. Add `--idea <ref>` only for an explicitly named Idea. Never allocate a new F-number.
+6. Run `npx lee-spec-kit workflow-stage <feature-ref> --json` before taking the next workflow action, including after scope or plan changes.
 
 ## Working Rules
 

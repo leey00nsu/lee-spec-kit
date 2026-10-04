@@ -55,9 +55,13 @@ export function readHookInput() {
   try {
     const raw = fs.readFileSync(0, 'utf8').trim();
     if (!raw) return { ok: true, value: {} };
+    const value = JSON.parse(raw);
+    if (typeof value?.session_id === 'string' && value.session_id.trim()) {
+      process.env.LEE_SPEC_KIT_SESSION_ID = value.session_id.trim();
+    }
     return {
       ok: true,
-      value: JSON.parse(raw),
+      value,
     };
   } catch (error) {
     const message =
@@ -79,8 +83,37 @@ const WORKFLOW_ROOT_RELATIVE = ${JSON.stringify(
         path.relative(path.resolve(repoRoot), path.resolve(workflowRoot))
       )};
 
-export function getWorkflowCwd() {
-  return path.resolve(HOOK_REPO_ROOT, WORKFLOW_ROOT_RELATIVE);
+function docsRepositoryKey(docsDir) {
+  if (typeof docsDir !== 'string' || !path.isAbsolute(docsDir)) return null;
+  const result = spawnSync('git', ['rev-parse', '--git-common-dir', '--show-toplevel'], {
+    cwd: docsDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const [common, gitRoot] = result.status === 0
+    ? String(result.stdout || '').trim().split(/\\r?\\n/) : [];
+  try {
+    const canonicalDocsDir = fs.realpathSync.native(docsDir);
+    return common && gitRoot
+      ? JSON.stringify([
+          fs.realpathSync.native(path.resolve(docsDir, common)),
+          path.relative(fs.realpathSync.native(gitRoot), canonicalDocsDir),
+        ])
+      : canonicalDocsDir;
+  } catch {
+    return null;
+  }
+}
+
+export function getWorkflowCwd(input = {}) {
+  const fallback = path.resolve(HOOK_REPO_ROOT, WORKFLOW_ROOT_RELATIVE);
+  const candidate = typeof input.cwd === 'string' && path.isAbsolute(input.cwd)
+    ? path.resolve(input.cwd) : fallback;
+  if (candidate === fallback) return fallback;
+  const base = runLeeSpecKitJson(['detect', '--json'], fallback).data;
+  const current = runLeeSpecKitJson(['detect', '--json'], candidate).data;
+  const baseKey = docsRepositoryKey(base?.docsDir);
+  return base?.isLeeSpecKitProject === true && current?.isLeeSpecKitProject === true &&
+    baseKey && baseKey === docsRepositoryKey(current.docsDir)
+    ? candidate : fallback;
 }
 
 export function runLeeSpecKit(args, cwd = process.cwd()) {
@@ -156,10 +189,70 @@ export function printBlock(reason) {
     })
   );
 }
+
+export function resolveWorkflowStage(cwd, featureRef) {
+  const initialArgs = featureRef
+    ? ['workflow-stage', featureRef, '--json'] : ['workflow-stage', '--json'];
+  let result = runLeeSpecKitJson(initialArgs, cwd);
+  const fallback = getWorkflowCwd();
+  if (!featureRef && process.env.LEE_SPEC_KIT_SESSION_ID && path.resolve(cwd) !== fallback &&
+      result.ok && result.data?.reasonCode === 'FEATURE_SELECTION_REQUIRED') {
+    result = runLeeSpecKitJson(['workflow-stage', '--json'], fallback);
+  }
+  const selectionSource = result.data?.selectionSource;
+  const visited = new Set([path.resolve(cwd)]);
+  while (result.ok && result.data?.status === 'ok' &&
+      result.data.nextAction?.category === 'workspace_enter') {
+    const stage = result.data;
+    const directory = stage.nextAction.workingDirectory;
+    if (typeof directory !== 'string' || !path.isAbsolute(directory) || visited.has(directory)) {
+      return { ok: false, error: 'Feature workspace handoff could not be resolved.' };
+    }
+    visited.add(directory);
+    const args = ['workflow-stage', stage.featureRef, '--json'];
+    if (stage.component && stage.component !== 'single') args.push('--component', stage.component);
+    const next = runLeeSpecKitJson(args, directory);
+    const baseKey = docsRepositoryKey(stage.docsDir);
+    if (!next.ok || next.data?.status !== 'ok' || next.data.featureRef !== stage.featureRef ||
+        next.data.component !== stage.component ||
+        !baseKey || docsRepositoryKey(next.data.docsDir) !== baseKey) {
+      return { ok: false, error: 'Feature workspace handoff did not match the selected Feature.' };
+    }
+    next.data.selectionSource = selectionSource;
+    result = next;
+  }
+  return result;
+}
+
+export function featureContextLines(stage) {
+  return [
+    \`Selected Feature: \${stage.featureRef}\`,
+    \`Feature selection source: \${stage.selectionSource || 'unknown'}\`,
+    \`Feature docs directory: \${stage.docsDir}\`,
+    \`Feature working directory: \${stage.nextAction?.workingDirectory || stage.workingDirectory || '(resolve workspace first)'}\`,
+    stage.stage === 'done'
+      ? 'This Feature reached workflow done. New implementation work may start a new Feature; completed task history stays unchanged.'
+      : 'Keep additional implementation and correction requests in this Feature as new tasks; synchronize its spec, plan, and decisions when scope changes, then recheck workflow-stage.',
+    'Analysis and questions alone do not create tasks or Features. Create a separate Feature with --separate only for an explicit user request for new work or a split.',
+  ];
+}
+
+export function unresolvedFeatureLines(stage) {
+  const lines = [\`Workflow stage is unresolved: \${stage.reasonCode}\`];
+  if (stage.reasonCode === 'NO_FEATURES') {
+    lines.push('No Feature exists in this docs scope. Create the first Feature only when the user requested implementation.');
+  } else {
+    lines.push('Resolve the existing Feature by explicit ID. Selection failure never authorizes creating a new Feature.');
+  }
+  for (const feature of stage.featureCandidates || []) {
+    lines.push(\`Existing Feature: \${feature.featureRef} (component: \${feature.component})\`);
+  }
+  return lines;
+}
 `;
     case 'session_start_lee_spec_kit.mjs':
       return `#!/usr/bin/env node
-import { getWorkflowCwd, printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { featureContextLines, getWorkflowCwd, printAdditionalContext, readHookInput, resolveWorkflowStage, runLeeSpecKitJson, unresolvedFeatureLines } from './_lee_spec_kit_hook_utils.mjs';
 
 // Equivalent CLI probe: npx lee-spec-kit detect --json
 const inputResult = readHookInput();
@@ -167,13 +260,13 @@ if (!inputResult.ok) {
   process.exit(0);
 }
 const input = inputResult.value;
-const cwd = getWorkflowCwd();
+const cwd = getWorkflowCwd(input);
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 const detected = detectedResult.ok ? detectedResult.data : null;
 
 if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
   const docsDir = detected.docsDir || '(unknown docs dir)';
-  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
+  const stageResult = resolveWorkflowStage(cwd);
   const lines = [
     'lee-spec-kit project detected.',
     'Use lee-spec-kit docs and workflow policy only when explicitly detected.',
@@ -188,6 +281,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
   ];
   if (stageResult.ok && stageResult.data?.status === 'ok') {
     lines.push(
+      ...featureContextLines(stageResult.data),
       \`Current workflow stage: \${stageResult.data.stage}\`,
       \`Next allowed action: \${stageResult.data.nextAction?.category || 'none'}\`,
       \`Approval required: \${stageResult.data.approvalRequired ? 'yes' : 'no'}\`,
@@ -203,8 +297,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
     }
   } else if (stageResult.ok && stageResult.data?.status === 'error') {
     lines.push(
-      \`Workflow stage is unresolved: \${stageResult.data.reasonCode}\`,
-      'Resolve feature selection or create/select the target feature before continuing.'
+      ...unresolvedFeatureLines(stageResult.data)
     );
   }
   printAdditionalContext('SessionStart', lines.join('\\n'));
@@ -219,7 +312,7 @@ if (!inputResult.ok) {
   process.exit(0);
 }
 const input = inputResult.value;
-const cwd = getWorkflowCwd();
+const cwd = getWorkflowCwd(input);
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 const detected = detectedResult.ok ? detectedResult.data : null;
 
@@ -242,19 +335,19 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
 `;
     case 'user_prompt_submit_lee_spec_kit.mjs':
       return `#!/usr/bin/env node
-import { getWorkflowCwd, printAdditionalContext, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { featureContextLines, getWorkflowCwd, printAdditionalContext, readHookInput, resolveWorkflowStage, runLeeSpecKitJson, unresolvedFeatureLines } from './_lee_spec_kit_hook_utils.mjs';
 
 const inputResult = readHookInput();
 if (!inputResult.ok) {
   process.exit(0);
 }
 const input = inputResult.value;
-const cwd = getWorkflowCwd();
+const cwd = getWorkflowCwd(input);
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 const detected = detectedResult.ok ? detectedResult.data : null;
 
 if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
-  const stageResult = runLeeSpecKitJson(['workflow-stage', '--json'], cwd);
+  const stageResult = resolveWorkflowStage(cwd);
   const lines = [
     'This prompt is inside a lee-spec-kit workspace.',
     'Interpret generic rule-following requests through the lee-spec-kit docs workflow automatically.',
@@ -264,6 +357,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
   ];
   if (stageResult.ok && stageResult.data?.status === 'ok') {
     lines.push(
+      ...featureContextLines(stageResult.data),
       \`Current workflow stage: \${stageResult.data.stage}\`,
       \`Next allowed action: \${stageResult.data.nextAction?.category || 'none'}\`,
       \`Approval required: \${stageResult.data.approvalRequired ? 'yes' : 'no'}\`,
@@ -280,8 +374,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
     }
   } else if (stageResult.ok && stageResult.data?.status === 'error') {
     lines.push(
-      \`Workflow stage is unresolved: \${stageResult.data.reasonCode}\`,
-      'Resolve feature selection before attempting implementation.'
+      ...unresolvedFeatureLines(stageResult.data)
     );
   }
   printAdditionalContext('UserPromptSubmit', lines.join('\\n'));
@@ -289,7 +382,7 @@ if (detected?.status === 'ok' && detected?.isLeeSpecKitProject === true) {
 `;
     case 'pre_tool_use_policy.mjs':
       return `#!/usr/bin/env node
-import { getWorkflowCwd, printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { getWorkflowCwd, printBlock, readHookInput, resolveWorkflowStage, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -308,7 +401,7 @@ if (!inputResult.ok) {
 }
 const input = inputResult.value;
 const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
-const workflowCwd = getWorkflowCwd();
+const workflowCwd = getWorkflowCwd(input);
 const command = String(input?.tool_input?.command || '').trim();
 
 function tokenizeShellCommand(value) {
@@ -977,6 +1070,7 @@ if (
 }
 
 let stage = null;
+let commitStage = null;
 const isPotentialMergeCleanupCommand =
   !stageBoundAction &&
   !isGitCommit &&
@@ -994,11 +1088,8 @@ if (hasUnsupportedShellWrappedDangerousCommand && !commandFeatureRef) {
   process.exit(0);
 }
 if (isGitCommit) {
-  const commitStageArgs = commandFeatureRef
-    ? ['workflow-stage', commandFeatureRef, '--json']
-    : ['workflow-stage', '--json'];
-  const commitStageResult = runLeeSpecKitJson(commitStageArgs, workflowCwd);
-  const commitStage = commitStageResult.ok ? commitStageResult.data : null;
+  const commitStageResult = resolveWorkflowStage(workflowCwd, commandFeatureRef);
+  commitStage = commitStageResult.ok ? commitStageResult.data : null;
   if (
     commitStage?.status === 'ok' &&
     commitStage?.nextAction?.category === 'task_execute'
@@ -1011,7 +1102,9 @@ if (stageBoundAction || isPotentialMergeCleanupCommand || hasUnsupportedShellWra
   const stageArgs = commandFeatureRef
     ? ['workflow-stage', commandFeatureRef, '--json']
     : ['workflow-stage', '--json'];
-  let stageResult = runLeeSpecKitJson(stageArgs, workflowCwd);
+  let stageResult = process.env.LEE_SPEC_KIT_SESSION_ID || process.env.CODEX_THREAD_ID
+    ? resolveWorkflowStage(workflowCwd, commandFeatureRef)
+    : runLeeSpecKitJson(stageArgs, workflowCwd);
   const handoff = stageResult.ok ? stageResult.data : null;
   if (
     commandFeatureRef && handoff?.status === 'ok' &&
@@ -1081,7 +1174,8 @@ if (isGitCommit) {
   if (commitMessage) {
     commitAuditArgs.push('--message', commitMessage);
   }
-  const commitAuditResult = runLeeSpecKitJson(commitAuditArgs, workflowCwd);
+  const commitAuditCwd = commitStage?.status === 'ok' ? commitStage.docsDir : workflowCwd;
+  const commitAuditResult = runLeeSpecKitJson(commitAuditArgs, commitAuditCwd);
   if (!commitAuditResult.ok) {
     printBlock('lee-spec-kit commit-audit failed inside the Codex hook. Resolve the docs guardrail failure before committing.');
     process.exit(0);
@@ -1101,7 +1195,20 @@ if (isGitCommit) {
   }
 }
 
-const auditResult = runLeeSpecKitJson(['workflow-audit', '--json'], workflowCwd);
+let auditCwd = workflowCwd;
+if (process.env.LEE_SPEC_KIT_SESSION_ID || process.env.CODEX_THREAD_ID) {
+  let selectedStage = stage || commitStage;
+  if (!selectedStage) {
+    const stageResult = resolveWorkflowStage(workflowCwd, commandFeatureRef);
+    if (!stageResult.ok) {
+      printBlock('The session Feature workspace could not be resolved before workflow audit. Resolve its workflow stage before continuing.');
+      process.exit(0);
+    }
+    selectedStage = stageResult.data;
+  }
+  if (selectedStage?.status === 'ok') auditCwd = selectedStage.docsDir;
+}
+const auditResult = runLeeSpecKitJson(['workflow-audit', '--json'], auditCwd);
 if (!auditResult.ok) {
   printBlock('lee-spec-kit workflow-audit failed inside the Codex hook. Resolve the docs sync guardrail failure before continuing.');
   process.exit(0);
@@ -1117,7 +1224,7 @@ if (!(audit?.status === 'ok' || audit?.status === 'skipped')) {
 `;
     case 'stop_workflow_audit.mjs':
       return `#!/usr/bin/env node
-import { getWorkflowCwd, printBlock, readHookInput, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
+import { getWorkflowCwd, printBlock, readHookInput, resolveWorkflowStage, runLeeSpecKitJson } from './_lee_spec_kit_hook_utils.mjs';
 
 // Equivalent CLI probe: npx lee-spec-kit workflow-audit --json
 const inputResult = readHookInput();
@@ -1131,7 +1238,7 @@ if (input?.stop_hook_active === true) {
   process.exit(0);
 }
 
-const cwd = getWorkflowCwd();
+const cwd = getWorkflowCwd(input);
 const detectedResult = runLeeSpecKitJson(['detect', '--json'], cwd);
 if (!detectedResult.ok) {
   printBlock('lee-spec-kit detection failed inside the stop hook. Resolve the local CLI or hook setup before stopping.');
@@ -1143,7 +1250,16 @@ if (!(detected?.status === 'ok' && detected?.isLeeSpecKitProject === true)) {
   process.exit(0);
 }
 
-const auditResult = runLeeSpecKitJson(['workflow-audit', '--json'], cwd);
+let auditCwd = cwd;
+if (process.env.LEE_SPEC_KIT_SESSION_ID || process.env.CODEX_THREAD_ID) {
+  const stageResult = resolveWorkflowStage(cwd);
+  if (!stageResult.ok) {
+    printBlock('The session Feature workspace could not be resolved before workflow audit. Resolve its workflow stage before stopping.');
+    process.exit(0);
+  }
+  if (stageResult.data?.status === 'ok') auditCwd = stageResult.data.docsDir;
+}
+const auditResult = runLeeSpecKitJson(['workflow-audit', '--json'], auditCwd);
 if (!auditResult.ok) {
   printBlock('lee-spec-kit workflow-audit failed inside the stop hook. Resolve the docs sync guardrail failure before stopping.');
   process.exit(0);

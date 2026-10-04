@@ -30,6 +30,7 @@
   - 태스크를 닫을 때는 같은 수정에서 `Acceptance`와 `Checklist`도 함께 갱신합니다
   - 완료된 태스크에 후속 작업이 생기면 히스토리를 고치지 말고 새 태스크를 추가합니다
 - 새 태스크를 추가해야 한다면 `tasks.md`에 구체적인 제목, `Acceptance`, `Checklist`, 그리고 `NON-PRD` 또는 기존 `PRD-*` 태그가 있는 완전한 태스크 블록을 추가하세요.
+- 사용자의 추가 구현·수정 요청은 기본적으로 선택한 Feature에 새 task로 기록합니다. 관리되는 workspace에서 `task add <feature-ref>`를 사용하며, 분석·질문만으로 작업 항목을 만들지 않습니다. 선택 실패를 다른 Feature 생성 사유로 삼지 않고, `--separate`는 별도 Feature를 명시적으로 요청받거나 사용자가 분할을 선택했을 때만 사용합니다.
 - 새 태스크에 placeholder `Acceptance` 또는 `Checklist`를 남기지 않습니다.
 
 ## 3. 문서 동기화

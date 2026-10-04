@@ -21,6 +21,14 @@ Default runtime path:
 - Infer the workflow automatically even for generic rule-following requests.
 - Avoid launching the first `npx lee-spec-kit ...` calls in parallel in a fresh environment; let one initial command finish so the npx cache install does not race.
 
+Additional user requests during a Feature:
+
+- Resolve and retain the selected Feature before interpreting a new request. Additional implementation and correction requests belong to that Feature as new task blocks by default, including follow-up work after an individual task is DONE.
+- Use `task add <feature-ref>` from the Feature's managed workspace; synchronize Spec, Plan, Tasks, and Decisions as needed, and rerun `workflow-stage` to honor changed review/approval targets before implementation.
+- Analysis and questions alone do not create tasks or Features. A Feature stays in progress until `workflow-stage` reports `done`; all tasks being DONE is not sufficient.
+- `FEATURE_SELECTION_REQUIRED` means select an existing Feature by ID, never create a replacement. Preserve the session-selected ID and workspace across turns, resume, and compaction; do not select by recency.
+- Create a separate Feature with `feature <name> --separate` only when the user explicitly requests new work in another Feature or chooses a proposed split. A larger request or a split threshold alone does not authorize separation. Once the selected Feature reaches `done`, newly requested implementation may start a new Feature without `--separate`.
+
 On primary-agent session start or after context compression/reset:
 
 1. Run `npx lee-spec-kit detect --json`

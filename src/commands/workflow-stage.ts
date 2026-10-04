@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import { toCliError } from '../utils/cli-error.js';
 import { collectWorkflowStage } from '../utils/workflow-stage.js';
+import { getConfig } from '../utils/config.js';
+import { getFeatureSessionId, writeFeatureSession } from '../utils/feature-session.js';
 
 interface WorkflowStageOptions {
   json?: boolean;
@@ -20,6 +22,26 @@ export function workflowStageCommand(program: Command): void {
           featureName,
           options.component
         );
+        if (
+          payload.status === 'ok' &&
+          getFeatureSessionId() &&
+          payload.featureId &&
+          payload.featureRef &&
+          payload.docsDir
+        ) {
+          const workingDirectory =
+            payload.nextAction?.workingDirectory ||
+            payload.workingDirectory ||
+            process.cwd();
+          const workspaceConfig = await getConfig(workingDirectory);
+          await writeFeatureSession(payload.docsDir, {
+            featureId: payload.featureId,
+            featureRef: payload.featureRef,
+            component: payload.component || 'single',
+            docsDirectory: workspaceConfig?.docsDir || payload.docsDir,
+            projectDirectory: payload.workingDirectory || workingDirectory,
+          });
+        }
         if (options.json) {
           console.log(JSON.stringify(payload, null, 2));
           return;

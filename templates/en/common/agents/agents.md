@@ -36,6 +36,14 @@ This document defines workflow policy, not a custom runtime loop.
 - After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
 - If `workflow-stage --json` also returns payload-level `primaryActionLabel` and `actionOptions` (mirrored inside `nextAction`), treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 
+## Additional requests during a Feature
+
+- Retain the selected Feature across turns, resume, and compaction. Additional implementation and correction requests become new task blocks in that Feature by default; follow-up on a DONE task also becomes a new task.
+- Use `task add <feature-ref>` from the managed Feature workspace and synchronize Spec, Plan, Tasks, and Decisions as needed. Rerun `workflow-stage` so scope/design changes honor the current review hashes and approval boundaries.
+- Analysis and questions alone do not create tasks or Features. The Feature remains in progress until `workflow-stage` reports `done`, even if every task is DONE.
+- `FEATURE_SELECTION_REQUIRED` means select an existing Feature explicitly; it never authorizes creating a replacement. Do not use folder recency to recover selection.
+- Use `feature <name> --separate` only for an explicit user request for another Feature or a user-selected split. Request size or a split threshold alone is not authorization. Newly requested implementation after workflow `done` may start a new Feature without `--separate`.
+
 ## Document Routing
 
 | Content                                                   | SSOT location                       |

@@ -6,6 +6,8 @@ Use this guide when one Feature/Issue becomes too large to review safely.
 
 ## Threshold policy
 
+Thresholds authorize a split proposal only. Keep additional requests in the selected Feature until the user chooses the split; only then create children with `feature <name> --separate`.
+
 - Split suggestion starts when:
   - `tasks.md` task count is `>= 40`, or
   - `decisions.md` line count is `>= 1200`.
@@ -93,4 +95,3 @@ Keep every PR independently reviewable and releasable.
 4. Move TODO tasks to the correct child feature.
 5. Record dependencies and merge order.
 6. Continue implementation per child feature.
-

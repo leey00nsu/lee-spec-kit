@@ -6,6 +6,8 @@
 
 ## 임계값 정책
 
+임계값은 분할 제안 기준입니다. 사용자가 분할을 선택할 때까지 추가 요청은 선택한 Feature에 유지하고, 선택 후에만 `feature <name> --separate`로 child Feature를 생성합니다.
+
 - 분할 제안 시작 기준:
   - `tasks.md` 태스크 수 `>= 40`, 또는
   - `decisions.md` 줄 수 `>= 1200`.
@@ -93,4 +95,3 @@
 4. TODO를 올바른 child feature로 이관합니다.
 5. 의존성/머지 순서를 문서화합니다.
 6. child feature 단위로 구현을 재개합니다.
-

@@ -8,9 +8,10 @@
 
 1. `npx lee-spec-kit detect --json`를 실행합니다.
 2. 감지되면 `npx lee-spec-kit docs get agents --json`과 아직 읽지 않은 후속 문서를 확인합니다.
-3. Feature 폴더가 없다면 GitHub 모드에서는 `feature <name> --issue <number>`로 Issue를 먼저 연결합니다. 새 Issue가 필요하면 제목·본문을 공유하고 승인받은 뒤 `--create-issue --desc "<요약>" --confirm OK`로 생성합니다. local 모드는 `feature <name> -d "<설명>"`으로 무작위 ID를 생성합니다. 사용자가 Idea를 명시한 경우에만 `--idea <ref>`를 추가합니다. 새 F번호를 배정하지 않습니다.
-4. 활성 feature를 정하고 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 읽습니다.
-5. 다음 workflow 액션을 시작하기 전에 `npx lee-spec-kit workflow-stage <feature-ref> --json`를 실행합니다.
+3. 기존 Feature를 먼저 결정합니다. 세션에서 선택한 ID를 유지하거나 명시적인 ID·분명한 현재 브랜치를 사용하고 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`를 읽습니다. `FEATURE_SELECTION_REQUIRED`는 기존 Feature를 선택하라는 뜻이며 새 생성 사유가 아닙니다.
+4. 진행 중인 Feature가 있으면 문서 편집 전 `workspace_prepare` / `workspace_enter`를 따릅니다. 추가 구현·수정 요청은 `task add <feature-ref>`로 해당 Feature에 기록하고 SDD를 동기화합니다. 질문과 분석만으로 작업 항목을 만들지 않습니다. 모든 task가 DONE이어도 workflow `done` 전에는 Feature가 끝난 것이 아닙니다.
+5. Feature가 없고 구현을 요청받은 경우 첫 Feature를 생성합니다. workflow `done` 이후 새로 요청한 구현도 새 Feature로 시작할 수 있습니다. 진행 중에 사용자가 별도 Feature를 명시적으로 요청하거나 제안한 분할을 선택한 경우에만 `--separate`를 사용합니다. GitHub 모드는 `feature <name> --issue <number>`로 Issue를 연결하고, 새 Issue는 제목·본문을 공유하고 승인받은 뒤 `--create-issue --desc "<요약>" --confirm OK`로 생성합니다. local 모드는 `feature <name> -d "<설명>"`으로 무작위 ID를 생성합니다. 사용자가 Idea를 명시한 경우에만 `--idea <ref>`를 추가하고 새 F번호를 배정하지 않습니다.
+6. 범위·계획 변경 후를 포함해 다음 workflow 액션 전에 `npx lee-spec-kit workflow-stage <feature-ref> --json`를 실행합니다.
 
 ## 작업 규칙
 

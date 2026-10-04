@@ -248,6 +248,11 @@ export interface WorkflowStagePayload {
   sharedDocumentationWarnings?: Array<{ feature: string; targets: string[] }>;
   docsDir: string | null;
   featureRef: string | null;
+  featureId?: string;
+  component?: string;
+  workingDirectory?: string;
+  selectionSource?: FeatureSelectionState['source'];
+  featureCandidates?: Array<{ featureRef: string; component: string }>;
   stage: WorkflowStageId | null;
   nextAction: WorkflowStageAction | null;
   approvalRequired: boolean;
@@ -3155,6 +3160,10 @@ function resolveFeatureSelectionError(
     reasonCode,
     docsDir: selection.config.docsDir,
     featureRef: null,
+    featureCandidates: selection.features.map((feature) => ({
+      featureRef: feature.folderName,
+      component: feature.type,
+    })),
     stage: null,
     nextAction: null,
     approvalRequired: false,
@@ -3305,6 +3314,10 @@ export async function collectWorkflowStage(cwd: string, selector?: string, compo
   const selection = await resolveFeatureSelection(cwd, selector, component);
   const feature = selection.matchedFeature;
   if (!feature) return result;
+  result.featureId = feature.id;
+  result.component = feature.type;
+  result.workingDirectory = feature.git.projectGitCwd;
+  result.selectionSource = selection.source;
   const tasks = await readFileIfExists(path.join(feature.path, 'tasks.md')) || '';
   result.tasksHash = createHash('sha256').update(tasks).digest('hex');
   const ownPlan = await readFileIfExists(path.join(feature.path, 'plan.md')) || '';

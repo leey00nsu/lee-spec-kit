@@ -19,6 +19,8 @@ These codes are shared by major commands (`init`, `feature`, `config`, `update`,
 | `INVALID_APPROVAL` | Invalid approval reply format/label | `--approve` does not match `<LABEL>` / `<LABEL> OK` pattern |
 | `APPROVAL_REQUIRED` | Required approval value is missing | Using `--execute` without `--approve` |
 | `CONTEXT_SELECTION_REQUIRED` | A single feature selection is required | Multiple/no feature selected for approval execution |
+| `FEATURE_SELECTION_REQUIRED` | An existing Feature must be selected explicitly | Unresolved or missing session target; does not authorize creating a replacement |
+| `ACTIVE_FEATURE_EXISTS` | This session's selected Feature is still in progress | Add a follow-up task; use `--separate` only for an explicit request for another Feature or a user-selected split |
 | `NO_ACTION_OPTIONS` | No approvable action options available | No actions in current step |
 | `CONTEXT_STALE` | Context changed after approval request | State changed after label approval |
 | `ACTION_NOT_AVAILABLE` | Approved label is no longer available | Action list changed |

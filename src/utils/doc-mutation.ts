@@ -2,8 +2,15 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import { createCliError } from './cli-error.js';
 import { getLocalDateString } from './date.js';
-import { resolveFeatureSelection, type ResolvedFeature } from './feature-resolver.js';
+import {
+  resolveFeatureSelection,
+  type ResolvedFeature,
+} from './feature-resolver.js';
 import { parseTaskLine } from './task-lines.js';
+import { resolveDocsWorkspace } from './feature-workspace.js';
+import { getConfig } from './config.js';
+import { isRegisteredGitWorktree } from './standalone-workspace.js';
+import { runGitCapture } from './git-run.js';
 
 export interface FeatureDocMutationTarget {
   feature: ResolvedFeature;
@@ -69,7 +76,71 @@ export async function resolveFeatureDocTarget(input: {
     );
   }
 
-  const targetPath = path.join(state.matchedFeature.path, input.fileName);
+  let feature = state.matchedFeature;
+  const docsWorkspace = await resolveDocsWorkspace(state.config, feature);
+  if (
+    state.config.docsRepo === 'standalone' &&
+    !/^F\d{3,}$/.test(feature.id) &&
+    !docsWorkspace
+  ) {
+    throw createCliError(
+      'PRECONDITION_FAILED',
+      'The selected Feature requires registered docs workspace metadata.'
+    );
+  }
+  let workspaceCwd: string | null = null;
+  if (docsWorkspace && (docsWorkspace.current || !docsWorkspace.integrated)) {
+    if (!isRegisteredGitWorktree(docsWorkspace.root, docsWorkspace.directory)) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'Prepare the registered Feature docs workspace before editing its documents.'
+      );
+    }
+    const branch = runGitCapture(
+      ['branch', '--show-current'],
+      docsWorkspace.directory
+    );
+    if (branch !== docsWorkspace.branch) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        `Docs workspace branch mismatch: expected ${docsWorkspace.branch}, received ${branch || '(detached)'}.`
+      );
+    }
+    const registration = await fs.readJson(
+      path.join(
+        docsWorkspace.docsDirectory,
+        feature.docs.featurePathFromDocs,
+        '.feature.json'
+      )
+    ).catch(() => null);
+    if (registration?.id !== feature.id) {
+      throw createCliError(
+        'PRECONDITION_FAILED',
+        'The docs workspace does not contain the selected Feature registration.'
+      );
+    }
+    if (!docsWorkspace.current) workspaceCwd = docsWorkspace.docsDirectory;
+  } else if (state.config.docsRepo !== 'standalone' && feature.git.managedWorktree) {
+    workspaceCwd = feature.git.projectGitCwd;
+  }
+  if (workspaceCwd) {
+    const workspaceConfig = await getConfig(workspaceCwd);
+    if (workspaceConfig && workspaceConfig.docsDir !== state.config.docsDir) {
+      const workspaceSelection = await resolveFeatureSelection(
+        workspaceCwd,
+        feature.folderName,
+        feature.type === 'single' ? undefined : feature.type
+      );
+      if (!workspaceSelection.matchedFeature) {
+        throw createCliError(
+          'FEATURE_SELECTION_REQUIRED',
+          'The managed workspace no longer contains the selected Feature.'
+        );
+      }
+      feature = workspaceSelection.matchedFeature;
+    }
+  }
+  const targetPath = path.join(feature.path, input.fileName);
   if (!(await fs.pathExists(targetPath))) {
     throw createCliError(
       'PRECONDITION_FAILED',
@@ -78,7 +149,7 @@ export async function resolveFeatureDocTarget(input: {
   }
 
   return {
-    feature: state.matchedFeature,
+    feature,
     path: targetPath,
   };
 }

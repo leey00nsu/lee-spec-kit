@@ -5148,6 +5148,27 @@ test('workflow-stage parses Korean workflow docs and keeps the issue gate before
   });
 });
 
+test('session creation waits for local verification, integration, and cleanup before accepting new work', async () => {
+  await withTempDir('lsk-session-after-done-', async (dir) => {
+    await prepareCompletedLocalFeature(dir);
+    const env = { LEE_SPEC_KIT_SESSION_ID: 'local-completion-session' };
+    const before = await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], env);
+    assert.equal(JSON.parse(before.stdout).stage, 'local_merge');
+    const blocked = await runCli(dir, ['feature', 'followup', '--json'], env);
+    assert.equal(blocked.code, 1);
+    assert.equal(JSON.parse(blocked.stdout).reasonCode, 'ACTIVE_FEATURE_EXISTS');
+    const merge = await runCli(dir, ['local', 'merge', 'F001-alpha', '--confirm', 'OK', '--json'], env);
+    assert.equal(merge.code, 0, merge.stderr || merge.stdout);
+    const cleanup = await runCli(dir, ['local', 'cleanup', 'F001-alpha', '--json'], env);
+    assert.equal(cleanup.code, 0, cleanup.stderr || cleanup.stdout);
+    const done = await runCli(dir, ['workflow-stage', 'F001-alpha', '--json'], env);
+    assert.equal(JSON.parse(done.stdout).stage, 'done');
+    const created = await runCli(dir, ['feature', 'followup', '--json'], env);
+    assert.equal(created.code, 0, created.stderr || created.stdout);
+    assert.equal(JSON.parse(created.stdout).reasonCode, 'FEATURE_CREATED');
+  });
+});
+
 test('workflow-stage reports NO_FEATURES when the project has no features yet', async () => {
   await withTempDir('lsk-workflow-stage-no-features-', async (dir) => {
     const gitInit = await runCommand(dir, 'git', ['init']);

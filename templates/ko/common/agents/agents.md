@@ -36,6 +36,14 @@
 - 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
 - `workflow-stage --json`가 payload 최상위 `primaryActionLabel`과 `actionOptions`를 같이 반환하면(`nextAction` 안에도 동일하게 미러링됨), `primaryActionLabel`은 기본 옵션 라벨로 보고 사용자에게는 `actionOptions[*].reply` 값을 그대로 보여줍니다.
 
+## Feature 진행 중 추가 요청
+
+- 턴 전환·재개·컨텍스트 압축 뒤에도 선택한 Feature를 유지합니다. 추가 구현·수정 요청은 기본적으로 해당 Feature에 새 task 블록으로 기록하며, DONE task의 후속 작업도 새 task로 추가합니다.
+- 관리되는 Feature workspace에서 `task add <feature-ref>`를 사용하고 필요한 Spec·Plan·Tasks·Decisions를 동기화합니다. 범위·설계 변경 후 `workflow-stage`를 다시 실행해 현재 리뷰 hash와 승인 경계를 따릅니다.
+- 분석과 질문만으로 task나 Feature를 생성하지 않습니다. 모든 task가 DONE이어도 `workflow-stage`가 `done`을 반환할 때까지 Feature는 진행 중입니다.
+- `FEATURE_SELECTION_REQUIRED`는 기존 Feature를 ID로 선택하라는 뜻이며 대체 Feature 생성 허가가 아닙니다. 최근 폴더를 골라 선택을 복구하지 않습니다.
+- 사용자가 별도 Feature를 명시적으로 요청하거나 제안한 분할을 선택한 경우에만 `feature <name> --separate`를 사용합니다. 요청 크기나 분할 임계값만으로 분리하지 않습니다. workflow `done` 이후 새로 요청한 구현은 `--separate` 없이 새 Feature로 시작할 수 있습니다.
+
 ## 문서 라우팅
 
 | 내용                                         | SSOT 위치                     |

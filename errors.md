@@ -17,6 +17,8 @@
 | `INVALID_ARGUMENT` | 인자/입력값이 유효하지 않음 | 잘못된 옵션 조합 또는 알 수 없는 문서 ID |
 | `APPROVAL_REQUIRED` | 원격/승인 필요 작업에 확인값 누락 | `github issue --create`, `github pr --create` 계열에서 확인 토큰 누락 |
 | `CONTEXT_SELECTION_REQUIRED` | 단일 Feature 선택이 필요함 | Feature 후보가 없거나 다수인데 selector가 없음 |
+| `FEATURE_SELECTION_REQUIRED` | 기존 Feature를 명시적으로 선택해야 함 | 세션 연결 대상이 없거나 여러 후보 중 선택이 필요하며, 새 Feature 생성 사유로 사용하지 않음 |
+| `ACTIVE_FEATURE_EXISTS` | 같은 세션의 Feature가 아직 진행 중임 | 추가 요청은 기존 Feature의 task로 기록하고, 명시적인 별도 Feature 요청·분할에만 `--separate` 사용 |
 | `EXECUTION_FAILED` | 외부 명령 실행 실패 | `git`/`gh` 실행 실패 |
 | `VALIDATION_FAILED` | 문서 또는 입력 검증 실패 | 필수 필드/형식 불일치 |
 | `UNKNOWN_ERROR` | 분류되지 않은 예외 | 미분류 런타임 에러 |

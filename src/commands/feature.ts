@@ -1,7 +1,11 @@
 import { newLocalFeatureId } from '../utils/feature-identity.js';
 import { runProcess } from './github/process.js';
 import { runGitCapture } from '../utils/git-run.js';
-import { resolveStandaloneProjectRoots } from '../utils/standalone-workspace.js';
+import {
+  resolveGitPrimaryWorktreeRoot,
+  resolveGitTopLevelOrNull,
+  resolveStandaloneProjectRoots,
+} from '../utils/standalone-workspace.js';
 import { Command } from 'commander';
 import prompts from 'prompts';
 import chalk from 'chalk';
@@ -37,9 +41,16 @@ import { applyLocalWorkflowTemplateToFeatureDir } from '../utils/local-workflow-
 import { getTemplatesDir } from '../utils/paths.js';
 import { sleep } from '../utils/async.js';
 import { resolveIdeaReference } from '../utils/idea-promotion.js';
+import { getSchemaAdapterForConfig } from '../adapters/schema/index.js';
+import type { ProjectConfig } from '../config/types.js';
+import { resolveFeatureSelection } from '../utils/feature-resolver.js';
+import { collectWorkflowStage } from '../utils/workflow-stage.js';
 import {
-  getSchemaAdapterForConfig,
-} from '../adapters/schema/index.js';
+  getFeatureSessionId,
+  readFeatureSession,
+  withFeatureSessionCreationLock,
+  writeFeatureSession,
+} from '../utils/feature-session.js';
 
 export interface FeatureOptions {
   component?: string;
@@ -52,6 +63,7 @@ export interface FeatureOptions {
   idea?: string;
   nonInteractive?: boolean;
   json?: boolean;
+  separate?: boolean;
 }
 
 export interface FeatureRunResult {
@@ -72,6 +84,10 @@ export function featureCommand(program: Command): void {
     .option('--create-issue', 'Create the GitHub issue first using name and --desc')
     .option('--confirm <token>', 'OK authorizes --create-issue')
     .option('--owner <owner>', 'Single Feature owner (default: git user.email)')
+    .option(
+      '--separate',
+      'Create a separate Feature only when the user explicitly requested new work or a split'
+    )
     .option('-d, --desc <description>', 'Feature description for spec.md')
     .option('--idea <ref>', 'Idea reference to promote (I001 | I001-slug | docs/ideas/...)')
     .option('--non-interactive', 'Fail instead of prompting for input')
@@ -122,6 +138,7 @@ export function featureCommand(program: Command): void {
               status: 'error',
               reasonCode: cliError.code,
               error: cliError.message,
+              details: cliError.details,
               suggestions,
             })
           );
@@ -156,7 +173,87 @@ export async function runFeature(
       tr(DEFAULT_LANG, 'cli', 'common.docsNotFound')
     );
   }
+  const resolvedConfig = config;
 
+  return withFeatureSessionCreationLock(config.docsDir, () =>
+    runFeatureCore(name, options, cwd, resolvedConfig)
+  );
+}
+
+async function assertFeatureCreationAllowed(
+  cwd: string,
+  config: ProjectConfig,
+  options: FeatureOptions
+): Promise<void> {
+  if (!getFeatureSessionId() || options.separate) return;
+  const binding = await readFeatureSession(config.docsDir);
+  const selection = await resolveFeatureSelection(
+    cwd,
+    binding?.featureRef,
+    binding?.component
+  );
+  if (selection.status === 'no_features' && !binding) return;
+  const feature = selection.matchedFeature;
+  if (!feature) {
+    throw createCliError(
+      'FEATURE_SELECTION_REQUIRED',
+      'Resolve the existing Feature before creating another. A selection failure is not permission to create a Feature. Use --separate only for an explicit user request for a new Feature or split.'
+    );
+  }
+  // Reject an actual duplicate; reusing a legacy ID in another component is new work.
+  if (
+    [options.id, options.issue].includes(feature.id) &&
+    (!/^F\d{3,}$/.test(feature.id) ||
+      feature.type ===
+        (config.projectType === 'multi' ? options.component : 'single'))
+  ) {
+    throw createCliError(
+      'FEATURE_ID_EXISTS',
+      `Feature ${feature.id} already exists in this project.`
+    );
+  }
+  let stageCwd = cwd;
+  const visited = new Set<string>();
+  let stage = await collectWorkflowStage(
+    stageCwd,
+    feature.folderName,
+    feature.type === 'single' ? undefined : feature.type
+  );
+  while (
+    stage.status === 'ok' &&
+    stage.nextAction?.category === 'workspace_enter'
+  ) {
+    const directory = stage.nextAction.workingDirectory;
+    if (!directory || visited.has(directory)) break;
+    visited.add(directory);
+    stageCwd = directory;
+    stage = await collectWorkflowStage(
+      stageCwd,
+      feature.folderName,
+      feature.type === 'single' ? undefined : feature.type
+    );
+  }
+  if (stage.status === 'ok' && stage.stage === 'done') return;
+  const featureArgs = `${feature.folderName}${feature.type === 'single' ? '' : ` --component ${feature.type}`}`;
+  throw createCliError(
+    'ACTIVE_FEATURE_EXISTS',
+    `Feature ${feature.folderName} is still in progress. Add the follow-up to its tasks.md after entering its managed workspace. Use --separate only when the user explicitly requested another Feature or a split.`,
+    {
+      featureRef: feature.folderName,
+      component: feature.type,
+      workingDirectory: stageCwd,
+      stage: stage.stage,
+      command: `npx lee-spec-kit workflow-stage ${featureArgs} --json`,
+    }
+  );
+}
+
+async function runFeatureCore(
+  name: string,
+  options: FeatureOptions,
+  cwd: string,
+  config: ProjectConfig
+): Promise<FeatureRunResult> {
   const { docsDir, projectType, lang } = config;
   const projectName = config.projectName;
   const schemaAdapter = getSchemaAdapterForConfig(config);
@@ -219,9 +316,44 @@ export async function runFeature(
     assertAllowedComponent(component, configuredComponents);
   }
 
+  // Check before Issue creation or any other remote or document mutation.
+  await assertFeatureCreationAllowed(cwd, config, { ...options, component });
+  const docsGitRoot = resolveGitTopLevelOrNull(docsDir);
+  if (docsGitRoot) {
+    const canonicalDocsDir = await fs.realpath(docsDir);
+    const primaryDocsDir = path.join(
+      await fs.realpath(resolveGitPrimaryWorktreeRoot(docsDir)),
+      path.relative(await fs.realpath(docsGitRoot), canonicalDocsDir)
+    );
+    if (primaryDocsDir !== canonicalDocsDir) {
+      const primaryConfig = await getConfig(primaryDocsDir);
+      if (
+        !primaryConfig ||
+        (await fs.realpath(primaryConfig.docsDir)) !== primaryDocsDir
+      ) {
+        throw createCliError(
+          'PRECONDITION_FAILED',
+          `The primary checkout does not contain the same docs scope: ${primaryDocsDir}`
+        );
+      }
+      return runFeatureCore(
+        name,
+        { ...options, component },
+        primaryDocsDir,
+        primaryConfig
+      );
+    }
+  }
+
   const githubMode = config.workflow?.mode !== 'local';
-  if (options.issue && options.createIssue || options.id && (options.issue || options.createIssue)) {
-    throw createCliError('INVALID_ARGUMENT', 'Use exactly one of --id, --issue, or --create-issue.');
+  if (
+    (options.issue && options.createIssue) ||
+    (options.id && (options.issue || options.createIssue))
+  ) {
+    throw createCliError(
+      'INVALID_ARGUMENT',
+      'Use exactly one of --id, --issue, or --create-issue.'
+    );
   }
   if (!githubMode && (options.issue || options.createIssue)) {
     throw createCliError('INVALID_ARGUMENT', 'Issue binding requires GitHub mode.');
@@ -234,7 +366,7 @@ export async function runFeature(
   }
   const projectCwd = config.docsRepo === 'standalone'
     ? resolveStandaloneProjectRoots(config, component || undefined)[0]
-    : cwd;
+    : resolveGitTopLevelOrNull(cwd) || cwd;
   if (!projectCwd) throw createCliError('PRECONDITION_FAILED', 'Project repository is required.');
   const owner = options.owner?.trim() || runGitCapture(['config', 'user.email'], projectCwd) || null;
   let issue: { number: number; url: string; title: string } | null = null;
@@ -252,7 +384,14 @@ export async function runFeature(
       if (options.confirm !== 'OK' || !options.desc?.trim()) {
         throw createCliError('APPROVAL_REQUIRED', 'Share the issue title (name) and body (--desc), then use --create-issue --confirm OK.');
       }
-      issueRef = gh(['issue', 'create', '--title', name, '--body', options.desc]);
+      issueRef = gh([
+        'issue',
+        'create',
+        '--title',
+        name,
+        '--body',
+        options.desc,
+      ]);
     }
     issue = JSON.parse(gh(['issue', 'view', issueRef!, '--json', 'number,url,title']));
     if (!issue || !Number.isSafeInteger(issue.number) || issue.number <= 0 || !/^https:\/\//.test(issue.url)) {
@@ -276,7 +415,6 @@ export async function runFeature(
       } else {
         featureId = issue ? String(issue.number) : newLocalFeatureId();
       }
-
 
       if (!schemaAdapter?.resolveFeaturePaths) {
         throw createCliError(
@@ -417,6 +555,14 @@ export async function runFeature(
         await fs.writeFile(path.join(featureDir, 'issue.md'),
           `# Issue: ${issue.title}\n\n- **Status**: Ready\n- **Title**: ${issue.title}\n- **Issue**: ${issue.url}\n\n${options.desc || ''}\n\n## Related Docs\n\n- [Spec](spec.md)\n- [Plan](plan.md)\n- [Tasks](tasks.md)\n\nIssue binding does not approve implementation; follow the Spec and Plan gates.\n`);
       }
+
+      await writeFeatureSession(docsDir, {
+        featureId,
+        featureRef: featureFolderName,
+        component: component || 'single',
+        docsDirectory: docsDir,
+        projectDirectory: projectCwd,
+      });
 
       if (!options.json) {
         console.log();

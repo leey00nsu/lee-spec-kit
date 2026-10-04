@@ -4,6 +4,7 @@ import { listLeeSpecFeatures } from '../adapters/schema/lee-spec-kit/feature.js'
 import type { ProjectConfig } from '../config/types.js';
 import { getConfig } from './config.js';
 import { createCliError } from './cli-error.js';
+import { readFeatureSession } from './feature-session.js';
 import { runGitCapture } from './git-run.js';
 import {
   isRegisteredGitWorktree,
@@ -42,6 +43,7 @@ export interface FeatureSelectionState {
   features: ResolvedFeature[];
   matchedFeature: ResolvedFeature | null;
   status: FeatureSelectionStatus;
+  source?: 'explicit' | 'session' | 'branch' | 'single';
 }
 
 const BRANCH_LABELS = ['Branch', '브랜치'];
@@ -53,7 +55,7 @@ export function requiresManagedFeatureWorktree(config: ProjectConfig, featureId?
   const legacyStrictRequiresWorktree =
     !hasCanonicalMode && workflow.preset === 'strict';
   return (
-    !!featureId && !/^F\d{3,}$/.test(featureId) ||
+    (!!featureId && !/^F\d{3,}$/.test(featureId)) ||
     config.docsRepo === 'standalone' ||
     (workflow.requireWorktree ?? legacyStrictRequiresWorktree)
   );
@@ -104,7 +106,11 @@ function resolveProjectGitCwd(
     return projectRoot;
   }
 
-  return resolveGitTopLevelOrNull(cwd) || resolveGitTopLevelOrNull(config.docsDir) || cwd;
+  return (
+    resolveGitTopLevelOrNull(cwd) ||
+    resolveGitTopLevelOrNull(config.docsDir) ||
+    cwd
+  );
 }
 
 function resolveProjectRootFromGitCwd(projectGitCwd: string): string {
@@ -178,7 +184,7 @@ async function extractIssueNumber(featureDir: string): Promise<number | undefine
   const tasksPath = path.join(featureDir, 'tasks.md');
   if (!(await fs.pathExists(tasksPath))) return undefined;
   const content = await fs.readFile(tasksPath, 'utf-8');
-  const match = content.match(/^\s*-\s+\*\*Issue\*\*:\s*#(\d+)\s*$/mi);
+  const match = content.match(/^\s*-\s+\*\*Issue\*\*:\s*#(\d+)\s*$/im);
   if (!match) return undefined;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : undefined;
@@ -262,7 +268,10 @@ function getBranchMatchRoots(
 ): string[] {
   if (config.docsRepo === 'standalone') {
     if (!resolveConfiguredStandaloneWorkspaceRoot(config)) return [];
-    return resolveStandaloneProjectRoots(config, component);
+    return [
+      config.docsDir,
+      ...resolveStandaloneProjectRoots(config, component),
+    ];
   }
 
   return [
@@ -286,12 +295,18 @@ function matchFeaturesFromBranches(
       runGitCapture(['rev-parse', '--abbrev-ref', 'HEAD'], root) ||
       '';
     const target = parseFeatureBranchTarget(branchName);
-    if (!target) continue;
+    const docsTarget = branchName.match(/^docs\/(.+)$/i)?.[1]?.toLowerCase();
+    if (!target && !docsTarget) continue;
 
     for (const feature of features) {
       if (
         feature.folderName.toLowerCase() === target ||
-        (feature.issueNumber ? `${feature.issueNumber}-${feature.slug}` : feature.slug).toLowerCase() === target
+        (feature.issueNumber
+          ? `${feature.issueNumber}-${feature.slug}`
+          : feature.slug
+        ).toLowerCase() === target ||
+        (config.docsRepo === 'standalone' &&
+          `${feature.type}-${feature.id}`.toLowerCase() === docsTarget)
       ) {
         matched.set(`${feature.type}:${feature.folderName}`, feature);
       }
@@ -314,23 +329,47 @@ export async function resolveFeatureSelection(
   const normalizedComponent = normalizeComponent(component);
   const features = await listResolvedFeatures(cwd, config, normalizedComponent);
   if (features.length === 0) {
+    const binding = (selector || '').trim()
+      ? null
+      : await readFeatureSession(config.docsDir);
     return {
       config,
       features,
       matchedFeature: null,
-      status: 'no_features',
+      status: binding ? 'no_match' : 'no_features',
+      source: binding ? 'session' : undefined,
     };
   }
 
   let matches: ResolvedFeature[] = [];
+  let source: FeatureSelectionState['source'];
   if ((selector || '').trim()) {
+    source = 'explicit';
     matches = features.filter((feature) =>
       matchesFeatureSelector(feature, selector as string)
     );
   } else {
-    matches = matchFeaturesFromBranches(cwd, config, features, normalizedComponent);
-    if (matches.length === 0 && features.length === 1) {
-      matches = features;
+    const binding = await readFeatureSession(config.docsDir);
+    if (binding) {
+      source = 'session';
+      matches = features.filter(
+        (feature) =>
+          feature.id === binding.featureId &&
+          feature.type === binding.component &&
+          feature.folderName === binding.featureRef
+      );
+    } else {
+      source = 'branch';
+      matches = matchFeaturesFromBranches(
+        cwd,
+        config,
+        features,
+        normalizedComponent
+      );
+      if (matches.length === 0 && features.length === 1) {
+        source = 'single';
+        matches = features;
+      }
     }
   }
 
@@ -340,6 +379,7 @@ export async function resolveFeatureSelection(
       features,
       matchedFeature: matches[0],
       status: 'selected',
+      source,
     };
   }
 
@@ -348,6 +388,7 @@ export async function resolveFeatureSelection(
     features,
     matchedFeature: null,
     status: matches.length > 1 ? 'multiple_matches' : 'no_match',
+    source,
   };
 }
 

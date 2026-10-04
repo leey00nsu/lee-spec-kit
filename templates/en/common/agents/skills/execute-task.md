@@ -30,6 +30,7 @@ Use the active feature folder as the execution SSOT.
   - update `Acceptance` and `Checklist` in the same edit when closing a task
   - if a completed task needs follow-up, add a new task instead of rewriting history
 - If you need to add a new task, append a complete task block in `tasks.md` with a concrete title, `Acceptance`, `Checklist`, and `NON-PRD` or existing `PRD-*` tag.
+- Additional user implementation/correction requests stay in the selected Feature as new tasks by default. Use `task add <feature-ref>` from its managed workspace; analysis/questions alone create no work item. Selection failure never authorizes another Feature, and `--separate` requires an explicit request for another Feature or a user-selected split.
 - Do not leave placeholder `Acceptance` or `Checklist` items in newly added tasks.
 
 ## 3. Keep docs in sync

@@ -13,6 +13,7 @@ import {
 } from '../utils/task-lines.js';
 import { collectWorkflowStage } from '../utils/workflow-stage.js';
 import { runGitCapture } from '../utils/git-run.js';
+import { writeFeatureSession } from '../utils/feature-session.js';
 
 interface Options {
   component?: string;
@@ -112,6 +113,13 @@ export function taskStateCommands(task: Command): void {
                   createdAt: new Date().toISOString(),
                 };
                 await fs.outputJson(sessionPath, next, { spaces: 2 });
+                await writeFeatureSession(target.feature.git.docsGitCwd, {
+                  featureId: target.feature.id,
+                  featureRef: target.feature.folderName,
+                  component: target.feature.type,
+                  docsDirectory: target.feature.git.docsGitCwd,
+                  projectDirectory: target.feature.git.projectGitCwd,
+                });
                 if (metadata && !metadata.owner)
                   await fs.writeJson(
                     metadataPath,

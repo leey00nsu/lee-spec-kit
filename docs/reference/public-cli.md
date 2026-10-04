@@ -66,11 +66,17 @@ Create a concrete feature folder that becomes the working SSOT.
 npx lee-spec-kit feature user-auth --issue 123
 # Local: generate an independent 12-character ID
 npx lee-spec-kit feature payment
+# Only for an explicitly requested separate Feature or a user-selected split
+npx lee-spec-kit feature payment-export --separate
 # Legacy import only
 npx lee-spec-kit feature imported-payment --id F123
 ```
 
 GitHub creation can also use `--create-issue --desc "<approved issue body>" --confirm OK` after sharing the title/body. Issue intake does not approve implementation. New Feature metadata lives in `.feature.json`; `--owner` defaults to Git email. Folder order does not determine execution order.
+
+Additional implementation/correction requests stay in the selected Feature as new tasks until `workflow-stage` reports `done`; an individual task, or even all tasks, being DONE does not finish the workflow. Analysis and questions alone do not create work items. `FEATURE_SELECTION_REQUIRED` means select an existing Feature, never create a replacement. `--separate` represents the user's explicit request for another Feature or selection of a proposed split; it does not waive Issue, review, or implementation approval gates. All new Features are seeded in the primary checkout while preserving the selected docs scope, including nested docs projects and new work requested after workflow `done`.
+
+CLI processes use `LEE_SPEC_KIT_SESSION_ID`, falling back to `CODEX_THREAD_ID` when available, to retain the selected Feature ID, component, docs directory, and project worktree in repository runtime state. Explicit `workflow-stage <feature-ref>` selection, successful Feature creation, and `task claim` update that session's binding. ID-free selection uses that binding before branch/single-folder inference. Bindings are scoped to the docs surface and session, shared across linked worktrees, and never committed. CLI calls without a session identifier retain their normal explicit creation behavior. Within a session, accidental creation returns `ACTIVE_FEATURE_EXISTS` before any Issue creation; `--separate` permits deliberate separation. Different sessions can select and create independent Features.
 
 ### `task status|claim|transition|release`
 
@@ -104,6 +110,8 @@ Run `local sync <id>` in the local workflow to merge the current base into the c
 ### `task add`
 
 Append a complete docs-only task block to the selected feature's `tasks.md`.
+
+Prepared managed workspaces are resolved before writing, so an ID-free follow-up in a bound session updates the Feature's current docs rather than the seed left on the primary branch. Standalone docs workspaces must be registered, use the expected docs branch, and contain the selected Feature registration before a mutation is allowed. The owner/task state and review gates remain unchanged.
 
 ```bash
 npx lee-spec-kit task add F001-alpha --title "implement alpha shell" --ref NON-PRD --acceptance "command renders output" --check "add command handler"

@@ -46,6 +46,9 @@ After installation, run `/hooks` in Codex and review and trust each generated pr
 - Injects primary-agent workflow context into Codex developer instructions
 - Tells primary agents to resolve the next allowed stage through `workflow-stage --json`
 - Re-runs on `startup`, `resume`, `clear`, and post-compaction session starts
+- Carries the hook input's `session_id` into CLI calls as `LEE_SPEC_KIT_SESSION_ID`, restoring the session-selected Feature after resume or compaction without a project-wide active-Feature pointer
+- Uses `cwd` only when detection confirms the same docs scope in the same repository, including linked worktrees; follows a validated `workspace_enter` handoff to report the current Feature documents and allowed stage
+- Includes the selected Feature ID and workspace paths, routes additional implementation/correction requests to new tasks in that Feature, and distinguishes selection failure from `NO_FEATURES`
 
 ### `SubagentStart`
 
@@ -67,12 +70,16 @@ The hook installer warns when a target `AGENTS.md` does not contain the current 
 ### `UserPromptSubmit`
 
 - Re-applies workflow context when the user gives generic rule-following requests
+- Retains the session-selected Feature and the same follow-up/default-separation rules as `SessionStart`; analysis/questions alone do not create tasks or Features
+
+The shared hook fields `session_id` and `cwd` follow the [official OpenAI hook input contract](https://learn.chatgpt.com/docs/hooks#common-input-fields). Feature bindings are runtime cache entries under the docs repository's Git common directory (or temporary runtime state without Git), not committed Feature documents. An unreadable or missing-target binding requires explicit Feature selection rather than silently choosing another Feature. The CLI creation guard rejects accidental creation while the selected workflow is unfinished; `feature <name> --separate` expresses a user-requested separate Feature without bypassing existing approval gates.
 
 ### `PreToolUse`
 
 - Adds Bash-level guardrails before remote or destructive commands
 - Uses `commit-audit --json` before allowing `git commit`, and passes `git commit -m/--message` subjects for canonical Feature-scope validation (`#123` for linked Issues, `K7M2Q9RX4DAB` for issue-less local Features)
 - Uses `workflow-audit --json` before allowing risky remote or destructive commands
+- Resolves the session's managed workspace before checking active task execution, commit scope, or docs sync, so requests made from the primary checkout use the current Feature documents
 - In `standalone`, commit-time docs validation follows the actual `git -C <repo>` target while workflow sync checks `projectRoot` against the active feature docs and only writes/install files through the configured `workspaceRoot`
 - In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so the primary docs checkout stays on its base branch; new Feature docs worktrees are managed through `workspace prepare`, while the exact branch-stage `nextAction.command` is allowed and points at the shared workspace `.worktrees/` root instead of the main project checkout
 - For a prepared standalone Feature, `workflow-stage` returns `workspace_enter` with the registered docs worktree's `docsDirectory` and `workingDirectory`. The pre-tool hook follows this read-only handoff once and checks the exact command against that Feature's current planning documents. It does not execute the handoff command or waive approval, registration, branch, or command-equality checks. This also works when the shell request originates in the shared workspace or the main project checkout.
@@ -83,6 +90,7 @@ The hook installer warns when a target `AGENTS.md` does not contain the current 
 ### `Stop`
 
 - Runs `workflow-audit --json`
+- Uses the session-selected Feature's managed docs workspace when available, including when the session remains in the primary checkout
 - `workflow-audit` returns an exact `expectedWorkflowSyncMarker` bound to the current code-content fingerprint. After code/doc sync, copy it into one active Feature doc and replace any prior marker; duplicate, legacy timestamp, or stale fingerprints fail the audit.
 - If docs are not synced with code changes, it continues Codex for one more pass instead of letting the turn stop early
 - OpenWiki freshness does not participate in the Stop decision. Knowledge publication is independent repository maintenance, so a failed or stale publication cannot reopen or block a completed Feature.
