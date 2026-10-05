@@ -9,6 +9,7 @@ All development decisions are based on this document.
 >
 > - **This document**: Tech stack, architecture principles, code quality, security principles
 > - **PRD**: Product requirements, business logic, user stories → `prd/*.md`
+> - Write durable principles without concrete Feature/task identifiers or links to Feature-local docs. Keep change provenance in the relevant Feature docs.
 
 ---
 

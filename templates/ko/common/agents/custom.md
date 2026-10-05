@@ -4,6 +4,7 @@
 > `npx lee-spec-kit update`의 영향을 받지 않습니다.
 > 프로젝트별 관례를 보완할 수 있지만 안전 요구사항과 lee-spec-kit의
 > workflow·승인·리뷰·커밋 gate를 우회할 수는 없습니다.
+> 구체적인 Feature·task 번호나 Feature 내부 문서 링크 없이 재사용할 프로젝트 규칙을 작성합니다. 변경 추적은 Feature 문서에 보관합니다.
 
 ---
 

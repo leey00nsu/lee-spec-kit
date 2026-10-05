@@ -72,6 +72,14 @@ These orchestration steps belong to the primary agent unless an explicit delegat
 23. For a local workflow, do not report completion directly after implementation approval; follow the exact returned `local verify` / `local merge` / `local cleanup` commands until `workflow-stage` proves verification, integration, and cleanup and returns `done`; review-fix and `feature_remediation` stages explicitly permit scoped fixes
 24. In a `local-ff` or `local-squash` workflow, keep implementation approval and local merge approval distinct when `local_merge` is required: the first accepts the implementation, and the second authorizes the configured integration strategy, post-merge checks, and local cleanup
 
+Shared project documentation:
+
+- Keep PRD, system architecture, design systems, constitution, custom rules, and other curated project-wide docs independent of individual Features. Do not put concrete Feature IDs/numbers, task IDs/numbers, Feature-local document links, task status, or change-by-Feature histories in them.
+- Describe the durable requirement, current behavior, design rule, or policy directly. Stable requirement IDs, version numbers, and ordinary issue references are allowed when they are not used as Feature/task identifiers.
+- Keep change scope, provenance, task tracking, and verification evidence in the active Feature docs. Link from Feature docs to shared docs, rather than adding backlinks containing Feature/task identifiers to shared docs.
+- Workflow guide examples and Idea-to-Feature promotion records are tracking surfaces; they are not curated project-wide facts. OpenWiki remains derived output under its independent CI policy.
+- Use `npx lee-spec-kit docs-audit --json --enforce` to inspect shared-document references. `commit-audit` checks staged shared-document content; path allowlists do not exempt content. `workflow-audit` also reports these violations before completion, except protected README discrepancies that follow the deferral policy below.
+
 README protection and Feature supporting artifacts:
 
 - Modify an existing README (including root, nested, and localized variants) only when the user explicitly requests README changes, and only within that scope. Generic implementation or documentation-sync requests and agent-authored Plans do not authorize README edits. Reading and referencing remain allowed.

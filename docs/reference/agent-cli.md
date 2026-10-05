@@ -47,6 +47,12 @@ npx lee-spec-kit docs get ui-ux-design --json
 
 Docs sync validator for Codex hooks and end-of-turn checks.
 
+It also reports `FEATURE_REFERENCE_IN_SHARED_DOC` with `sharedDocViolations`
+containing the path, line, column, and matched reference. Curated shared docs must
+describe durable requirements, behavior, and policy without concrete Feature/task
+identifiers or links into Feature folders. Protected README discrepancies remain
+deferrable; staged README edits are still checked by `commit-audit`.
+
 ```bash
 npx lee-spec-kit workflow-audit --json
 ```
@@ -114,6 +120,25 @@ Approval note:
 - Local approval checkpoints typically use reply tokens like `A` and `B`.
 - Remote execution checkpoints typically use reply tokens like `A OK` and `B`.
 
+### `docs-audit`
+
+```bash
+npx lee-spec-kit docs-audit --json --enforce
+```
+
+Document-location findings remain warnings. Concrete Feature/task references in
+shared documents return `status: "blocked"`,
+`reasonCode: "FEATURE_REFERENCE_IN_SHARED_DOC"`, and exact file/line/column
+diagnostics; `--enforce` also exits non-zero. The reference check includes PRD,
+architecture, designs, constitution/custom, and other shared text documents,
+including allowlisted paths. It recognizes legacy/local IDs, labelled numeric
+Feature/task references, task IDs, and Feature-folder links. Stable requirement
+IDs, dates, versions, and ordinary issue references are allowed. Feature folders,
+Idea promotion records, built-in workflow guides, scripts, assets, and OpenWiki
+output are separate tracking or derived surfaces and are excluded. Only the
+generated lee-spec-kit block in `AGENTS.md` is masked; user-authored rules around
+it are checked. Do not hide real project change tracking in workflow examples.
+
 ### `commit-audit`
 
 Commit-time docs-path and canonical commit-subject validator. Feature-scoped subjects use `#123` when a GitHub Issue is linked and the stable Feature ID such as `K7M2Q9RX4DAB` for issue-less local workflows.
@@ -125,6 +150,12 @@ npx lee-spec-kit commit-audit --message-file "$1" --enforce --json
 ```
 
 `--message-file` is intended for Git `commit-msg` hooks and reads the first non-empty, non-comment subject line. Add `--enforce` in Git hooks or CI so a blocked audit exits non-zero. Do not use full refs such as `K7M2Q9RX4DAB-notification-settings` as commit scopes.
+
+The shared-document content check reads the Git index, including rename targets,
+so unstaged cleanup cannot make forbidden staged references pass. Findings use
+`kind: "shared_doc_feature_reference"` and carry `path`, `line`, `column`, and
+`reference`. Path allowlists do not waive this content rule. Deleted files and
+rename sources have no new content to check.
 
 ## Runtime Policy
 

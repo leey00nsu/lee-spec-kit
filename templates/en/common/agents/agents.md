@@ -59,6 +59,14 @@ This document defines workflow policy, not a custom runtime loop.
 - Do not use `docs/designs/` for system architecture, data/API design, technical research, or implementation plans.
 - Follow the detailed routing rules in `docs/README.md`.
 
+## Shared project documentation
+
+- Keep PRD, architecture overviews, design systems, constitution, custom rules, and other curated project-wide docs independent of individual Features. Do not include concrete Feature/task IDs or numbers, Feature-local links, task status, or histories organized by Feature.
+- Describe durable requirements, current behavior, and reusable rules directly. Stable requirement IDs, versions, and issue references unrelated to Feature/task tracking are allowed.
+- Keep change scope, provenance, task progress, and verification evidence in the active Feature docs. Link from Feature docs to shared docs; do not add Feature/task backlinks to shared docs.
+- Workflow guide examples and Idea-to-Feature promotion mappings are tracking surfaces. OpenWiki remains derived output maintained independently by CI.
+- Run `npx lee-spec-kit docs-audit --json --enforce` to inspect references. `commit-audit` checks the staged content, including README edits and allowlisted docs. `workflow-audit` reports shared-document violations before completion while respecting protected README deferrals.
+
 ## README protection and Feature supporting artifacts
 
 - Modify an existing README (including root, nested, and localized variants) only when the user explicitly requests README changes, and only within that scope. Generic implementation or documentation-sync requests and agent-authored Plans do not authorize README edits. Reading and referencing remain allowed.

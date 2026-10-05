@@ -31,6 +31,85 @@ async function runDocsAudit(dir) {
   return JSON.parse(result.stdout.trim());
 }
 
+test('docs-audit blocks concrete references in shared docs in both languages', async () => {
+  for (const lang of ['en', 'ko']) {
+    await withTempDir(`lsk-docs-references-${lang}-`, async (dir) => {
+      await initDocs(dir, lang);
+      assert.equal((await runDocsAudit(dir)).status, 'ok');
+      await fs.writeFile(
+        path.join(dir, 'docs', 'prd', 'system-architecture.md'),
+        '\n# Architecture\nFeature #123\nT-123-login-01\n'
+      );
+      await fs.appendFile(
+        path.join(dir, 'docs', 'agents', 'constitution.md'),
+        '\nF001 changes this principle.\n'
+      );
+      await fs.appendFile(
+        path.join(dir, 'docs', 'agents', 'custom.md'),
+        '\nFollow K7M2Q9RX4DAB.\n'
+      );
+      await fs.writeFile(
+        path.join(dir, 'docs', 'designs', 'design-system.md'),
+        '# Design system\n[Source](../features/api/F002-tokens/plan.md)\n'
+      );
+      const result = await runCli(dir, ['docs-audit', '--json', '--enforce']);
+      assert.equal(result.code, 1, result.stderr || result.stdout);
+      const payload = JSON.parse(result.stdout.trim());
+      assert.equal(payload.status, 'blocked');
+      assert.equal(payload.reasonCode, 'FEATURE_REFERENCE_IN_SHARED_DOC');
+      assert.equal(
+        payload.violations.filter(
+          (item) => item.violationCode === 'FEATURE_REFERENCE_IN_SHARED_DOC'
+        ).length,
+        5
+      );
+      const finding = payload.violations.find(
+        (item) => item.reference === 'Feature #123'
+      );
+      assert.equal(finding.path, 'docs/prd/system-architecture.md');
+      assert.equal(finding.line, 3);
+      assert.equal(finding.column, 1);
+
+      // End-of-turn checks must catch docs-only violations, even without Git/code edits.
+      const workflow = await runCli(dir, ['workflow-audit', '--json']);
+      assert.equal(
+        JSON.parse(workflow.stdout.trim()).reasonCode,
+        'FEATURE_REFERENCE_IN_SHARED_DOC'
+      );
+    });
+  }
+});
+
+test('docs-audit preserves workflow/promotion tracking and stable requirement IDs', async () => {
+  await withTempDir('lsk-docs-reference-exemptions-', async (dir) => {
+    await initDocs(dir);
+    await fs.mkdir(
+      path.join(dir, 'docs', 'features', 'api', 'ABCDEFGHJKLM-auth'),
+      { recursive: true }
+    );
+    await fs.writeFile(
+      path.join(dir, 'docs', 'features', 'api', 'ABCDEFGHJKLM-auth', 'spec.md'),
+      '# Feature\nF001, T-F001-login-01\n'
+    );
+    await fs.writeFile(
+      path.join(dir, 'docs', 'ideas', 'I001-auth.md'),
+      '# Promotion\nFeature: ABCDEFGHJKLM\n'
+    );
+    await fs.writeFile(
+      path.join(dir, 'docs', 'prd', 'auth.md'),
+      '# Auth\nPRD-FR-001, 2026-10-05, 1.2.3, issue #123, ENHANCEMENTS, MyFeature123, microtasks12\n'
+    );
+    assert.equal((await runDocsAudit(dir)).status, 'ok');
+    await fs.appendFile(
+      path.join(dir, 'docs', 'prd', 'auth.md'),
+      'ABCDEFGHJKLM\n'
+    );
+    const payload = await runDocsAudit(dir);
+    assert.equal(payload.status, 'blocked');
+    assert.equal(payload.violations[0].reference, 'ABCDEFGHJKLM');
+  });
+});
+
 test('docs-audit accepts explicitly classified UX design documents', async () => {
   await withTempDir('lsk-docs-audit-ux-', async (dir) => {
     await initDocs(dir);

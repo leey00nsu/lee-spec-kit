@@ -4320,6 +4320,9 @@ async function collectWorkflowStageCore(
       feature.folderName
     );
     if (workflowAudit.status === 'needs_sync') {
+      const sharedDocRepairs = workflowAudit.sharedDocViolations?.length
+        ? ` Remove concrete Feature/task references from shared project docs: ${[...new Set(workflowAudit.sharedDocViolations.map((item) => `${item.path}:${item.line}`))].join(', ')}. Keep the change history in Feature docs.`
+        : '';
       const expectedMarker = workflowAudit.expectedWorkflowSyncMarker
         ? ` Copy this exact marker into exactly one active Feature document: ${workflowAudit.expectedWorkflowSyncMarker}`
         : '';
@@ -4331,7 +4334,7 @@ async function collectWorkflowStageCore(
         stage: 'workflow_sync',
         nextAction: buildAction(
           'workflow_sync',
-          `Synchronize the current code state with the active Feature docs before Feature review or completion. workflow-audit reported ${workflowAudit.reasonCode}.${expectedMarker} Replace any stale marker and remove duplicates, then rerun workflow-stage.`,
+          `Synchronize the current code state with the active Feature docs before Feature review or completion. workflow-audit reported ${workflowAudit.reasonCode}.${sharedDocRepairs}${expectedMarker} Replace any stale marker and remove duplicates, then rerun workflow-stage.`,
           false,
           'npx lee-spec-kit workflow-audit --json'
         ),

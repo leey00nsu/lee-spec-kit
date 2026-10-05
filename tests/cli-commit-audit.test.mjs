@@ -101,6 +101,95 @@ async function stage(dir, relativePath) {
   assert.equal(addResult.code, 0, addResult.stderr || addResult.stdout);
 }
 
+test('commit-audit reads staged shared-doc content instead of unstaged cleanup', async () => {
+  await withTempDir('lsk-commit-shared-references-', async (dir) => {
+    await initRepo(dir);
+    const relative = 'docs/prd/auth.md';
+    const file = path.join(dir, relative);
+    await fs.writeFile(file, '\n# Auth\nFeature #123\n');
+    await stage(dir, relative);
+    await fs.writeFile(file, '# Auth\nPRD-FR-001: require authentication.\n');
+    let result = await runCli(dir, ['commit-audit', '--json', '--enforce']);
+    assert.equal(result.code, 1, result.stderr || result.stdout);
+    let payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FEATURE_REFERENCE_IN_SHARED_DOC');
+    assert.equal(payload.violations[0].kind, 'shared_doc_feature_reference');
+    assert.equal(payload.violations[0].line, 3);
+    assert.equal(payload.violations[0].reference, 'Feature #123');
+    await stage(dir, relative);
+    // An unstaged violation is handled by workflow-audit, not the index check.
+    await fs.appendFile(file, 'F001\n');
+    result = await runCli(dir, ['commit-audit', '--json', '--enforce']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+  });
+});
+
+test('commit-audit checks rename targets and does not block removal of forbidden references', async () => {
+  await withTempDir('lsk-commit-shared-rename-', async (dir) => {
+    await initRepo(dir);
+    const oldPath = 'docs/prd/old.md';
+    const newPath = 'docs/prd/current.md';
+    await fs.writeFile(path.join(dir, oldPath), '# Auth\nF001\n');
+    await stage(dir, oldPath);
+    const commit = await runCommand(dir, 'git', ['commit', '-m', 'baseline']);
+    assert.equal(commit.code, 0, commit.stderr || commit.stdout);
+    const move = await runCommand(dir, 'git', ['mv', oldPath, newPath]);
+    assert.equal(move.code, 0, move.stderr || move.stdout);
+    let result = await runCli(dir, ['commit-audit', '--json']);
+    let payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'blocked');
+    assert.deepEqual(payload.blockedPaths, [newPath]);
+    await fs.rm(path.join(dir, newPath));
+    await stage(dir, newPath);
+    result = await runCli(dir, ['commit-audit', '--json']);
+    payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.status, 'ok');
+  });
+});
+
+test('standalone commit-audit checks shared docs and protected README edits', async () => {
+  await withTempDir('lsk-commit-shared-standalone-', async (dir) => {
+    await initStandaloneRepo(dir);
+    const docsRoot = path.join(dir, 'docs');
+    await fs.appendFile(
+      path.join(docsRoot, 'prd', 'README.md'),
+      '\nFeature 123\n'
+    );
+    await stage(docsRoot, 'prd/README.md');
+    const result = await runCli(docsRoot, ['commit-audit', '--json']);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FEATURE_REFERENCE_IN_SHARED_DOC');
+    assert.deepEqual(payload.blockedPaths, ['prd/README.md']);
+  });
+});
+
+test('shared-doc allowlists and Unicode paths do not bypass index content validation', async () => {
+  await withTempDir('lsk-commit-shared-unicode-', async (dir) => {
+    await initRepo(dir);
+    const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.allowedDocsEntries = { dirs: ['architecture'] };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+    const featureDoc = 'docs/features/api/ABCDEFGHJKLM-auth/spec.md';
+    await fs.mkdir(path.dirname(path.join(dir, featureDoc)), { recursive: true });
+    await fs.writeFile(path.join(dir, featureDoc), '# Feature\n');
+    await stage(dir, featureDoc);
+    const shared = 'docs/architecture/시스템 설계:정책.md';
+    await fs.mkdir(path.dirname(path.join(dir, shared)), { recursive: true });
+    await fs.writeFile(path.join(dir, shared), '# Architecture\nIssue #123, PRD-FR-123\nABCDEFGHJKLM\n');
+    await stage(dir, shared);
+    const result = await runCli(dir, ['commit-audit', '--json']);
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.reasonCode, 'FEATURE_REFERENCE_IN_SHARED_DOC');
+    assert.equal(payload.violations.length, 1);
+    assert.equal(payload.violations[0].path, shared);
+    assert.equal(payload.violations[0].reference, 'ABCDEFGHJKLM');
+    assert.equal(payload.violations[0].line, 3);
+  });
+});
+
 async function setIssueReference(dir, issueRef = '#123') {
   const tasksPath = path.join(dir, 'docs', 'features', 'F001-alpha', 'tasks.md');
   const tasksContent = await fs.readFile(tasksPath, 'utf-8');

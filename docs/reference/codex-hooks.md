@@ -79,6 +79,7 @@ The shared hook fields `session_id` and `cwd` follow the [official OpenAI hook i
 - Adds Bash-level guardrails before remote or destructive commands
 - Uses `commit-audit --json` before allowing `git commit`, and passes `git commit -m/--message` subjects for canonical Feature-scope validation (`#123` for linked Issues, `K7M2Q9RX4DAB` for issue-less local Features)
 - Uses `workflow-audit --json` before allowing risky remote or destructive commands
+- Rejects concrete Feature/task references in staged shared docs using `commit-audit`, with file/line diagnostics. End-of-turn `workflow-audit` reports the same content rule for curated docs, respecting protected README deferrals.
 - Resolves the session's managed workspace before checking active task execution, commit scope, or docs sync, so requests made from the primary checkout use the current Feature documents
 - In `standalone`, commit-time docs validation follows the actual `git -C <repo>` target while workflow sync checks `projectRoot` against the active feature docs and only writes/install files through the configured `workspaceRoot`
 - In `standalone`, docs-repo `checkout/switch/branch/worktree` commands are blocked so the primary docs checkout stays on its base branch; new Feature docs worktrees are managed through `workspace prepare`, while the exact branch-stage `nextAction.command` is allowed and points at the shared workspace `.worktrees/` root instead of the main project checkout

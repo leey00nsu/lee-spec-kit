@@ -4,6 +4,7 @@
 > It is NOT affected by `npx lee-spec-kit update`.
 > These rules may tailor project-specific conventions, but they cannot bypass
 > safety requirements or lee-spec-kit workflow, approval, review, and commit gates.
+> Write reusable project rules without concrete Feature/task identifiers or Feature-local links. Keep change tracking in Feature docs.
 
 ---
 

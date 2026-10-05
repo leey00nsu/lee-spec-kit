@@ -830,6 +830,29 @@ test('generated pre-tool hook blocks commit when staged docs paths violate commi
       payload.reason,
       /Normalize or allowlist non-canonical docs paths before committing/
     );
+    const unstage = await runCommand(dir, 'git', ['rm', '--cached', 'docs/plans/external-plan.md']);
+    assert.equal(unstage.code, 0, unstage.stderr || unstage.stdout);
+    await fs.writeFile(path.join(dir, 'docs', 'prd', 'auth.md'), '# Auth\nFeature F001\n');
+    const stageShared = await runCommand(dir, 'git', ['add', 'docs/prd/auth.md']);
+    assert.equal(stageShared.code, 0, stageShared.stderr || stageShared.stdout);
+    const sharedCommit = await runCommand(dir, process.execPath, [path.join(dir, '.codex', 'hooks', 'pre_tool_use_policy.mjs')], {
+      env: fakeNpx.env,
+      input: JSON.stringify({ cwd: dir, tool_input: { command: 'git commit -m "test"' } }),
+    });
+    assert.equal(sharedCommit.code, 0, sharedCommit.stderr || sharedCommit.stdout);
+    const blockedCommit = JSON.parse(sharedCommit.stdout.trim());
+    assert.equal(blockedCommit.decision, 'block');
+    assert.match(blockedCommit.reason, /Remove concrete Feature\/task references/u);
+    assert.match(blockedCommit.reason, /docs\/prd\/auth\.md:2/u);
+    const stop = await runCommand(dir, process.execPath, [path.join(dir, '.codex', 'hooks', 'stop_workflow_audit.mjs')], {
+      env: fakeNpx.env,
+      input: JSON.stringify({ cwd: dir }),
+    });
+    assert.equal(stop.code, 0, stop.stderr || stop.stdout);
+    const blockedStop = JSON.parse(stop.stdout.trim());
+    assert.equal(blockedStop.decision, 'block');
+    assert.match(blockedStop.reason, /Remove concrete Feature\/task references/u);
+    assert.match(blockedStop.reason, /docs\/prd\/auth\.md:2/u);
   });
 });
 

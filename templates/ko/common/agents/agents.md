@@ -59,6 +59,14 @@
 - `docs/designs/`를 시스템 아키텍처, 데이터/API 설계, 기술 조사, 구현 계획의 목적지로 사용하지 않습니다.
 - 세부 설명은 `docs/README.md`의 문서 라우팅 규칙을 따릅니다.
 
+## 공용 프로젝트 문서
+
+- PRD, 시스템 아키텍처, 디자인 시스템, constitution, custom 규칙 등 공용 문서는 개별 Feature와 독립적으로 작성합니다. 구체적인 Feature·task ID나 번호, Feature 내부 문서 링크, 태스크 상태, Feature별 변경 이력을 넣지 않습니다.
+- 유지할 요구사항, 현재 동작, 재사용할 설계·정책을 직접 설명합니다. 안정적인 요구사항 ID, 버전, Feature·task 추적에 쓰이지 않는 일반 이슈 참조는 허용합니다.
+- 변경 범위·출처·태스크 진행·검증 근거는 활성 Feature 문서에 보관합니다. Feature 문서에서 공용 문서를 연결하며, 공용 문서에는 Feature·task 번호가 들어간 역방향 링크를 추가하지 않습니다.
+- 워크플로 가이드의 사용 예시와 Idea → Feature 승격 매핑은 작업 추적용 문서입니다. OpenWiki는 독립 CI가 관리하는 파생 문서로 유지합니다.
+- `npx lee-spec-kit docs-audit --json --enforce`로 번호 참조를 검사합니다. `commit-audit`는 README 수정과 허용 목록의 문서를 포함한 staged 내용을 검사합니다. `workflow-audit`도 완료 전에 공용 문서 위반을 보고하되, 보호된 README의 보류 정책을 따릅니다.
+
 ## README 보호와 Feature 보조 산출물
 
 - 기존 README(루트·하위 디렉터리·다국어 포함)는 사용자가 README 수정을 명시적으로 요청한 경우에만 요청 범위에서 수정합니다. 일반적인 기능 구현·문서 동기화 요청이나 에이전트가 작성한 Plan은 README 수정 허가가 아닙니다. 읽기와 참조는 허용합니다.

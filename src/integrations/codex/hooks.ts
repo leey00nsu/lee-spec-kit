@@ -1186,6 +1186,12 @@ if (isGitCommit) {
       printBlock('Git commit targets outside the current lee-spec-kit project topology are not supported. Re-run the command from the active workspace or target repo root instead.');
       process.exit(0);
     }
+    const sharedDocReferences = (commitAudit.violations || []).filter((item) => item.kind === 'shared_doc_feature_reference');
+    if (sharedDocReferences.length > 0) {
+      const locations = sharedDocReferences.map((item) => item.path + ':' + item.line).join(', ');
+      printBlock('Remove concrete Feature/task references from staged shared project docs before committing: ' + locations + '. Keep change tracking in Feature docs; docs path allowlists do not waive this rule.');
+      process.exit(0);
+    }
     printBlock('Normalize or allowlist non-canonical docs paths before committing.');
     process.exit(0);
   }
@@ -1215,6 +1221,11 @@ if (!auditResult.ok) {
 }
 const audit = auditResult.data;
 if (audit?.status === 'needs_sync') {
+  if (audit.reasonCode === 'FEATURE_REFERENCE_IN_SHARED_DOC') {
+    const locations = (audit.sharedDocViolations || []).map((item) => item.path + ':' + item.line).join(', ');
+    printBlock('Remove concrete Feature/task references from shared project docs before remote or destructive commands: ' + locations + '. Keep change tracking in the Feature docs.');
+    process.exit(0);
+  }
   printBlock('Sync the active feature docs before running remote or destructive commands.');
   process.exit(0);
 }
@@ -1266,6 +1277,11 @@ if (!auditResult.ok) {
 }
 const audit = auditResult.data;
 if (audit?.status === 'needs_sync') {
+  if (audit.reasonCode === 'FEATURE_REFERENCE_IN_SHARED_DOC') {
+    const locations = (audit.sharedDocViolations || []).map((item) => item.path + ':' + item.line).join(', ');
+    printBlock('Remove concrete Feature/task references from shared project docs before stopping: ' + locations + '. Keep change tracking in the Feature docs.');
+    process.exit(0);
+  }
   printBlock('Run one more pass and sync the active feature docs before stopping.');
   process.exit(0);
 }

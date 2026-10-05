@@ -128,6 +128,12 @@ test('workflow-audit requires a workflow-sync marker for a clean completed featu
     payload = JSON.parse(auditResult.stdout.trim());
     assert.equal(payload.status, 'ok');
     assert.equal(payload.reasonCode, 'WORKFLOW_IN_SYNC');
+    await fs.appendFile(path.join(dir, 'docs', 'prd', 'README.md'), '\nFeature F001\n');
+    const readmeAudit = await runCli(dir, ['workflow-audit', '--json']);
+    assert.equal(JSON.parse(readmeAudit.stdout.trim()).status, 'ok');
+    const explicitDocsAudit = await runCli(dir, ['docs-audit', '--json', '--enforce']);
+    assert.equal(explicitDocsAudit.code, 1);
+    assert.equal(JSON.parse(explicitDocsAudit.stdout.trim()).reasonCode, 'FEATURE_REFERENCE_IN_SHARED_DOC');
   });
 });
 

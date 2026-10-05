@@ -2335,6 +2335,39 @@ test('workflow-stage blocks a completed feature until the workflow-sync marker i
   });
 });
 
+test('workflow-stage blocks Feature completion on shared-document identifiers and reports the repair location', async () => {
+  await withTempDir('lsk-workflow-stage-shared-reference-', async (dir) => {
+    await prepareCompletedLocalFeature(dir, { autoVerify: false });
+    const planPath = path.join(featureDir(dir), 'plan.md');
+    const plan = (await fs.readFile(planPath, 'utf-8'))
+      .replace('- **Product requirements**: NONE', '- **Product requirements**: ADD')
+      .replace('- **Targets**: -', '- **Targets**: docs:prd/auth.md');
+    await fs.writeFile(planPath, plan);
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    const tasks = (await fs.readFile(tasksPath, 'utf-8')).replace(
+      '  - Checklist:\n    - [x] add UI',
+      '  - Docs:\n    - docs:prd/auth.md\n  - Checklist:\n    - [x] add UI'
+    );
+    await fs.writeFile(tasksPath, tasks);
+    const sharedPath = path.join(dir, 'docs', 'prd', 'auth.md');
+    await fs.writeFile(sharedPath, '# Auth\nFeature F001\n');
+    let staged = await runCommand(dir, 'git', ['add', 'docs/prd/auth.md']);
+    assert.equal(staged.code, 0, staged.stderr || staged.stdout);
+    await commitFeatureDocs(dir, 'docs(F001): update auth contract');
+    const blocked = await readStage(dir);
+    assert.equal(blocked.stage, 'workflow_sync', JSON.stringify(blocked));
+    assert.equal(blocked.implementationAllowed, false);
+    assert.match(blocked.nextAction.summary, /FEATURE_REFERENCE_IN_SHARED_DOC/u);
+    assert.match(blocked.nextAction.summary, /docs\/prd\/auth\.md:2/u);
+    await fs.writeFile(sharedPath, '# Auth\nPRD-FR-001: require authentication.\n');
+    staged = await runCommand(dir, 'git', ['add', 'docs/prd/auth.md']);
+    assert.equal(staged.code, 0, staged.stderr || staged.stdout);
+    await commitFeatureDocs(dir, 'docs(F001): remove change tracking');
+    const continued = await readStage(dir);
+    assert.notEqual(continued.stage, 'workflow_sync');
+  });
+});
+
 test('workflow-stage ignores unrelated project history when a standalone Feature has no scoped project commit', async () => {
   await withTempDir('lsk-workflow-stage-standalone-docs-only-', async (dir) => {
     const { worktreePath } = await prepareCompletedStandaloneLocalFeature(dir, {

@@ -19,6 +19,10 @@ import { applyLocalWorkflowTemplateToContent } from '../utils/local-workflow-tem
 import { applyReplacements } from '../utils/template.js';
 import type { ProjectConfig } from '../config/types.js';
 import {
+  collectDocsFeatureReferences,
+  type DocsFeatureReferenceViolation,
+} from '../utils/docs-feature-references.js';
+import {
   isOpenWikiEnabled,
   isOpenWikiDerivedPath,
 } from '../utils/openwiki-policy.js';
@@ -47,6 +51,7 @@ export interface WorkflowAuditPayload {
     | 'WORKFLOW_IN_SYNC'
     | 'CODE_WITHOUT_DOCS_SYNC'
     | 'DUPLICATE_WORKFLOW_SYNC_MARKERS'
+    | 'FEATURE_REFERENCE_IN_SHARED_DOC'
     | 'ACTIVE_FEATURE_SCOPE_UNCLEAR'
     | 'STANDALONE_WORKSPACE_ROOT_REQUIRED'
     | 'STANDALONE_PROJECT_ROOT_UNRESOLVED'
@@ -62,6 +67,7 @@ export interface WorkflowAuditPayload {
   codeFingerprint?: string | null;
   workflowSyncFingerprint?: string | null;
   expectedWorkflowSyncMarker?: string | null;
+  sharedDocViolations?: DocsFeatureReferenceViolation[];
 }
 
 interface WorkflowSyncMarkerState {
@@ -139,6 +145,24 @@ export async function collectWorkflowAudit(
 
   const activeFeature = await resolveActiveFeature(cwd, featureSelector);
   const activeFeatureRef = activeFeature?.folderName ?? null;
+  // README discrepancies remain deferrable under the README protection policy.
+  const sharedDocViolations = await collectDocsFeatureReferences(
+    config.docsDir,
+    { includeReadmes: false }
+  );
+  if (sharedDocViolations.length > 0) {
+    return {
+      status: 'needs_sync',
+      reasonCode: 'FEATURE_REFERENCE_IN_SHARED_DOC',
+      docsDir: config.docsDir,
+      activeFeatureRef,
+      changedCodePaths: [],
+      changedFeatureDocPaths: [],
+      latestCodeChangeAt: null,
+      latestFeatureDocSyncAt: null,
+      sharedDocViolations,
+    };
+  }
   const codeRootResolution = resolveCodeRepoRoots(cwd, config, activeFeature);
   const codeRoots = codeRootResolution.codeRoots;
 

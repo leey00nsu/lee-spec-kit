@@ -1,6 +1,12 @@
 import { Command } from 'commander';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import {
+  findDocsFeatureReferences,
+  featureIdsFromPaths,
+  isSharedProjectDoc,
+} from '../utils/docs-feature-references.js';
 import { getConfig } from '../utils/config.js';
 import { runGitCapture } from '../utils/git-run.js';
 import { createCliError, toCliError } from '../utils/cli-error.js';
@@ -36,6 +42,7 @@ type CommitAuditReasonCode =
   | 'CANONICAL_FEATURE_DOC_DELETION'
   | 'DOCS_COMMIT_POLICY_VIOLATION'
   | 'COMMIT_MESSAGE_POLICY_VIOLATION'
+  | 'FEATURE_REFERENCE_IN_SHARED_DOC'
   | 'NO_GIT_REPOSITORY'
   | 'CONFIG_NOT_FOUND'
   | 'UNEXPECTED_ERROR';
@@ -48,8 +55,12 @@ interface CommitAuditViolation {
     | 'canonical_feature_doc_deletion'
     | 'unsupported_git_target'
     | 'knowledge_output_scope'
-    | 'commit_message_policy';
+    | 'commit_message_policy'
+    | 'shared_doc_feature_reference';
   detail: string;
+  line?: number;
+  column?: number;
+  reference?: string;
 }
 
 interface StagedPathEntry {
@@ -76,7 +87,7 @@ export function commitAuditCommand(program: Command): void {
   program
     .command('commit-audit')
     .description(
-      'Validate staged docs paths and canonical commit subjects before commit'
+      'Validate staged docs paths, shared-document content, and commit subjects'
     )
     .option('--json', 'Output JSON for hooks and agents')
     .option(
@@ -201,7 +212,7 @@ async function collectCommitAudit(
 
   const stagedOutput =
     runGitCapture(
-      ['diff', '--cached', '--name-status', '--diff-filter=ACMRD'],
+      ['diff', '--cached', '--name-status', '-z', '--diff-filter=ACMRD'],
       repoRoot
     ) || '';
   const stagedEntries = parseStagedPaths(stagedOutput);
@@ -233,6 +244,56 @@ async function collectCommitAudit(
     stagedEntries,
     config.allowedDocsEntries
   );
+  const sharedEntries = stagedEntries.filter(
+    (entry) =>
+      !/^D/iu.test(entry.status) &&
+      entry.role !== 'source' &&
+      isSharedProjectDoc(
+        normalizeSlashes(
+          path.relative(config.docsDir, path.resolve(repoRoot, entry.path))
+        )
+      )
+  );
+  const indexedDocsPaths =
+    sharedEntries.length === 0
+      ? []
+      : execFileSync(
+          'git',
+          ['ls-files', '-z', '--cached', '--', config.docsDir],
+          {
+            cwd: repoRoot,
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          }
+        )
+          .split('\0')
+          .filter(Boolean)
+          .map((file) =>
+            normalizeSlashes(
+              path.relative(config.docsDir, path.resolve(repoRoot, file))
+            )
+          );
+  const registeredIds = featureIdsFromPaths(indexedDocsPaths);
+  for (const entry of sharedEntries) {
+    // Inspect the index, retaining leading blank lines for accurate diagnostics.
+    const content = execFileSync('git', ['show', `:${entry.path}`], {
+      cwd: repoRoot,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    violations.push(
+      ...findDocsFeatureReferences(content, entry.path, registeredIds).map(
+        (violation) => ({
+          path: violation.path,
+          kind: 'shared_doc_feature_reference' as const,
+          detail: violation.message,
+          line: violation.line,
+          column: violation.column,
+          reference: violation.reference,
+        })
+      )
+    );
+  }
   const commitMessageViolation = await collectCommitMessageViolation(
     cwd,
     config,
@@ -358,36 +419,23 @@ function isSameOrWithin(parentDir: string, candidateDir: string): boolean {
 }
 
 function parseStagedPaths(output: string): StagedPathEntry[] {
-  const staged = new Map<string, string>();
-
-  for (const rawLine of output.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const parts = line
-      .split('\t')
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-    if (parts.length < 2) continue;
-
-    const status = parts[0];
-    if (/^[RC]/i.test(status) && parts.length >= 3) {
-      staged.set(`source:${normalizeSlashes(parts[1])}`, `${status}:source`);
-      staged.set(`target:${normalizeSlashes(parts[2])}`, `${status}:target`);
-      continue;
+  const staged = new Map<string, StagedPathEntry>();
+  const fields = output.split('\0');
+  for (let index = 0; index < fields.length; index += 1) {
+    const status = fields[index];
+    if (!status) continue;
+    const source = fields[++index];
+    if (source === undefined) break;
+    if (/^[RC]/iu.test(status)) {
+      const target = fields[++index];
+      if (target === undefined) break;
+      staged.set(`source:${source}`, { path: source, status, role: 'source' });
+      staged.set(`target:${target}`, { path: target, status, role: 'target' });
+    } else {
+      staged.set(`path:${source}`, { path: source, status, role: 'path' });
     }
-
-    staged.set(`path:${normalizeSlashes(parts[1])}`, `${status}:path`);
   }
-
-  return [...staged.entries()].map(([encodedPath, encodedStatus]) => {
-    const [role, path] = encodedPath.split(':', 2);
-    const [status, entryRole] = encodedStatus.split(':', 2);
-    return {
-      path,
-      status,
-      role: (entryRole || role || 'path') as StagedPathEntry['role'],
-    };
-  });
+  return [...staged.values()];
 }
 
 function collectCommitViolations(
@@ -481,6 +529,8 @@ function resolveReasonCode(
   if (kinds.has('commit_message_policy')) {
     return 'COMMIT_MESSAGE_POLICY_VIOLATION';
   }
+  if (kinds.has('shared_doc_feature_reference'))
+    return 'FEATURE_REFERENCE_IN_SHARED_DOC';
   if (kinds.has('unsupported_git_target')) return 'UNSUPPORTED_GIT_TARGET';
   if (kinds.has('unmanaged_docs_entry')) return 'UNMANAGED_DOCS_COMMIT';
   if (kinds.has('canonical_feature_doc_deletion')) {
