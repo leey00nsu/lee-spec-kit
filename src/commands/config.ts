@@ -24,6 +24,8 @@ import {
   toCliError,
 } from '../utils/cli-error.js';
 import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
+import { assertValidDocsCompletionConfig } from '../config/docs-completion.js';
+import type { DocsCompletionStrategy, ProjectConfig } from '../config/types.js';
 
 interface ConfigOptions {
   checksDetect?: boolean;
@@ -36,6 +38,7 @@ interface ConfigOptions {
   reviews?: string;
   maxReviewRounds?: string;
   completionStrategy?: 'local-ff' | 'local-squash' | 'none';
+  docsCompletionStrategy?: DocsCompletionStrategy;
   openwiki?: string;
   interactive?: boolean;
   nonInteractive?: boolean;
@@ -101,6 +104,9 @@ function validateWorkflowOptions(options: ConfigOptions): void {
     );
   }
   parseReviews(options.reviews);
+  if (options.docsCompletionStrategy && !['inherit', 'local-ff', 'local-squash'].includes(options.docsCompletionStrategy)) {
+    throw createCliError('INVALID_ARGUMENT', '`--docs-completion-strategy` must be inherit, local-ff, or local-squash.');
+  }
   parseMaxReviewRounds(options.maxReviewRounds);
   if (
     options.openwiki !== undefined &&
@@ -141,6 +147,7 @@ export function configCommand(program: Command): void {
       '--openwiki <boolean>',
       'Allow independent OpenWiki CI scaffolding: true | false'
     )
+    .option('--docs-completion-strategy <strategy>', 'Standalone docs completion: inherit (default) | local-ff | local-squash')
     .option('--interactive', 'Configure workflow options interactively')
     .option('--non-interactive', 'Fail instead of prompting for input')
     .action(async (options: ConfigOptions) => {
@@ -153,7 +160,7 @@ export function configCommand(program: Command): void {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           return;
         }
-        const config = await getConfig(process.cwd());
+        const config = await getConfig(process.cwd(), { validateDocsStrategy: false });
         const lang = config?.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
@@ -172,7 +179,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   validateWorkflowOptions(options);
   const cwd = process.cwd();
   const targetCwd = options.dir ? path.resolve(cwd, options.dir) : cwd;
-  const config = await getConfig(targetCwd);
+  const config = await getConfig(targetCwd, { validateDocsStrategy: false });
 
   if (!config) {
     throw createCliError(
@@ -201,11 +208,13 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     typeof options.reviews !== 'undefined' ||
     typeof options.maxReviewRounds !== 'undefined' ||
     typeof options.completionStrategy !== 'undefined' ||
+    typeof options.docsCompletionStrategy !== 'undefined' ||
     !!options.interactive;
   const hasExperimentalOptions = typeof options.openwiki !== 'undefined';
 
   // 옵션 없이 실행: 현재 설정 출력
   if (!options.projectRoot && !hasWorkflowOptions && !hasExperimentalOptions && !hasChecksOptions) {
+    assertValidDocsCompletionConfig(config);
     console.log();
     console.log(chalk.blue(tr(config.lang, 'cli', 'config.currentTitle')));
     console.log();
@@ -262,6 +271,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
         };
       }
 
+      assertValidDocsCompletionConfig(configFile as unknown as ProjectConfig);
       await fs.writeJson(configPath, configFile, { spaces: 2 });
       console.log();
     },
@@ -578,6 +588,7 @@ async function updateWorkflowConfig(
     ensureAgentReview(workflow).maxRounds = maxReviewRounds;
   }
   if (completionStrategy) workflow.completionStrategy = completionStrategy;
+  if (options.docsCompletionStrategy) workflow.docsCompletionStrategy = options.docsCompletionStrategy;
   if (typeof taskAgentEnabled === 'boolean' || reviews) {
     workflow.agentAutomationConfigured = true;
   }

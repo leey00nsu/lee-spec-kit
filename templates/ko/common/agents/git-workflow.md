@@ -177,6 +177,12 @@ workflow에 따라 scope를 선택합니다. Issue가 연결되어 있으면 `#1
 
 새 GitHub Feature는 SDD 계획 전에 선택한 Issue 번호를 ID로 사용합니다. local ID는 12자리 무작위 값이며 기존 F번호 문서는 호환됩니다. 한 Feature는 한 담당자가 한 Task씩 진행하고, 다른 Feature끼리는 병렬로 개발할 수 있습니다.
 
-새 standalone Feature는 `workspace prepare`가 해당 Feature seed만 커밋한 뒤 반환한 docsDirectory에서 문서를 작성합니다. 기본 문서 체크아웃은 base 브랜치를 유지합니다. local Feature는 코드 통합 검증 → 문서 통합 → 정리 순서를 따르며, OpenWiki 갱신은 독립 실행됩니다. 문서 통합 기록은 내용 변경 없는 Git 커밋으로 남아 문서 저장소 clone 후에도 복원됩니다. base가 앞서가면 `workspace sync-docs`로 반영하고 충돌을 재검증합니다. 중간 실패를 완료로 처리하지 않습니다.
+새 standalone Feature는 `workspace prepare`가 해당 Feature seed만 커밋한 뒤 반환한 docsDirectory에서 문서를 작성합니다. 기본 문서 체크아웃은 base 브랜치를 유지합니다. local Feature는 코드 통합 검증 → 문서 통합 검증 → 문서·코드 정리 → `done` 순서를 따릅니다. OpenWiki와 GitHub 게시 작업은 독립 실행됩니다. 중간 실패를 완료로 처리하지 않습니다.
+
+새 선택 설정 `workflow.docsCompletionStrategy`의 기본값은 `inherit`이며, 필드가 없는 예전 설정에도 적용됩니다. local 문서는 코드의 `completionStrategy`를 따릅니다. `local-squash`는 최신 문서 base 위에 canonical Feature scope 커밋 하나를 만들고 본문에 receipt를 기록합니다. `local-ff`는 빈 receipt 커밋을 사용하는 기존 ff 경로를 유지합니다. 별도 override는 standalone의 관리형 local 통합에서 사용합니다. GitHub 모드는 ff를 유지하며 squash override를 거절합니다. embedded 문서는 코드와 함께 통합됩니다. 코드 전략 `none`은 관리형 문서 통합을 허용하지 않습니다.
+
+task별 checkpoint와 strict commit gate는 원본 작업 브랜치에서 유지합니다. 문서 base가 앞서가면 `workspace sync-docs`로 반영하고 작업 worktree에서 충돌을 해결한 뒤 재검증합니다. 내부 sync merge는 최종 squash base 이력에 들어가지 않습니다. 선택한 Feature의 SDD/artifacts/metadata와 승인된 Curated Documentation Impact 중 task Docs에 연결된 경로만 통합합니다. 동기화한 최신 base와 source의 최종 diff를 사용하여 다른 Feature의 base 변경을 현재 Feature 변경으로 오판하지 않습니다.
+
+squash 원본 tip은 내부 evidence ref와 불변 `lee-spec-kit/docs-evidence/` tag에 보존합니다. receipt는 original/current base, source tip/tree, task checkpoint, integrated tree, 전략, 승인 범위와 코드 검증을 연결합니다. 원격 게시를 승인받은 경우에만 반환된 portableEvidenceRef도 base와 함께 게시합니다. clone은 해당 tag로 내부 evidence를 복원합니다. cleanup은 원본 tip의 조상 여부 대신 receipt/tree/evidence를 검증합니다. 검증된 완료 squash는 원본 task checkpoint로 판정하지만 이후 task 수정과 실행 중 다중 DONE 커밋은 strict gate를 그대로 적용합니다. 예전 ff receipt도 읽습니다. 별도 명시 요청과 백업·검증 없이 기존 이력을 rewrite하거나 force-push하지 않습니다.
 
 명시적 Task ID에는 task claim/status/transition/release와 최신 해시·세션 토큰을 사용합니다. ID 없는 레거시 Task는 문서에서 상태를 변경합니다. CI에서 feature-audit를 실행하고 sharedDocumentationWarnings의 공통 문서 수정 대상을 검토합니다. PR 병합 재시도 중 자동 rebase·force-push를 하지 않습니다.

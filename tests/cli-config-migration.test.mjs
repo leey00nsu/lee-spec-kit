@@ -36,6 +36,47 @@ async function runConfigUpdate(dir) {
   );
 }
 
+test('docs completion strategy is a new inherited default and update preserves explicit overrides', async () => {
+  await withTempDir('lsk-config-docs-strategy-', async (dir) => {
+    await writeProjectConfig(dir, { docsRepo: 'standalone', workspaceRoot: '..', projectRoot: '../project', workflow: { mode: 'local', completionStrategy: 'local-squash' } });
+    await fs.mkdir(path.join(dir, 'project'));
+    let updated = await runConfigUpdate(dir);
+    assert.equal(updated.workflow.docsCompletionStrategy, 'inherit');
+    assert.equal(updated.workflow.completionStrategy, 'local-squash');
+    const changed = await runCli(dir, ['config', '--docs-completion-strategy', 'local-ff']);
+    assert.equal(changed.code, 0, changed.stderr || changed.stdout);
+    updated = await runConfigUpdate(dir);
+    assert.equal(updated.workflow.docsCompletionStrategy, 'local-ff');
+    assert.equal(updated.workflow.taskCommitGate, 'warn');
+  });
+});
+
+for (const scenario of ['embedded', 'github', 'none', 'invalid']) {
+  test(`config rejects unsupported docs strategy ${scenario} before writing`, async () => {
+    await withTempDir('lsk-config-docs-invalid-', async (dir) => {
+      await writeProjectConfig(dir, {
+        docsRepo: scenario === 'embedded' ? 'embedded' : 'standalone',
+        workflow: { mode: scenario === 'github' ? 'github' : 'local', completionStrategy: scenario === 'none' ? 'none' : 'local-squash' },
+      });
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const before = await fs.readFile(configPath, 'utf8');
+      const result = await runCli(dir, ['config', '--docs-completion-strategy', scenario === 'invalid' ? 'squash' : 'local-squash']);
+      assert.notEqual(result.code, 0, result.stdout);
+      assert.equal(await fs.readFile(configPath, 'utf8'), before);
+    });
+  });
+}
+
+test('detect validates docs policy and config can repair an invalid override', async () => {
+  await withTempDir('lsk-config-docs-repair-', async (dir) => {
+    await writeProjectConfig(dir, { workflow: { mode: 'local', completionStrategy: 'local-squash', docsCompletionStrategy: 'local-squash' } });
+    const detected = await runCli(dir, ['detect', '--json']);
+    assert.equal(JSON.parse(detected.stdout).reasonCode, 'INVALID_CONFIG');
+    const repaired = await runCli(dir, ['config', '--docs-completion-strategy', 'inherit']);
+    assert.equal(repaired.code, 0, repaired.stdout || repaired.stderr);
+  });
+});
+
 test('update backfills the OpenWiki experiment to false without enabling behavior', async () => {
   await withTempDir('lsk-config-openwiki-backfill-', async (dir) => {
     await writeProjectConfig(dir, { workflow: { mode: 'local' } });
@@ -287,6 +328,7 @@ test('init writes only canonical workflow runtime settings', async () => {
 
     assert.deepEqual(config.workflow, {
       mode: 'local',
+      docsCompletionStrategy: 'inherit',
       requireWorktree: false,
       codeDirtyScope: 'auto',
       taskCommitGate: 'warn',

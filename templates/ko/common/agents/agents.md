@@ -36,6 +36,8 @@
 - 활성 feature 문서를 읽은 뒤에는 `npx lee-spec-kit workflow-stage <featureRef> --json`를 실행하고, 그 `nextAction`만 따릅니다.
 - `workflow-stage --json`가 payload 최상위 `primaryActionLabel`과 `actionOptions`를 같이 반환하면(`nextAction` 안에도 동일하게 미러링됨), `primaryActionLabel`은 기본 옵션 라벨로 보고 사용자에게는 `actionOptions[*].reply` 값을 그대로 보여줍니다.
 
+- standalone 문서는 새 선택 설정 `workflow.docsCompletionStrategy`를 사용하며, 기본값과 필드 누락 시 값은 `inherit`입니다. local은 코드의 ff/squash를 따르고 GitHub는 ff를 유지하며 embedded는 코드와 함께 통합합니다. 원본 브랜치의 task checkpoint와 strict gate를 유지합니다. 코드 통합 검증 → 문서 receipt/tree/evidence 검증 → 문서 cleanup → 코드 cleanup → `done` 순서를 따릅니다. 앞서간 docs base는 기존 worktree에서 sync하고 충돌을 해결한 뒤 재검증합니다. Feature SDD/artifacts/metadata와 승인된 curated target 중 task Docs에 연결된 경로만 통합합니다. squash는 receipt를 포함한 canonical Feature 커밋 하나를 만들고 원본 evidence와 불변 portable evidence tag를 보존합니다. 원격 게시가 승인된 경우에만 반환된 tag도 게시합니다. cleanup은 조상 여부 대신 receipt/tree/evidence를 검증하며 완료 task gate는 현재 task 문서가 일치할 때만 원본 checkpoint를 사용합니다. 예전 ff receipt도 읽으며, 별도 명시 요청과 백업·검증 없이 과거 이력을 rewrite하지 않습니다.
+
 ## Feature 진행 중 추가 요청
 
 - 턴 전환·재개·컨텍스트 압축 뒤에도 선택한 Feature를 유지합니다. 추가 구현·수정 요청은 기본적으로 해당 Feature에 새 task 블록으로 기록하며, DONE task의 후속 작업도 새 task로 추가합니다.

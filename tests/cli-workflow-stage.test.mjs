@@ -429,12 +429,13 @@ async function prepareCompletedLocalFeature(dir, options = {}) {
 
 async function prepareCompletedStandaloneLocalFeature(
   dir,
-  { projectCommit = true, openwiki = false, workflowSyncMarker = true } = {}
+  { projectCommit = true, openwiki = false, workflowSyncMarker = true, completionStrategy = 'local-ff' } = {}
 ) {
   const { projectRoot } = await initStandaloneRepo(dir, { workflow: 'local' });
   const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
   config.workflow.agentReview.feature.enabled = false;
+  if (completionStrategy) config.workflow.completionStrategy = completionStrategy;
   config.experimental.openwiki = openwiki;
   config.workflow.featureChecksSkipReason = 'Fixture has no executable project checks';
   await fs.writeFile(
@@ -5325,9 +5326,10 @@ test('standalone OpenWiki-enabled Feature completes without Knowledge publicatio
   });
 });
 
-test('standalone docs workspace integrates and cleans up before done', async () => {
+for (const completionStrategy of ['local-ff', 'local-squash']) {
+test(`standalone docs workspace ${completionStrategy} integrates and cleans up before done`, async () => {
   await withTempDir('lsk-docs-isolation-', async (dir) => {
-    await prepareCompletedStandaloneLocalFeature(dir);
+    await prepareCompletedStandaloneLocalFeature(dir, { completionStrategy });
     const docs = path.join(dir, 'docs');
     await fs.writeFile(path.join(featureDir(dir), '.feature.json'), JSON.stringify({ version: 1, id: 'F001', owner: 'test@example.com', branch: 'feat/alpha' }));
     await runCommand(docs, 'git', ['add', '.']);
@@ -5359,6 +5361,154 @@ test('standalone docs workspace integrates and cleans up before done', async () 
     assert.equal((await readStage(clonedDocs)).stage, 'done', 'A fresh docs clone must recover its integration receipt');
   });
 });
+
+}
+
+test('36 strict task checkpoints survive standalone docs squash, cleanup and clone recovery', async () => {
+  await withTempDir('lsk-docs-36-checkpoints-', async (dir) => {
+    const { projectRoot, worktreePath } = await prepareCompletedStandaloneLocalFeature(dir, { completionStrategy: 'local-squash' });
+    const docs = path.join(dir, 'docs');
+    const configPath = path.join(docs, '.lee-spec-kit.json');
+    const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
+    config.workflow.taskCommitGate = 'strict';
+    config.workflow.agentReview.task.enabled = true;
+    // Exercise old configuration files too: inheritance must not depend on update.
+    delete config.workflow.docsCompletionStrategy;
+    config.workflow.featureChecks = [{ command: process.execPath, args: ['-e', "const fs=require('node:fs'); if(fs.readFileSync('alpha.ts','utf8')!=='export const alpha = 36;\\n') process.exit(1);"] }];
+    delete config.workflow.featureChecksSkipReason;
+    await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    await fs.writeFile(path.join(featureDir(dir), '.feature.json'), JSON.stringify({ version: 1, id: 'F001', owner: 'test@example.com', branch: 'feat/alpha' }));
+    const tasksPath = path.join(featureDir(dir), 'tasks.md');
+    let tasks = await fs.readFile(tasksPath, 'utf8');
+    const blocks = Array.from({ length: 36 }, (_, index) => {
+      const id = String(index + 1).padStart(2, '0');
+      return `- [TODO][NON-PRD] T-F001-alpha-${id} implement alpha checkpoint ${index + 1}\n  - Date: 2026-10-05\n  - Acceptance:\n    - checkpoint ${index + 1} is implemented\n  - Checklist:\n    - [ ] checkpoint ${index + 1}\n`;
+    }).join('\n');
+    tasks = tasks.replace(/- \[DONE\]\[NON-PRD\] T-F001-alpha-01[\s\S]*?(?=## Completion Criteria)/, `${blocks}\n`);
+    tasks = tasks.replace(/<!--\s*lee-spec-kit:workflow-sync\s+[^>]+-->/gu, '');
+    await fs.writeFile(tasksPath, tasks);
+    await runCommand(docs, 'git', ['add', '.']);
+    await runCommand(docs, 'git', ['commit', '-m', 'docs(F001): plan checkpoint verification']);
+    const prepared = await runCli(dir, ['workspace', 'prepare', 'F001', '--json']);
+    assert.equal(prepared.code, 0, prepared.stdout);
+    const isolated = JSON.parse(prepared.stdout).docsDirectory;
+    const isolatedTasks = path.join(isolated, 'features', 'F001-alpha', 'tasks.md');
+    for (let number = 1; number <= 36; number += 1) {
+      await fs.writeFile(path.join(worktreePath, 'alpha.ts'), `export const alpha = ${number};\n`);
+      await runCommand(worktreePath, 'git', ['add', 'alpha.ts']);
+      const codeCommit = await runCommand(worktreePath, 'git', ['commit', '-m', `feat(F001): implement alpha checkpoint ${number}`]);
+      assert.equal(codeCommit.code, 0, codeCommit.stderr);
+      const reviewedHead = (await runCommand(worktreePath, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+      const reviewedTree = (await runCommand(worktreePath, 'git', ['rev-parse', 'HEAD^{tree}'])).stdout.trim();
+      const id = String(number).padStart(2, '0');
+      tasks = (await fs.readFile(isolatedTasks, 'utf8')).replace(`[TODO][NON-PRD] T-F001-alpha-${id}`, `[DONE][NON-PRD] T-F001-alpha-${id}`).replace(`[ ] checkpoint ${number}\n`, `[x] checkpoint ${number}\n`);
+      tasks = tasks.replace(`[x] checkpoint ${number}\n`, `[x] checkpoint ${number}\n  - Review Evidence: features/F001-alpha/decisions.md\n  - Review Decision: decision: approve - checkpoint reviewed\n  - Review Round: 1\n  - Reviewed Head: ${reviewedHead}\n  - Reviewed Tree: ${reviewedTree}\n`);
+      await fs.writeFile(isolatedTasks, tasks);
+      await runCommand(isolated, 'git', ['add', 'features/F001-alpha/tasks.md']);
+      const docsCommit = await runCommand(isolated, 'git', ['commit', '-m', `docs(F001): complete alpha checkpoint ${number}`]);
+      assert.equal(docsCommit.code, 0, docsCommit.stderr);
+      const checkpointDiff = (await runCommand(isolated, 'git', ['diff', 'HEAD^', 'HEAD', '--', 'features/F001-alpha/tasks.md'])).stdout;
+      assert.equal((checkpointDiff.match(/^\+- \[DONE\]/gm) || []).length, 1);
+      if (number === 1 || number === 36) {
+        const checkpointStage = await readStage(isolated);
+        assert.notEqual(checkpointStage.stage, 'task_commit', JSON.stringify(checkpointStage));
+        assert.notEqual(checkpointStage.stage, 'task_review', JSON.stringify(checkpointStage));
+        assert.equal(checkpointStage.docsCompletionStrategy, 'local-squash');
+      }
+    }
+    const audit = await runCli(isolated, ['workflow-audit', '--json']);
+    assert.equal(audit.code, 0, audit.stdout);
+    const marker = JSON.parse(audit.stdout).expectedWorkflowSyncMarker;
+    await fs.appendFile(path.join(isolated, 'features', 'F001-alpha', 'decisions.md'), `\n${marker}\n`);
+    await runCommand(isolated, 'git', ['add', '.']);
+    await runCommand(isolated, 'git', ['commit', '-m', 'docs(F001): record verified workflow sync']);
+    // Simulate another Feature's progress on a separate worktree and docs base.
+    const other = path.join(dir, 'other-docs');
+    await runCommand(docs, 'git', ['worktree', 'add', '-b', 'docs/other', other, 'main']);
+    await fs.writeFile(path.join(other, 'other-progress.txt'), 'Other Feature is still in progress.\n');
+    await runCommand(other, 'git', ['add', '.']);
+    await runCommand(other, 'git', ['commit', '-m', 'other Feature checkpoint']);
+    const otherTip = (await runCommand(other, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+    await fs.mkdir(path.join(docs, 'features', 'OTHER-beta'), { recursive: true });
+    await fs.writeFile(path.join(docs, 'features', 'OTHER-beta', 'tasks.md'), 'Other base progress\n');
+    await runCommand(docs, 'git', ['add', '.']);
+    await runCommand(docs, 'git', ['commit', '-m', 'other docs base change']);
+    const latestBase = (await runCommand(docs, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+    let result = await runCli(isolated, ['local', 'verify', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(isolated)).nextAction.category, 'local_merge');
+    result = await runCli(isolated, ['local', 'merge', 'F001', '--confirm', 'OK', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(isolated)).nextAction.category, 'workspace_sync_docs');
+    result = await runCli(isolated, ['workspace', 'merge-docs', 'F001', '--json']);
+    assert.equal(result.code, 1, result.stdout);
+    assert.equal(JSON.parse(result.stdout).reasonCode, 'DOCS_BASE_ADVANCED');
+    assert.equal(JSON.parse(result.stdout).nextAction.category, 'workspace_sync_docs');
+    result = await runCli(isolated, ['workspace', 'sync-docs', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(isolated)).nextAction.category, 'workspace_merge_docs');
+    const sourceTip = (await runCommand(isolated, 'git', ['rev-parse', 'HEAD'])).stdout.trim();
+    const sourceTree = (await runCommand(isolated, 'git', ['rev-parse', 'HEAD^{tree}'])).stdout.trim();
+    result = await runCli(isolated, ['workspace', 'merge-docs', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    const integrated = JSON.parse(result.stdout);
+    assert.equal(integrated.docsCompletionStrategy, 'local-squash');
+    assert.equal(integrated.verifiedSourceTip, sourceTip);
+    assert.equal((await runCommand(docs, 'git', ['show', '-s', '--format=%P', 'main'])).stdout.trim(), latestBase);
+    assert.equal((await runCommand(docs, 'git', ['rev-parse', 'main^{tree}'])).stdout.trim(), sourceTree);
+    assert.equal((await runCommand(docs, 'git', ['rev-list', '--count', `${latestBase}..main`])).stdout.trim(), '1');
+    assert.equal((await runCommand(docs, 'git', ['merge-base', '--is-ancestor', sourceTip, 'main'])).code, 1);
+    const squashedTasks = (await runCommand(docs, 'git', ['diff', 'main^', 'main', '--', 'features/F001-alpha/tasks.md'])).stdout;
+    assert.equal((squashedTasks.match(/^\+- \[DONE\]/gm) || []).length, 36);
+    assert.equal((await readStage(isolated)).nextAction.category, 'workspace_cleanup_docs');
+    const sourceConfigPath = path.join(isolated, '.lee-spec-kit.json');
+    const sourceConfigText = await fs.readFile(sourceConfigPath, 'utf8');
+    const changedPolicy = JSON.parse(sourceConfigText);
+    changedPolicy.workflow.docsCompletionStrategy = 'local-ff';
+    await fs.writeFile(sourceConfigPath, JSON.stringify(changedPolicy, null, 2));
+    result = await runCli(isolated, ['workspace', 'cleanup-docs', 'F001', '--json']);
+    assert.equal(result.code, 1, result.stdout);
+    assert.equal(JSON.parse(result.stdout).reasonCode, 'DOCS_STRATEGY_CHANGED');
+    assert.equal(await fs.readFile(isolatedTasks, 'utf8'), tasks);
+    await fs.writeFile(sourceConfigPath, sourceConfigText);
+    result = await runCli(isolated, ['workspace', 'cleanup-docs', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    result = await runCli(dir, ['local', 'cleanup', 'F001', '--json']);
+    assert.equal(result.code, 0, result.stdout);
+    assert.equal((await readStage(dir)).stage, 'done');
+    await fs.writeFile(path.join(docs, 'later-base-change.txt'), 'Later independent Feature\n');
+    await runCommand(docs, 'git', ['add', '.']);
+    await runCommand(docs, 'git', ['commit', '-m', 'later independent docs base change']);
+    assert.equal((await readStage(dir)).stage, 'done');
+    for (const action of ['merge-docs', 'cleanup-docs']) {
+      result = await runCli(dir, ['workspace', action, 'F001', '--json']);
+      assert.equal(result.code, 0, result.stdout);
+    }
+    assert.equal((await runCommand(other, 'git', ['rev-parse', 'HEAD'])).stdout.trim(), otherTip);
+    assert.equal(await fs.readFile(path.join(other, 'other-progress.txt'), 'utf8'), 'Other Feature is still in progress.\n');
+    assert.equal(await fs.readFile(path.join(docs, 'features', 'OTHER-beta', 'tasks.md'), 'utf8'), 'Other base progress\n');
+    const clone = path.join(dir, 'cloned-docs');
+    await runCommand(dir, 'git', ['clone', '--no-local', docs, clone]);
+    assert.equal((await readStage(clone)).stage, 'done');
+    assert.equal((await runCommand(clone, 'git', ['rev-parse', integrated.evidenceRef])).stdout.trim(), sourceTip);
+    assert.equal((await runCommand(projectRoot, 'git', ['show', 'main:alpha.ts'])).stdout, 'export const alpha = 36;\n');
+    const cloneTasks = path.join(clone, 'features', 'F001-alpha', 'tasks.md');
+    let modified = await fs.readFile(cloneTasks, 'utf8');
+    modified = modified.replace('## Completion Criteria', '- [DONE][NON-PRD] T-F001-alpha-37 unverified extra task\n  - Date: 2026-10-05\n  - Acceptance:\n    - extra behavior\n  - Checklist:\n    - [x] extra\n\n- [DONE][NON-PRD] T-F001-alpha-38 another extra task\n  - Date: 2026-10-05\n  - Acceptance:\n    - extra behavior\n  - Checklist:\n    - [x] extra\n\n## Completion Criteria');
+    await runCommand(clone, 'git', ['config', 'user.name', 'Test User']);
+    await runCommand(clone, 'git', ['config', 'user.email', 'test@example.com']);
+    const cloneConfigPath = path.join(clone, '.lee-spec-kit.json');
+    const cloneConfig = JSON.parse(await fs.readFile(cloneConfigPath, 'utf8'));
+    cloneConfig.workflow.agentReview.task.enabled = false;
+    await fs.writeFile(cloneConfigPath, JSON.stringify(cloneConfig, null, 2));
+    await fs.writeFile(cloneTasks, modified);
+    await runCommand(clone, 'git', ['add', '.']);
+    await runCommand(clone, 'git', ['commit', '-m', 'docs(F001): invalid multiple DONE transitions']);
+    const invalid = await readStage(clone);
+    assert.equal(invalid.stage, 'task_commit', JSON.stringify(invalid));
+    assert.equal(invalid.blockedReasonCode, 'TASK_COMMIT_REQUIRED');
+  });
+}, 240_000);
 
 for (const fails of [false, true]) {
   test(`local integration preserves external commits during ${fails ? 'failing' : 'passing'} checks`, async () => {

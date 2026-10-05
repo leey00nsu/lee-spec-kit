@@ -1,6 +1,7 @@
 import type { ProjectConfig } from './types.js';
 import { detectSchemaProject } from '../adapters/schema/index.js';
 import { createCliError } from '../utils/cli-error.js';
+import { assertValidDocsCompletionConfig } from './docs-completion.js';
 
 export function assertValidExperimentalConfig(config: ProjectConfig): void {
   const experimental = config.experimental as unknown;
@@ -19,12 +20,17 @@ export function assertValidExperimentalConfig(config: ProjectConfig): void {
   }
 }
 
-export async function getConfig(cwd: string): Promise<ProjectConfig | null> {
+export async function getConfig(
+  cwd: string,
+  options: { validateDocsStrategy?: boolean } = {}
+): Promise<ProjectConfig | null> {
   const detected = await detectSchemaProject(cwd);
   const config = detected.config;
   if (!config) return null;
 
   assertValidExperimentalConfig(config);
+  if (options.validateDocsStrategy !== false)
+    assertValidDocsCompletionConfig(config);
 
   return config;
 }

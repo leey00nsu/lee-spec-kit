@@ -53,6 +53,8 @@ export interface LocalWorkflowCheck {
 
 export type LocalPostMergeCheck = LocalWorkflowCheck;
 
+export type DocsCompletionStrategy = 'inherit' | 'local-ff' | 'local-squash';
+
 export interface ProjectConfig {
   schemaId?: string;
   docsDir: string;
@@ -88,6 +90,8 @@ export interface ProjectConfig {
     requireMerge?: boolean;
     baseBranch?: string;
     completionStrategy?: 'local-ff' | 'local-squash' | 'none';
+    /** Missing values inherit too; standalone docs follow the code strategy. */
+    docsCompletionStrategy?: DocsCompletionStrategy;
     deleteFeatureBranchAfterMerge?: boolean;
     featureChecks?: LocalWorkflowCheck[];
     featureChecksSkipReason?: string;

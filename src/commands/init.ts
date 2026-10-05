@@ -1,4 +1,5 @@
 import { detectFeatureChecks } from '../utils/feature-checks.js';
+import { assertValidDocsCompletionConfig } from '../config/docs-completion.js';
 import { ensureGitignoreEntries } from '../utils/gitignore.js';
 import { Command } from 'commander';
 import prompts from 'prompts';
@@ -167,6 +168,7 @@ interface InitOptions {
   reviews?: string;
   maxReviewRounds?: string;
   completionStrategy?: 'local-ff' | 'local-squash' | 'none';
+  docsCompletionStrategy?: 'inherit' | 'local-ff' | 'local-squash';
   openwiki?: string;
   dir?: string;
   docsRepo?: 'embedded' | 'standalone';
@@ -208,6 +210,9 @@ function parseInitReviews(
 }
 
 function assertValidInitWorkflowOptions(options: InitOptions): void {
+  if (options.docsCompletionStrategy && !['inherit', 'local-ff', 'local-squash'].includes(options.docsCompletionStrategy)) {
+    throw createCliError('INVALID_ARGUMENT', '`--docs-completion-strategy` must be inherit, local-ff, or local-squash.');
+  }
   if (options.taskAgent && !['on', 'off'].includes(options.taskAgent)) {
     throw createCliError(
       'INVALID_ARGUMENT',
@@ -277,6 +282,7 @@ export function initCommand(program: Command): void {
       'Allow independent OpenWiki CI scaffolding: true | false'
     )
     .option('-d, --dir <dir>', 'Target directory (default: ./docs)', './docs')
+    .option('--docs-completion-strategy <strategy>', 'Standalone docs completion: inherit (default) | local-ff | local-squash')
     .option('--docs-repo <mode>', 'Docs repository mode: embedded | standalone')
     .option(
       '--project-root <path>',
@@ -812,6 +818,11 @@ async function runInit(options: InitOptions): Promise<void> {
       '`--completion-strategy` can only be used with `--workflow local`.'
     );
   }
+  assertValidDocsCompletionConfig({
+    docsDir: targetDir, projectType, lang, docsRepo,
+    workflow: { mode: workflowMode, completionStrategy: workflowMode === 'local' ? completionStrategy : undefined,
+      docsCompletionStrategy: options.docsCompletionStrategy ?? 'inherit' },
+  });
 
   if (projectType === 'single') {
     if (components.length > 0) {
@@ -1139,6 +1150,7 @@ async function runInit(options: InitOptions): Promise<void> {
         },
         workflow: {
           mode: workflowMode,
+          docsCompletionStrategy: options.docsCompletionStrategy ?? 'inherit',
           requireWorktree: docsRepo === 'standalone',
           codeDirtyScope: 'auto',
           taskCommitGate: 'warn',

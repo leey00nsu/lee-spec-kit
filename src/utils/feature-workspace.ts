@@ -9,6 +9,16 @@ import {
 } from './standalone-workspace.js';
 import { getRepositoryLockPath } from './lock.js';
 import { runGitCapture } from './git-run.js';
+import type { CliReasonCode } from './cli-error.js';
+import {
+  resolveDocsCompletionStrategy,
+  type EffectiveDocsCompletionStrategy,
+} from '../config/docs-completion.js';
+import {
+  readDocsIntegrationReceipt,
+  type DocsIntegrationReceipt,
+} from './docs-integration-receipt.js';
+export { docsIntegrationMarker } from './docs-integration-receipt.js';
 
 export interface DocsWorkspace {
   root: string;
@@ -18,7 +28,15 @@ export interface DocsWorkspace {
   docsDirectory: string;
   statePath: string;
   current: boolean;
+  branchExists: boolean;
   integrated: boolean;
+  strategy: EffectiveDocsCompletionStrategy;
+  originalBaseTip: string | null;
+  sourceTip: string | null;
+  integratedCommit?: string;
+  receipt?: DocsIntegrationReceipt;
+  legacyReceipt?: boolean;
+  validationError?: { code: CliReasonCode; detail: string };
 }
 export async function resolveDocsWorkspace(
   config: ProjectConfig,
@@ -38,7 +56,7 @@ export async function resolveDocsWorkspace(
     `docs-workspace-${key}.json`
   );
   const state = (await fs.pathExists(statePath))
-    ? await fs.readJson(statePath)
+    ? await fs.readJson(statePath).catch(() => null)
     : null;
   const directory = path.join(
     workspace,
@@ -54,37 +72,58 @@ export async function resolveDocsWorkspace(
     resolveGitTopLevelOrNull(config.docsDir) || config.docsDir,
     config.docsDir
   );
+  const branch = `docs/${key}`;
   const pendingTip = (await fs.pathExists(directory))
     ? runGitCapture(['rev-parse', 'HEAD'], directory)
-    : state?.tip;
+    : runGitCapture(['rev-parse', '--verify', `refs/heads/${branch}`], root);
   // The integration commit travels with the docs repository; runtime state is a cache.
-  const marker = docsIntegrationMarker(feature);
-  const receipt = runGitCapture(['log', `refs/heads/${baseBranch}`, '--format=%H',
-    '--fixed-strings', `--grep=${marker}`, '-1'], root);
-  const receiptMessage = receipt ? runGitCapture(['show', '-s', '--format=%B', receipt], root) : undefined;
-  const durableIntegration = !!receipt && !!receiptMessage?.split('\n').includes(marker) &&
-    (!pendingTip || runGitCapture(['merge-base', '--is-ancestor', pendingTip, `refs/heads/${baseBranch}`], root) !== undefined);
+  const strategy = resolveDocsCompletionStrategy(config);
+  const integration = readDocsIntegrationReceipt(
+    root,
+    feature,
+    baseBranch,
+    strategy,
+    pendingTip,
+    docsRelative.replace(/\\/gu, '/'),
+    config.workflow?.mode
+  );
   return {
     root,
     baseBranch,
     docsDirectory: path.join(directory, docsRelative),
-    branch: `docs/${key}`,
+    branch,
     directory,
     statePath,
     current:
       path.resolve(resolveGitTopLevelOrNull(config.docsDir) || '') ===
       path.resolve(directory),
-    integrated: durableIntegration || (
-      state?.status === 'integrated' &&
-      !!state.tip &&
-      pendingTip === state.tip &&
-      runGitCapture(
-        ['merge-base', '--is-ancestor', state.tip, `refs/heads/${baseBranch}`],
-        root
-      ) !== undefined),
+    branchExists: !!runGitCapture(
+      ['rev-parse', '--verify', `refs/heads/${branch}`],
+      root
+    ),
+    integrated:
+      integration.integrated ||
+      (!integration.integratedCommit &&
+        state?.status === 'integrated' &&
+        state.version !== 2 &&
+        !!state.tip &&
+        pendingTip === state.tip &&
+        runGitCapture(
+          [
+            'merge-base',
+            '--is-ancestor',
+            state.tip,
+            `refs/heads/${baseBranch}`,
+          ],
+          root
+        ) !== undefined),
+    strategy,
+    originalBaseTip:
+      integration.receipt?.originalBaseTip || state?.originalBaseTip || null,
+    sourceTip: integration.receipt?.sourceTip || pendingTip || null,
+    integratedCommit: integration.integratedCommit,
+    receipt: integration.receipt,
+    legacyReceipt: integration.legacy,
+    validationError: integration.error,
   };
-}
-
-export function docsIntegrationMarker(feature: ResolvedFeature): string {
-  return `Lee-Spec-Docs-Integration: ${feature.type}/${feature.folderName}`;
 }

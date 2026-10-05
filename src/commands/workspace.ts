@@ -1,10 +1,19 @@
+import {
+  assertCleanDocsWorktree,
+  cleanupDocsWorkspace,
+  docsIntegrationResult,
+  integrateDocsWorkspace,
+  writeDocsWorkspaceState,
+} from '../utils/docs-integration.js';
+import type { DocsCodeIntegrationEvidence } from '../utils/docs-integration-receipt.js';
+import { isFeatureVerificationCurrent } from '../utils/local-integration.js';
 import { resolveFeatureCommitScope } from '../utils/commit-conventions.js';
 import { collectWorkflowStage } from '../utils/workflow-stage.js';
 import fs from 'fs-extra';
 import path from 'node:path';
 import type { Command } from 'commander';
 import { resolveFeatureSelection } from '../utils/feature-resolver.js';
-import { docsIntegrationMarker, resolveDocsWorkspace } from '../utils/feature-workspace.js';
+import { resolveDocsWorkspace } from '../utils/feature-workspace.js';
 import { getRepositoryLockPath, withFileLock } from '../utils/lock.js';
 import { createCliError, toCliError } from '../utils/cli-error.js';
 import { runGitCapture, runGitOrThrow } from '../utils/git-run.js';
@@ -29,6 +38,15 @@ export function workspaceCommand(program: Command): void {
   ] as const) {
     workspace
       .command(`${action} <feature>`)
+      .description(
+        action === 'merge-docs'
+          ? 'Integrate approved docs using the inherited/overridden docs strategy and preserve source evidence'
+          : action === 'sync-docs'
+            ? 'Merge the current docs base into the isolated docs branch for revalidation'
+            : action === 'cleanup-docs'
+              ? 'Remove only the docs workspace validated by its integration receipt and evidence'
+              : 'Prepare the managed Feature workspace'
+      )
       .option('--component <component>')
       .option('--json')
       .action(async (selector: string, options: { component?: string }) => {
@@ -50,7 +68,9 @@ export function workspaceCommand(program: Command): void {
             config.docsRepo !== 'standalone' &&
             !/^F\d{3,}$/.test(feature.id)
           ) {
-            const root = resolveGitPrimaryWorktreeRoot(feature.git.projectGitCwd);
+            const root = resolveGitPrimaryWorktreeRoot(
+              feature.git.projectGitCwd
+            );
             const metadataPath = path.join(feature.path, '.feature.json');
             if (!(await fs.pathExists(metadataPath))) {
               throw createCliError(
@@ -236,6 +256,27 @@ export function workspaceCommand(program: Command): void {
                   'PRECONDITION_FAILED',
                   'A separate docs base branch is required.'
                 );
+              if (state.validationError)
+                throw createCliError(
+                  state.validationError.code,
+                  state.validationError.detail
+                );
+              if (
+                state.integrated &&
+                (action === 'prepare' || action === 'sync-docs')
+              ) {
+                return {
+                  ...docsIntegrationResult(state),
+                  alreadyIntegrated: true,
+                  docsDirectory: state.root,
+                };
+              }
+              if (state.strategy === 'none' && !state.integrated) {
+                throw createCliError(
+                  'INVALID_CONFIG',
+                  'Managed standalone docs require code completionStrategy=local-ff or local-squash; inherit with none disables integration. Configure an integration strategy before preparing a docs workspace.'
+                );
+              }
               if (action === 'prepare') {
                 const relativeFeature = path
                   .relative(state.root, feature.path)
@@ -338,170 +379,166 @@ export function workspaceCommand(program: Command): void {
                     'PRECONDITION_FAILED',
                     'Workspace branch mismatch; existing files were preserved.'
                   );
-                await fs.outputJson(state.statePath, {
-                  baseBranch: state.baseBranch,
+                await writeDocsWorkspaceState(state, {
                   status: 'active',
+                  originalBaseTip:
+                    state.originalBaseTip ||
+                    git(state.root, ['rev-parse', 'HEAD']),
+                  docsCompletionStrategy: state.strategy,
                 });
                 return {
                   docsDirectory: state.docsDirectory,
+                  docsCompletionStrategy: state.strategy,
                   projectDirectory: feature.git.projectGitCwd,
                   next: `Run subsequent Feature commands from ${state.docsDirectory}; workflow-stage creates the paired project worktree after approval.`,
                 };
               }
-              if (!(await fs.pathExists(state.directory)))
-                throw createCliError(
-                  'PRECONDITION_FAILED',
-                  'Prepare the docs workspace first.'
-                );
-              clean(state.directory);
-              if (
-                git(state.directory, ['branch', '--show-current']) !==
-                state.branch
-              )
-                throw createCliError(
-                  'PRECONDITION_FAILED',
-                  'Workspace branch changed.'
-                );
               if (action === 'sync-docs') {
-                // Conflicts stay in this Feature's worktree, never in the shared base checkout.
-                git(state.directory, [
-                  'merge',
-                  '--no-edit',
-                  `refs/heads/${state.baseBranch}`,
-                ]);
+                if (!(await fs.pathExists(state.directory)))
+                  throw createCliError(
+                    'DOCS_WORKSPACE_REQUIRED',
+                    'Prepare the docs workspace first.'
+                  );
+                assertCleanDocsWorktree(state.directory);
+                if (
+                  git(state.directory, ['branch', '--show-current']) !==
+                  state.branch
+                )
+                  throw createCliError(
+                    'DOCS_BRANCH_CHANGED',
+                    'Docs source branch changed.'
+                  );
+                // Conflicts stay in the Feature worktree. Its checkpoints and the
+                // original docs base are retained; only final integration is squash.
+                try {
+                  git(state.directory, [
+                    'merge',
+                    '--no-edit',
+                    `refs/heads/${state.baseBranch}`,
+                  ]);
+                } catch (error) {
+                  throw createCliError(
+                    'DOCS_SYNC_CONFLICT',
+                    `Docs sync needs conflict resolution in ${state.directory}. No base changes were made. ${(error as Error).message}`
+                  );
+                }
                 return {
-                  docsDirectory: state.directory,
+                  docsDirectory: state.docsDirectory,
+                  docsCompletionStrategy: state.strategy,
                   revalidationRequired: true,
                 };
               }
-              const tip = git(state.directory, ['rev-parse', 'HEAD']);
-              if (action === 'merge-docs') {
-                const workflow = await collectWorkflowStage(
-                  process.cwd(),
-                  selector,
-                  options.component
-                );
-                if (workflow.nextAction?.category !== 'workspace_merge_docs') {
-                  throw createCliError(
-                    'PRECONDITION_FAILED',
-                    'Complete the current workflow gate before integrating docs.'
-                  );
-                }
-                const docsRelative = path
-                  .relative(state.directory, state.docsDirectory)
-                  .replace(/\\/g, '/');
-                const featurePrefix = `${docsRelative ? `${docsRelative}/` : ''}features/`;
-                const ownPrefix = `${docsRelative ? `${docsRelative}/` : ''}${feature.docs.featurePathFromDocs}/`;
-                const changed = git(state.directory, [
-                  'diff',
-                  '--name-only',
-                  `refs/heads/${state.baseBranch}`,
-                  tip,
-                ]).split('\n');
-                if (
-                  changed.some(
-                    (file) =>
-                      file.startsWith(featurePrefix) &&
-                      !file.startsWith(ownPrefix)
-                  )
-                ) {
-                  throw createCliError(
-                    'PRECONDITION_FAILED',
-                    'Another Feature document changed in this workspace. Separate those changes before integration.'
-                  );
-                }
-                if (config.workflow?.mode === 'local') {
-                  const integration = await resolveLocalIntegrationContext(
-                    config,
-                    feature
-                  );
-                  if (
-                    !integration.integrationComplete ||
-                    integration.state?.status !== 'verified'
-                  ) {
-                    throw createCliError(
-                      'PRECONDITION_FAILED',
-                      'Verify project integration before merging its docs.'
-                    );
-                  }
-                } else {
-                  const tasks = await fs.readFile(
-                    path.join(feature.path, 'tasks.md'),
-                    'utf8'
-                  );
-                  const pr = tasks.match(/^- \*\*PR\*\*:\s*(\S+)/m)?.[1];
-                  if (!pr || pr === '-')
-                    throw createCliError(
-                      'PRECONDITION_FAILED',
-                      'A merged PR is required.'
-                    );
-                  const viewed = runProcess(
-                    'gh',
-                    ['pr', 'view', pr, '--json', 'state'],
-                    feature.git.projectGitCwd
-                  );
-                  if (
-                    viewed.code ||
-                    JSON.parse(viewed.stdout).state !== 'MERGED'
-                  )
-                    throw createCliError(
-                      'PRECONDITION_FAILED',
-                      'Merge the project PR before its docs.'
-                    );
-                }
-                clean(state.root);
-                if (
-                  git(state.root, ['branch', '--show-current']) !==
-                    state.baseBranch ||
-                  runGitCapture(
-                    [
-                      'merge-base',
-                      '--is-ancestor',
-                      `refs/heads/${state.baseBranch}`,
-                      tip,
-                    ],
-                    state.root
-                  ) === undefined
-                ) {
-                  throw createCliError(
-                    'PRECONDITION_FAILED',
-                    'Docs base advanced. Run workspace sync-docs and revalidate before merging.'
-                  );
-                }
-                const scope = resolveFeatureCommitScope({ issueNumber: feature.issueNumber,
-                  featureId: feature.id, workflowMode: config.workflow?.mode });
-                if (!scope) throw createCliError('PRECONDITION_FAILED', 'Feature commit scope is required.');
-                // Empty receipt commit preserves reviewed docs content and survives clones/cache loss.
-                git(state.directory, ['commit', '--allow-empty', '-m',
-                  `docs(${scope}): integrate ${feature.slug} documentation\n\n${docsIntegrationMarker(feature)}`]);
-                const receiptTip = git(state.directory, ['rev-parse', 'HEAD']);
-                git(state.root, ['merge', '--ff-only', receiptTip]);
-                await fs.outputJson(state.statePath, {
-                  baseBranch: state.baseBranch,
-                  status: 'integrated',
-                  tip: receiptTip,
-                });
-                return { integratedTip: receiptTip };
-              }
+              const workflow = await collectWorkflowStage(
+                process.cwd(),
+                selector,
+                options.component
+              );
+              const expectedAction =
+                action === 'merge-docs'
+                  ? 'workspace_merge_docs'
+                  : 'workspace_cleanup_docs';
+              const integratedRetry =
+                action === 'merge-docs' &&
+                state.integrated &&
+                (workflow.stage === 'done' ||
+                  ['workspace_cleanup_docs', 'local_cleanup'].includes(
+                    workflow.nextAction?.category || ''
+                  ));
               if (
-                runGitCapture(
-                  [
-                    'merge-base',
-                    '--is-ancestor',
-                    tip,
-                    `refs/heads/${state.baseBranch}`,
-                  ],
-                  state.root
-                ) === undefined
+                workflow.nextAction?.category !== expectedAction &&
+                !integratedRetry &&
+                !(action === 'cleanup-docs' && workflow.stage === 'done')
               ) {
                 throw createCliError(
-                  'PRECONDITION_FAILED',
-                  'Unmerged docs must be preserved.'
+                  workflow.nextAction?.category === 'workspace_sync_docs'
+                    ? 'DOCS_BASE_ADVANCED'
+                    : 'DOCS_WORKFLOW_GATE_REQUIRED',
+                  `Complete the current workflow gate before docs ${action}. Current action: ${workflow.nextAction?.category || workflow.stage}. ${workflow.nextAction?.summary || ''}`,
+                  {
+                    nextAction: workflow.nextAction,
+                    docsCompletionStrategy: state.strategy,
+                  }
                 );
               }
-              git(state.root, ['worktree', 'remove', state.directory]);
-              git(state.root, ['branch', '-d', state.branch]);
-              return { cleaned: true, docsDirectory: state.root };
+              let code: DocsCodeIntegrationEvidence | undefined;
+              if (config.workflow?.mode === 'local') {
+                const integration = await resolveLocalIntegrationContext(
+                  config,
+                  feature
+                );
+                if (
+                  (!integration.integrationComplete &&
+                    !integration.cleanedIntegrationStillValid) ||
+                  !integration.state ||
+                  !['verified', 'cleaned'].includes(integration.state.status) ||
+                  !isFeatureVerificationCurrent(integration)
+                ) {
+                  throw createCliError(
+                    'DOCS_CODE_INTEGRATION_NOT_VERIFIED',
+                    'Verify project integration and its current checks before docs integration or cleanup.'
+                  );
+                }
+                code = {
+                  strategy: integration.completionStrategy,
+                  sourceTip: integration.state.featureTip,
+                  sourceTree:
+                    integration.state.verifiedFeatureTree ||
+                    integration.featureTree ||
+                    '',
+                  integratedCommit:
+                    integration.state.integratedCommit ||
+                    integration.state.mergedBaseTip,
+                  integratedTree:
+                    integration.state.integratedTree ||
+                    integration.featureTree ||
+                    '',
+                  checksHash: integration.featureChecksHash,
+                };
+                if (
+                  state.receipt?.code &&
+                  Object.entries(code).some(
+                    ([key, value]) =>
+                      state.receipt!.code![
+                        key as keyof DocsCodeIntegrationEvidence
+                      ] !== value
+                  )
+                ) {
+                  throw createCliError(
+                    'DOCS_CODE_VERIFICATION_CHANGED',
+                    'Recorded docs receipt does not match the current verified code integration. Preserve evidence and reconcile before cleanup.'
+                  );
+                }
+              } else if (action === 'merge-docs') {
+                const tasks = await fs.readFile(
+                  path.join(feature.path, 'tasks.md'),
+                  'utf8'
+                );
+                const pr = tasks.match(/^- \*\*PR\*\*:\s*(\S+)/m)?.[1];
+                if (!pr || pr === '-')
+                  throw createCliError(
+                    'DOCS_CODE_INTEGRATION_NOT_VERIFIED',
+                    'A merged project PR is required before docs integration.'
+                  );
+                const viewed = runProcess(
+                  'gh',
+                  ['pr', 'view', pr, '--json', 'state'],
+                  feature.git.projectGitCwd
+                );
+                if (viewed.code || JSON.parse(viewed.stdout).state !== 'MERGED')
+                  throw createCliError(
+                    'DOCS_CODE_INTEGRATION_NOT_VERIFIED',
+                    'Merge the project PR before its docs.'
+                  );
+              }
+              return action === 'merge-docs'
+                ? state.integrated
+                  ? {
+                      ...docsIntegrationResult(state),
+                      alreadyIntegrated: true,
+                      docsDirectory: state.root,
+                    }
+                  : integrateDocsWorkspace(config, feature, state, code)
+                : cleanupDocsWorkspace(state, feature);
             },
             { owner: `workspace ${action}` }
           );
@@ -513,6 +550,7 @@ export function workspaceCommand(program: Command): void {
               status: 'error',
               reasonCode: parsed.code,
               error: parsed.message,
+              ...parsed.details,
             })
           );
           process.exitCode = 1;

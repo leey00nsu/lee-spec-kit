@@ -10,6 +10,7 @@ import {
 } from '../utils/cli-error.js';
 import { detectSchemaProject } from '../adapters/schema/index.js';
 import { assertValidExperimentalConfig } from '../config/load.js';
+import { assertValidDocsCompletionConfig, resolveDocsCompletionStrategy } from '../config/docs-completion.js';
 
 interface DetectOptions {
   dir?: string;
@@ -65,7 +66,10 @@ async function runDetect(options: DetectOptions): Promise<void> {
   const targetCwd = options.dir ? path.resolve(cwd, options.dir) : cwd;
   const detection = await detectSchemaProject(targetCwd);
   const config = detection.config;
-  if (config) assertValidExperimentalConfig(config);
+  if (config) {
+    assertValidExperimentalConfig(config);
+    assertValidDocsCompletionConfig(config);
+  }
 
   const detected = !!config;
   const reasonCode: DetectionReasonCode = detected
@@ -112,6 +116,7 @@ async function runDetect(options: DetectOptions): Promise<void> {
           lang: config.lang,
           projectName: config.projectName ?? null,
           experimentalOpenwiki: config.experimental?.openwiki === true,
+          docsCompletionStrategy: config.docsRepo === 'standalone' ? resolveDocsCompletionStrategy(config) : null,
         },
         null,
         2

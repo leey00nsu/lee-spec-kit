@@ -36,6 +36,8 @@ This document defines workflow policy, not a custom runtime loop.
 - After reading the active feature docs, run `npx lee-spec-kit workflow-stage <featureRef> --json` and follow only that `nextAction`.
 - If `workflow-stage --json` also returns payload-level `primaryActionLabel` and `actionOptions` (mirrored inside `nextAction`), treat `primaryActionLabel` as the default option label and present the exact `actionOptions[*].reply` tokens to the user.
 
+- Standalone docs use the new optional `workflow.docsCompletionStrategy`, missing/default `inherit`. Local docs follow code ff/squash; Github retains ff and embedded docs integrate with code. Keep task commit checkpoints and strict gates on source. Follow verified code integration, docs receipt/tree/evidence verification, docs cleanup, project cleanup, then `done`. Sync an advanced docs base and resolve conflicts in the existing worktree; integrate only Feature SDD/artifacts/metadata and approved curated targets linked from task Docs lists. Squash writes one receipt-bearing canonical Feature commit and preserves original source evidence plus an immutable portable evidence tag. Publish the returned tag only when remote publication is authorized. Cleanup uses receipt/tree/evidence rather than source ancestry; completed task gates use preserved checkpoints only for the matching task document. Legacy ff receipts stay readable. Never rewrite prior history without a separate explicit request and backup/verification.
+
 ## Additional requests during a Feature
 
 - Retain the selected Feature across turns, resume, and compaction. Additional implementation and correction requests become new task blocks in that Feature by default; follow-up on a DONE task also becomes a new task.

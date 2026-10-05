@@ -422,6 +422,7 @@ async function backfillMissingConfigDefaults(
   }
   const workflow = raw.workflow as Record<string, unknown>;
   changedPaths.push(...migrateLegacyWorkflowSettings(workflow));
+  setIfMissing(workflow, 'docsCompletionStrategy', 'inherit', 'workflow.docsCompletionStrategy');
   const restoreLegacyAgentAutomationDefaults =
     resolveLegacyBackfilledAgentAutomation(raw);
   setIfMissing(

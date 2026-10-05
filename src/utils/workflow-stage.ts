@@ -1,4 +1,6 @@
 import { resolveDocsWorkspace } from './feature-workspace.js';
+import { isDocsAncestor } from './docs-integration-receipt.js';
+import { resolveDocsCompletionStrategy, type EffectiveDocsCompletionStrategy } from '../config/docs-completion.js';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -91,6 +93,7 @@ export interface WorkflowStageAction {
     | 'workspace_enter'
     | 'workspace_prepare'
     | 'workspace_merge_docs'
+    | 'workspace_sync_docs'
     | 'workspace_cleanup_docs'
     | 'spec_write'
     | 'spec_approve'
@@ -238,6 +241,8 @@ export interface WorkflowStageOption {
 }
 
 export interface WorkflowStagePayload {
+  docsCompletionStrategy?: EffectiveDocsCompletionStrategy;
+  docsIntegrationError?: { code: string; detail: string };
   status: 'ok' | 'error';
   reasonCode:
     | 'WORKFLOW_STAGE_RESOLVED'
@@ -1061,7 +1066,8 @@ function parseDoneTaskTopicCounts(content: string): Map<string, number> {
 }
 
 function countDoneTransitionsInLatestTasksCommit(
-  feature: ResolvedFeature
+  feature: ResolvedFeature,
+  historyHead = 'HEAD'
 ): number | undefined {
   const docsGitCwd = feature.git.docsGitCwd;
   const tasksRelativePathFromDocs = normalizeGitRelativePath(
@@ -1069,7 +1075,7 @@ function countDoneTransitionsInLatestTasksCommit(
   );
   const latestTasksCommit = (
     runGitCapture(
-      ['rev-list', '-n', '1', 'HEAD', '--', tasksRelativePathFromDocs],
+      ['rev-list', '-n', '1', historyHead, '--', tasksRelativePathFromDocs],
       docsGitCwd
     ) || ''
   ).trim();
@@ -1362,7 +1368,13 @@ async function collectUndeclaredCuratedDocumentationChanges(input: {
   const candidates = new Set<string>();
 
   if (docsGitRoot) {
-    const committed =
+    const workspace = await resolveDocsWorkspace(input.config, input.feature);
+    const sourceHead = workspace?.receipt?.sourceTip || 'HEAD';
+    const standaloneBase = workspace?.receipt?.baseTip || (workspace
+      ? runGitCapture(['merge-base', `refs/heads/${workspace.baseBranch}`, sourceHead], docsGitRoot) : undefined);
+    const committed = workspace && standaloneBase
+      ? (runGitCapture(['diff', '--name-only', '-z', standaloneBase, sourceHead], docsGitRoot) || '').split('\0').filter(Boolean)
+      :
       input.config.docsRepo === 'standalone'
         ? collectScopedCommitPaths(docsGitRoot, scopedSubject)
         : collectFeatureRangePaths(input.config, docsGitRoot, scopedSubject);
@@ -1554,9 +1566,10 @@ function checkTaskCommitGate(
   feature: ResolvedFeature,
   effectiveProjectGitCwd: string,
   tasks: ParsedTasks,
-  lastDoneTask: ParsedTasks['tasks'][number] | null
+  lastDoneTask: ParsedTasks['tasks'][number] | null,
+  history?: { docsHead: string; projectHead?: string }
 ): TaskCommitGateCheck {
-  const doneTransitions = countDoneTransitionsInLatestTasksCommit(feature);
+  const doneTransitions = countDoneTransitionsInLatestTasksCommit(feature, history?.docsHead);
   if (doneTransitions === 0) {
     return { pass: true, doneTransitions };
   }
@@ -1596,7 +1609,9 @@ function checkTaskCommitGate(
     const currentProjectTarget = resolveProjectReviewTarget(
       config,
       effectiveProjectGitCwd,
-      'task'
+      'task',
+      null,
+      history?.projectHead
     );
     const unchangedSincePrevious =
       !!previousProjectCheckpoint?.reviewedHead &&
@@ -1627,7 +1642,7 @@ function checkTaskCommitGate(
     }
   }
 
-  const args = ['log', '-n', '1', '--pretty=%s', '--', '.'];
+  const args = ['log', '-n', '1', '--pretty=%s', history?.projectHead || 'HEAD', '--', '.'];
   const relativeDocsDir = path.relative(
     effectiveProjectGitCwd,
     feature.git.docsGitCwd
@@ -1651,7 +1666,7 @@ function checkTaskCommitGate(
   // hides explicit empty checkpoints for documentation-only tasks. Honor only
   // an empty, single-parent HEAD; never search backwards for a matching title.
   const head = runGitCapture(
-    ['show', '-s', '--format=%s%n%T%n%P', 'HEAD'],
+    ['show', '-s', '--format=%s%n%T%n%P', history?.projectHead || 'HEAD'],
     effectiveProjectGitCwd
   )?.split('\n');
   const parents = head?.[2]?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -2137,7 +2152,8 @@ function resolveProjectReviewTarget(
   config: ProjectConfig,
   projectGitCwd: string,
   scope: 'task' | 'feature',
-  taskBase: TaskReviewBase | null = null
+  taskBase: TaskReviewBase | null = null,
+  historyHead = 'HEAD'
 ): ReviewTarget | null {
   const pathArgs = ['--', '.'];
   const relativeDocsDir = path.relative(projectGitCwd, config.docsDir);
@@ -2153,10 +2169,10 @@ function resolveProjectReviewTarget(
 
   const targetSha =
     runGitCapture(
-      ['log', '-n', '1', '--pretty=%H', ...pathArgs],
+      ['log', '-n', '1', '--pretty=%H', historyHead, ...pathArgs],
       projectGitCwd
     ) ||
-    runGitCapture(['rev-parse', 'HEAD'], projectGitCwd) ||
+    runGitCapture(['rev-parse', historyHead], projectGitCwd) ||
     '';
   if (!targetSha) return null;
   const targetTree =
@@ -2203,7 +2219,8 @@ function resolveProjectReviewTarget(
 function resolveDocumentationTaskReviewTarget(
   config: ProjectConfig,
   feature: ResolvedFeature,
-  task: ParsedTasks['tasks'][number]
+  task: ParsedTasks['tasks'][number],
+  historyHead = 'HEAD'
 ): ReviewTarget | null {
   const documentationTargets = task.documentationTargets.filter((target) =>
     target.startsWith('docs:')
@@ -2220,7 +2237,7 @@ function resolveDocumentationTaskReviewTarget(
   });
   const targetSha =
     runGitCapture(
-      ['log', '-n', '1', '--pretty=%H', '--', ...targetPaths],
+      ['log', '-n', '1', '--pretty=%H', historyHead, '--', ...targetPaths],
       docsGitCwd
     ) || '';
   if (!targetSha) return null;
@@ -2250,18 +2267,21 @@ function resolveTaskReviewTarget(
   feature: ResolvedFeature,
   task: ParsedTasks['tasks'][number],
   projectGitCwd: string,
-  taskBase: TaskReviewBase | null
+  taskBase: TaskReviewBase | null,
+  history?: { docsHead: string; projectHead?: string }
 ): ReviewTarget | null {
   const projectTarget = resolveProjectReviewTarget(
     config,
     projectGitCwd,
     'task',
-    taskBase
+    taskBase,
+    history?.projectHead
   );
   const documentationTarget = resolveDocumentationTaskReviewTarget(
     config,
     feature,
-    task
+    task,
+    history?.docsHead
   );
   const onlyDocsTargets =
     task.documentationTargets.length > 0 &&
@@ -3315,6 +3335,7 @@ export async function collectWorkflowStage(cwd: string, selector?: string, compo
   const feature = selection.matchedFeature;
   if (!feature) return result;
   result.featureId = feature.id;
+  if (selection.config.docsRepo === 'standalone') result.docsCompletionStrategy = resolveDocsCompletionStrategy(selection.config);
   result.component = feature.type;
   result.workingDirectory = feature.git.projectGitCwd;
   result.selectionSource = selection.source;
@@ -3373,6 +3394,13 @@ async function collectWorkflowStageCore(
       approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED' };
   }
   const docsWorkspace = await resolveDocsWorkspace(config, feature);
+  if (docsWorkspace?.validationError) {
+    return { status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature), stage: 'workspace',
+      nextAction: buildAction('workspace_merge_docs', `${docsWorkspace.validationError.code}: ${docsWorkspace.validationError.detail}`, false),
+      docsCompletionStrategy: docsWorkspace.strategy, docsIntegrationError: docsWorkspace.validationError,
+      approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_INTEGRATION_REQUIRED' };
+  }
   if (docsWorkspace && !docsWorkspace.current && !docsWorkspace.integrated) {
     // Planning belongs to the registered Feature worktree, not its seed on main.
     // Expose a read-only handoff so hooks can evaluate the same approved docs.
@@ -3402,15 +3430,21 @@ async function collectWorkflowStageCore(
       approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_WORKSPACE_REQUIRED',
     };
   }
-  const docsIntegrationAction = (cleanup = false): WorkflowStagePayload => ({
+  const docsIntegrationAction = (cleanup = false): WorkflowStagePayload => {
+    const baseTip = docsWorkspace ? runGitCapture(['rev-parse', `refs/heads/${docsWorkspace.baseBranch}`], docsWorkspace.root) : undefined;
+    const sync = !cleanup && docsWorkspace?.sourceTip && baseTip && !isDocsAncestor(docsWorkspace.root, baseTip, docsWorkspace.sourceTip);
+    const category = cleanup ? 'workspace_cleanup_docs' : sync ? 'workspace_sync_docs' : 'workspace_merge_docs';
+    return ({
     status: 'ok', reasonCode: 'WORKFLOW_STAGE_RESOLVED', docsDir: config.docsDir,
     featureRef: buildFeatureRef(feature), stage: 'workspace',
-    nextAction: buildAction(cleanup ? 'workspace_cleanup_docs' : 'workspace_merge_docs',
+    docsCompletionStrategy: docsWorkspace?.strategy,
+    nextAction: buildAction(category,
       cleanup ? 'Remove the integrated docs worktree, then continue from the primary docs checkout.' :
-        'Integrate the Feature docs. If the docs base advanced, sync it in this Feature worktree and revalidate conflicts first.',
-      false, `npx lee-spec-kit workspace ${cleanup ? 'cleanup-docs' : 'merge-docs'} ${buildFeatureArgs(feature)} --json`),
+        sync ? 'Docs base advanced. Merge it into this Feature docs worktree, resolve conflicts there, and revalidate before integration.' :
+        `Integrate only approved Feature docs using ${docsWorkspace?.strategy}. Preserve source checkpoints and validate the integration receipt/tree before cleanup.`,
+      false, `npx lee-spec-kit workspace ${cleanup ? 'cleanup-docs' : sync ? 'sync-docs' : 'merge-docs'} ${buildFeatureArgs(feature)} --json`),
     approvalRequired: false, implementationAllowed: false, blockedReasonCode: 'DOCS_INTEGRATION_REQUIRED',
-  });
+  }); };
   const requirements = resolveWorkflowRequirements(config);
   requirements.requireWorktree = requiresManagedFeatureWorktree(config, feature.id);
   const taskCommitGatePolicy = resolveTaskCommitGatePolicy(config);
@@ -3850,6 +3884,16 @@ async function collectWorkflowStageCore(
   // sees OpenWiki output. featureProjectDirty already represents that checkout.
   const featureDocsDirty =
     config.docsRepo === 'standalone' ? docsDirty : false;
+  // The receipt proves the preserved history only for this exact task document.
+  // Later edits on base must pass the live gate instead of borrowing old proof.
+  const preservedTasks = docsWorkspace?.integrated && docsWorkspace.receipt
+    ? runGitCapture(['show', `${docsWorkspace.receipt.sourceTip}:${path.posix.join(
+        path.relative(docsWorkspace.directory, docsWorkspace.docsDirectory).replace(/\\/gu, '/'),
+        feature.docs.featurePathFromDocs.replace(/\\/gu, '/'), 'tasks.md')}`], docsWorkspace.root)
+    : undefined;
+  const verifiedTaskHistory = preservedTasks !== undefined && preservedTasks === tasksContent?.trim()
+    ? { docsHead: docsWorkspace!.receipt!.sourceTip, projectHead: docsWorkspace!.receipt!.code?.sourceTip }
+    : undefined;
   const unreviewedDoneTask = requirements.taskReviewEnabled
     ? tasks.tasks.find(
         (task) => {
@@ -3859,7 +3903,8 @@ async function collectWorkflowStageCore(
             feature,
             task,
             effectiveProjectGitCwd,
-            resolvePreviousTaskReviewBase(config, feature, tasks, task)
+            resolvePreviousTaskReviewBase(config, feature, tasks, task),
+            verifiedTaskHistory
           );
           return !recordedTaskReviewSatisfied(
             config,
@@ -3908,7 +3953,8 @@ async function collectWorkflowStageCore(
       feature,
       reviewTask,
       effectiveProjectGitCwd,
-      resolvePreviousTaskReviewBase(config, feature, tasks, reviewTask)
+      resolvePreviousTaskReviewBase(config, feature, tasks, reviewTask),
+      verifiedTaskHistory
     );
     if (!reviewTarget) {
       return {
@@ -4142,7 +4188,8 @@ async function collectWorkflowStageCore(
           feature,
           effectiveProjectGitCwd,
           tasks,
-          lastDoneTask
+          lastDoneTask,
+          verifiedTaskHistory
         )
       : { pass: true };
   const committedTaskGateRequiresCheckpoint =
@@ -4658,7 +4705,7 @@ async function collectWorkflowStageCore(
 
     if (localState.cleanedIntegrationStillValid) {
       if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
-      if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
+      if (docsWorkspace && (docsWorkspace.branchExists || await fs.pathExists(docsWorkspace.directory))) return docsIntegrationAction(true);
       return {
         status: 'ok',
         reasonCode: 'WORKFLOW_STAGE_RESOLVED',
@@ -4800,7 +4847,7 @@ async function collectWorkflowStageCore(
 
     if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
 
-    if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
+    if (docsWorkspace && (docsWorkspace.branchExists || await fs.pathExists(docsWorkspace.directory))) return docsIntegrationAction(true);
 
     if (!localCleanupComplete(localState)) {
       return {
@@ -4885,7 +4932,7 @@ async function collectWorkflowStageCore(
     reviewApprovedInDocs
   ) {
     if (docsWorkspace && !docsWorkspace.integrated) return docsIntegrationAction();
-    if (docsWorkspace && await fs.pathExists(docsWorkspace.directory)) return docsIntegrationAction(true);
+    if (docsWorkspace && (docsWorkspace.branchExists || await fs.pathExists(docsWorkspace.directory))) return docsIntegrationAction(true);
     const cleanupState = resolvePostMergeCleanupState(config, feature, tasks);
     if (!cleanupState.complete) {
       return {
