@@ -3,6 +3,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -20,7 +21,7 @@ describe('OpenWiki CI scaffold', () => {
   test('delegates generation and incremental state to OpenWiki', () => {
     const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3');
 
-    expect(workflow).toContain('openwiki@0.5.2');
+    expect(workflow).toContain('openwiki@0.7.2');
     expect(workflow).toContain('openwiki code --update --print --language ko');
     expect(workflow).toContain('Restore the OpenWiki working checkpoint');
     expect(workflow).toContain('refs/remotes/origin/$KNOWLEDGE_BRANCH');
@@ -577,4 +578,95 @@ describe('OpenWiki CI scaffold', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  describe.each(['working tree', 'index', 'branch'] as const)(
+    '%s changed-path scope',
+    (mode) => {
+      test.each([
+        'wiki rename',
+        'source rename',
+        'human edit',
+        'source edit',
+      ] as const)('%s', (change) => {
+        const root = mkdtempSync(path.join(tmpdir(), 'lsk-openwiki-rename-'));
+        const git = (...args: string[]) =>
+          execFileSync('git', args, {
+            cwd: root,
+            encoding: 'utf8',
+            stdio: 'pipe',
+          });
+        const sourcePath = 'src/사람 소유 파일.ts';
+        const wikiPath = 'openwiki/이전 설명.md';
+        const destination = 'openwiki/새 설명.md';
+        const agentRules =
+          'Human rule\n\n<!-- OPENWIKI:START -->managed<!-- OPENWIKI:END -->\n';
+        try {
+          git('init', '-q');
+          git('config', 'user.email', 'test@example.com');
+          git('config', 'user.name', 'Test');
+          git('config', 'diff.renames', 'true');
+          mkdirSync(path.join(root, 'src'));
+          mkdirSync(path.join(root, 'openwiki'));
+          writeFileSync(
+            path.join(root, sourcePath),
+            'export const value = 1;\n'
+          );
+          writeFileSync(path.join(root, wikiPath), '# Wiki\n');
+          writeFileSync(path.join(root, 'AGENTS.md'), agentRules);
+          git('add', '.');
+          git('commit', '-qm', 'base');
+          git('branch', '-M', 'main');
+          if (mode === 'branch') git('switch', '-qc', 'knowledge');
+
+          if (change === 'wiki rename' || change === 'source rename') {
+            const origin = change === 'wiki rename' ? wikiPath : sourcePath;
+            renameSync(path.join(root, origin), path.join(root, destination));
+            // Intent-to-add exposes an unstaged rename to Git's working-tree diff.
+            if (mode === 'working tree') git('add', '-N', '--', destination);
+          } else if (change === 'human edit') {
+            writeFileSync(
+              path.join(root, 'AGENTS.md'),
+              agentRules.replace('Human rule', 'Changed human rule')
+            );
+          } else {
+            writeFileSync(
+              path.join(root, sourcePath),
+              'export const value = 2;\n'
+            );
+          }
+          if (mode !== 'working tree') git('add', '-A');
+          if (mode === 'branch') git('commit', '-qm', 'knowledge');
+
+          if (change === 'wiki rename' || change === 'source rename') {
+            const origin = change === 'wiki rename' ? wikiPath : sourcePath;
+            const diffTarget =
+              mode === 'index'
+                ? ['--cached']
+                : mode === 'branch'
+                  ? ['main...knowledge']
+                  : [];
+            expect(
+              git('diff', '--name-status', '-z', ...diffTarget)
+                .split('\0')
+                .filter(Boolean)
+            ).toEqual(['R100', origin, destination]);
+          }
+          const script =
+            mode === 'branch'
+              ? buildKnowledgeBranchScopeGuardScript()
+              : buildKnowledgeScopeGuardScript();
+          const check = () =>
+            execFileSync('bash', ['-c', script], {
+              cwd: root,
+              env: { ...process.env, KNOWLEDGE_DIFF_SPEC: 'main...knowledge' },
+              stdio: 'pipe',
+            });
+          if (change === 'wiki rename') expect(check).not.toThrow();
+          else expect(check).toThrow();
+        } finally {
+          rmSync(root, { recursive: true, force: true });
+        }
+      });
+    }
+  );
 });

@@ -156,7 +156,7 @@ The OpenWiki experiment is controlled separately with the single `--openwiki tru
 - `docsRepo` ("embedded" | "standalone"): How docs are managed
 - `pushDocs` (boolean, optional): Only written when `docsRepo: "standalone"` (whether to push to remote)
 - `docsRemote` (string, optional): Only written when `pushDocs: true` (remote repo URL)
-- `experimental.openwiki` (boolean): enables derived repository Knowledge; requires Node.js 22+ and the verified OpenWiki 0.5.2 adapter. Knowledge freshness does not gate Feature completion.
+- `experimental.openwiki` (boolean): enables independent scheduled/manual Knowledge CI that invokes OpenWiki 0.7.2 directly; OpenWiki requires Node.js `>=22.22.0`. Knowledge freshness does not gate Feature completion.
 - `workflow.agentExecution.task` (object): task implementation delegation settings
   - `enabled`: delegates each `task_execute` action to a subagent; new projects default to `true`, while projects created before this setting existed keep it disabled until explicitly enabled
   - `type`: currently only `"subagent"` is supported

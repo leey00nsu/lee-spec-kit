@@ -891,7 +891,7 @@ test('generated pre-tool hook leaves OpenWiki execution to the project and CI', 
     );
     for (const command of [
       'openwiki code --update --print',
-      'npx --yes openwiki@0.5.2 code --update --print',
+      'npx --yes openwiki@0.7.2 code --update --print',
       'openwiki visualize ./openwiki --no-open',
     ]) {
       const hookResult = await runCommand(dir, process.execPath, [hookPath], {

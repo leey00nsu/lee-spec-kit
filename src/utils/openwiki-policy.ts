@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ProjectConfig } from '../config/types.js';
 
-export const OPENWIKI_VERSION = '0.5.2';
+export const OPENWIKI_VERSION = '0.7.2';
 export const OPENWIKI_DIR = 'openwiki';
 
 export function isOpenWikiEnabled(config: ProjectConfig): boolean {
@@ -83,9 +83,10 @@ function isOpenWikiManagedAgentFileChange(
     }
     const containsManagedBlock = marker.test(current) || marker.test(baseline);
     marker.lastIndex = 0;
-    const currentWithoutManagedBlock = current.replace(marker, '');
+    // OpenWiki adds separating newlines when first appending its managed block.
+    const currentWithoutManagedBlock = current.replace(marker, '').trimEnd();
     marker.lastIndex = 0;
-    const baselineWithoutManagedBlock = baseline.replace(marker, '');
+    const baselineWithoutManagedBlock = baseline.replace(marker, '').trimEnd();
     return (
       containsManagedBlock &&
       (baselineExists

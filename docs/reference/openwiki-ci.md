@@ -13,13 +13,19 @@ npx lee-spec-kit knowledge ci --json
 
 `standalone`에서 프로젝트가 여러 개라면 `knowledge ci --component <component> --json`으로 대상 프로젝트를 지정합니다. 이 경우 워크플로우는 선택한 코드 저장소에 생성되며, 별도 문서 저장소의 내용은 OpenWiki의 생성 입력에 포함되지 않습니다. 자동 병합을 원하면 처음 만들 때 `knowledge ci --auto-merge --json`을 사용합니다. 이 옵션은 저장소의 **Allow auto-merge** 설정과 필요한 브랜치 검사·리뷰 정책을 대신 설정하지 않습니다.
 
-생성된 `.github/workflows/lee-spec-kit-knowledge.yml`, `openwiki/INSTRUCTIONS.md`, `.openwikiignore`를 확인하고 커밋합니다. 기존 워크플로우에 프로젝트별 수정이 있으면 `knowledge ci`는 이를 덮어쓰지 않으므로 직접 조정합니다. 워크플로우는 OpenWiki 버전과 lee-spec-kit 글쓰기 정책 버전을 고정하고, `openwiki code --update --print`를 실행합니다. Feature 완료와 Knowledge 게시 성공 여부는 독립적입니다.
+생성된 `.github/workflows/lee-spec-kit-knowledge.yml`, `openwiki/INSTRUCTIONS.md`, `.openwikiignore`를 확인하고 커밋합니다. 워크플로우는 OpenWiki `0.7.2`와 lee-spec-kit 글쓰기 정책 버전을 고정하고, `openwiki code --update --print`에 프로젝트 언어(`--language ko` 또는 `--language en`)를 지정해 실행합니다. Feature 완료와 Knowledge 게시 성공 여부는 독립적입니다.
+
+기존 워크플로우가 새 템플릿과 다르면 `knowledge ci`는 `OPENWIKI_CI_EXISTS`를 반환하고 파일을 보존합니다. 제거된 lee-spec-kit 실행 어댑터를 호출하던 것으로 식별된 옛 생성 워크플로우만 교체합니다. 0.5.2에서 올릴 때는 기존 파일의 OpenWiki 설치 버전을 `0.7.2`로 직접 바꾸고 Node.js가 `22.22.0` 이상인지 확인합니다. 최신 scaffold의 출력 범위 검사도 반영합니다. working tree·index·PR 변경 경로를 구하는 `git diff`에 `--no-renames`를 포함해야 파일 이동의 원래 경로 삭제까지 검사됩니다. 기존 제공자·모델·시크릿 참조·예약·자동 병합 설정과 `openwiki/`의 Wiki·Claims를 유지한 채 `--update`를 사용합니다.
+
+첫 0.7.2 CI 실행 전에는 루트 `AGENTS.md`와 기존 `CLAUDE.md`의 표식 없는 `## OpenWiki` 절을 확인합니다. OpenWiki는 제목 다음의 첫 빈 줄이 아닌 줄이 `This repository has documentation located in the /openwiki directory.`와 정확히 일치할 때만 구버전 템플릿으로 인식하며, 알려진 템플릿 줄만 제거합니다. lee-spec-kit의 출력 범위 검사는 `<!-- OPENWIKI:START -->` / `<!-- OPENWIKI:END -->` 밖의 변경을 거부하므로, 해당 생성 문구만 단일 관리 블록 안으로 이관하는 변경을 미리 별도 검토·커밋합니다. 이미 블록이 있으면 그 안으로 합치고, 프로젝트 고유 문구와 기존 검사는 유지합니다. OpenWiki 0.7.2는 없던 `CLAUDE.md`를 생성하지 않으며, 기존 파일의 관리 지침은 갱신합니다. `@AGENTS.md` 가져오기만 있는 파일은 그대로 둡니다.
 
 ## 2. 모델과 GitHub 인증정보 설정
 
-생성된 워크플로우는 `OPENWIKI_PROVIDER: openai`와 GitHub Actions 시크릿 `OPENAI_API_KEY`를 기본으로 사용합니다. 모델 ID는 지정하지 않으므로 OpenWiki의 기본값에 맡겨집니다. 운영 전에는 사용할 제공자와 **그 제공자가 실제로 노출하는 모델 ID**를 선택하고, 워크플로우의 `Generate Knowledge with OpenWiki` 단계에 `OPENWIKI_MODEL_ID`를 명시하는 편이 설정을 검토하기 쉽습니다. 특정 모델을 lee-spec-kit이 강제하지는 않습니다. [OpenWiki 0.5.2의 제공자 설명](https://github.com/langchain-ai/openwiki/blob/v0.5.2/README.md#model-providers)과 [공식 CI 예제](https://github.com/langchain-ai/openwiki/blob/v0.5.2/examples/openwiki-update.yml)를 기준으로 제공자별 변수와 모델 ID를 확인하세요.
+생성된 워크플로우는 `OPENWIKI_PROVIDER: openai`와 GitHub Actions 시크릿 `OPENAI_API_KEY`를 기본으로 사용합니다. 모델 ID는 지정하지 않으므로 OpenWiki의 기본값에 맡겨집니다. 운영 전에는 사용할 제공자와 **그 제공자가 실제로 노출하는 모델 ID**를 선택하고, 워크플로우의 `Generate Knowledge with OpenWiki` 단계에 `OPENWIKI_MODEL_ID`를 명시하는 편이 설정을 검토하기 쉽습니다. 특정 모델을 lee-spec-kit이 강제하지는 않습니다. [OpenWiki 0.7.2의 제공자 설명](https://github.com/langchain-ai/openwiki/blob/v0.7.2/README.md#model-providers)과 [공식 CI 예제](https://github.com/langchain-ai/openwiki/blob/v0.7.2/examples/openwiki-update.yml)를 기준으로 제공자별 변수와 모델 ID를 확인하세요.
 
 `OPENWIKI_PROVIDER`와 `OPENWIKI_MODEL_ID`는 워크플로우에 적는 비밀이 아닌 설정값입니다. API 키와 토큰은 GitHub Actions 시크릿에 보관합니다.
+
+네이티브 페이지 작업자 동시성은 기본 `1`이며, 필요하면 생성 단계의 `OPENWIKI_PAGE_CONCURRENCY`를 `1`~`8` 범위의 정수로 설정합니다. 이는 GitHub Actions 실행 간 동시성 설정과 별개입니다.
 
 기본 OpenAI 구성의 생성 단계는 다음 형태입니다. `MODEL_ID_FROM_PROVIDER`를 실제 사용할 모델 ID로 바꿉니다.
 
@@ -49,7 +55,7 @@ GitHub 저장소의 **Settings → Secrets and variables → Actions → New rep
 | `OPENWIKI_PR_TOKEN`                          | GitHub Actions 시크릿           | Knowledge 브랜치 push와 PR 생성·수정. 대상 저장소에 한정된 fine-grained token 또는 GitHub App token에 **Contents: read/write**, **Pull requests: read/write** 권한을 부여합니다. |
 | `GH_ACTIONS_DISPATCH_TOKEN`                  | 외부 스케줄러의 런타임 시크릿   | Coolify 등에서 GitHub 워크플로우를 시작할 때만 필요합니다. 대상 저장소의 **Actions: write** 권한을 부여하며, GitHub Actions 시크릿으로 복사할 필요는 없습니다.                   |
 
-`OPENWIKI_PR_TOKEN`과 `GH_ACTIONS_DISPATCH_TOKEN`은 용도가 다릅니다. 전자는 워크플로우 **안에서** 게시할 때, 후자는 워크플로우 **밖에서** 실행을 요청할 때 사용합니다. 둘 다 저장소를 대상 범위로 제한하세요. 별도 PR 토큰을 쓰는 이유는 기본 `GITHUB_TOKEN`으로 만든 PR이 필요한 `pull_request` 검사를 시작하지 못할 수 있기 때문입니다. 이는 [OpenWiki의 자동 병합 안내](https://github.com/langchain-ai/openwiki/blob/v0.5.2/README.md)에도 설명돼 있습니다.
+`OPENWIKI_PR_TOKEN`과 `GH_ACTIONS_DISPATCH_TOKEN`은 용도가 다릅니다. 전자는 워크플로우 **안에서** 게시할 때, 후자는 워크플로우 **밖에서** 실행을 요청할 때 사용합니다. 둘 다 저장소를 대상 범위로 제한하세요. 별도 PR 토큰을 쓰는 이유는 기본 `GITHUB_TOKEN`으로 만든 PR이 필요한 `pull_request` 검사를 시작하지 못할 수 있기 때문입니다. 이는 [OpenWiki의 자동 병합 안내](https://github.com/langchain-ai/openwiki/blob/v0.7.2/README.md)에도 설명돼 있습니다.
 
 모델 ID와 키를 바꾼 뒤에는 수동 실행 한 번으로 인증·응답·생성 문서의 품질을 확인합니다. 제공자 설정이 맞다는 사실만으로 생성된 설명과 코드 근거의 품질까지 보장되지는 않습니다.
 
@@ -58,6 +64,8 @@ GitHub 저장소의 **Settings → Secrets and variables → Actions → New rep
 `knowledge ci`가 만든 워크플로우에는 `schedule`과 `workflow_dispatch`가 있습니다. 기본 cron은 `17 3 * * *`이며 GitHub의 UTC 기준으로 매일 03:17입니다. 원하는 시각에 맞게 프로젝트가 cron을 수정할 수 있습니다. `schedule`은 기본 브랜치의 워크플로우를 실행하며, GitHub 부하에 따라 늦어지거나 드물게 누락될 수 있습니다. 정확한 시각이나 별도 재호출 정책이 필요하면 아래 외부 스케줄러 방식을 선택합니다. [GitHub의 `schedule` 설명](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)을 참고하세요.
 
 처음 설정한 뒤 저장소의 **Actions → Scheduled OpenWiki Knowledge → Run workflow**에서 수동으로 실행하고, 생성 단계·완료 상태·PR을 확인합니다. OpenWiki가 정상 종료하고 소스 입력과 문서에 게시할 변경이 없으면 새 PR을 만들지 않습니다. 실패하면 성공한 페이지를 draft Knowledge PR에 보존할 수 있으며, 다음 예약 실행에서 그 브랜치를 다시 입력으로 사용합니다. 수동 취소나 러너 종료 시에는 아직 push되지 않은 러너 내부 진행분이 남지 않을 수 있습니다.
+
+소스 변경 없이 강제 갱신한 페이지가 실패하면 다음 실행이 `Cannot advance page coverage ... Markdown and verified Claims are not durable.`로 중단되는 기존 문제가 0.5.2와 0.7.2 모두에서 재현됩니다. 이 경우 반복 예약만으로 복구된다고 가정하지 않습니다. 마지막 정상 완료 revision의 `openwiki/`를 복구용 체크아웃에서 복원하되 현재 `INSTRUCTIONS.md`를 보존하고, 그 기준선에서 `--update`를 실행해 완료 상태를 확인한 뒤 복구 결과를 검토·게시합니다. Claims·manifest 삭제나 강제 초기화를 자동 복구에 추가하지 않습니다.
 
 ## 3-B. Coolify 방식: 예약은 Coolify, 생성은 GitHub Actions
 
@@ -90,4 +98,4 @@ curl --fail-with-body --silent --show-error \
 
 GitHub Actions의 예약 기능이나 Coolify가 필수는 아닙니다. 인증된 다른 스케줄러가 기본 브랜치의 `workflow_dispatch`를 호출해도 같은 워크플로우가 실행됩니다. 실행 요청의 중복 방지, 실패 시 재시도, 시간대 해석은 선택한 스케줄러의 책임입니다. 생성 완료와 PR 상태는 항상 GitHub Actions와 저장소에서 확인합니다.
 
-자동 병합을 켠 경우에는 저장소의 **Allow auto-merge**, 필수 `Knowledge PR safety` 검사, 최신 브랜치 요구 사항 및 사람 리뷰 정책을 별도로 설정합니다. 실패하거나 소스가 실행 중 변경된 결과는 자동 병합 대상이 아닙니다. [OpenWiki의 CI·자동 병합 안내](https://github.com/langchain-ai/openwiki/blob/v0.5.2/README.md)와 [lee-spec-kit CLI 참조](./public-cli.md#knowledge)를 함께 확인하세요.
+자동 병합을 켠 경우에는 저장소의 **Allow auto-merge**, 필수 `Knowledge PR safety` 검사, 최신 브랜치 요구 사항 및 사람 리뷰 정책을 별도로 설정합니다. 실패하거나 소스가 실행 중 변경된 결과는 자동 병합 대상이 아닙니다. [OpenWiki의 CI·자동 병합 안내](https://github.com/langchain-ai/openwiki/blob/v0.7.2/README.md)와 [lee-spec-kit CLI 참조](./public-cli.md#knowledge)를 함께 확인하세요.

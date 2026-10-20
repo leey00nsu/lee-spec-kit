@@ -19,8 +19,8 @@ const read = (args) => execFileSync('git', args, { encoding: 'buffer' })
   .split('\\0')
   .filter(Boolean);
 const paths = new Set([
-  ...read(['diff', '--name-only', '-z']),
-  ...read(['diff', '--cached', '--name-only', '-z']),
+  ...read(['diff', '--no-renames', '--name-only', '-z']),
+  ...read(['diff', '--cached', '--no-renames', '--name-only', '-z']),
   ...read(['ls-files', '--others', '--exclude-standard', '-z']),
 ]);
 const allowed = (file) => file === 'openwiki' || file.startsWith('openwiki/') || file === 'AGENTS.md' || file === 'CLAUDE.md';
@@ -48,7 +48,7 @@ export function buildKnowledgeBranchScopeGuardScript(): string {
 const { execFileSync } = require('node:child_process');
 const spec = process.env.KNOWLEDGE_DIFF_SPEC;
 if (!spec) throw new Error('KNOWLEDGE_DIFF_SPEC is required');
-const paths = execFileSync('git', ['diff', '--name-only', '-z', spec], { encoding: 'buffer' })
+const paths = execFileSync('git', ['diff', '--no-renames', '--name-only', '-z', spec], { encoding: 'buffer' })
   .toString('utf8')
   .split('\\0')
   .filter(Boolean);

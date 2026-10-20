@@ -155,7 +155,7 @@ OpenWiki 실험 기능은 별도의 단일 옵션 `--openwiki true|false`로 제
 - `docsRepo` ("embedded" | "standalone"): Docs 관리 방식
 - `pushDocs` (boolean, optional): `docsRepo: "standalone"`일 때만 생성 (원격 push 여부)
 - `docsRemote` (string, optional): `pushDocs: true`일 때만 생성 (원격 레포 URL)
-- `experimental.openwiki` (boolean): 파생된 저장소 Knowledge를 활성화합니다. Node.js 22+와 검증된 OpenWiki 0.5.2 adapter가 필요합니다. Knowledge 최신성은 Feature 완료를 막지 않습니다.
+- `experimental.openwiki` (boolean): OpenWiki 0.7.2를 직접 실행하는 독립 예약/수동 Knowledge CI 설정을 허용합니다. OpenWiki 실행에는 Node.js `>=22.22.0`이 필요합니다. Knowledge 최신성은 Feature 완료를 막지 않습니다.
 - `workflow.agentExecution.task` (object): 태스크 구현 위임 설정
   - `enabled`: 각 `task_execute`를 서브에이전트에게 위임할지 여부. 새 프로젝트의 기본값은 `true`이며, 이 설정이 생기기 전 프로젝트는 명시적으로 켜기 전까지 꺼진 상태를 유지
   - `type`: 현재 `"subagent"`만 지원
