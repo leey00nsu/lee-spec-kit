@@ -23,6 +23,18 @@
 
 ---
 
+## Before / After Comparison
+
+- **Change report**: [As-Is / To-Be](artifacts/change-report.html)
+- Write and present the report before Spec review. Follow `npx lee-spec-kit docs get create-feature --json` for authoring guidance.
+- Compare the same user scenario before and after the change. For a new capability, describe its current absence or manual workaround.
+
+| Comparison | As-Is: current state and evidence | To-Be: proposed behavior | Requirement / verification |
+| --- | --- | --- | --- |
+| {Key scenario} | {Code, screen, observation, or explicitly unknown} | {Expected behavior after the change} | {US/FR/AC and verification method} |
+
+---
+
 ## User Stories
 
 ### US-1: {Story Title}

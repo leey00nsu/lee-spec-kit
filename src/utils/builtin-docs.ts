@@ -117,8 +117,8 @@ const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
 };
 
 const CATEGORY_DOC_MAP: Readonly<Record<string, BuiltinDocId[]>> = {
-  spec_write: ['agents'],
-  spec_approve: ['agents'],
+  spec_write: ['agents', 'create-feature'],
+  spec_approve: ['agents', 'create-feature'],
   plan_write: ['agents'],
   plan_approve: ['agents'],
   tasks_write: ['agents', 'execute-task'],

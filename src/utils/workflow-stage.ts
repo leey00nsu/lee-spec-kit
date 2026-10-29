@@ -3579,7 +3579,7 @@ async function collectWorkflowStageCore(
       : false;
     const actionOptions = approvalRequired
       ? buildApprovalActionOptions({
-          approveSummary: 'Approve spec.md and continue to the plan stage.',
+          approveSummary: 'Approve spec.md with its As-Is / To-Be HTML report and continue to the plan stage.',
           holdSummary: 'Request spec changes before continuing.',
         })
       : undefined;
@@ -3593,9 +3593,9 @@ async function collectWorkflowStageCore(
         isReviewStage ? 'spec_approve' : 'spec_write',
         isReviewStage
           ? approvalRequired
-            ? 'Get user approval and update spec.md status to Approved.'
-            : 'Promote spec.md from Review to Approved and continue automatically.'
-          : 'Write or refine spec.md until it is ready for approval.',
+            ? `Present spec.md together with ${path.join(feature.path, 'artifacts', 'change-report.html')}, get user approval, and update spec.md status to Approved. Follow the Spec change-report guidance in docs get create-feature --json.`
+            : `Review spec.md together with ${path.join(feature.path, 'artifacts', 'change-report.html')}, then promote spec.md from Review to Approved and continue automatically. Follow the Spec change-report guidance in docs get create-feature --json.`
+          : `Write or refine spec.md and ${path.join(feature.path, 'artifacts', 'change-report.html')} with a visual As-Is / To-Be comparison before approval. Follow docs get create-feature --json; link the report from spec.md and tasks.md or decisions.md.`,
         approvalRequired
       ),
       approvalRequired,
