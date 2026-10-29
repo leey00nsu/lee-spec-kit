@@ -102,6 +102,10 @@ export interface ProjectConfig {
     taskCommitGate?: 'off' | 'warn' | 'strict';
     /** True when init/config explicitly selected agent automation policy. */
     agentAutomationConfigured?: boolean;
+    specClarification?: {
+      /** Maximum independent questions per inquiry round; missing values default to 3. */
+      maxQuestionsPerRound?: number;
+    };
     agentExecution?: {
       task?: Partial<AgentExecutionTaskConfig>;
     };

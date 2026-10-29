@@ -38,6 +38,7 @@ import {
 } from '../config/migrate.js';
 import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
 import { ensureGitignoreEntries } from '../utils/gitignore.js';
+import { DEFAULT_MAX_CLARIFICATION_QUESTIONS } from '../config/spec-clarification.js';
 
 interface UpdateOptions {
   agents?: boolean;
@@ -103,7 +104,7 @@ export function updateCommand(program: Command): void {
       try {
         await runUpdate(options);
       } catch (error) {
-        const config = await getConfig(process.cwd());
+        const config = await getConfig(process.cwd(), { validateSpecClarification: false });
         const lang = config?.lang ?? DEFAULT_LANG;
         if (error instanceof Error && error.message === 'canceled') {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
@@ -421,6 +422,11 @@ async function backfillMissingConfigDefaults(
     changedPaths.push('workflow');
   }
   const workflow = raw.workflow as Record<string, unknown>;
+  setIfMissing(workflow, 'specClarification', {}, 'workflow.specClarification');
+  if (isPlainObject(workflow.specClarification)) {
+    setIfMissing(workflow.specClarification, 'maxQuestionsPerRound',
+      DEFAULT_MAX_CLARIFICATION_QUESTIONS, 'workflow.specClarification.maxQuestionsPerRound');
+  }
   changedPaths.push(...migrateLegacyWorkflowSettings(workflow));
   setIfMissing(workflow, 'docsCompletionStrategy', 'inherit', 'workflow.docsCompletionStrategy');
   const restoreLegacyAgentAutomationDefaults =

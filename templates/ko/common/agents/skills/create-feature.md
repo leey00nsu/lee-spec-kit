@@ -13,6 +13,20 @@
 5. Feature가 없고 구현을 요청받은 경우 첫 Feature를 생성합니다. workflow `done` 이후 새로 요청한 구현도 새 Feature로 시작할 수 있습니다. 진행 중에 사용자가 별도 Feature를 명시적으로 요청하거나 제안한 분할을 선택한 경우에만 `--separate`를 사용합니다. GitHub 모드는 `feature <name> --issue <number>`로 Issue를 연결하고, 새 Issue는 제목·본문을 공유하고 승인받은 뒤 `--create-issue --desc "<요약>" --confirm OK`로 생성합니다. local 모드는 `feature <name> -d "<설명>"`으로 무작위 ID를 생성합니다. 사용자가 Idea를 명시한 경우에만 `--idea <ref>`를 추가하고 새 F번호를 배정하지 않습니다.
 6. 범위·계획 변경 후를 포함해 다음 workflow 액션 전에 `npx lee-spec-kit workflow-stage <feature-ref> --json`를 실행합니다.
 
+## Spec 결정 확인
+
+결정 확인은 `stage: spec` 안에서 진행합니다. 질문이 남아 있거나 완료 기록이 유효하지 않으면 `nextAction.category: spec_clarify`를 따릅니다. 새 승인 category나 승인 토큰을 추가하지 않으며 기존 Spec 승인 전에 필요한 답변을 확인합니다.
+
+1. 질문 전에 요청·현재 코드·권위 있는 문서·호환성 제약·기존 답변을 조사합니다. 조사로 알 수 있는 사실과 제품 동작·범위·인수 조건·호환성에 영향을 주는 선택을 구분합니다. 일상적인 구현 세부사항은 조사와 판단으로 해결합니다.
+2. 모든 새 Spec에 `## Spec 결정 확인` 섹션과 리터럴 필드 `- **Clarification Status**: Pending`, `- **Clarification Summary**: -`를 둡니다. 상태 값은 Pending | Complete입니다. 한국어 템플릿도 필드명과 값은 영문 그대로 유지합니다. metadata 없는 기존 승인·완료 Feature는 호환성을 유지하고, 새 범위나 동작으로 Spec을 수정할 때 이 섹션을 적용합니다.
+3. 실제 질문은 `decisions.md`의 실제 `## SC-01: 제목`으로 기록합니다(`###`도 허용). SC-02부터 이어가되 D001 ADR 번호와 독립적으로 관리합니다. 첫 ADR 자리표시자 교체 시 보존되도록 결정 확인 섹션과 기록은 D001 앞에 둡니다. fenced 예시는 실제 질문이 아닙니다. 두 언어 모두 Status, Question, Options, Recommendation, Answer, Decision, Spec Refs 필드를 영문 그대로 사용합니다.
+4. 현재 독립적으로 답할 수 있는 질문을 한 번에 clarificationPolicy.maxQuestionsPerRound개까지(설정 workflow.specClarification.maxQuestionsPerRound, 기본 3) 선택지·권고안·장단점과 함께 제시합니다. 결정에 필요한 답변을 기다리고 종속 질문은 다음 라운드에 묻습니다. 새 범위·동작의 중대한 변경으로 관련 선택이 달라진 경우 외에는 기존 답변을 재사용하고 반복해서 묻지 않습니다. 질문 선택지를 workflow 승인 토큰으로 제시하지 않습니다.
+5. OPEN은 완료를 막습니다. 종결 상태의 Answer, Decision, Spec Refs에는 자리표시자가 아닌 실질적인 내용을 채웁니다. RESOLVED는 실제 사용자 답변과 그에 따른 결정을 기록합니다. DELEGATED는 명시적 사용자 위임을 전제로 에이전트의 선택·범위를 기록합니다. DEFERRED는 명시적 사용자 합의를 전제로 제외 범위·구체적인 후속 조치를 기록하고 Spec Refs로 해당 범위·인수 조건을 연결합니다. 침묵·기본값·시간 경과·리뷰 한도로 위임·보류·동의를 추정하지 않습니다. `workflow.agentReview.maxRounds`로 질문을 자동 완료하지 않습니다.
+6. 답변과 Spec 범위·인수 조건은 같은 턴에 반영합니다. 질문 중 HTML 변경 비교 보고서는 초안으로 유지하며, 기존 Spec 승인 경계에서 제시하기 전에 결정 내용을 반영해 갱신합니다. 새 범위·동작의 중대한 변경은 관련 선택을 다시 열고 이전 답변을 이력으로 보존하며 Clarification Status를 Pending으로 되돌립니다.
+7. OPEN 질문이 없고 모든 종결 기록이 유효할 때만 Complete로 바꿉니다. Clarification Summary의 자리표시자를 조사·기존 답변으로 추가 질문이 불필요한 이유 또는 결정을 Spec에 어떻게 반영했는지 설명하는 실질적인 내용으로 바꿉니다. `workflow-stage`를 다시 실행하고 기존 Spec 승인 액션이 반환되면 따릅니다.
+
+CLI는 기록된 완료 상태와 미해결 질문을 검증합니다. 질문의 품질이나 실제 사용자 답변의 출처를 검증하거나, 결정 확인을 내용 hash에 결합하거나, 모든 제품 선택을 식별했다고 증명하지 않습니다. 사실 조사·의미 있는 질문·충실한 기록은 주 에이전트가 책임집니다.
+
 ## Spec 변경 비교 보고서
 
 새 Spec 또는 수정한 Spec의 승인을 요청하기 전에 주 에이전트가 활성 Feature의 `spec.md` 옆 `artifacts/change-report.html`을 작성합니다. 먼저 관리 workspace를 결정하고, standalone이면 docs worktree를 사용합니다. 등록 seed에 빈 보고서를 넣는 대신 Spec 작성 단계에서 `artifacts/`를 만듭니다. 이 보고서는 Spec 검토에 필요한 산출물이며, 중복 보조 보고서를 만들지 않는 규칙의 명시적인 예외입니다.

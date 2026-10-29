@@ -69,6 +69,41 @@ When `workflow.agentReview.plan.enabled=true`, a Plan in Review returns `nextAct
 
 Spec authoring includes a visual As-Is / To-Be HTML report at `artifacts/change-report.html` inside the resolved Feature docs workspace. `spec_write` and `spec_approve` point the primary agent to this file and the `create-feature` authoring policy. UI changes use paired screens or mockups; behavior changes use paired flows and concrete input/output examples. The report opens locally, labels proposals and unverified evidence, and links to Spec acceptance criteria. Link it from `spec.md` and `tasks.md` or `decisions.md`, present it at the existing Spec approval boundary, and refresh it when scope or intended behavior changes. This is an agent authoring requirement, not a new approval category or an HTML-existence/content validation gate. Unchanged approved/completed Features do not need backfilling, and generating the report does not activate the optional UI/UX design-system policy.
 
+**Spec clarification contract**
+
+Spec clarification is internal to `stage: "spec"`. `nextAction.category: "spec_clarify"` directs inquiry when questions remain or recorded completion is invalid. It does not introduce an approval category or approval token. Resolve clarification before the existing `spec_approve` checkpoint.
+
+Spec-stage JSON includes `specClarification` with its assessment status, summary, question records, `openQuestionIds`, validation `errors`, and `ready` result. A new Draft with a valid Pending assessment starts at `spec_write`. Recorded OPEN questions or invalid records return `spec_clarify`; Review or Approved Specs also return that action until the assessment is Complete and valid. The blocking reason is `SPEC_CLARIFICATION_REQUIRED`, with both `implementationAllowed` and `approvalRequired` false. Skipping approval checkpoints does not bypass this gate. Metadata-free legacy documents retain their existing flow.
+
+Configure the inquiry batch size in `.lee-spec-kit.json` as `workflow.specClarification.maxQuestionsPerRound`, a positive safe integer. New projects write `3`; missing policy or field also resolves to `3`. `update` fills missing values and preserves explicit limits. `npx lee-spec-kit config --max-clarification-questions 1` changes the limit without editing JSON manually. Spec-stage JSON exposes the effective value as `clarificationPolicy.maxQuestionsPerRound`, and `spec_clarify` uses it in its instructions. This limits the agent's question batch, not the total number of questions or rounds; it does not automatically count questions in chat messages.
+
+Every new `spec.md` has a `## Spec Clarification` section (`## Spec 결정 확인` in Korean) with the same literal English machine fields in either language:
+
+```markdown
+- **Clarification Status**: Pending
+- **Clarification Summary**: -
+```
+
+Allowed status is Pending | Complete. Complete requires a substantive summary explaining why no questions were needed after investigation/prior answers, or how decisions were incorporated into the Spec. A placeholder summary is not valid completion. Existing approved/completed Features without clarification metadata remain compatible; adopt it when revising scope or behavior.
+
+Record actual questions in `decisions.md` as real `## SC-01: title` headings (`###` also accepted), followed by SC-02 and onward independently of D001 ADR numbering. Keep the section and records before D001 to preserve them when the first ADR placeholder is replaced. Keep seed examples fenced so they are not parsed as actual OPEN questions. Both languages use literal English field names:
+
+| Field | Recorded content |
+| --- | --- |
+| Status | OPEN, RESOLVED, DELEGATED, or DEFERRED |
+| Question | Product, scope, acceptance, or compatibility choice requiring clarification |
+| Options | Alternatives and tradeoffs |
+| Recommendation | Recommended option and rationale |
+| Answer | Actual user answer, explicit delegation, or explicit agreement to defer |
+| Decision | Resulting choice and scope; agent choice/scope for delegation, excluded scope and concrete followup for deferral |
+| Spec Refs | Affected Spec scope, requirement, or acceptance-criteria references |
+
+OPEN blocks clarification completion. All terminal records require non-placeholder Answer, Decision, and Spec Refs. RESOLVED captures an actual user answer. DELEGATED captures explicit user delegation and the agent's choice/scope. DEFERRED captures explicit user agreement, excluded scope, and followup. Silence, defaults, or elapsed time do not supply consent. Review `maxRounds` exhaustion never auto-completes questions.
+
+The primary agent investigates facts first, reuses prior answers, and asks only choices affecting product behavior, scope, acceptance criteria, or compatibility. Ask independent questions up to clarificationPolicy.maxQuestionsPerRound at once (from workflow.specClarification.maxQuestionsPerRound; default 3) with choices, a recommendation, and tradeoffs, then wait for needed answers before dependent rounds. Do not ask routine implementation details. Record answers and update Spec acceptance criteria in the same turn. New material scope/behavior changes reopen affected choices and reset status to Pending. The HTML report remains a draft during inquiry and is refreshed before existing Spec approval.
+
+The CLI validates recorded completion and unresolved questions; it does not assess question quality or actual user provenance, bind clarification to a content hash, or prove completeness of the choices identified. Investigation and faithful recording remain agent responsibilities. See `docs get create-feature --json` for authoring guidance.
+
 Plan, task, and Feature review actions also return `reviewRound` and `maxReviewRounds`. Record `reviewRound` in the matching review metadata. `workflow.agentReview.maxRounds` is the maximum number of fresh reviews and defaults to `1`. With `1`, findings from review round 1 are remediated once, then the remaining findings and resulting target change are preserved as residual risks and the gate auto-completes without round 2 or a user review-approval token. With `2`, round 2 may review the first remediation, but its findings are applied without a round 3. `blocked` decisions never auto-complete.
 
 For `workflow.mode: "local"` with `completionStrategy: "local-ff"` or `"local-squash"`, a completed Feature advances through `feature_verify`, `local_merge`, and `local_cleanup`. Failed Feature or post-integration checks enter `feature_remediation` with implementation enabled. Under `local-ff`, the base must equal the verified Feature tip during integration. Under `local-squash`, the integration commit must have the same tree as the verified, preserved source Feature tip. After cleanup, the Feature remains `done` when its recorded integration commit is still an ancestor of the current base, so later Features do not reopen historical completion stages.

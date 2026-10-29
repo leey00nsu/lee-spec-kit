@@ -23,6 +23,19 @@
 
 ---
 
+## Spec Clarification
+
+- **Clarification Status**: Pending
+- **Clarification Summary**: -
+
+Allowed status: Pending | Complete. Before Complete, explain in the summary why investigation and prior answers left no questions, or how the recorded decisions were incorporated into scope and acceptance criteria. A placeholder summary is not completion.
+
+Record questions as real `## SC-01: title` headings (`###` also accepted) in [decisions.md](decisions.md), independently of D001 ADRs. OPEN questions block completion. Each RESOLVED, DELEGATED, or DEFERRED record needs substantive Answer, Decision, and Spec Refs: respectively an actual user answer, explicit user delegation with the agent's choice/scope, or explicit user agreement to defer with excluded scope/followup. Silence or timeout is not consent.
+
+Investigate facts first; ask independent product/scope/acceptance/compatibility choices up to clarificationPolicy.maxQuestionsPerRound per round (from workflow.specClarification.maxQuestionsPerRound; default 3) with options, a recommendation, and tradeoffs. Wait for needed answers before dependent questions; reuse prior answers and do not ask routine implementation details. Record answers and update acceptance criteria in the same turn. Reopen affected choices and reset Pending for new material scope/behavior changes. Keep the HTML report a draft during inquiry and update it before existing Spec approval. Review maxRounds never auto-completes questions.
+
+---
+
 ## Before / After Comparison
 
 - **Change report**: [As-Is / To-Be](artifacts/change-report.html)

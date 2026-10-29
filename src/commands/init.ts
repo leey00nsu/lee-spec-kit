@@ -2,6 +2,7 @@ import { detectFeatureChecks } from '../utils/feature-checks.js';
 import { assertValidDocsCompletionConfig } from '../config/docs-completion.js';
 import { ensureGitignoreEntries } from '../utils/gitignore.js';
 import { Command } from 'commander';
+import { DEFAULT_MAX_CLARIFICATION_QUESTIONS } from '../config/spec-clarification.js';
 import prompts from 'prompts';
 import chalk from 'chalk';
 import path from 'path';
@@ -1164,6 +1165,7 @@ async function runInit(options: InitOptions): Promise<void> {
               }
             : {}),
           agentAutomationConfigured: true,
+          specClarification: { maxQuestionsPerRound: DEFAULT_MAX_CLARIFICATION_QUESTIONS },
           agentExecution: {
             task: {
               ...createDefaultAgentExecutionTaskConfig(),

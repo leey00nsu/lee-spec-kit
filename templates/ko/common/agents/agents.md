@@ -38,6 +38,8 @@
 
 - standalone 문서는 새 선택 설정 `workflow.docsCompletionStrategy`를 사용하며, 기본값과 필드 누락 시 값은 `inherit`입니다. local은 코드의 ff/squash를 따르고 GitHub는 ff를 유지하며 embedded는 코드와 함께 통합합니다. 원본 브랜치의 task checkpoint와 strict gate를 유지합니다. 코드 통합 검증 → 문서 receipt/tree/evidence 검증 → 문서 cleanup → 코드 cleanup → `done` 순서를 따릅니다. 앞서간 docs base는 기존 worktree에서 sync하고 충돌을 해결한 뒤 재검증합니다. Feature SDD/artifacts/metadata와 승인된 curated target 중 task Docs에 연결된 경로만 통합합니다. squash는 receipt를 포함한 canonical Feature 커밋 하나를 만들고 원본 evidence와 불변 portable evidence tag를 보존합니다. 원격 게시가 승인된 경우에만 반환된 tag도 게시합니다. cleanup은 조상 여부 대신 receipt/tree/evidence를 검증하며 완료 task gate는 현재 task 문서가 일치할 때만 원본 checkpoint를 사용합니다. 예전 ff receipt도 읽으며, 별도 명시 요청과 백업·검증 없이 과거 이력을 rewrite하지 않습니다.
 
+- Spec 결정 확인은 `stage: spec` 안에서 진행합니다. 질문이나 완료 기록 오류가 있으면 `nextAction.category: spec_clarify`를 따르며 새 승인 토큰이나 승인 category를 만들지 않습니다. 사실 조사와 기존 답변 재사용을 먼저 하고 제품 동작·범위·인수 조건·호환성에 영향을 주는 선택만 질문합니다. 한 번에 독립적인 질문을 clarificationPolicy.maxQuestionsPerRound개까지(설정 workflow.specClarification.maxQuestionsPerRound, 기본 3) 선택지·권고안·장단점과 함께 제시하고 필요한 답변을 기다린 뒤 종속 질문을 이어갑니다. `decisions.md`의 실제 `SC-01` 제목과 영문 필드에 기록하고 D001 ADR과 분리하며 답변과 Spec 인수 조건을 같은 턴에 반영합니다. OPEN 질문이 없고 종결 기록의 Answer, Decision, Spec Refs가 구체적으로 채워질 때까지 `Clarification Status`를 Pending으로 유지합니다. Complete에는 질문이 불필요한 이유나 결정 반영 내용을 설명하는 실질적인 `Clarification Summary`도 필요합니다. 실제 사용자 답변·명시적 위임·명시적 보류 합의가 필요하며 침묵·시간 초과·리뷰 maxRounds로 질문을 종결하지 않습니다. 새 범위·동작의 중대한 변경은 관련 선택을 다시 열고 Pending으로 되돌립니다. 질문 중 HTML은 초안으로 유지하고 기존 Spec 승인 전에 갱신합니다. metadata 없는 기존 승인·완료 Feature는 호환성을 유지하고 범위·동작을 수정할 때 적용합니다. 기록 형식과 작성 정책은 `docs get create-feature --json`을 따릅니다.
+
 ## Feature 진행 중 추가 요청
 
 - 턴 전환·재개·컨텍스트 압축 뒤에도 선택한 Feature를 유지합니다. 추가 구현·수정 요청은 기본적으로 해당 Feature에 새 task 블록으로 기록하며, DONE task의 후속 작업도 새 task로 추가합니다.

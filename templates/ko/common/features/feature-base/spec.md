@@ -23,6 +23,19 @@
 
 ---
 
+## Spec 결정 확인
+
+- **Clarification Status**: Pending
+- **Clarification Summary**: -
+
+상태 값은 Pending | Complete이며 필드명과 값은 영문 그대로 유지합니다. Complete 전에는 조사와 기존 답변으로 추가 질문이 불필요한 이유 또는 기록된 결정을 범위·인수 조건에 어떻게 반영했는지 요약합니다. 자리표시자 요약으로 완료하지 않습니다.
+
+질문은 [decisions.md](decisions.md)에 실제 `## SC-01: 제목`으로 기록합니다(`###`도 허용). D001 ADR과 번호를 분리하며 OPEN 질문은 완료를 막습니다. RESOLVED·DELEGATED·DEFERRED 기록마다 구체적인 Answer, Decision, Spec Refs가 필요합니다. 각각 실제 사용자 답변, 명시적 사용자 위임과 에이전트의 선택·범위, 명시적 사용자 보류 합의와 제외 범위·후속 조치를 기록합니다. 침묵이나 시간 초과는 동의가 아닙니다.
+
+먼저 사실을 조사하고 제품·범위·인수 조건·호환성에 관한 독립적인 선택을 한 번에 clarificationPolicy.maxQuestionsPerRound개까지(설정 workflow.specClarification.maxQuestionsPerRound, 기본 3) 선택지·권고안·장단점과 함께 질문합니다. 필요한 답변을 기다린 뒤 종속 질문을 이어가며 기존 답변을 재사용하고 일상적인 구현 세부사항은 묻지 않습니다. 답변과 인수 조건은 같은 턴에 반영합니다. 새 범위·동작의 중대한 변경은 관련 선택을 다시 열고 Pending으로 되돌립니다. 질문 중 HTML 보고서는 초안이며 기존 Spec 승인 전에 갱신합니다. 리뷰 maxRounds로 질문을 자동 완료하지 않습니다.
+
+---
+
 ## 변경 전후 비교
 
 - **비교 보고서**: [As-Is / To-Be](artifacts/change-report.html)

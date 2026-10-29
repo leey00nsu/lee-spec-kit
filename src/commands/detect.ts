@@ -10,6 +10,7 @@ import {
 } from '../utils/cli-error.js';
 import { detectSchemaProject } from '../adapters/schema/index.js';
 import { assertValidExperimentalConfig } from '../config/load.js';
+import { resolveMaxClarificationQuestions } from '../config/spec-clarification.js';
 import { assertValidDocsCompletionConfig, resolveDocsCompletionStrategy } from '../config/docs-completion.js';
 
 interface DetectOptions {
@@ -68,6 +69,7 @@ async function runDetect(options: DetectOptions): Promise<void> {
   const config = detection.config;
   if (config) {
     assertValidExperimentalConfig(config);
+    resolveMaxClarificationQuestions(config);
     assertValidDocsCompletionConfig(config);
   }
 

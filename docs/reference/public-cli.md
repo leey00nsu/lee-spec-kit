@@ -35,11 +35,14 @@ an existing project.
 npx lee-spec-kit config
 npx lee-spec-kit config --interactive
 npx lee-spec-kit config --task-agent on --reviews plan,feature --max-review-rounds 1
+npx lee-spec-kit config --max-clarification-questions 1
 npx lee-spec-kit config --completion-strategy local-squash
 npx lee-spec-kit config --openwiki true
 ```
 
 `experimental.openwiki` is deliberately one boolean. Missing or `false` disables the Knowledge CI scaffold. `true` permits `knowledge ci`; OpenWiki performs generation and validation in the project-owned CI, while freshness remains observational and never becomes a Feature stage or completion gate.
+
+`workflow.specClarification.maxQuestionsPerRound` sets the maximum independent questions per Spec inquiry round. It accepts a positive safe integer and defaults to `3` when absent. `init` writes the default; `update` fills missing values while preserving an explicit limit. `config --max-clarification-questions <count>` updates it. `workflow-stage --json` exposes the effective limit as `clarificationPolicy.maxQuestionsPerRound` during Spec work and uses it in `spec_clarify` instructions. The agent follows this batch limit; the CLI does not count questions in chat or limit the total number of rounds.
 
 Projects created before task delegation and Plan/Task review settings existed
 keep those newly introduced policies disabled during runtime and `update` unless

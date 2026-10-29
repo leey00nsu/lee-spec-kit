@@ -23,6 +23,28 @@ Recording principles:
 
 ---
 
+## Spec Clarification
+
+Keep clarification questions here, before the D001 ADR section, so adding the first ADR preserves them. Use real `## SC-01: title` headings (`###` also accepted), then SC-02, independently of D001 numbering. The fenced example below is documentation only, not an OPEN question in this seed; copy it outside the fence only for an actual question. Keep field names and status values literally in English in both languages.
+
+Allowed Status: OPEN | RESOLVED | DELEGATED | DEFERRED. OPEN blocks Spec clarification completion. Every terminal record requires non-placeholder Answer, Decision, and Spec Refs. RESOLVED records the actual user answer and resulting decision. DELEGATED records the user's explicit delegation plus the agent's choice and its scope. DEFERRED records the user's explicit agreement plus excluded scope and a concrete followup; Spec Refs points to the corresponding scope/acceptance criteria. Never infer consent from silence, a default, timeout, or exhausted review maxRounds.
+
+Investigate facts and reuse previous answers before asking. Ask independent product/scope/acceptance/compatibility choices up to clarificationPolicy.maxQuestionsPerRound per round (from workflow.specClarification.maxQuestionsPerRound; default 3) with options, recommendation, and tradeoffs; wait for needed answers before dependent rounds. Do not ask routine implementation details. Record answers and update Spec scope/acceptance criteria in the same turn. Reopen affected choices on new material scope/behavior changes and reset Spec Clarification Status to Pending, preserving prior answers as history. Mark Complete only after all records are terminal and valid, with a substantive Spec Clarification Summary explaining why no questions were needed or how decisions were incorporated.
+
+```markdown
+## SC-01: {Product or scope choice}
+
+- **Status**: OPEN
+- **Question**: {Choice requiring user input}
+- **Options**: {Alternatives and their tradeoffs}
+- **Recommendation**: {Recommended choice and rationale}
+- **Answer**: -
+- **Decision**: -
+- **Spec Refs**: -
+```
+
+---
+
 ## D001: {Decision Title} ({YYYY-MM-DD})
 
 - **Context**: Problem situation or background

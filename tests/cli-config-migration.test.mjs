@@ -36,6 +36,47 @@ async function runConfigUpdate(dir) {
   );
 }
 
+test('Spec question limit defaults to three, can be configured, and survives update', async () => {
+  await withTempDir('lsk-config-question-limit-', async (dir) => {
+    await writeProjectConfig(dir, { workflow: { mode: 'local' } });
+    let updated = await runConfigUpdate(dir);
+    assert.equal(updated.workflow.specClarification.maxQuestionsPerRound, 3);
+    const result = await runCli(dir, ['config', '--max-clarification-questions', '5']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    updated = await runConfigUpdate(dir);
+    assert.equal(updated.workflow.specClarification.maxQuestionsPerRound, 5);
+    assert.equal(updated.workflow.mode, 'local');
+  });
+});
+
+test('init persists the default Spec question limit', async () => {
+  await withTempDir('lsk-init-question-limit-', async (dir) => {
+    const result = await runCli(dir, ['init', '--non-interactive', '--name', 'demo', '--type', 'single', '--lang', 'en', '--workflow', 'local']);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const config = JSON.parse(await fs.readFile(path.join(dir, 'docs', '.lee-spec-kit.json'), 'utf8'));
+    assert.equal(config.workflow.specClarification.maxQuestionsPerRound, 3);
+  });
+});
+
+test('invalid Spec question limits fail without writing and config can repair JSON', async () => {
+  await withTempDir('lsk-config-question-limit-invalid-', async (dir) => {
+    const docs = await writeProjectConfig(dir, { workflow: { mode: 'local' } });
+    const configPath = path.join(docs, '.lee-spec-kit.json');
+    const before = await fs.readFile(configPath, 'utf8');
+    for (const value of ['0', '-1', '1.5', 'NaN', 'Infinity', '9007199254740992']) {
+      const result = await runCli(dir, ['config', '--max-clarification-questions', value]);
+      assert.notEqual(result.code, 0, result.stdout);
+      assert.equal(await fs.readFile(configPath, 'utf8'), before);
+    }
+    await writeProjectConfig(dir, { workflow: { mode: 'local', specClarification: { maxQuestionsPerRound: '2' } } });
+    const detected = await runCli(dir, ['detect', '--json']);
+    assert.equal(JSON.parse(detected.stdout).reasonCode, 'INVALID_CONFIG');
+    const repaired = await runCli(dir, ['config', '--max-clarification-questions', '1']);
+    assert.equal(repaired.code, 0, repaired.stderr || repaired.stdout);
+    assert.equal(JSON.parse(await fs.readFile(configPath, 'utf8')).workflow.specClarification.maxQuestionsPerRound, 1);
+  });
+});
+
 test('docs completion strategy is a new inherited default and update preserves explicit overrides', async () => {
   await withTempDir('lsk-config-docs-strategy-', async (dir) => {
     await writeProjectConfig(dir, { docsRepo: 'standalone', workspaceRoot: '..', projectRoot: '../project', workflow: { mode: 'local', completionStrategy: 'local-squash' } });
@@ -328,6 +369,7 @@ test('init writes only canonical workflow runtime settings', async () => {
 
     assert.deepEqual(config.workflow, {
       mode: 'local',
+      specClarification: { maxQuestionsPerRound: 3 },
       docsCompletionStrategy: 'inherit',
       requireWorktree: false,
       codeDirtyScope: 'auto',

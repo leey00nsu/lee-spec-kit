@@ -59,6 +59,11 @@ import {
   isOpenWikiEnabled,
 } from './openwiki-policy.js';
 import { collectWorkflowAudit } from '../commands/workflow-audit.js';
+import { resolveMaxClarificationQuestions } from '../config/spec-clarification.js';
+import {
+  parseSpecClarification,
+  type SpecClarification,
+} from './spec-clarification.js';
 
 export type WorkflowStageId =
   | 'workspace'
@@ -96,6 +101,7 @@ export interface WorkflowStageAction {
     | 'workspace_sync_docs'
     | 'workspace_cleanup_docs'
     | 'spec_write'
+    | 'spec_clarify'
     | 'spec_approve'
     | 'plan_write'
     | 'plan_review'
@@ -250,6 +256,8 @@ export interface WorkflowStagePayload {
     | 'NO_FEATURES'
     | 'FEATURE_SELECTION_REQUIRED';
   tasksHash?: string;
+  specClarification?: SpecClarification;
+  clarificationPolicy?: { maxQuestionsPerRound: number };
   sharedDocumentationWarnings?: Array<{ feature: string; targets: string[] }>;
   docsDir: string | null;
   featureRef: string | null;
@@ -270,6 +278,7 @@ export interface WorkflowStagePayload {
     | 'DOCS_INTEGRATION_REQUIRED'
     | 'TASK_STATE_INVALID'
     | 'SPEC_NOT_APPROVED'
+    | 'SPEC_CLARIFICATION_REQUIRED'
     | 'PLAN_NOT_APPROVED'
     | 'PLAN_REVIEW_NOT_APPROVED'
     | 'TASKS_NOT_READY'
@@ -3452,6 +3461,16 @@ async function collectWorkflowStageCore(
   const specContent = await readFileIfExists(
     path.join(config.docsDir, paths.specPath)
   );
+  const decisionsContent = await readFileIfExists(
+    path.join(config.docsDir, paths.decisionsPath)
+  );
+  const specClarification = parseSpecClarification(
+    specContent || '',
+    decisionsContent || ''
+  );
+  const clarificationPolicy = {
+    maxQuestionsPerRound: resolveMaxClarificationQuestions(config),
+  };
   const planContent = await readFileIfExists(
     path.join(config.docsDir, paths.planPath)
   );
@@ -3572,6 +3591,32 @@ async function collectWorkflowStageCore(
     remoteReviewState
   );
 
+  if (
+    specClarification.enabled &&
+    !specClarification.ready &&
+    (specClarification.openQuestionIds.length > 0 ||
+      specClarification.errors.length > 0 ||
+      specStatus === 'review' ||
+      specStatus === 'approved')
+  ) {
+    return {
+      status: 'ok',
+      reasonCode: 'WORKFLOW_STAGE_RESOLVED',
+      docsDir: config.docsDir,
+      featureRef: buildFeatureRef(feature),
+      stage: 'spec',
+      specClarification,
+      clarificationPolicy,
+      nextAction: buildAction(
+        'spec_clarify',
+        `Complete Spec decision discovery in ${path.join(config.docsDir, paths.decisionsPath)} before approval. ${specClarification.openQuestionIds.length ? `Resolve ${specClarification.openQuestionIds.join(', ')}. ` : ''}${specClarification.errors.join(' ')} Investigate facts first, then ask at most ${clarificationPolicy.maxQuestionsPerRound} independent product decisions per round with options, a recommendation, and trade-offs; wait for required answers. Record the answer and update spec.md in the same turn. Mark Clarification Status Complete with a substantive summary only after all decisions have a recorded disposition. Follow docs get create-feature --json.`,
+        false),
+      approvalRequired: false,
+      implementationAllowed: false,
+      blockedReasonCode: 'SPEC_CLARIFICATION_REQUIRED',
+    };
+  }
+
   if (specStatus !== 'approved') {
     const isReviewStage = specStatus === 'review';
     const approvalRequired = isReviewStage
@@ -3589,13 +3634,15 @@ async function collectWorkflowStageCore(
       docsDir: config.docsDir,
       featureRef: buildFeatureRef(feature),
       stage: 'spec',
+      specClarification,
+      clarificationPolicy,
       nextAction: buildAction(
         isReviewStage ? 'spec_approve' : 'spec_write',
         isReviewStage
           ? approvalRequired
             ? `Present spec.md together with ${path.join(feature.path, 'artifacts', 'change-report.html')}, get user approval, and update spec.md status to Approved. Follow the Spec change-report guidance in docs get create-feature --json.`
             : `Review spec.md together with ${path.join(feature.path, 'artifacts', 'change-report.html')}, then promote spec.md from Review to Approved and continue automatically. Follow the Spec change-report guidance in docs get create-feature --json.`
-          : `Write or refine spec.md and ${path.join(feature.path, 'artifacts', 'change-report.html')} with a visual As-Is / To-Be comparison before approval. Follow docs get create-feature --json; link the report from spec.md and tasks.md or decisions.md.`,
+          : `Investigate current facts and check unresolved product decisions before completing spec.md. Record questions as SC entries in decisions.md and follow spec_clarify when needed; otherwise record why no questions are needed. Complete the clarification assessment and ${path.join(feature.path, 'artifacts', 'change-report.html')} with a visual As-Is / To-Be comparison before approval. Follow docs get create-feature --json; link the report from spec.md and tasks.md or decisions.md.`,
         approvalRequired
       ),
       approvalRequired,

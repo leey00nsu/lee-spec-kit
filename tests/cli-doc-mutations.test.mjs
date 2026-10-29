@@ -235,6 +235,29 @@ test('decision numbering stays Feature-local for non-F001 Features in both langu
   }
 });
 
+test('decision add preserves clarification records around the first ADR placeholder', async () => {
+  await withTempDir('lsk-decision-preserve-clarification-', async (dir) => {
+    const featureDir = await setupFeature(dir);
+    const decisionsPath = path.join(featureDir, 'decisions.md');
+    const before = '\n## SC-01: Scope before ADR\n- **Status**: OPEN\n- **Question**: Which users?\n';
+    const after = '\n### SC-02: Scope after ADR\n- **Status**: OPEN\n- **Question**: Which outputs?\n';
+    await fs.writeFile(decisionsPath, (await fs.readFile(decisionsPath, 'utf8'))
+      .replace('## D001:', `${before}\n## D001:`) + after);
+    const result = await runCli(dir, [
+      'decision', 'add', 'F001-alpha', '--title', 'Preserve scope choices',
+      '--context', 'Clarification and ADR records share decisions.md.',
+      '--decision', 'Retain both question blocks.', '--rationale', 'Unanswered questions must keep blocking approval.',
+      '--evidence', 'Regression for question preservation.', '--json',
+    ]);
+    assert.equal(result.code, 0, result.stderr || result.stdout);
+    const content = await fs.readFile(decisionsPath, 'utf8');
+    assert.ok(content.includes(before));
+    assert.ok(content.includes(after));
+    assert.match(content, /## D001: Preserve scope choices/);
+    assert.doesNotMatch(content, /## D001: \{Decision Title\}/);
+  });
+});
+
 test('decision add repairs a legacy Feature-numbered initial placeholder to D001', async () => {
   await withTempDir('lsk-decision-placeholder-repair-', async (dir) => {
     const featureDir = await setupFeature(dir, { featureId: 'F042' });

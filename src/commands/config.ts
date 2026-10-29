@@ -26,6 +26,7 @@ import {
 import { resolveLegacyBackfilledAgentAutomation } from '../config/agent-automation.js';
 import { assertValidDocsCompletionConfig } from '../config/docs-completion.js';
 import type { DocsCompletionStrategy, ProjectConfig } from '../config/types.js';
+import { resolveMaxClarificationQuestions } from '../config/spec-clarification.js';
 
 interface ConfigOptions {
   checksDetect?: boolean;
@@ -37,6 +38,7 @@ interface ConfigOptions {
   taskAgent?: 'on' | 'off';
   reviews?: string;
   maxReviewRounds?: string;
+  maxClarificationQuestions?: string;
   completionStrategy?: 'local-ff' | 'local-squash' | 'none';
   docsCompletionStrategy?: DocsCompletionStrategy;
   openwiki?: string;
@@ -108,6 +110,7 @@ function validateWorkflowOptions(options: ConfigOptions): void {
     throw createCliError('INVALID_ARGUMENT', '`--docs-completion-strategy` must be inherit, local-ff, or local-squash.');
   }
   parseMaxReviewRounds(options.maxReviewRounds);
+  parseMaxClarificationQuestions(options.maxClarificationQuestions);
   if (
     options.openwiki !== undefined &&
     options.openwiki !== 'true' &&
@@ -118,6 +121,15 @@ function validateWorkflowOptions(options: ConfigOptions): void {
       '`--openwiki` must be `true` or `false`.'
     );
   }
+}
+
+function parseMaxClarificationQuestions(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw createCliError('INVALID_ARGUMENT', '`--max-clarification-questions` must be a positive safe integer.');
+  }
+  return parsed;
 }
 
 export function configCommand(program: Command): void {
@@ -139,6 +151,7 @@ export function configCommand(program: Command): void {
       '--max-review-rounds <count>',
       'Maximum fresh review rounds before continuing with residual risks'
     )
+    .option('--max-clarification-questions <count>', 'Maximum independent questions per Spec clarification round (default: 3)')
     .option(
       '--completion-strategy <strategy>',
       'Local completion: local-ff | local-squash | none'
@@ -160,7 +173,7 @@ export function configCommand(program: Command): void {
           console.log(chalk.yellow(`\n${tr(lang, 'cli', 'common.canceled')}`));
           return;
         }
-        const config = await getConfig(process.cwd(), { validateDocsStrategy: false });
+        const config = await getConfig(process.cwd(), { validateDocsStrategy: false, validateSpecClarification: false });
         const lang = config?.lang ?? DEFAULT_LANG;
         const cliError = toCliError(error);
         const suggestions = getCliErrorSuggestions(cliError.code, lang);
@@ -179,7 +192,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   validateWorkflowOptions(options);
   const cwd = process.cwd();
   const targetCwd = options.dir ? path.resolve(cwd, options.dir) : cwd;
-  const config = await getConfig(targetCwd, { validateDocsStrategy: false });
+  const config = await getConfig(targetCwd, { validateDocsStrategy: false, validateSpecClarification: false });
 
   if (!config) {
     throw createCliError(
@@ -207,6 +220,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
     typeof options.taskAgent !== 'undefined' ||
     typeof options.reviews !== 'undefined' ||
     typeof options.maxReviewRounds !== 'undefined' ||
+    typeof options.maxClarificationQuestions !== 'undefined' ||
     typeof options.completionStrategy !== 'undefined' ||
     typeof options.docsCompletionStrategy !== 'undefined' ||
     !!options.interactive;
@@ -215,6 +229,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
   // 옵션 없이 실행: 현재 설정 출력
   if (!options.projectRoot && !hasWorkflowOptions && !hasExperimentalOptions && !hasChecksOptions) {
     assertValidDocsCompletionConfig(config);
+    resolveMaxClarificationQuestions(config);
     console.log();
     console.log(chalk.blue(tr(config.lang, 'cli', 'config.currentTitle')));
     console.log();
@@ -272,6 +287,7 @@ async function runConfig(options: ConfigOptions): Promise<void> {
       }
 
       assertValidDocsCompletionConfig(configFile as unknown as ProjectConfig);
+      resolveMaxClarificationQuestions(configFile as unknown as ProjectConfig);
       await fs.writeJson(configPath, configFile, { spaces: 2 });
       console.log();
     },
@@ -586,6 +602,13 @@ async function updateWorkflowConfig(
   }
   if (typeof maxReviewRounds === 'number') {
     ensureAgentReview(workflow).maxRounds = maxReviewRounds;
+  }
+  const maxQuestions = parseMaxClarificationQuestions(options.maxClarificationQuestions);
+  if (maxQuestions !== undefined) {
+    workflow.specClarification = {
+      ...(isPlainObject(workflow.specClarification) ? workflow.specClarification : {}),
+      maxQuestionsPerRound: maxQuestions,
+    };
   }
   if (completionStrategy) workflow.completionStrategy = completionStrategy;
   if (options.docsCompletionStrategy) workflow.docsCompletionStrategy = options.docsCompletionStrategy;

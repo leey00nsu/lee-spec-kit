@@ -47,7 +47,11 @@ function findPlaceholderDecisionRange(content: string): {
   if (!match || match.index === undefined) return null;
 
   const afterHeadingIndex = match.index + match[0].length;
-  const nextHeadingMatch = /^##\s+D\d+:\s+/m.exec(content.slice(afterHeadingIndex));
+  // Clarification entries may follow the initial ADR template. Replacing that
+  // placeholder must not delete a question and silently remove its workflow gate.
+  const nextHeadingMatch = /^(?:#{1,2}[ \t]+|###[ \t]+SC-)/m.exec(
+    content.slice(afterHeadingIndex)
+  );
   const end = nextHeadingMatch
     ? afterHeadingIndex + nextHeadingMatch.index
     : content.length;
@@ -141,7 +145,7 @@ async function runDecisionAdd(
 
   const nextContent = placeholderRange
     ? normalizeMarkdownEnd(
-        `${content.slice(0, placeholderRange.start)}${block}${content.slice(
+        `${content.slice(0, placeholderRange.start)}${block}\n\n${content.slice(
           placeholderRange.end
         )}`
       )

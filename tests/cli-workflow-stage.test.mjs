@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
+  completeSpecClarification,
   fs,
   ignoreGitArtifacts,
   normalizePathForCompare,
@@ -56,6 +57,14 @@ async function initRepo(dir, options = {}) {
     '--non-interactive',
   ]);
   assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
+
+  // Most fixtures start with an already settled product scope. Clarification
+  // tests opt out to exercise the generated Pending assessment itself.
+  if (options.clarificationComplete !== false) {
+    const specPath = path.join(featureDir(dir), 'spec.md');
+    const spec = await fs.readFile(specPath, 'utf8');
+    await fs.writeFile(specPath, completeSpecClarification(spec));
+  }
 
   const commitAll = await runCommand(dir, 'git', ['add', '.']);
   assert.equal(commitAll.code, 0, commitAll.stderr || commitAll.stdout);
@@ -120,6 +129,8 @@ async function initStandaloneRepo(dir, options = {}) {
   ]);
   assert.equal(featureResult.code, 0, featureResult.stderr || featureResult.stdout);
 
+  const specPath = path.join(featureDir(dir), 'spec.md');
+  await fs.writeFile(specPath, completeSpecClarification(await fs.readFile(specPath, 'utf8')));
   const commitDocs = await runCommand(path.join(dir, 'docs'), 'git', ['add', '.']);
   assert.equal(commitDocs.code, 0, commitDocs.stderr || commitDocs.stdout);
   const commitDocsResult = await runCommand(path.join(dir, 'docs'), 'git', ['commit', '-m', 'baseline']);
@@ -884,6 +895,70 @@ test('workflow-stage moves to spec_approve when spec.md is in review', async () 
     );
     assert.match(payload.actionOptions[0].summary, /approve spec\.md/i);
     assert.equal(payload.blockedReasonCode, 'SPEC_NOT_APPROVED');
+  });
+});
+
+for (const lang of ['en', 'ko']) {
+  test(`Spec clarification blocks approval until recorded decisions are settled (${lang})`, async () => {
+    await withTempDir('lsk-spec-clarification-', async (dir) => {
+      await initRepo(dir, { lang, clarificationComplete: false });
+      const specPath = path.join(featureDir(dir), 'spec.md');
+      const decisionsPath = path.join(featureDir(dir), 'decisions.md');
+      assert.equal((await readStage(dir)).nextAction.category, 'spec_write');
+      await setStatus(specPath, lang === 'ko' ? '상태' : 'Status', 'Review');
+      let payload = await readStage(dir);
+      assert.equal(payload.nextAction.category, 'spec_clarify');
+      assert.equal(payload.approvalRequired, false);
+      assert.equal(payload.implementationAllowed, false);
+      assert.equal(payload.blockedReasonCode, 'SPEC_CLARIFICATION_REQUIRED');
+      assert.equal(payload.actionOptions, undefined);
+      assert.equal(payload.clarificationPolicy.maxQuestionsPerRound, 3);
+      const configured = await runCli(dir, ['config', '--max-clarification-questions', '2']);
+      assert.equal(configured.code, 0, configured.stderr || configured.stdout);
+      payload = await readStage(dir);
+      assert.equal(payload.clarificationPolicy.maxQuestionsPerRound, 2);
+      assert.match(payload.nextAction.summary, /at most 2 independent product decisions per round/);
+
+      await fs.writeFile(specPath, (await fs.readFile(specPath, 'utf8'))
+        .replace('- **Clarification Status**: Pending', '- **Clarification Status**: Complete')
+        .replace('- **Clarification Summary**: -', '- **Clarification Summary**: SC-01 records report behavior reflected in FR-1.'));
+      await fs.appendFile(decisionsPath, '\n## SC-01: Missing report\n- **Status**: OPEN\n- **Question**: Block approval?\n- **Options**: Guidance; gate\n- **Recommendation**: Gate because the report is required.\n- **Answer**: -\n- **Decision**: -\n- **Spec Refs**: -\n');
+      payload = await readStage(dir);
+      assert.equal(payload.nextAction.category, 'spec_clarify');
+      assert.deepEqual(payload.specClarification.openQuestionIds, ['SC-01']);
+
+      const decisions = await fs.readFile(decisionsPath, 'utf8');
+      const recordStart = decisions.lastIndexOf('\n## SC-01: Missing report');
+      await fs.writeFile(decisionsPath, decisions.slice(0, recordStart) + decisions.slice(recordStart)
+        .replace('- **Status**: OPEN', '- **Status**: RESOLVED')
+        .replace('- **Answer**: -', '- **Answer**: User chose the gate.')
+        .replace('- **Decision**: -', '- **Decision**: Require report before approval.')
+        .replace('- **Spec Refs**: -', '- **Spec Refs**: FR-1'));
+      payload = await readStage(dir);
+      assert.equal(payload.nextAction.category, 'spec_approve');
+      assert.equal(payload.approvalRequired, true);
+      assert.equal(payload.specClarification.ready, true);
+
+      // Approval metadata alone cannot bypass a reopened product decision.
+      await setStatus(specPath, lang === 'ko' ? '상태' : 'Status', 'Approved');
+      assert.equal((await readStage(dir)).nextAction.category, 'plan_write');
+      await fs.writeFile(decisionsPath, (await fs.readFile(decisionsPath, 'utf8')).replace('- **Status**: RESOLVED', '- **Status**: OPEN'));
+      assert.equal((await readStage(dir)).nextAction.category, 'spec_clarify');
+      const configPath = path.join(dir, 'docs', '.lee-spec-kit.json');
+      const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
+      config.approval = { default: 'skip', requireCheckCategories: [] };
+      await fs.writeFile(configPath, JSON.stringify(config));
+      assert.equal((await readStage(dir)).nextAction.category, 'spec_clarify');
+    });
+  });
+}
+
+test('legacy approved Specs continue without a clarification backfill', async () => {
+  await withTempDir('lsk-spec-legacy-', async (dir) => {
+    await initRepo(dir, { clarificationComplete: false });
+    const specPath = path.join(featureDir(dir), 'spec.md');
+    await fs.writeFile(specPath, '# Feature Spec\n- **Status**: Approved\n');
+    assert.equal((await readStage(dir)).nextAction.category, 'plan_write');
   });
 });
 
@@ -5581,6 +5656,10 @@ test('new standalone Features isolate planning docs before implementation', asyn
     assert.notEqual(JSON.parse(secondPrepared.stdout).docsDirectory, isolated);
     const stage = await runCli(isolated, ['workflow-stage', feature.featureId, '--json']);
     assert.equal(JSON.parse(stage.stdout).stage, 'spec', stage.stdout);
+    assert.equal(JSON.parse(stage.stdout).specClarification.status, 'pending');
+    assert.ok(JSON.parse(stage.stdout).nextAction.summary.includes(
+      path.join(isolated, feature.featurePathFromDocs, 'artifacts', 'change-report.html')
+    ));
     const primarySpec = path.join(feature.featurePath, 'spec.md');
     const original = await fs.readFile(primarySpec, 'utf8');
     const isolatedSpec = path.join(isolated, feature.featurePathFromDocs, 'spec.md');

@@ -499,7 +499,14 @@ flowchart TD
 }
 
 
+function completeSpecClarification(content) {
+  return content
+    .replace('- **Clarification Status**: Pending', '- **Clarification Status**: Complete')
+    .replace('- **Clarification Summary**: -', '- **Clarification Summary**: Fixture scope is explicit; no unresolved product decisions.');
+}
+
 export {
+  completeSpecClarification,
   fs,
   path,
   os,

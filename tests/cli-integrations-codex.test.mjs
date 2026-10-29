@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
+  completeSpecClarification,
   fs,
   path,
   pathExists,
@@ -946,7 +947,7 @@ test('generated pre-tool hook blocks commits while task implementation is active
     const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
     for (const fileName of ['spec.md', 'plan.md']) {
       const filePath = path.join(featureDir, fileName);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const content = completeSpecClarification(await fs.readFile(filePath, 'utf-8'));
       await fs.writeFile(
         filePath,
         fileName === 'plan.md'
@@ -1718,7 +1719,7 @@ test('generated pre-tool hook allows exact standalone branch_create nextAction c
       const featureDir = path.join(dir, 'docs', 'features', 'F001-alpha');
       for (const fileName of ['spec.md', 'plan.md']) {
         const filePath = path.join(featureDir, fileName);
-        const content = await fs.readFile(filePath, 'utf-8');
+        const content = completeSpecClarification(await fs.readFile(filePath, 'utf-8'));
         await fs.writeFile(
           filePath,
           fileName === 'plan.md'
@@ -1898,7 +1899,7 @@ test('generated pre-tool hook resolves isolated local Feature planning for an ex
     );
     for (const filename of ['spec.md', 'plan.md']) {
       const filepath = path.join(featureDir, filename);
-      let content = (await fs.readFile(filepath, 'utf8')).replace(
+      let content = completeSpecClarification(await fs.readFile(filepath, 'utf8')).replace(
         /- \*\*Status\*\*: .*/u,
         '- **Status**: Approved'
       );

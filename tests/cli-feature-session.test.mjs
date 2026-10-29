@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
+  completeSpecClarification,
   fs,
   path,
   runCli,
@@ -95,7 +96,7 @@ async function setup(dir) {
 async function approveFeatureDocs(tasksPath) {
   for (const fileName of ['spec.md', 'plan.md']) {
     const file = path.join(path.dirname(tasksPath), fileName);
-    let content = (await fs.readFile(file, 'utf8')).replace(
+    let content = completeSpecClarification(await fs.readFile(file, 'utf8')).replace(
       /- \*\*Status\*\*: .*/,
       '- **Status**: Approved'
     );
