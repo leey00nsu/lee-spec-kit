@@ -21,6 +21,8 @@ Apply the README protection and supporting-artifact rules in the `agents` docume
 
 The Pre-PR subagent must always run this minimum baseline. Do not depend on a named review skill.
 
+For claimed performance improvements, inspect the ADR's `Performance Evidence` for before/after values, units/aggregation, revisions, environment/load, samples/variability, calculations, raw evidence, side effects, and comparability. Report unsupported claims that substitute targets for measurements or conceal differing conditions/unmeasured results, and check that comparison HTML values agree with the ADR. Read the format with `npx lee-spec-kit docs get performance-evidence --json`. Keep the existing review-round and approval policy; do not add a separate performance approval gate.
+
 Review Curated Documentation Impact evidence, including NONE. For each discovered discrepancy, verify a completed correction or a real follow-up task/Feature/issue with document paths, evidence, the unresolved question, and the deferral reason. A residual-risk note alone is not follow-up tracking. Report missing disposition as a finding; do not infer product intent from code or generated Knowledge. Existing review-round and approval policies still apply.
 
 When `workflow-stage --json` returns `nextAction.executor: subagent`, delegate the review to a fresh, read-only subagent. `model: inherit` means inheriting the current model; any other value is used as the subagent model override. If that model is unavailable, follow `onUnavailable` (`inherit` or `error`).

@@ -76,6 +76,7 @@
 - 기존 README(루트·하위 디렉터리·다국어 포함)는 사용자가 README 수정을 명시적으로 요청한 경우에만 요청 범위에서 수정합니다. 일반적인 기능 구현·문서 동기화 요청이나 에이전트가 작성한 Plan은 README 수정 허가가 아닙니다. 읽기와 참조는 허용합니다.
 - README 수정 요청이 있어도 관련 기존 설명을 갱신하며, 기능별 구현 내역·검증 로그·버전별 변경 설명을 끝에 계속 덧붙이지 않습니다.
 - README 보호는 문서 동기화와 Curated Documentation Impact 규칙보다 우선합니다. 수정 요청 없이 발견한 README 불일치는 `decisions.md`에 경로·근거·보류 사유를 기록합니다. 다른 문서 영향은 별도로 판정합니다. 해당 영역에 보류된 README 영향만 있으면 이번 작업에서 수정하지 않는다는 `NONE`과 해당 기록 참조를 사용하며, 불일치가 없거나 해결됐다고 주장하지 않습니다. 이 경우에만 별도 후속 task/Feature/issue 생성이나 README 수정 승인을 완료 조건으로 요구하지 않습니다. 리뷰도 README 미수정 자체를 차단 사유로 삼지 않습니다.
+- 성능 개선이 목적이거나 결과에서 성능 향상을 주장하면 코드 변경 전에 `npx lee-spec-kit docs get performance-evidence --json`을 읽습니다. Plan에 측정 절차를 정하고 해당 Feature ADR에 전후 실측·비교 가능한 조건·편차·계산·부작용·원본 근거를 남깁니다. 최초 기준선을 보존하고 목표·미측정·확인된 결과를 구분합니다. ADR·산출물 저장은 주 에이전트가 맡고 worker는 기존 계약에 따라 근거를 전달합니다.
 - 새 Spec 또는 수정한 Spec의 승인을 요청하기 전에 `docs get create-feature --json` 기준으로 시각적인 As-Is / To-Be 비교를 담은 `artifacts/change-report.html`을 작성·갱신하고 승인 요청에 링크를 함께 제시합니다. `spec.md`와 `tasks.md` 또는 `decisions.md`에서 상대경로로 연결하고, 원래 As-Is를 유지하며 제안과 검증된 결과를 구분합니다. 변경 없는 기존 승인·완료 Feature에는 소급 적용하지 않습니다.
 - 보존할 Feature 보조 산출물(설명용 다이어그램·검증 보고서·스크린샷)은 활성 Feature의 `spec.md`, `plan.md`, `tasks.md`, `decisions.md`와 같은 디렉터리 아래 `artifacts/`에 저장합니다. 필요할 때만 폴더를 만들고 `tasks.md` 또는 `decisions.md`에서 상대경로로 연결합니다. 필수 Spec 변경 비교 보고서 외에는 기존 문서로 충분한 내용을 별도 보고서로 중복 생성하지 않습니다.
 - 활성 Feature 문서의 실제 경로를 사용합니다. standalone에서는 해당 docs worktree 안의 Feature 경로이며, 현재 작업 디렉터리나 최근 Feature로 추측하지 않습니다. 구현 worker는 docs 쓰기 금지 계약을 유지하고 필요한 산출물을 메인 에이전트에 전달하여 저장하도록 합니다.

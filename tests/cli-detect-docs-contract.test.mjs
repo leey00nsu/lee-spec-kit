@@ -7,7 +7,7 @@ import {
   withTempDir,
 } from './helpers/cli-contract-helpers.mjs';
 
-async function initRepo(dir) {
+async function initRepo(dir, lang = 'en') {
   const initResult = await runCli(dir, [
     'init',
     '--non-interactive',
@@ -16,13 +16,48 @@ async function initRepo(dir) {
     '--type',
     'single',
     '--lang',
-    'en',
+    lang,
     '--workflow',
     'local',
     '--dir',
     './docs',
   ]);
   assert.equal(initResult.code, 0, initResult.stderr || initResult.stdout);
+}
+
+for (const lang of ['en', 'ko']) {
+  test(`performance-evidence exposes only the localized ADR guidance on demand (${lang})`, async () => {
+    await withTempDir('lsk-performance-evidence-', async (dir) => {
+      await initRepo(dir, lang);
+      const list = await runCli(dir, ['docs', 'list', '--json']);
+      assert.equal(list.code, 0, list.stderr || list.stdout);
+      assert.ok(JSON.parse(list.stdout).docs.some((entry) => entry.id === 'performance-evidence'));
+
+      const result = await runCli(dir, ['docs', 'get', 'performance-evidence', '--json']);
+      assert.equal(result.code, 0, result.stderr || result.stdout);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.doc.id, 'performance-evidence');
+      assert.deepEqual(payload.requiredDocs, []);
+      assert.match(payload.doc.content, lang === 'ko' ? /^## 성능 개선 근거 기록/ : /^## Performance improvement evidence/);
+      assert.match(payload.doc.content, /### Performance Evidence/);
+      assert.match(payload.doc.content, /artifacts\/performance\//);
+      assert.doesNotMatch(payload.doc.content, /^## (?:D001:|Spec Clarification|Spec 결정 확인)/m);
+
+      const startup = await runCli(dir, ['docs', 'get', 'agents', '--json']);
+      assert.equal(startup.code, 0, startup.stderr || startup.stdout);
+      assert.ok(!JSON.parse(startup.stdout).requiredDocs.some((entry) => entry.id === 'performance-evidence'));
+
+      const created = await runCli(dir, ['feature', 'measurement-example', '--id', 'F001']);
+      assert.equal(created.code, 0, created.stderr || created.stdout);
+      const decisionsPath = path.join(dir, 'docs', 'features', 'F001-measurement-example', 'decisions.md');
+      const before = await fs.readFile(decisionsPath, 'utf8');
+      // Existing Features consume current built-in guidance without a document rewrite.
+      const fetchedAgain = await runCli(dir, ['docs', 'get', 'performance-evidence', '--json']);
+      assert.equal(fetchedAgain.code, 0, fetchedAgain.stderr || fetchedAgain.stdout);
+      assert.equal(JSON.parse(fetchedAgain.stdout).doc.hash, payload.doc.hash);
+      assert.equal(await fs.readFile(decisionsPath, 'utf8'), before);
+    });
+  });
 }
 
 test('detect --json reports a lee-spec-kit project from the workspace root', async () => {

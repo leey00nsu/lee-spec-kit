@@ -23,6 +23,45 @@ Recording principles:
 
 ---
 
+## Performance improvement evidence
+
+When performance improvement is a goal or a claimed outcome, add `### Performance Evidence` inside the relevant ADR. Do not add empty performance tables for unrelated changes. Copy the format below into applicable ADRs and fill it with actual measurements. Add dated remeasurements to the same decision with their conditions and source evidence; preserve the original As-Is and previous results instead of overwriting them with the newest values.
+
+1. **Before implementation**: identify metrics, units, improvement direction, targets, and acceptable side effects linked to Spec requirements. Define the measurement procedure in the Plan Verification Contract and capture the baseline before changing the implementation within the authorized scope. If the original environment is unavailable, record why and identify any historical logs used. Never infer a historical baseline from the new implementation.
+2. **Measurement conditions**: record each run's date/time/timezone, code commit SHA and uncommitted diff identifier when applicable, benchmark tool/script revision, reproducible command, cwd, and non-secret configuration. Include hardware, CPU/memory, OS, runtime, dependencies, deployment settings, dataset identity/size/seed, request pattern, concurrency/load, duration, cold/warm cache, warmup, repetitions, sample count, and aggregation method. Disclose condition differences that could affect performance.
+3. **After implementation**: repeat the same scenario, metric definition, environment, load, and tooling. Separate scenarios and cold/warm results. Report appropriate distribution/variability statistics such as median/p95/p99, min/max, standard deviation, or confidence intervals only when actually calculated, with sample counts. Check relevant error rate, correctness, CPU, peak memory, cost, and other side effects alongside speed.
+4. **Calculation and assessment**: absolute delta is `After - Before`; relative change is `(After - Before) / Before × 100`. Improvement is `(Before - After) / Before × 100` for lower-is-better metrics, and `(After - Before) / Before × 100` for higher-is-better metrics; positive improvement means better and negative means regression. Use `N/A` with a reason for a zero or missing baseline. Distinguish relative `%` from percentage-point (`pp`) changes for percentage metrics. Report noise-level differences, incomparable conditions, regressions, and missed targets honestly; do not attribute every observed difference to the code change.
+5. **Evidence and handoff**: retain necessary non-secret raw logs, per-run values, profiles, and temporary measurement scripts/configuration under the actual active Feature's `artifacts/performance/`, with relative ADR links. Reference existing project benchmark code by path and revision; add durable benchmarks/tests only within the approved Verification Contract. Summarize the same values and link the ADR from `artifacts/change-report.html`, distinguishing targets, measurements, and unmeasured claims. The primary agent stores ADRs and supporting artifacts; workers measure within their existing write contract and return commands, conditions, results, and evidence file locations.
+
+For future trends, use stable metric keys such as `api.search.latency.p95`, independent of Feature IDs, with scenario/statistic definitions. Separate series when definitions, environments, or data change; do not sum improvement percentages across changes. `decision add` creates the base ADR; enrich that ADR with the performance section below afterward.
+
+**Hypothetical calculation, not measurements of this repository:** p95 latency 420 → 250 ms means -170 ms absolute delta, -40.48% relative change, and +40.48% improvement. Throughput 120 → 180 req/s means +60 req/s and +50% improvement; if peak memory also rises from 220 → 250 MiB, record that +30 MiB memory regression too.
+
+The placeholders below describe a format, not execution evidence. Mark unavailable results as unmeasured or incomparable, explain missing conditions and how to address them, and record real follow-up work where needed. Keep deployment measurements separate from development results and make production claims only after actual production verification. This is an authoring/review policy, not a new automatic benchmark runner or workflow approval gate.
+
+```markdown
+### Performance Evidence
+
+- **Requirement / Scenario**: {Performance requirement, user scenario, observation boundary}
+- **Goal / Guardrails**: {Target and acceptable error, correctness, resource, and cost limits}
+- **Status**: {Measured / Unmeasured / Incomparable, with reason}
+- **Before Run**: {Timestamp/timezone, code SHA/diff, tool/script revision}
+- **After Run**: {Timestamp/timezone, code SHA/diff, tool/script revision}
+- **Environment / Workload**: {Both environments, dataset, load, cache, and differences}
+- **Reproduce**: {Cwd, before/after commands, non-secret configuration}
+- **Sampling / Statistics**: {Warmup, repetitions, samples, aggregation, variability, excluded runs/reasons}
+
+| Metric / scenario / statistic | Unit | Better direction | Before (measured) | After (measured) | Absolute delta | Relative change (%) | Improvement (%) | Target / assessment |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| {Metric} | {Unit} | {Lower / Higher} | {Value} | {Value} | {After-Before} | {Value or N/A} | {Value or N/A} | {Met / Regressed / Uncertain} |
+
+- **Side Effects / Limitations**: {Errors, correctness, resources, cost, noise, differing conditions, attribution limits}
+- **Evidence**: [Before raw data](artifacts/performance/before.json), [After raw data](artifacts/performance/after.json) — replace with actual retained files
+- **Conclusion / Follow-up**: {Verified effect, unverified scope, further checks needed}
+```
+
+---
+
 ## Spec Clarification
 
 Keep clarification questions here, before the D001 ADR section, so adding the first ADR preserves them. Use real `## SC-01: title` headings (`###` also accepted), then SC-02, independently of D001 numbering. The fenced example below is documentation only, not an OPEN question in this seed; copy it outside the fence only for an actual question. Keep field names and status values literally in English in both languages.

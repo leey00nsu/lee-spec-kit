@@ -32,6 +32,7 @@ Use the active feature folder as the execution SSOT.
 - If you need to add a new task, append a complete task block in `tasks.md` with a concrete title, `Acceptance`, `Checklist`, and `NON-PRD` or existing `PRD-*` tag.
 - Additional user implementation/correction requests stay in the selected Feature as new tasks by default. Use `task add <feature-ref>` from its managed workspace; analysis/questions alone create no work item. Selection failure never authorizes another Feature, and `--separate` requires an explicit request for another Feature or a user-selected split.
 - Do not leave placeholder `Acceptance` or `Checklist` items in newly added tasks.
+- When performance improvement is a goal or claimed outcome, follow **Performance improvement evidence** in the active `decisions.md`. Capture the baseline before implementation using the approved Plan procedure, then repeat under the same conditions. The primary agent records measured before/after values, units, direction, changes, environment/load, sampling/variability, regressions, and raw evidence in the relevant ADR's `Performance Evidence`, with matching summaries in the comparison HTML. Workers return measurements and evidence locations without editing Feature docs. For existing Features without the guidance, read `npx lee-spec-kit docs get performance-evidence --json`; record unavailable measurements and their reasons explicitly.
 
 ## 3. Keep docs in sync
 

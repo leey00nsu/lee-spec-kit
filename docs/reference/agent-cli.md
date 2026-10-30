@@ -39,9 +39,12 @@ Machine-readable built-in policy docs.
 npx lee-spec-kit docs get agents --json
 npx lee-spec-kit docs get create-pr --json
 npx lee-spec-kit docs get ui-ux-design --json
+npx lee-spec-kit docs get performance-evidence --json
 ```
 
 `ui-ux-design` is optional. Read it only when the request explicitly concerns a design system, UI/visual redesign, design consistency, shared UI/component-library consolidation, branding/theme/token redesign, or implementation from Figma/design images. It is deliberately absent from the startup `requiredDocs` list and does not add a workflow gate.
+
+Read `performance-evidence` when performance improvement is a goal or claimed result. It exposes the performance-evidence section of the built-in Decisions template, so existing Features can use the same guidance without replacing their documents. It is conditional and absent from startup `requiredDocs`. Define metrics/targets in the Spec and a baseline/measurement procedure in the Plan Verification Contract; measure before implementation and repeat under comparable conditions afterward. The primary agent records detailed results in the relevant ADR's `Performance Evidence`, retaining code/tool revisions, timestamps, reproducible commands, environment/data/load/cache, samples/variability, unit/direction, absolute and relative changes, regressions, and raw-evidence links under the active Feature's `artifacts/performance/`. Preserve original baselines and dated reruns. Use stable metric keys for future trends; distinguish targets, measurements, incomparable results, and production verification. Comparison HTML summarizes the same values and links the ADR. `decision add` creates the base ADR; the agent then enriches applicable ADRs using this guidance. Workers retain their existing write contract and return measurement evidence to the primary agent. Reviewers assess support for performance claims within the existing review policy. This adds no automatic benchmark execution, numerical threshold validator, or approval gate, and does not require benchmarks for unrelated changes.
 
 ### `workflow-audit`
 

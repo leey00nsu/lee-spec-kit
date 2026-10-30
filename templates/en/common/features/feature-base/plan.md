@@ -125,6 +125,8 @@ Reference the effective workflow.featureChecks baseline, including component ove
 
 ### Verification Execution
 
+For changes whose goal or claimed outcome is performance improvement, follow **Performance improvement evidence** in `decisions.md`: define the baseline revision, metrics/units/direction/targets, side-effect limits, reproducible commands, environment/data/load/cache, warmup/repetitions/samples/statistics, and raw-evidence storage here. Use the same procedure before and after implementation and link results to the ADR's `Performance Evidence`. Disclose unavailable conditions and alternative evidence limits; do not add unapproved durable tests or benchmarks.
+
 - **During implementation**:
 - **Before task completion**:
 - **Before Feature completion**:

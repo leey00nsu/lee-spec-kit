@@ -21,6 +21,8 @@ README 보호와 보조 산출물 위치는 `agents` 문서의 해당 규칙을 
 
 Pre-PR 리뷰에서 서브에이전트가 항상 수행하는 최소 기준입니다. 리뷰 스킬 이름에 의존하지 않습니다.
 
+성능 향상을 주장하는 변경은 `decisions.md`의 `Performance Evidence`에서 전후 수치·단위·집계·revision·환경/부하·표본/편차·변화율·원본 근거·부작용과 비교 가능성을 확인합니다. 목표만 있거나 조건 차이·미측정을 숨긴 개선 주장은 finding으로 보고하며, 비교 HTML과 ADR의 수치 일치도 점검합니다. 형식은 `npx lee-spec-kit docs get performance-evidence --json`에서 읽습니다. 기존 리뷰 횟수·승인 정책을 따르며 별도 성능 승인 게이트는 만들지 않습니다.
+
 Curated Documentation Impact의 NONE을 포함한 근거를 검토합니다. 발견한 불일치마다 수정 완료 또는 실제 후속 task/Feature/issue 연결을 확인하고 문서 경로·근거·미해결 질문·보류 이유를 점검합니다. 잔여 위험 문구만으로는 후속 추적이 아닙니다. 처리 누락은 finding으로 보고하며 코드나 파생 Knowledge로 제품 의도를 추정하지 않습니다. 기존 리뷰 횟수와 승인 정책은 그대로 적용합니다.
 
 `workflow-stage --json`의 `nextAction.executor`가 `subagent`이면 fresh context의 읽기 전용 서브에이전트에게 리뷰를 위임합니다. `model: inherit`은 현재 모델을 상속한다는 뜻이며, 그 외 값은 서브에이전트 생성 시 모델 override로 사용합니다. 지정 모델을 사용할 수 없으면 `onUnavailable` 정책(`inherit` 또는 `error`)을 따릅니다.

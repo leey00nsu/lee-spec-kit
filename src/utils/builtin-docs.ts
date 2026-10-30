@@ -15,12 +15,14 @@ export type BuiltinDocId =
   | 'create-issue'
   | 'create-pr'
   | 'split-feature'
+  | 'performance-evidence'
   | 'ui-ux-design';
 
 interface BuiltinDocDefinition {
   id: BuiltinDocId;
   title: Record<Lang, string>;
   relativePath: (projectType: ProjectType, lang: Lang) => string;
+  sectionHeading?: Record<Lang, string>;
 }
 
 export interface BuiltinDocEntry {
@@ -28,6 +30,7 @@ export interface BuiltinDocEntry {
   title: string;
   relativePath: string;
   absolutePath: string;
+  sectionHeading?: string;
 }
 
 const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
@@ -39,7 +42,8 @@ const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
   {
     id: 'git-workflow',
     title: { ko: 'Git 워크플로우', en: 'Git Workflow' },
-    relativePath: (_, lang) => path.join(lang, 'common', 'agents', 'git-workflow.md'),
+    relativePath: (_, lang) =>
+      path.join(lang, 'common', 'agents', 'git-workflow.md'),
   },
   {
     id: 'issue-doc',
@@ -84,6 +88,19 @@ const BUILTIN_DOC_DEFINITIONS: ReadonlyArray<BuiltinDocDefinition> = [
       path.join(lang, 'common', 'agents', 'skills', 'split-feature.md'),
   },
   {
+    id: 'performance-evidence',
+    title: {
+      ko: 'ADR 성능 개선 근거 기록',
+      en: 'ADR Performance Improvement Evidence',
+    },
+    relativePath: (_, lang) =>
+      path.join(lang, 'common', 'features', 'feature-base', 'decisions.md'),
+    sectionHeading: {
+      ko: '성능 개선 근거 기록',
+      en: 'Performance improvement evidence',
+    },
+  },
+  {
     id: 'ui-ux-design',
     title: {
       ko: '선택적 UI/UX 디자인 문서 정책',
@@ -113,6 +130,7 @@ const DOC_FOLLOWUPS: Readonly<Record<BuiltinDocId, BuiltinDocId[]>> = {
   'create-issue': ['issue-doc'],
   'create-pr': ['pr-doc'],
   'split-feature': [],
+  'performance-evidence': [],
   'ui-ux-design': [],
 };
 
@@ -161,6 +179,7 @@ export function normalizeBuiltinDocId(input: string): BuiltinDocId | null {
     return 'split-feature';
   }
   if (normalized === 'ui-ux-design') return 'ui-ux-design';
+  if (normalized === 'performance-evidence') return 'performance-evidence';
   if (normalized === 'agents') return 'agents';
   return null;
 }
@@ -207,6 +226,9 @@ export function listBuiltinDocs(
       title: doc.title[lang],
       relativePath,
       absolutePath: path.join(templatesDir, relativePath),
+      ...(doc.sectionHeading
+        ? { sectionHeading: doc.sectionHeading[lang] }
+        : {}),
     };
   });
 }
@@ -221,11 +243,28 @@ export async function getBuiltinDoc(
   hash: string;
   followups: BuiltinDocId[];
 }> {
-  const entry = listBuiltinDocs(projectType, lang).find((doc) => doc.id === docId);
+  const entry = listBuiltinDocs(projectType, lang).find(
+    (doc) => doc.id === docId
+  );
   if (!entry) {
     throw new Error(`Unknown builtin doc: ${docId}`);
   }
-  const content = await fs.readFile(entry.absolutePath, 'utf-8');
+  let content = await fs.readFile(entry.absolutePath, 'utf-8');
+  if (entry.sectionHeading) {
+    const heading = `## ${entry.sectionHeading}\n`;
+    const start = content.indexOf(heading);
+    if (start < 0)
+      throw new Error(`Missing builtin doc section: ${entry.sectionHeading}`);
+    const afterHeading = start + heading.length;
+    const nextHeading = /^## /m.exec(content.slice(afterHeading));
+    content =
+      content
+        .slice(
+          start,
+          nextHeading ? afterHeading + nextHeading.index : undefined
+        )
+        .trimEnd() + '\n';
+  }
   const hash = createHash('sha256').update(content).digest('hex').slice(0, 12);
   return {
     entry,

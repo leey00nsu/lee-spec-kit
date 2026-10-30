@@ -32,6 +32,7 @@
 - 새 태스크를 추가해야 한다면 `tasks.md`에 구체적인 제목, `Acceptance`, `Checklist`, 그리고 `NON-PRD` 또는 기존 `PRD-*` 태그가 있는 완전한 태스크 블록을 추가하세요.
 - 사용자의 추가 구현·수정 요청은 기본적으로 선택한 Feature에 새 task로 기록합니다. 관리되는 workspace에서 `task add <feature-ref>`를 사용하며, 분석·질문만으로 작업 항목을 만들지 않습니다. 선택 실패를 다른 Feature 생성 사유로 삼지 않고, `--separate`는 별도 Feature를 명시적으로 요청받거나 사용자가 분할을 선택했을 때만 사용합니다.
 - 새 태스크에 placeholder `Acceptance` 또는 `Checklist`를 남기지 않습니다.
+- 성능 개선이 목적이거나 결과에서 성능 향상을 주장하면 활성 `decisions.md`의 **성능 개선 근거 기록**을 따릅니다. 승인된 Plan의 측정 절차로 구현 전 기준선을 먼저 확보하고, 구현 후 같은 조건에서 재측정합니다. 주 에이전트는 해당 ADR의 `Performance Evidence`에 전후 실측·단위·방향·변화율·환경·부하·표본/편차·회귀·원본 로그를 기록하고 비교 HTML에 같은 결과를 요약합니다. worker는 Feature 문서를 쓰지 않고 측정 결과와 근거 위치를 전달합니다. 기존 Feature에 안내가 없으면 `npx lee-spec-kit docs get performance-evidence --json`으로 형식을 읽으며, 측정 불가는 이유와 미확인 상태로 기록합니다.
 
 ## 3. 문서 동기화
 
