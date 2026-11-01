@@ -15,7 +15,21 @@ npx lee-spec-kit knowledge ci --json
 
 생성된 `.github/workflows/lee-spec-kit-knowledge.yml`, `openwiki/INSTRUCTIONS.md`, `.openwikiignore`를 확인하고 커밋합니다. 워크플로우는 OpenWiki `0.7.2`와 lee-spec-kit 글쓰기 정책 버전을 고정하고, `openwiki code --update --print`에 프로젝트 언어(`--language ko` 또는 `--language en`)를 지정해 실행합니다. Feature 완료와 Knowledge 게시 성공 여부는 독립적입니다.
 
-기존 워크플로우가 새 템플릿과 다르면 `knowledge ci`는 `OPENWIKI_CI_EXISTS`를 반환하고 파일을 보존합니다. 제거된 lee-spec-kit 실행 어댑터를 호출하던 것으로 식별된 옛 생성 워크플로우만 교체합니다. 0.5.2에서 올릴 때는 기존 파일의 OpenWiki 설치 버전을 `0.7.2`로 직접 바꾸고 Node.js가 `22.22.0` 이상인지 확인합니다. 최신 scaffold의 출력 범위 검사도 반영합니다. working tree·index·PR 변경 경로를 구하는 `git diff`에 `--no-renames`를 포함해야 파일 이동의 원래 경로 삭제까지 검사됩니다. 기존 제공자·모델·시크릿 참조·예약·자동 병합 설정과 `openwiki/`의 Wiki·Claims를 유지한 채 `--update`를 사용합니다.
+기존 워크플로우가 새 템플릿과 다르면 `knowledge ci`는 `OPENWIKI_CI_EXISTS`를 반환하고 파일을 보존합니다. 구형 실행 어댑터를 호출하던 생성 워크플로우도 자동 교체하지 않습니다. 0.5.2에서 올릴 때는 기존 파일의 OpenWiki 설치 버전을 `0.7.2`로 직접 바꾸고 Node.js가 `22.22.0` 이상인지 확인합니다. 최신 scaffold의 출력 범위 검사도 반영합니다. working tree·index·PR 변경 경로를 구하는 `git diff`에 `--no-renames`를 포함해야 파일 이동의 원래 경로 삭제까지 검사됩니다. 기존 제공자·모델·시크릿 참조·예약·자동 병합 설정과 `openwiki/`의 Wiki·Claims를 유지한 채 `--update`를 사용합니다.
+
+### 기존 지침 진단과 마이그레이션 미리보기
+
+```bash
+npx lee-spec-kit knowledge ci --dry-run --json
+# standalone 다중 프로젝트: --component <component>
+# 기본 자동 병합 템플릿도 비교하려면: --auto-merge
+```
+
+이 명령은 파일·디렉터리·Git index를 수정하지 않으며 OpenWiki를 실행하지 않습니다. OpenWiki 설정이 꺼져 있어도 초기 점검에 사용할 수 있습니다. `workflow.state`는 현재 기본 템플릿과의 일치 여부와 구형 어댑터 사용 여부를, `instructions.state`는 `current`, `known_legacy`, `customized`, `missing`, `manual_review`를 표시합니다. 심볼릭 링크나 검사할 수 없는 파일은 직접 검토 대상으로 둡니다. 출력에는 기존 프로젝트 지침·워크플로우 본문을 싣지 않고 해시와 공개된 기본 템플릿만 제공합니다.
+
+`instructions.proposedAdditions`는 현재 파일에 정확히 일치하는 줄이 없는 기본 지침이며, `proposedDeletions`는 비어 있습니다. 표현이 다른 사용자 지침을 의미상 분석한 결과는 아니므로, 동등한 기존 문구를 확인한 뒤 필요한 내용만 직접 합칩니다. 특히 구형 기본 지침에는 페이지 작업자에게 글쓰기 skill을 전달하는 규칙, 루트 quickstart의 상대 링크 예시, 변경되지 않은 페이지를 보존하는 규칙이 없었습니다. 패키지만 업데이트해도 기존 `INSTRUCTIONS.md`는 바뀌지 않습니다. 지침 갱신 자체를 전체 Wiki 재작성 요청으로 해석하지 않습니다.
+
+`workflow.defaultPreview`는 최신 기본 구성의 참고 자료입니다. 기존 YAML의 제공자·모델·시크릿 참조, cron 또는 외부 dispatch 입력, 동시성·자동 병합 정책을 유지하면서 관측·artifact·취소 후 처리 단계와 필요한 환경 변수만 통합합니다. 현재 버전의 lee-spec-kit 설치 pin에 `resources/openwiki/ci-observe.cjs`가 포함되어 있어야 합니다. 기존 파일을 기본 미리보기로 통째로 대체하지 않습니다.
 
 첫 0.7.2 CI 실행 전에는 루트 `AGENTS.md`와 기존 `CLAUDE.md`의 표식 없는 `## OpenWiki` 절을 확인합니다. OpenWiki는 제목 다음의 첫 빈 줄이 아닌 줄이 `This repository has documentation located in the /openwiki directory.`와 정확히 일치할 때만 구버전 템플릿으로 인식하며, 알려진 템플릿 줄만 제거합니다. lee-spec-kit의 출력 범위 검사는 `<!-- OPENWIKI:START -->` / `<!-- OPENWIKI:END -->` 밖의 변경을 거부하므로, 해당 생성 문구만 단일 관리 블록 안으로 이관하는 변경을 미리 별도 검토·커밋합니다. 이미 블록이 있으면 그 안으로 합치고, 프로젝트 고유 문구와 기존 검사는 유지합니다. OpenWiki 0.7.2는 없던 `CLAUDE.md`를 생성하지 않으며, 기존 파일의 관리 지침은 갱신합니다. `@AGENTS.md` 가져오기만 있는 파일은 그대로 둡니다.
 
@@ -63,7 +77,23 @@ GitHub 저장소의 **Settings → Secrets and variables → Actions → New rep
 
 `knowledge ci`가 만든 워크플로우에는 `schedule`과 `workflow_dispatch`가 있습니다. 기본 cron은 `17 3 * * *`이며 GitHub의 UTC 기준으로 매일 03:17입니다. 원하는 시각에 맞게 프로젝트가 cron을 수정할 수 있습니다. `schedule`은 기본 브랜치의 워크플로우를 실행하며, GitHub 부하에 따라 늦어지거나 드물게 누락될 수 있습니다. 정확한 시각이나 별도 재호출 정책이 필요하면 아래 외부 스케줄러 방식을 선택합니다. [GitHub의 `schedule` 설명](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)을 참고하세요.
 
-처음 설정한 뒤 저장소의 **Actions → Scheduled OpenWiki Knowledge → Run workflow**에서 수동으로 실행하고, 생성 단계·완료 상태·PR을 확인합니다. OpenWiki가 정상 종료하고 소스 입력과 문서에 게시할 변경이 없으면 새 PR을 만들지 않습니다. 실패하면 성공한 페이지를 draft Knowledge PR에 보존할 수 있으며, 다음 예약 실행에서 그 브랜치를 다시 입력으로 사용합니다. 수동 취소나 러너 종료 시에는 아직 push되지 않은 러너 내부 진행분이 남지 않을 수 있습니다.
+처음 설정한 뒤 저장소의 **Actions → Scheduled OpenWiki Knowledge → Run workflow**에서 수동으로 실행하고, 생성 단계·완료 상태·PR을 확인합니다. OpenWiki가 정상 종료하고 소스 입력과 문서에 게시할 변경이 없으면 새 PR을 만들지 않습니다. 실패하면 성공한 페이지를 draft Knowledge PR에 보존할 수 있으며, 다음 예약 실행에서 그 브랜치를 다시 입력으로 사용합니다.
+
+### 진행 관측과 실패·취소 후 보존
+
+OpenWiki 0.7.2의 `--print`는 진행 이벤트를 종료할 때까지 버퍼링합니다. `ci-observe.cjs`는 OpenWiki 명령을 한 번 실행하면서 30초마다 공식 `.run.json`의 `phase`, `plan.pages[*].status`와 `.page-manifest.json`의 보존 페이지 수를 읽습니다. 로그에는 경과 시간과 단계·완료·대기·건너뜀 수만 표시합니다. 대기 페이지에는 실행 중인 작업자도 포함되며, 이 상태만으로 모델 호출의 생존 여부나 정체를 판정하지 않습니다. timeout·별도 재시도·복구 프롬프트를 추가하지 않습니다.
+
+진단에는 공식 `--telemetry-file`의 결과·오류 분류·단계·담당 범주·HTTP 상태 중 허용된 값만 남깁니다. 원시 CLI stdout/stderr는 제공자가 인증정보나 요청 내용을 되돌려줄 수 있어 로그·파일에 남기지 않습니다. 원시 telemetry, 환경 파일, 사용자 지침, `.run.json`의 `planningContext`·`wikiGoal`·페이지 지침·전체 snapshot도 업로드하지 않습니다. OpenWiki의 telemetry 수집 해제를 존중하며, 이 경우 오류 분류가 제공되지 않을 수 있습니다. 제공자·모델 환경 변수와 기존 자격증명 설정은 관측 도구가 변경하지 않습니다.
+
+각 관측 시점에는 OpenWiki manifest에 기록되고 Markdown hash와 verified Claims가 일치하는 페이지를 `RUNNER_TEMP/openwiki-ci/checkpoint/`에 보존합니다. symlink·숨김 경로·알려진 인증정보 값이 들어 있는 파일·불완전 페이지는 제외하며, 이전 관측에서 안전하게 보존한 완료 페이지는 이후 파일이 쓰이는 중이어도 유지합니다. 파일당 16 MiB, 한 번의 관측에서 새로 복사하는 Markdown·Claims는 직렬화 후 64 MiB까지 보존합니다. 새 Markdown·Claims·manifest를 모두 별도 임시 경로에 쓴 뒤 교체하고, 복구 가능한 교체 오류는 이전 세트로 되돌립니다. index·로그·실행 설정은 포함하지 않습니다. 이 수출본은 완료 상태를 뜻하지 않고, `.run.json`을 가진 원본 실행의 완전한 재개본도 아닙니다. 이후 단계는 제공자 시크릿을 받지 않으므로 새 문서 내용을 추가 수집하지 않고 이미 필터링한 수출본만 업로드합니다.
+
+생성 실패와 일반 취소 후에도 `always()` 조건으로 진단·완료 페이지 수출본 업로드, 임시 run context 제거, 출력 범위 검사, 소스 확인과 draft PR 게시를 시도합니다. artifact 이름은 `openwiki-observation-<run_id>-<run_attempt>`이며 보존 기간은 7일입니다. `include-hidden-files`는 별도 수출 경로의 `.claims`와 manifest를 포함하기 위한 설정이며 저장소 전체나 OpenWiki 설정 디렉터리를 업로드하지 않습니다. 출력 범위 검사 또는 정리 실패 시 PR push를 막고, 취소된 결과는 ready·자동 병합 대상이 되지 않습니다.
+
+기존 완료 조건은 그대로입니다. CLI 정상 종료에 더해 `.last-update.json`의 `status=complete`, 실행 시작 시 source SHA와 같은 `gitHead`, `.run.json` 부재가 필요하고, 게시 전후에도 기본 브랜치의 SHA를 재확인합니다. 체크포인트 게시 단계는 draft를 유지하며, 성공·취소 여부를 새로 평가하는 별도 단계에서만 PR을 ready로 바꿉니다. 자동 병합도 이 단계의 성공을 확인합니다. 페이지가 건너뛰어져 CLI가 0으로 끝나더라도 metadata가 불완료면 draft와 실패 상태를 유지합니다. PR API 실패 시 기존 lease 기반 rollback도 유지하되, ready 전환 실패 후에는 PR이 draft라는 사실을 확인한 뒤 브랜치를 되돌립니다. draft를 확인할 수 없으면 브랜치는 그대로 두고 실패를 보고하므로 실행 로그와 PR을 직접 확인해야 합니다. 게시 결과·완료 여부·소스 최신성은 Actions summary에서 확인합니다.
+
+GitHub의 일반 취소는 신호 전달 뒤 짧은 유예 시간을 주지만, 강제 취소·`SIGKILL`·러너 소실·네트워크 장애·취소 제한 시간 만료는 마지막 관측, artifact 업로드 또는 PR 게시를 막을 수 있습니다. 주기적으로 저장한 파일도 업로드 전에 러너가 사라지면 복구할 수 없습니다. 안전하게 남은 artifact나 draft PR까지만 보존이 확인된 것으로 취급합니다. [GitHub의 취소 절차](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation)를 참고하세요.
+
+복구 시에는 먼저 draft PR과 artifact의 안전한 상태 수치를 확인하고, 마지막 정상 완료한 Wiki 기준선과 비교합니다. artifact에 전체 Wiki나 완료 metadata가 있다고 가정하지 말고, 별도 복구용 체크아웃에서 보존된 Markdown·Claims·manifest를 검토합니다. 현재 `INSTRUCTIONS.md`는 유지하고 OpenWiki `--update`로 다시 검증한 뒤 게시합니다. 자동 artifact 재주입이나 SDK 수정은 수행하지 않습니다.
 
 소스 변경 없이 강제 갱신한 페이지가 실패하면 다음 실행이 `Cannot advance page coverage ... Markdown and verified Claims are not durable.`로 중단되는 기존 문제가 0.5.2와 0.7.2 모두에서 재현됩니다. 이 경우 반복 예약만으로 복구된다고 가정하지 않습니다. 마지막 정상 완료 revision의 `openwiki/`를 복구용 체크아웃에서 복원하되 현재 `INSTRUCTIONS.md`를 보존하고, 그 기준선에서 `--update`를 실행해 완료 상태를 확인한 뒤 복구 결과를 검토·게시합니다. Claims·manifest 삭제나 강제 초기화를 자동 복구에 추가하지 않습니다.
 

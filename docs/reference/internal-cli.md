@@ -15,7 +15,7 @@ These commands are the maintained non-interactive surface for docs policy, GitHu
 - `decision add`
 - `workflow-stage`
 - `knowledge migrate` (dry-run by default; explicit `--apply` for eligible legacy Plans)
-- `knowledge ci` (independent OpenWiki CI scaffold; no generation)
+- `knowledge ci` (independent OpenWiki CI scaffold; `--dry-run` previews policy/workflow migration without writes or generation)
 - `workflow-audit`
 - `commit-audit`
 - `integrations`

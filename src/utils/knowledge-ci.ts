@@ -4,6 +4,8 @@ const CHECKOUT_ACTION =
   'actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5';
 const SETUP_NODE_ACTION =
   'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020';
+const UPLOAD_ARTIFACT_ACTION =
+  'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02';
 
 /**
  * Return a portable guard that rejects generator writes outside its documented
@@ -168,7 +170,7 @@ export function buildKnowledgeWorkflow(
     .join('\n');
   const autoMergeStep = options.autoMerge
     ? `      - name: Enable auto-merge for a complete Knowledge PR
-        if: \${{ !cancelled() && steps.publish.outputs.healthy == 'true' && steps.publish.outputs.pr_number != '' }}
+        if: \${{ !cancelled() && steps.ready.outputs.healthy == 'true' && steps.publish.outputs.pr_number != '' }}
         env:
           GH_TOKEN: \${{ secrets.OPENWIKI_PR_TOKEN }}
           PR_NUMBER: \${{ steps.publish.outputs.pr_number }}
@@ -258,7 +260,9 @@ ${options.autoMerge ? "    if: ${{ github.event_name != 'pull_request' }}\n" : '
       - name: Record the source revision
         run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Set the OpenWiki configuration directory
-        run: echo "OPENWIKI_CONFIG_DIR=$RUNNER_TEMP/openwiki-config" >> "$GITHUB_ENV"
+        run: |
+          echo "OPENWIKI_CONFIG_DIR=$RUNNER_TEMP/openwiki-config" >> "$GITHUB_ENV"
+          echo "OPENWIKI_CI_DIR=$RUNNER_TEMP/openwiki-ci" >> "$GITHUB_ENV"
       - name: Install OpenWiki and the optional writing-policy bundle
         run: npm install --global openwiki@${OPENWIKI_VERSION} lee-spec-kit@${version}
       - name: Restore the OpenWiki working checkpoint
@@ -286,10 +290,12 @@ ${options.autoMerge ? "    if: ${{ github.event_name != 'pull_request' }}\n" : '
         env:
           OPENWIKI_PROVIDER: openai
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
-        run: openwiki code --update --print --language ${lang}
+        run: |
+          observer="$(npm root --global)/lee-spec-kit/resources/openwiki/ci-observe.cjs"
+          exec node "$observer" run -- openwiki code --update --print --language ${lang} --telemetry-file "$OPENWIKI_CI_DIR/telemetry.json"
       - name: Check OpenWiki completion metadata
         id: completion
-        if: \${{ !cancelled() }}
+        if: \${{ always() && steps.openwiki.outcome != '' && steps.openwiki.outcome != 'skipped' }}
         run: |
           completion="$(node -e '
             const fs = require("node:fs");
@@ -304,16 +310,39 @@ ${options.autoMerge ? "    if: ${{ github.event_name != 'pull_request' }}\n" : '
           if [ "$completion" != true ]; then
             echo '::warning::OpenWiki did not record a complete update for this source revision. Keeping the Knowledge checkpoint as a draft.'
           fi
-      - name: Remove transient OpenWiki run context
-        if: \${{ !cancelled() }}
+      - name: Collect safe OpenWiki diagnostics before removing run context
+        if: \${{ always() && steps.openwiki.outcome != '' && steps.openwiki.outcome != 'skipped' }}
+        env:
+          OPENWIKI_OUTCOME: \${{ steps.openwiki.outcome }}
+          OPENWIKI_CANCELLED: \${{ cancelled() }}
         run: |
-          if [ -e openwiki/.run.json ]; then rm -- openwiki/.run.json; fi
+          observer="$(npm root --global)/lee-spec-kit/resources/openwiki/ci-observe.cjs"
+          node "$observer" collect
+      - name: Retain safe OpenWiki observation and completed-page export
+        if: \${{ always() && steps.openwiki.outcome != '' && steps.openwiki.outcome != 'skipped' }}
+        uses: ${UPLOAD_ARTIFACT_ACTION} # v4.6.2
+        with:
+          name: openwiki-observation-\${{ github.run_id }}-\${{ github.run_attempt }}
+          path: |
+            \${{ runner.temp }}/openwiki-ci/diagnostics/
+            \${{ runner.temp }}/openwiki-ci/checkpoint/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Remove transient OpenWiki run context
+        id: cleanup
+        if: \${{ always() && steps.openwiki.outcome != '' && steps.openwiki.outcome != 'skipped' }}
+        run: |
+          if [ -e openwiki/.run.json ] || [ -L openwiki/.run.json ]; then rm -- openwiki/.run.json; fi
+          find openwiki -maxdepth 1 -type f -name '.run.json.*.tmp' -delete
       - name: Ensure OpenWiki changed only its documented output surface
-        if: \${{ !cancelled() }}
+        id: scope
+        if: \${{ always() && steps.completion.outcome == 'success' && steps.cleanup.outcome == 'success' }}
         run: |
 ${scopeGuard}
       - name: Check whether the source branch advanced
         id: source
+        if: \${{ always() && steps.scope.outcome == 'success' }}
         run: |
           git fetch origin '${baseBranch}:refs/remotes/origin/${baseBranch}'
           current="$(git rev-parse 'refs/remotes/origin/${baseBranch}')"
@@ -325,11 +354,13 @@ ${scopeGuard}
           fi
       - name: Publish the OpenWiki checkpoint pull request
         id: publish
+        if: \${{ always() && steps.scope.outcome == 'success' && steps.source.outcome == 'success' }}
         env:
           GH_TOKEN: \${{ secrets.OPENWIKI_PR_TOKEN }}
           OPENWIKI_OUTCOME: \${{ steps.openwiki.outcome }}
           OPENWIKI_COMPLETE: \${{ steps.completion.outputs.complete }}
           SOURCE_CURRENT: \${{ steps.source.outputs.current }}
+          OPENWIKI_CANCELLED: \${{ cancelled() }}
         run: |
           git add -A -- openwiki
           for file in AGENTS.md CLAUDE.md; do
@@ -363,7 +394,7 @@ ${branchScopeGuard}
           fi
 
           healthy=false
-          if [ "$OPENWIKI_OUTCOME" = success ] && [ "$OPENWIKI_COMPLETE" = true ] && [ "$SOURCE_CURRENT" = true ]; then healthy=true; fi
+          if [ "$OPENWIKI_OUTCOME" = success ] && [ "$OPENWIKI_COMPLETE" = true ] && [ "$SOURCE_CURRENT" = true ] && [ "\${OPENWIKI_CANCELLED:-false}" != true ]; then healthy=true; fi
 
           # A complete, source-stable check may refresh only OpenWiki's run
           # metadata. Keep the validation result without creating a daily PR.
@@ -487,19 +518,6 @@ ${noopPublication}
             is_draft="$(printf '%s' "$pr_json" | jq -r '.isDraft')"
             gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$pr_number" -f title="$title" -f body="$body" >/dev/null
             api_code=$?
-            if [ "$api_code" -eq 0 ] && [ "$healthy" = true ]; then
-              git fetch origin '${baseBranch}:refs/remotes/origin/${baseBranch}'
-              if [ "$(git rev-parse 'refs/remotes/origin/${baseBranch}')" = "$SOURCE_SHA" ]; then
-                gh pr ready "$pr_number" >/dev/null
-                api_code=$?
-              else
-                healthy=false
-                title='docs: checkpoint incomplete OpenWiki Knowledge'
-                body='The source branch advanced before publication completed. This draft preserves completed pages as input for the next scheduled execution. Transient run context is deliberately excluded. Do not merge it while it remains a draft.'
-                gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$pr_number" -f title="$title" -f body="$body" >/dev/null
-                api_code=$?
-              fi
-            fi
           fi
           set -e
 
@@ -512,8 +530,66 @@ ${noopPublication}
           echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
           echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
           echo "head_sha=$generated" >> "$GITHUB_OUTPUT"
-${autoMergeStep}      - name: Propagate an incomplete OpenWiki result
-        if: \${{ !cancelled() && steps.publish.outputs.healthy != 'true' }}
+          echo "previous_sha=$previous" >> "$GITHUB_OUTPUT"
+          echo "pushed=$pushed" >> "$GITHUB_OUTPUT"
+          echo "was_ready=$was_ready" >> "$GITHUB_OUTPUT"
+      - name: Mark only a current uncancelled Knowledge PR ready
+        id: ready
+        if: \${{ success() && !cancelled() && steps.publish.outputs.healthy == 'true' && steps.publish.outputs.pr_number != '' }}
+        env:
+          GH_TOKEN: \${{ secrets.OPENWIKI_PR_TOKEN }}
+          PR_NUMBER: \${{ steps.publish.outputs.pr_number }}
+          PR_HEAD_SHA: \${{ steps.publish.outputs.head_sha }}
+          PREVIOUS_SHA: \${{ steps.publish.outputs.previous_sha }}
+          PUSHED: \${{ steps.publish.outputs.pushed }}
+          WAS_READY: \${{ steps.publish.outputs.was_ready }}
+        run: |
+          rollback_ready() {
+            code="$1"
+            trap - ERR INT TERM
+            set +e
+            if ! gh pr ready --undo "$PR_NUMBER" >/dev/null ||
+               [ "$(gh pr view "$PR_NUMBER" --json isDraft --jq '.isDraft')" != true ]; then
+              echo 'Could not confirm a draft PR for rollback; the branch was left unchanged. Inspect the PR and workflow run.' >&2
+              exit "$code"
+            fi
+            restored=true
+            if [ "$PUSHED" = true ] && [ -n "$PREVIOUS_SHA" ]; then
+              git push --force-with-lease="refs/heads/$KNOWLEDGE_BRANCH:$PR_HEAD_SHA" origin "$PREVIOUS_SHA:refs/heads/$KNOWLEDGE_BRANCH" || restored=false
+            elif [ "$PUSHED" = true ]; then
+              git push --force-with-lease="refs/heads/$KNOWLEDGE_BRANCH:$PR_HEAD_SHA" --delete origin "$KNOWLEDGE_BRANCH" || restored=false
+            fi
+            if [ "$code" -ne 130 ] && [ "$code" -ne 143 ] && [ "$restored" = true ] && [ "$WAS_READY" = true ]; then
+              gh pr ready "$PR_NUMBER" >/dev/null || true
+            fi
+            exit "$code"
+          }
+          trap 'rollback_ready "$?"' ERR
+          trap 'rollback_ready 130' INT
+          trap 'rollback_ready 143' TERM
+          git fetch origin '${baseBranch}:refs/remotes/origin/${baseBranch}'
+          if [ "$(git rev-parse 'refs/remotes/origin/${baseBranch}')" != "$SOURCE_SHA" ]; then
+            echo 'healthy=false' >> "$GITHUB_OUTPUT"
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" -f title='docs: checkpoint incomplete OpenWiki Knowledge' -f body='The source branch advanced before publication completed. This draft preserves completed pages. Transient run context is deliberately excluded. Do not merge it while it remains a draft.' >/dev/null
+            exit 0
+          fi
+          gh pr ready "$PR_NUMBER" >/dev/null
+          echo 'healthy=true' >> "$GITHUB_OUTPUT"
+          trap - ERR INT TERM
+${autoMergeStep}      - name: Summarize OpenWiki publication
+        if: \${{ always() }}
+        env:
+          GENERATION: \${{ steps.openwiki.outcome }}
+          COMPLETE: \${{ steps.completion.outputs.complete }}
+          CURRENT: \${{ steps.source.outputs.current }}
+          PUBLICATION: \${{ steps.publish.outcome }}
+          HEALTHY: \${{ steps.publish.outputs.healthy }}
+          READY: \${{ steps.ready.outputs.healthy }}
+          CANCELLED: \${{ cancelled() }}
+        run: |
+          printf '\\n### OpenWiki publication\\n\\nGeneration: %s; complete: %s; source current: %s; publication: %s; healthy: %s; ready: %s; cancelled: %s.\\n\\nSee the observation artifact and Knowledge PR. Forced termination or runner loss can prevent final collection, upload and publication.\\n' "$GENERATION" "$COMPLETE" "$CURRENT" "$PUBLICATION" "$HEALTHY" "$READY" "$CANCELLED" >> "$GITHUB_STEP_SUMMARY"
+      - name: Propagate an incomplete OpenWiki result
+        if: \${{ !cancelled() && (steps.openwiki.outcome != 'success' || steps.publish.outputs.healthy != 'true' || (steps.publish.outputs.pr_number != '' && steps.ready.outputs.healthy != 'true')) }}
         run: |
           echo 'OpenWiki remains incomplete. Completed pages and diagnostics are preserved without publishing transient run context.' >&2
           exit 1

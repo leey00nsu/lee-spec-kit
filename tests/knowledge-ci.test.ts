@@ -10,6 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { format } from 'prettier';
 import {
   buildKnowledgeBranchScopeGuardScript,
   buildKnowledgeNoopPublicationScript,
@@ -18,6 +19,17 @@ import {
 } from '../src/utils/knowledge-ci.js';
 
 describe('OpenWiki CI scaffold', () => {
+  test.each([false, true])(
+    'emits valid YAML with auto-merge=%s',
+    async (autoMerge) => {
+      await expect(
+        format(
+          buildKnowledgeWorkflow('release/docs', 'en', '1.2.3', { autoMerge }),
+          { parser: 'yaml' }
+        )
+      ).resolves.toContain('name: Scheduled OpenWiki Knowledge');
+    }
+  );
   test('delegates generation and incremental state to OpenWiki', () => {
     const workflow = buildKnowledgeWorkflow('main', 'ko', '1.2.3');
 
@@ -99,7 +111,7 @@ describe('OpenWiki CI scaffold', () => {
     );
   });
 
-  test('uses lee-spec-kit only as a static writing-policy package', () => {
+  test('uses lee-spec-kit for writing policy and provider-independent CI observation', () => {
     const workflow = buildKnowledgeWorkflow(
       'release/docs',
       'en',
@@ -114,6 +126,14 @@ describe('OpenWiki CI scaffold', () => {
       'KNOWLEDGE_BRANCH: lee-spec-kit/knowledge-release-docs'
     );
     expect(workflow).toContain('--language en');
+    expect(workflow).toContain('resources/openwiki/ci-observe.cjs');
+    expect(workflow).toContain(
+      '--telemetry-file "$OPENWIKI_CI_DIR/telemetry.json"'
+    );
+    expect(workflow).toContain(
+      'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02'
+    );
+    expect(workflow).toContain("steps.cleanup.outcome == 'success'");
   });
 
   test('auto-merge is opt-in and follows the completed publication gate', () => {
@@ -124,6 +144,7 @@ describe('OpenWiki CI scaffold', () => {
       'gh pr merge --auto --squash --match-head-commit "$PR_HEAD_SHA" "$PR_NUMBER"'
     );
     expect(workflow).toContain("steps.publish.outputs.healthy == 'true'");
+    expect(workflow).toContain("steps.ready.outputs.healthy == 'true'");
     expect(workflow).toContain('pull_request:');
     expect(workflow).toContain('name: Knowledge PR safety');
     expect(workflow).toContain("github.event_name != 'pull_request'");
