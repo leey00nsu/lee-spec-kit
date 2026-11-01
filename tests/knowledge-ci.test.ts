@@ -20,6 +20,20 @@ import {
 
 describe('OpenWiki CI scaffold', () => {
   test.each([false, true])(
+    'uses status-check functions only in if conditions (auto-merge: %s)',
+    (autoMerge) => {
+      const workflow = buildKnowledgeWorkflow('main', 'ko', '0.9.22', {
+        autoMerge,
+      });
+      for (const line of workflow.split('\n')) {
+        if (/\$\{\{.*\b(?:always|cancelled|failure|success)\(\)/u.test(line)) {
+          expect(line.trimStart()).toMatch(/^if:/u);
+        }
+      }
+    }
+  );
+
+  test.each([false, true])(
     'emits valid YAML with auto-merge=%s',
     async (autoMerge) => {
       await expect(

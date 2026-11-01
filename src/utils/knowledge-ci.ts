@@ -314,7 +314,7 @@ ${options.autoMerge ? "    if: ${{ github.event_name != 'pull_request' }}\n" : '
         if: \${{ always() && steps.openwiki.outcome != '' && steps.openwiki.outcome != 'skipped' }}
         env:
           OPENWIKI_OUTCOME: \${{ steps.openwiki.outcome }}
-          OPENWIKI_CANCELLED: \${{ cancelled() }}
+          OPENWIKI_CANCELLED: \${{ job.status == 'cancelled' }}
         run: |
           observer="$(npm root --global)/lee-spec-kit/resources/openwiki/ci-observe.cjs"
           node "$observer" collect
@@ -360,7 +360,7 @@ ${scopeGuard}
           OPENWIKI_OUTCOME: \${{ steps.openwiki.outcome }}
           OPENWIKI_COMPLETE: \${{ steps.completion.outputs.complete }}
           SOURCE_CURRENT: \${{ steps.source.outputs.current }}
-          OPENWIKI_CANCELLED: \${{ cancelled() }}
+          OPENWIKI_CANCELLED: \${{ job.status == 'cancelled' }}
         run: |
           git add -A -- openwiki
           for file in AGENTS.md CLAUDE.md; do
@@ -585,7 +585,7 @@ ${autoMergeStep}      - name: Summarize OpenWiki publication
           PUBLICATION: \${{ steps.publish.outcome }}
           HEALTHY: \${{ steps.publish.outputs.healthy }}
           READY: \${{ steps.ready.outputs.healthy }}
-          CANCELLED: \${{ cancelled() }}
+          CANCELLED: \${{ job.status == 'cancelled' }}
         run: |
           printf '\\n### OpenWiki publication\\n\\nGeneration: %s; complete: %s; source current: %s; publication: %s; healthy: %s; ready: %s; cancelled: %s.\\n\\nSee the observation artifact and Knowledge PR. Forced termination or runner loss can prevent final collection, upload and publication.\\n' "$GENERATION" "$COMPLETE" "$CURRENT" "$PUBLICATION" "$HEALTHY" "$READY" "$CANCELLED" >> "$GITHUB_STEP_SUMMARY"
       - name: Propagate an incomplete OpenWiki result
